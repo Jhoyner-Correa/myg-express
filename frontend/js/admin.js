@@ -42,12 +42,18 @@ function bindForms() {
 
 function hydrateUser() {
   const user = API.getUser();
+  const name = user?.nombre || 'Administrador';
+  const initial = name.charAt(0).toUpperCase();
   const nombreEl = document.getElementById('user-nombre');
   const sedeEl = document.getElementById('user-sede');
   const avatarEl = document.getElementById('user-avatar');
-  if (nombreEl) nombreEl.textContent = user?.nombre || 'Administrador';
+  if (nombreEl) nombreEl.textContent = name;
   if (sedeEl) sedeEl.textContent = 'Administracion central';
-  if (avatarEl) avatarEl.textContent = (user?.nombre || 'A').charAt(0).toUpperCase();
+  if (avatarEl) avatarEl.textContent = initial;
+  const tAvatar = document.getElementById('topbar-avatar');
+  const tName = document.getElementById('topbar-name');
+  if (tAvatar) tAvatar.textContent = initial;
+  if (tName) tName.textContent = name;
 }
 
 async function cargarTodo() {
@@ -68,6 +74,8 @@ async function cargarResumen() {
     setText('stat-total-lotes', resumen.total_lotes || 0);
     setText('stat-lotes-activos', resumen.lotes_activos || 0);
     setText('stat-sedes-activas-chip', `${resumen.sedes_activas || 0} activas`);
+
+    updateSystemMetrics(resumen);
 
     renderMiniSedes(sedes);
   } catch (error) {
@@ -107,14 +115,17 @@ function renderMiniSedes(sedes) {
   if (!grid) return;
 
   if (!sedes.length) {
-    grid.innerHTML = '<div class="mini-card"><strong>Sin datos</strong><span>No hay sedes disponibles para mostrar el resumen.</span></div>';
+    grid.innerHTML = '<div class="mini-card"><div><div class="mini-name">Sin datos</div><div class="mini-meta">No hay sedes disponibles</div></div><div class="mini-right"><strong>—</strong></div></div>';
     return;
   }
 
   grid.innerHTML = sedes.slice(0, 3).map((sede) => `
     <div class="mini-card">
-      <strong>${escapeHtml(sede.nombre)}</strong>
-      <span>${sede.total_usuarios || 0} usuarios · ${sede.total_lotes || 0} lotes · ${sede.destinatarios || 0} destinatarios</span>
+      <div>
+        <div class="mini-name">${escapeHtml(sede.nombre)}</div>
+        <div class="mini-meta">${sede.total_usuarios || 0} usuarios · ${sede.total_lotes || 0} lotes</div>
+      </div>
+      <div class="mini-right"><strong>${sede.destinatarios || 0}</strong></div>
     </div>
   `).join('');
 }
@@ -132,7 +143,7 @@ function renderSedes() {
     <tr>
       <td>
         <strong>${escapeHtml(sede.nombre)}</strong><br>
-        <span style="color:#8fa89e;font-size:.78rem">${escapeHtml(sede.direccion || 'Sin direccion')}</span>
+        <span class="td-muted">${escapeHtml(sede.direccion || 'Sin dirección')}</span>
       </td>
       <td>${renderEstadoChip(sede.estado)}</td>
       <td>${sede.total_usuarios || 0}</td>
@@ -141,8 +152,12 @@ function renderSedes() {
       <td>${sede.destinatarios || 0}</td>
       <td>
         <div class="row-actions">
-          <button class="action-link" data-edit-sede="${sede.id}">Editar</button>
-          <button class="action-link danger" data-delete-sede="${sede.id}">Eliminar</button>
+          <button class="btn-icon edit" data-edit-sede="${sede.id}" title="Editar">
+            <svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+          </button>
+          <button class="btn-icon delete" data-delete-sede="${sede.id}" title="Eliminar">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
         </div>
       </td>
     </tr>
@@ -185,13 +200,17 @@ function renderUsuarios() {
       <td><strong>${escapeHtml(user.nombre)}</strong></td>
       <td>${escapeHtml(user.usuario)}</td>
       <td>${escapeHtml(user.sede_nombre)}</td>
-      <td>${user.es_superadmin ? '<span style="font-weight:700;color:var(--green-700);">Administrador de Sistemas (SysAdmin)</span>' : 'Encargado de Oficina'}</td>
+      <td>${user.es_superadmin ? '<span class="badge sysadmin">SysAdmin</span>' : '<span class="badge operator">Encargado de Oficina</span>'}</td>
       <td>${renderEstadoChip(user.estado)}</td>
       <td>${formatDate(user.created_at)}</td>
       <td>
         <div class="row-actions">
-          <button class="action-link" data-edit-user="${user.id}">Editar</button>
-          <button class="action-link danger" data-delete-user="${user.id}">Eliminar</button>
+          <button class="btn-icon edit" data-edit-user="${user.id}" title="Editar">
+            <svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+          </button>
+          <button class="btn-icon delete" data-delete-user="${user.id}" title="Eliminar">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
         </div>
       </td>
     </tr>
@@ -353,6 +372,13 @@ function formatDate(value) {
   if (!value) return '—';
   const date = new Date(value);
   return date.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function updateSystemMetrics(resumen) {
+  const sesiones = resumen.total_sesiones || 0;
+  const online = resumen.usuarios_conectados || resumen.total_usuarios || 0;
+  setText('metric-sesiones', sesiones);
+  setText('metric-online-users', online);
 }
 
 function escapeHtml(value) {
