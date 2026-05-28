@@ -27,7 +27,7 @@ export const login = async (req: Request, res: Response) => {
           u.estado,
           s.nombre AS sede_nombre
        FROM usuarios u
-       INNER JOIN sedes s ON u.sede_id = s.id
+       LEFT JOIN sedes s ON u.sede_id = s.id
        WHERE u.usuario = ?
        LIMIT 1`,
       [usuario]
@@ -82,7 +82,7 @@ export const login = async (req: Request, res: Response) => {
         rol: user.rol,
         es_superadmin,
         sede_id: user.sede_id,
-        sede_nombre: user.sede_nombre
+        sede_nombre: user.sede_nombre || 'Administración Central'
       }
     });
   } catch (error: any) {

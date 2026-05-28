@@ -246,7 +246,6 @@ function openUserModal(user = null) {
   document.getElementById('user-usuario').value = user?.usuario || '';
   document.getElementById('user-sede').value = user?.sede_id || state.sedes[0]?.id || '';
   document.getElementById('user-estado').value = user?.estado || 'activo';
-  document.getElementById('user-superadmin').checked = Boolean(user?.es_superadmin);
   document.getElementById('user-password').value = '';
   document.getElementById('user-modal-title').textContent = user ? 'Editar usuario' : 'Nuevo usuario';
   document.getElementById('user-password').placeholder = user ? 'Solo llena si deseas cambiarla' : 'Obligatoria al crear';
@@ -290,7 +289,6 @@ async function guardarUsuario(event) {
     usuario: document.getElementById('user-usuario').value.trim(),
     rol: 'admin',
     estado: document.getElementById('user-estado').value,
-    es_superadmin: document.getElementById('user-superadmin').checked ? 1 : 0,
     password: document.getElementById('user-password').value.trim()
   };
 

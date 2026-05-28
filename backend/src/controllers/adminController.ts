@@ -219,10 +219,10 @@ export async function listarUsuariosAdmin(_req: AuthRequest, res: Response): Pro
          u.rol,
          u.es_superadmin,
          u.estado,
-         s.nombre AS sede_nombre,
+         COALESCE(s.nombre, 'Administración Central') AS sede_nombre,
          u.created_at
        FROM usuarios u
-       INNER JOIN sedes s ON s.id = u.sede_id
+       LEFT JOIN sedes s ON s.id = u.sede_id
        ORDER BY u.created_at DESC, u.id DESC`
     );
 
@@ -240,8 +240,8 @@ export async function crearUsuarioAdmin(req: AuthRequest, res: Response): Promis
     const usuario = validarTexto(req.body.usuario);
     const password = validarTexto(req.body.password);
     const estado = validarTexto(req.body.estado) || 'activo';
-    const es_superadmin = req.body.es_superadmin ? 1 : 0;
-    const rol = es_superadmin ? 'Administrador de Sistemas (SysAdmin)' : 'Encargado de Oficina';
+    const es_superadmin = 0;
+    const rol = 'Encargado de Oficina';
 
     if (!sede_id || !nombre || !usuario || !password) {
       res.status(400).json({ ok: false, mensaje: 'Sede, nombre, usuario y contraseña son obligatorios' });
@@ -289,16 +289,30 @@ export async function actualizarUsuarioAdmin(req: AuthRequest, res: Response): P
     const usuario = validarTexto(req.body.usuario);
     const password = validarTexto(req.body.password);
     const estado = validarTexto(req.body.estado) || 'activo';
-    const es_superadmin = req.body.es_superadmin ? 1 : 0;
-    const rol = es_superadmin ? 'Administrador de Sistemas (SysAdmin)' : 'Encargado de Oficina';
 
-    if (!sede_id || !nombre || !usuario) {
-      res.status(400).json({ ok: false, mensaje: 'Sede, nombre y usuario son obligatorios' });
+    const [[existingUser]] = await pool.query<RowDataPacket[]>(
+      'SELECT es_superadmin FROM usuarios WHERE id = ? LIMIT 1',
+      [id]
+    );
+    if (!existingUser) {
+      res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+      return;
+    }
+    const es_superadmin = existingUser.es_superadmin ? 1 : 0;
+    const rol = es_superadmin ? 'Administrador de Sistemas (SysAdmin)' : 'Encargado de Oficina';
+    const final_sede_id = es_superadmin ? null : Number(req.body.sede_id);
+
+    if (!es_superadmin && !final_sede_id) {
+      res.status(400).json({ ok: false, mensaje: 'La sede es obligatoria' });
+      return;
+    }
+    if (!nombre || !usuario) {
+      res.status(400).json({ ok: false, mensaje: 'Nombre y usuario son obligatorios' });
       return;
     }
 
     let sql = `UPDATE usuarios SET sede_id = ?, nombre = ?, usuario = ?, rol = ?, es_superadmin = ?, estado = ?`;
-    const params: Array<string | number | null> = [sede_id, nombre, usuario, rol, es_superadmin, estado];
+    const params: Array<string | number | null> = [final_sede_id, nombre, usuario, rol, es_superadmin, estado];
 
     if (password) {
       const hash = await bcrypt.hash(password, 10);

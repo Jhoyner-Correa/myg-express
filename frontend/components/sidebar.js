@@ -6,7 +6,7 @@
 (function () {
   'use strict';
 
-  const NAV_ITEMS = [
+  const OP_ITEMS = [
     {
       href: '/panel-de-control',
       label: 'Dashboard',
@@ -37,13 +37,32 @@
     }
   ];
 
-  function currentPath() {
-    return window.location.pathname.replace(/\/$/, '');
+  const SYS_ITEMS = [
+    {
+      href: '/admin',
+      label: 'Panel central',
+      icon: `<rect x="3" y="3" width="7" height="7" rx="1"/>
+             <rect x="14" y="3" width="7" height="7" rx="1"/>
+             <rect x="3" y="14" width="7" height="7" rx="1"/>
+             <rect x="14" y="14" width="7" height="7" rx="1"/>`
+    },
+    {
+      href: '/system',
+      label: 'Sistema',
+      icon: `<circle cx="12" cy="12" r="3"/>
+             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`
+    }
+  ];
+
+  function getRawUser() {
+    const raw = localStorage.getItem('user');
+    try { return raw ? JSON.parse(raw) : null; } catch { return null; }
   }
 
-  function buildNavItems() {
-    const path = currentPath();
-    return NAV_ITEMS.map(({ href, label, icon }) => {
+  function buildNavItems(user) {
+    const path = window.location.pathname.replace(/\/$/, '');
+    const items = user?.es_superadmin ? SYS_ITEMS : OP_ITEMS;
+    return items.map(({ href, label, icon }) => {
       const isActive = path === href || path.startsWith(href + '/');
       return `
         <a href="${href}" class="nav-item${isActive ? ' active' : ''}">
@@ -53,7 +72,8 @@
     }).join('');
   }
 
-  function buildSidebar() {
+  function buildSidebar(user) {
+    const sectionLabel = user?.es_superadmin ? 'Administración' : 'Principal';
     return `
       <aside class="sidebar" id="app-sidebar">
         <div class="sidebar-brand">
@@ -66,8 +86,8 @@
         </div>
 
         <div class="sidebar-section">
-          <div class="sidebar-section-label">Principal</div>
-          ${buildNavItems()}
+          <div class="sidebar-section-label">${sectionLabel}</div>
+          ${buildNavItems(user)}
         </div>
 
         <div class="sidebar-spacer"></div>
@@ -90,7 +110,6 @@
   }
 
   function hydrateSidebar() {
-    // Espera a que SharedUI y API estén disponibles
     const tryHydrate = () => {
       if (typeof API === 'undefined' || typeof API.getUser !== 'function') return;
 
@@ -104,12 +123,11 @@
 
       if (avatarEl)  avatarEl.textContent  = (user.nombre || 'U').charAt(0).toUpperCase();
       if (nombreEl)  nombreEl.textContent  = user.nombre || '—';
-      if (sedeEl)    sedeEl.textContent    = user.sede_nombre || '—';
+      if (sedeEl)    sedeEl.textContent    = user.es_superadmin ? 'Administración Central' : (user.sede_nombre || '—');
       if (logoutBtn) logoutBtn.addEventListener('click', () => API.Auth.logout());
     };
 
     tryHydrate();
-    // Retry si los scripts aún no cargaron
     setTimeout(tryHydrate, 300);
   }
 
@@ -117,11 +135,11 @@
     const container = document.getElementById('sidebar');
     if (!container) return;
 
-    container.outerHTML = buildSidebar();
+    const user = getRawUser();
+    container.outerHTML = buildSidebar(user);
     hydrateSidebar();
   }
 
-  // Monta cuando el DOM esté listo
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', mount);
   } else {
