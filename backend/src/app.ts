@@ -84,7 +84,6 @@ app.get('/panel de control', (_req, res) => {
   res.redirect('/panel-de-control');
 });
 app.get('/admin', sendFrontendFile('admin.html'));
-app.get('/system', sendFrontendFile('system.html'));
 app.get('/whatsapp', sendFrontendFile('whatsapp.html'));
 app.get('/consulta-rutas', sendFrontendFile('consulta-rutas.html'));
 app.get('/rutas', sendFrontendFile('rutas.html'));

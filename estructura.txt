@@ -84,13 +84,11 @@ c:\Users\JHOYNER\Downloads\sistema-mensajeria/
     │   ├── rutas-detalle.whatsapp-ui.js # Controladores UI para el chat flotante y envíos
     │   ├── rutas.js                # Listado e historial de lotes/rutas cargadas
     │   ├── shared-ui.js            # Elementos de UI compartidos (menús, notificaciones)
-    │   ├── system.js               # Vista de logs y estado del worker de mensajería
     │   └── whatsapp.js             # Panel de vinculación de sesiones WhatsApp (QR, estado)
     ├── login.html                  # Inicio de sesión
     ├── consulta-rutas.html         # Consulta pública y filtros de estados
     ├── rutas.html                  # Gestión de lotes cargados (rutas)
     ├── rutas-detalle.html          # Detalle de envíos, progreso y envío masivo por WhatsApp
-    ├── system.html                 # Monitoreo del sistema
     └── whatsapp.html               # Vinculación y código QR
 
 Para ejecutar el servidor backend en desarrollo:

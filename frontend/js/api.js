@@ -11,7 +11,6 @@ const Routes = {
   login: '/login',
   dashboard: '/panel-de-control',
   admin: '/admin',
-  system: '/system',
   rutas: '/rutas',
   lotes: '/rutas',
   whatsapp: '/whatsapp',
@@ -465,14 +464,6 @@ const WhatsAppEnvio = {
   }
 };
 
-const System = {
-  async whatsappHealth() {
-    return fetchJson(`${WHATSAPP_API_BASE}/whatsapp/health`, {
-      headers: authHeaders()
-    }, 'panel tecnico de WhatsApp');
-  }
-};
-
 const Produccion = {
   async status() {
     const res = await fetch(`${API_BASE}/produccion/status`, {
@@ -590,4 +581,4 @@ const ConsultaRutas = Produccion;
 // ------------------------------------------------------------
 // Exportar globalmente
 // ------------------------------------------------------------
-window.API = { Auth, Lotes, Rutas, Avisos, Plantillas, WhatsAppSesiones, WhatsAppEnvio, Produccion, ConsultaRutas, Admin, System, Routes, getUser, ensureSuperadminSidebar };
+window.API = { Auth, Lotes, Rutas, Avisos, Plantillas, WhatsAppSesiones, WhatsAppEnvio, Produccion, ConsultaRutas, Admin, Routes, getUser, ensureSuperadminSidebar };
