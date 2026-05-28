@@ -1,151 +1,116 @@
 /**
- * sidebar.js — Componente compartido del sidebar.
- * Se inyecta automáticamente en cualquier página que tenga <div id="sidebar"></div>
- * El enlace activo se detecta por window.location.pathname.
+ * sidebar.js — Enterprise Modular Sidebar Component.
+ * Fetches centralized sidebar.html and dynamically customizes it on the client side.
  */
 (function () {
   'use strict';
-
-  const OP_ITEMS = [
-    {
-      href: '/panel-de-control',
-      label: 'Dashboard',
-      icon: `<rect x="3" y="3" width="7" height="7" rx="1"/>
-             <rect x="14" y="3" width="7" height="7" rx="1"/>
-             <rect x="3" y="14" width="7" height="7" rx="1"/>
-             <rect x="14" y="14" width="7" height="7" rx="1"/>`
-    },
-    {
-      href: '/rutas',
-      label: 'Rutas',
-      icon: `<path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
-             <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-             <line x1="12" y1="22.08" x2="12" y2="12"/>`
-    },
-    {
-      href: '/whatsapp',
-      label: 'WhatsApp',
-      icon: `<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>`
-    },
-    {
-      href: '/consulta-rutas',
-      label: 'Consulta de rutas',
-      icon: `<path d="M3 7h13v10H3z"/>
-             <path d="M16 10h2l3 3v4h-5z"/>
-             <circle cx="7.5" cy="18.5" r="1.5"/>
-             <circle cx="17.5" cy="18.5" r="1.5"/>`
-    }
-  ];
-
-  const SYS_ITEMS = [
-    {
-      href: '/admin',
-      label: 'Panel central',
-      icon: `<rect x="3" y="3" width="7" height="7" rx="1"/>
-             <rect x="14" y="3" width="7" height="7" rx="1"/>
-             <rect x="3" y="14" width="7" height="7" rx="1"/>
-             <rect x="14" y="14" width="7" height="7" rx="1"/>`
-    }
-  ];
 
   function getRawUser() {
     const raw = localStorage.getItem('user');
     try { return raw ? JSON.parse(raw) : null; } catch { return null; }
   }
 
-  function buildNavItems(user) {
-    const path = window.location.pathname.replace(/\/$/, '').toLowerCase();
-    const items = user?.es_superadmin ? SYS_ITEMS : OP_ITEMS;
-    return items.map(({ href, label, icon }) => {
-      const isActive = path === href || 
-                       path.startsWith(href + '/') || 
-                       path === href + '.html' ||
-                       (href === '/panel-de-control' && (path === '/dashboard' || path === '/dashboard.html'));
-      return `
-        <a href="${href}" class="nav-item${isActive ? ' active' : ''}">
-          <svg viewBox="0 0 24 24">${icon}</svg>
-          ${label}
-        </a>`;
-    }).join('');
-  }
+  function highlightActiveLink(container) {
+    const currentPath = window.location.pathname.replace(/\/$/, '').toLowerCase();
+    const links = container.querySelectorAll('.nav-item');
 
-  function buildSidebar(user) {
-    const sectionLabel = user?.es_superadmin ? 'Administración' : 'Principal';
-    const avatar = (user?.nombre || 'U').charAt(0).toUpperCase();
-    const nombre = user?.nombre || '—';
-    const sede = user?.es_superadmin ? 'Administración Central' : (user?.sede_nombre || '—');
+    links.forEach(link => {
+      const href = link.getAttribute('href');
+      if (!href || href === '#') return;
 
-    return `
-      <aside class="sidebar" id="app-sidebar">
-        <div class="sidebar-brand">
-          <div class="brand-icon">
-            <svg viewBox="0 0 24 24">
-              <path d="M20 8H4a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2v-8a2 2 0 00-2-2zm-9 8H7v-2h4v2zm6-4H7v-2h10v2zM20 4H4L2 8h20l-2-4z"/>
-            </svg>
-          </div>
-          <div class="brand-text">MyG <span>Express</span></div>
-        </div>
+      const normHref = href.replace(/\/$/, '').toLowerCase();
+      
+      // Matches exact path, starts with subpaths, .html extension, or dashboard alias
+      const isActive = currentPath === normHref || 
+                       currentPath.startsWith(normHref + '/') || 
+                       currentPath === normHref + '.html' ||
+                       (normHref === '/panel-de-control' && (currentPath === '/dashboard' || currentPath === '/dashboard.html'));
 
-        <div class="sidebar-section">
-          <div class="sidebar-section-label">${sectionLabel}</div>
-          ${buildNavItems(user)}
-        </div>
-
-        <div class="sidebar-spacer"></div>
-
-        <div class="sidebar-user">
-          <div class="user-avatar" id="user-avatar">${avatar}</div>
-          <div class="user-info">
-            <div class="u-name" id="user-nombre">${nombre}</div>
-            <div class="u-sede" id="user-sede">${sede}</div>
-          </div>
-          <button id="btn-logout" title="Cerrar sesión">
-            <svg viewBox="0 0 24 24">
-              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-          </button>
-        </div>
-      </aside>`;
-  }
-
-  function hydrateSidebar() {
-    let bound = false;
-    const tryHydrate = () => {
-      if (typeof API === 'undefined' || typeof API.getUser !== 'function') return;
-
-      const user = API.getUser();
-      if (!user) return;
-
-      const avatarEl  = document.getElementById('user-avatar');
-      const nombreEl  = document.getElementById('user-nombre');
-      const sedeEl    = document.getElementById('user-sede');
-      const logoutBtn = document.getElementById('btn-logout');
-
-      if (avatarEl) avatarEl.textContent = (user.nombre || 'U').charAt(0).toUpperCase();
-      if (nombreEl) nombreEl.textContent = user.nombre || '—';
-      if (sedeEl)   sedeEl.textContent   = user.es_superadmin ? 'Administración Central' : (user.sede_nombre || '—');
-
-      if (logoutBtn && !bound) {
-        logoutBtn.addEventListener('click', () => API.Auth.logout());
-        bound = true;
+      if (isActive) {
+        link.classList.add('active');
+      } else {
+        link.classList.remove('active');
       }
-    };
-
-    tryHydrate();
-    // In case API initializes late, retry a couple times
-    setTimeout(tryHydrate, 100);
-    setTimeout(tryHydrate, 500);
+    });
   }
 
-  function mount() {
-    const container = document.getElementById('sidebar');
+  function filterSectionsByRole(container, user) {
+    const sections = container.querySelectorAll('.sidebar-section');
+    const isSysAdmin = user && (Boolean(user.es_superadmin) || user.rol === 'SysAdmin');
+
+    sections.forEach(section => {
+      const group = section.getAttribute('data-group');
+      if (group === 'operations') {
+        section.style.display = isSysAdmin ? 'none' : 'block';
+      } else if (group === 'administration' || group === 'infrastructure') {
+        section.style.display = isSysAdmin ? 'block' : 'none';
+      }
+    });
+  }
+
+  function hydrateUserProfile(container, user) {
+    const avatarEl  = container.querySelector('#user-avatar');
+    const nombreEl  = container.querySelector('#user-nombre');
+    const sedeEl    = container.querySelector('#user-sede');
+    const logoutBtn = container.querySelector('#btn-logout');
+
+    if (!user) return;
+
+    if (avatarEl) {
+      avatarEl.textContent = (user.nombre || 'U').charAt(0).toUpperCase();
+    }
+    if (nombreEl) {
+      nombreEl.textContent = user.nombre || '—';
+    }
+    if (sedeEl) {
+      const isSysAdmin = Boolean(user.es_superadmin) || user.rol === 'SysAdmin';
+      sedeEl.textContent = isSysAdmin ? 'Administración Central' : (user.sede_nombre || '—');
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof API !== 'undefined' && API.Auth && typeof API.Auth.logout === 'function') {
+          API.Auth.logout();
+        } else {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
+      });
+    }
+  }
+
+  async function mount() {
+    // Looks for container id="sidebar-container" (modern) or id="sidebar" (legacy)
+    const container = document.getElementById('sidebar-container') || document.getElementById('sidebar');
     if (!container) return;
 
-    const user = getRawUser();
-    container.outerHTML = buildSidebar(user);
-    hydrateSidebar();
+    try {
+      // Fetch the centralized sidebar.html shell from root
+      const response = await fetch('/components/sidebar.html');
+      if (!response.ok) throw new Error('Error al cargar sidebar.html');
+      
+      const htmlText = await response.text();
+      container.innerHTML = htmlText;
+
+      const user = getRawUser();
+      
+      // Initialize dynamic behaviors
+      filterSectionsByRole(container, user);
+      highlightActiveLink(container);
+      hydrateUserProfile(container, user);
+
+      // Trigger safety retry just in case token-based API updates user late
+      setTimeout(() => {
+        const freshUser = getRawUser();
+        hydrateUserProfile(container, freshUser);
+      }, 300);
+
+    } catch (error) {
+      console.error('[SidebarComponent] Fail:', error);
+      container.innerHTML = `<div style="padding: 20px; color: red;">Error cargando panel lateral.</div>`;
+    }
   }
 
   if (document.readyState === 'loading') {
