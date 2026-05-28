@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { NextFunction, Request, Response } from 'express';
 import express from 'express';
 
@@ -29,7 +30,23 @@ const frontendDir = path.resolve(__dirname, '../../frontend');
 
 function sendFrontendFile(fileName: string) {
   return (_req: Request, res: Response) => {
-    res.sendFile(path.join(frontendDir, fileName));
+    const filePath = path.join(frontendDir, fileName);
+    fs.readFile(filePath, 'utf8', (err, html) => {
+      if (err) {
+        return res.status(500).send('Error loading page');
+      }
+
+      const sidebarPath = path.join(frontendDir, 'components/sidebar.html');
+      fs.readFile(sidebarPath, 'utf8', (errSidebar, sidebarHtml) => {
+        if (errSidebar) {
+          return res.send(html);
+        }
+        
+        // Inject the sidebar HTML directly into the server response to prevent browser flicker
+        const combinedHtml = html.replace('<div id="sidebar-container"></div>', sidebarHtml);
+        res.send(combinedHtml);
+      });
+    });
   };
 }
 

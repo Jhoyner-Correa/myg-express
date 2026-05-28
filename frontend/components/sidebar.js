@@ -86,8 +86,26 @@
     const container = document.getElementById('sidebar-container') || document.getElementById('sidebar');
     if (!container) return;
 
+    // Check if the sidebar is already present in the DOM (Server-Side Composed)
+    const alreadyRendered = container.querySelector('.sidebar') || container.classList.contains('sidebar');
+    
+    if (alreadyRendered) {
+      // The HTML is already present! Just initialize dynamic behaviors
+      const user = getRawUser();
+      filterSectionsByRole(container, user);
+      highlightActiveLink(container);
+      hydrateUserProfile(container, user);
+
+      // Trigger safety retry just in case token-based API updates user late
+      setTimeout(() => {
+        const freshUser = getRawUser();
+        hydrateUserProfile(container, freshUser);
+      }, 300);
+      return;
+    }
+
     try {
-      // Fetch the centralized sidebar.html shell from root
+      // Fallback: Fetch the centralized sidebar.html shell from root
       const response = await fetch('/components/sidebar.html');
       if (!response.ok) throw new Error('Error al cargar sidebar.html');
       
@@ -108,7 +126,7 @@
       }, 300);
 
     } catch (error) {
-      console.error('[SidebarComponent] Fail:', error);
+      console.error('[SidebarComponent] Fallback Fail:', error);
       container.innerHTML = `<div style="padding: 20px; color: red;">Error cargando panel lateral.</div>`;
     }
   }
