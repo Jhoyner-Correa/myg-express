@@ -1,0 +1,101 @@
+c:\Users\JHOYNER\Downloads\sistema-mensajeria/
+├── database.sql                    # Esquema BD MySQL (limpio y regenerado)
+├── DEPLOY.md                       # Documentación de despliegue
+├── estructura.txt                  # Descripción actual del proyecto
+├── package.json                    # Dependencias raíz
+├── backend/                        # Servidor Node.js/TypeScript
+│   ├── .env                        # Variables de entorno
+│   ├── dist/                       # Código TypeScript compilado
+│   ├── ecosystem.config.js         # Configuración PM2 para producción
+│   ├── migrations/                 # Scripts SQL de migración
+│   ├── package.json                # Dependencias del backend
+│   ├── src/                        # Código fuente
+│   │   ├── app.ts                  # API principal (puerto 3000)
+│   │   ├── worker.ts               # Worker de WhatsApp (puerto 3001)
+│   │   ├── config/
+│   │   │   └── database.ts         # Configuración de base de datos MySQL
+│   │   ├── controllers/            # Controladores REST
+│   │   │   ├── adminController.ts
+│   │   │   ├── authController.ts
+│   │   │   ├── avisosController.ts
+│   │   │   ├── lotesController.ts
+│   │   │   ├── plantillasController.ts
+│   │   │   ├── produccionController.ts
+│   │   │   ├── whatsappController.ts
+│   │   │   ├── whatsappLoteController.ts
+│   │   │   └── whatsappSesionesController.ts
+│   │   ├── middlewares/            # Middlewares de Express
+│   │   │   ├── authMiddleware.ts
+│   │   │   └── superadminMiddleware.ts
+│   │   ├── routes/                 # Definición de rutas Express
+│   │   │   ├── adminRoutes.ts
+│   │   │   ├── authRoutes.ts
+│   │   │   ├── avisosRoutes.ts
+│   │   │   ├── lotesRoutes.ts
+│   │   │   ├── plantillasRoutes.ts
+│   │   │   ├── produccionRoutes.ts
+│   │   │   ├── whatsappRoutes.ts
+│   │   │   └── whatsappSesionesRoutes.ts
+│   │   ├── scripts/                # Scripts de utilidad
+│   │   │   ├── crearSuperadmin.ts
+│   │   │   └── crearUsuario.ts
+│   │   ├── server/
+│   │   │   └── createHttpApp.ts    # Express base (middlewares, CORS, rate limiter)
+│   │   ├── services/               # Lógica de negocio
+│   │   │   ├── maintenance/
+│   │   │   │   └── databaseCleanupService.ts
+│   │   │   ├── urbanoService.ts
+│   │   │   └── whatsapp/
+│   │   │       ├── jobs/
+│   │   │       │   └── whatsappJobService.ts
+│   │   │       ├── providers/
+│   │   │       │   ├── IWhatsAppProvider.ts
+│   │   │       │   ├── EvolutionApiProvider.ts (activo)
+│   │   │       │   └── WhatsAppWebProvider.ts (fallback Puppeteer)
+│   │   │       ├── session/
+│   │   │       │   ├── qrManager.ts
+│   │   │       │   └── sessionManager.ts
+│   │   │       └── whatsappService.ts
+│   │   └── utils/                  # Utilidades comunes
+│   │       ├── messageFormatter.ts
+│   │       └── superadmin.ts
+│   └── tsconfig.json               # Configuración de TypeScript
+└── frontend/                       # Interfaz de usuario (HTML/JS/CSS estático)
+    ├── admin.html                  # Panel de administración de usuarios y sedes
+    ├── css/
+    │   ├── consulta-rutas.css      # Estilos para consulta de rutas de reparto
+    │   ├── dashboard.css           # Estilos para el panel de control general
+    │   ├── rutas-detalle.css       # Estilos para el detalle de envíos de la ruta
+    │   └── style.css               # Estilos comunes y base
+    ├── dashboard.html              # Dashboard principal (Panel de control)
+    ├── js/                         # JavaScript del frontend
+    │   ├── admin.js
+    │   ├── api.js                  # Capa de cliente API centralizada (fetch + tokens)
+    │   ├── consulta-rutas.js
+    │   ├── dashboard-update-modal.js
+    │   ├── dashboard.js
+    │   ├── live-updates.js         # Lógica de actualización en tiempo real (long-polling)
+    │   ├── login.js
+    │   ├── runtime-config.js       # Inyección dinámica de variables de configuración
+    │   ├── rutas-detalle.js        # Coordinador de vista detalle de rutas
+    │   ├── rutas-detalle.data.js   # Manejo de datos y estados locales de la ruta
+    │   ├── rutas-detalle.table.js  # Renderizado y filtros de la tabla de envíos
+    │   ├── rutas-detalle.templates.js # Plantillas HTML literales para la vista
+    │   ├── rutas-detalle.whatsapp-ui.js # Controladores UI para el chat flotante y envíos
+    │   ├── rutas.js                # Listado e historial de lotes/rutas cargadas
+    │   ├── shared-ui.js            # Elementos de UI compartidos (menús, notificaciones)
+    │   ├── system.js               # Vista de logs y estado del worker de mensajería
+    │   └── whatsapp.js             # Panel de vinculación de sesiones WhatsApp (QR, estado)
+    ├── login.html                  # Inicio de sesión
+    ├── consulta-rutas.html         # Consulta pública y filtros de estados
+    ├── rutas.html                  # Gestión de lotes cargados (rutas)
+    ├── rutas-detalle.html          # Detalle de envíos, progreso y envío masivo por WhatsApp
+    ├── system.html                 # Monitoreo del sistema
+    └── whatsapp.html               # Vinculación y código QR
+
+Para ejecutar el servidor backend en desarrollo:
+1. Servidor API: npm run dev
+2. Worker de WhatsApp: npm run dev:worker
+
+Credenciales de administrador iniciales configuradas en base de datos.
+URL de acceso local: http://localhost:3000/login

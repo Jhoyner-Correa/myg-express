@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema - MyG Express</title>
+  <link rel="icon" type="image/png" href="img/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green-900: #0a2e1a;
+      --green-800: #0f3d22;
+      --green-700: #155230;
+      --green-600: #1a6b3e;
+      --green-500: #1f8a4e;
+      --green-400: #25a85f;
+      --green-300: #3dc97a;
+      --green-100: #c8f5da;
+      --green-50: #edfaf3;
+      --white: #ffffff;
+      --gray-50: #f7faf8;
+      --gray-100: #eef2f0;
+      --gray-150: #e7eeea;
+      --gray-200: #dde6e1;
+      --gray-300: #cbd8d1;
+      --gray-400: #9aada3;
+      --gray-500: #6b8278;
+      --gray-700: #2d4037;
+      --gray-900: #111c16;
+      --red-50: #fff1f1;
+      --red-300: #fca5a5;
+      --red-600: #dc2626;
+      --amber-50: #fffbeb;
+      --amber-300: #fcd34d;
+      --amber-700: #92400e;
+      --blue-50: #eff6ff;
+      --blue-300: #93c5fd;
+      --blue-700: #1d4ed8;
+      --radius: 14px;
+      --shadow: 0 2px 12px rgba(10, 46, 26, 0.08);
+      --sidebar-w: 260px;
+      --header-h: 64px;
+    }
+    html, body {
+      min-height: 100%;
+      background: linear-gradient(180deg, #fbfdfb 0%, #f4f8f5 100%);
+      color: var(--gray-900);
+      font-family: 'DM Sans', sans-serif;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; }
+    .sidebar {
+      position: fixed; top: 0; left: 0;
+      width: var(--sidebar-w); height: 100vh;
+      background: var(--green-900);
+      display: flex; flex-direction: column;
+      z-index: 100; overflow-y: auto;
+    }
+    .sidebar-brand {
+      display: flex; align-items: center; gap: 12px;
+      padding: 24px 24px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .brand-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: var(--green-400);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .brand-icon svg { width: 20px; height: 20px; fill: white; }
+    .brand-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.05rem; color: white; letter-spacing: -0.3px; }
+    .brand-text span { color: var(--green-300); }
+    .sidebar-section { padding: 20px 16px 8px; }
+    .sidebar-section-label {
+      padding: 0 8px; margin-bottom: 6px;
+      font-size: 0.68rem; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 1.2px;
+      color: rgba(255,255,255,0.3);
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: rgba(255,255,255,0.6);
+      font-size: 0.9rem;
+      transition: background .15s ease, color .15s ease;
+    }
+    .nav-item.active {
+      background: rgba(52,196,114,0.16);
+      color: var(--green-300);
+      font-weight: 500;
+    }
+    .nav-item svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; flex-shrink: 0; }
+    .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+    .sidebar-spacer { flex: 1; }
+    .sidebar-user {
+      margin: 16px; padding: 14px; border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .user-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--green-500);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Syne', sans-serif; font-weight: 700; color: white; flex-shrink: 0;
+    }
+    .user-info { flex: 1; min-width: 0; }
+    .u-name { font-size: 0.85rem; font-weight: 500; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .u-sede { font-size: 0.72rem; color: var(--gray-400); }
+    #btn-logout { background: none; border: none; cursor: pointer; padding: 4px; color: var(--gray-400); transition: color 0.15s; display: flex; }
+    #btn-logout svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+    #btn-logout:hover { color: #f87171; }
+    .main {
+      margin-left: var(--sidebar-w); min-height: 100vh;
+      display: flex; flex-direction: column;
+    }
+    .topbar {
+      height: var(--header-h); padding: 0 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--gray-200);
+      background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+      position: sticky; top: 0; z-index: 50;
+    }
+    .topbar-title { font-family: 'Syne', sans-serif; font-size: 1.15rem; font-weight: 700; color: var(--green-900); }
+    .topbar-sub { margin-top: 2px; font-size: 0.8rem; color: var(--gray-400); }
+    .topbar-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 14px; border-radius: 999px;
+      border: 1px solid var(--green-100); background: var(--green-50);
+      color: var(--green-700); font-size: 0.78rem; font-weight: 600;
+    }
+    .topbar-badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--green-400); }
+    .content {
+      padding: 24px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .hero, .stats-grid, .detail-grid {
+      display: grid;
+      gap: 16px;
+    }
+    .hero { grid-template-columns: 1.15fr 0.85fr; }
+    .stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .detail-grid { grid-template-columns: 1.1fr 0.9fr; }
+    .card, .hero-card, .stat-card, .panel {
+      background: rgba(255,255,255,0.94);
+      border: 1px solid rgba(212,223,217,0.86);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+    }
+    .hero-card, .stat-card, .panel-body-wrap { padding: 20px 22px; }
+    .hero-card h2, .panel-title {
+      font-family: 'Syne', sans-serif;
+      color: var(--green-900);
+      letter-spacing: -0.5px;
+    }
+    .hero-card h2 { font-size: 1.16rem; }
+    .hero-card p, .panel-sub, .meta-copy {
+      margin-top: 6px;
+      color: var(--gray-500);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+    .hero-strip {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .strip-item, .mini-card {
+      padding: 13px 14px;
+      border-radius: 13px;
+      background: linear-gradient(180deg, #fcfefd, #f5faf7);
+      border: 1px solid var(--gray-150);
+    }
+    .strip-item span, .meta-label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--gray-400);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      margin-bottom: 7px;
+    }
+    .strip-item strong, .stat-value, .meta-value {
+      display: block;
+      font-family: 'Syne', sans-serif;
+      color: var(--green-900);
+      letter-spacing: -0.6px;
+    }
+    .strip-item strong { font-size: 1.14rem; }
+    .stat-card { padding: 16px 16px 14px; }
+    .stat-kicker {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--gray-500);
+      font-size: 0.78rem;
+      margin-bottom: 10px;
+    }
+    .stat-value { font-size: 1.65rem; line-height: 1; }
+    .stat-sub { margin-top: 8px; color: var(--gray-400); font-size: 0.78rem; }
+    .panel-head {
+      padding: 18px 22px 16px;
+      border-bottom: 1px solid var(--gray-150);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .panel-title { font-size: 0.98rem; }
+    .panel-sub { margin-top: 3px; font-size: 0.78rem; }
+    .panel-body-wrap { padding: 18px 22px 22px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.82rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary { background: var(--green-500); color: #fff; }
+    .btn-soft { background: var(--green-50); color: var(--green-700); border: 1px solid var(--green-100); }
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .mini-card strong {
+      display: block;
+      font-size: 0.88rem;
+      color: var(--green-900);
+      margin-bottom: 4px;
+    }
+    .mini-card span {
+      display: block;
+      font-size: 0.74rem;
+      color: var(--gray-500);
+      line-height: 1.5;
+    }
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      border: 1px solid var(--gray-150);
+    }
+    .status-chip::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .status-ok { background: var(--green-50); color: var(--green-700); border-color: var(--green-100); }
+    .status-error { background: var(--red-50); color: var(--red-600); border-color: var(--red-300); }
+    .status-running { background: var(--blue-50); color: var(--blue-700); border-color: var(--blue-300); }
+    .status-idle { background: var(--gray-100); color: var(--gray-500); }
+    .status-warn { background: var(--amber-50); color: var(--amber-700); border-color: var(--amber-300); }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .meta-card {
+      padding: 14px 15px;
+      border-radius: 14px;
+      border: 1px solid var(--gray-150);
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbf9 100%);
+    }
+    .meta-value { font-size: 1.04rem; margin-bottom: 5px; }
+    .meta-copy { margin-top: 2px; font-size: 0.76rem; }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.82rem;
+      background: var(--gray-50);
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid var(--gray-150);
+    }
+    .empty {
+      color: var(--gray-400);
+      font-size: 0.84rem;
+    }
+    @media (max-width: 1180px) {
+      .hero, .detail-grid, .stats-grid { grid-template-columns: 1fr 1fr; }
+      .mini-grid, .hero-strip { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 920px) {
+      .sidebar { transform: translateX(-100%); }
+      .main { margin-left: 0; }
+      .hero, .detail-grid, .stats-grid, .meta-grid { grid-template-columns: 1fr; }
+      .content { padding: 18px 16px 24px; }
+      .topbar { padding: 0 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebar"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">Sistema</div>
+        <div class="topbar-sub">Monitoreo tecnico y limpieza automatica</div>
+      </div>
+      <div class="topbar-badge">Superadmin</div>
+    </header>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-card">
+          <h2>Estado tecnico del worker</h2>
+          <p>Esta pantalla es para control interno. Aqui puedes revisar cola de WhatsApp, salud del worker y el ultimo resultado de la limpieza automatica.</p>
+          <div class="hero-strip">
+            <div class="strip-item">
+              <span>Ultima revision</span>
+              <strong id="hero-timestamp">-</strong>
+            </div>
+            <div class="strip-item">
+              <span>Ultima limpieza</span>
+              <strong id="hero-last-cleanup">-</strong>
+            </div>
+            <div class="strip-item">
+              <span>Estado limpieza</span>
+              <strong id="hero-cleanup-status">-</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-card">
+          <h2>Retencion configurada</h2>
+          <p>Estos valores son los que usa el worker real para borrar informacion vieja. Si cambias el `.env` del servidor, aqui deberia reflejarse despues del reinicio.</p>
+          <div class="mini-grid">
+            <div class="mini-card">
+              <strong id="retention-jobs">-</strong>
+              <span>dias de retencion para jobs procesados</span>
+            </div>
+            <div class="mini-card">
+              <strong id="retention-logs">-</strong>
+              <span>dias de retencion para mensajes_log</span>
+            </div>
+            <div class="mini-card">
+              <strong id="retention-sessions">-</strong>
+              <span>dias para limpiar sesiones inactivas</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-kicker"><span>Queue</span><span id="worker-status-chip">-</span></div>
+          <div class="stat-value" id="queue-pending">0</div>
+          <div class="stat-sub">Jobs pendientes por procesar</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-kicker"><span>Queue</span><span id="queue-processing-chip">-</span></div>
+          <div class="stat-value" id="queue-processing">0</div>
+          <div class="stat-sub">Jobs en ejecucion ahora mismo</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-kicker"><span>Ultima limpieza</span><span>jobs</span></div>
+          <div class="stat-value" id="cleanup-jobs-removed">0</div>
+          <div class="stat-sub">Registros borrados en la ultima corrida</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-kicker"><span>Ultima limpieza</span><span>logs</span></div>
+          <div class="stat-value" id="cleanup-logs-removed">0</div>
+          <div class="stat-sub">Filas eliminadas de mensajes_log</div>
+        </div>
+      </section>
+
+      <section class="detail-grid">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Resumen de limpieza</div>
+              <div class="panel-sub">Lo que hizo la ultima corrida del limpiador automatico.</div>
+            </div>
+            <div class="actions">
+              <button class="btn btn-soft" id="btn-refresh-system" type="button">Actualizar ahora</button>
+            </div>
+          </div>
+          <div class="panel-body-wrap">
+            <div class="meta-grid">
+              <div class="meta-card">
+                <div class="meta-label">Estado actual</div>
+                <div class="meta-value" id="cleanup-status">-</div>
+                <div class="meta-copy" id="cleanup-status-copy">Sin datos todavia.</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-label">Ultima ejecucion</div>
+                <div class="meta-value" id="cleanup-last-run">-</div>
+                <div class="meta-copy">Hora reportada por el worker.</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-label">Sesiones borradas</div>
+                <div class="meta-value" id="cleanup-sessions-removed">0</div>
+                <div class="meta-copy">Solo sesiones inactivas, viejas y sin referencias.</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-label">Intervalo</div>
+                <div class="meta-value" id="cleanup-interval">-</div>
+                <div class="meta-copy">Frecuencia automatica configurada.</div>
+              </div>
+            </div>
+            <div class="meta-copy" id="cleanup-error-box" style="margin-top:14px;"></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Diagnostico rapido</div>
+              <div class="panel-sub">Lectura corta para saber si el worker esta sano.</div>
+            </div>
+          </div>
+          <div class="panel-body-wrap">
+            <div class="meta-grid">
+              <div class="meta-card">
+                <div class="meta-label">Worker ocupado</div>
+                <div class="meta-value" id="worker-busy">-</div>
+                <div class="meta-copy">Indica si la cola esta ejecutando algo ahora.</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-label">Warning cola</div>
+                <div class="meta-value" id="queue-warning">-</div>
+                <div class="meta-copy">Solo aparece si el worker detecta una condicion anormal.</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-label">Uptime</div>
+                <div class="meta-value" id="worker-uptime">-</div>
+                <div class="meta-copy">Tiempo vivo del proceso del worker.</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-label">Limpieza activa</div>
+                <div class="meta-value" id="cleanup-enabled">-</div>
+                <div class="meta-copy">Si esta en false, no se borrara nada automaticamente.</div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/runtime-config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="components/sidebar.js"></script>
+  <script src="js/system.js"></script>
+</body>
+</html>

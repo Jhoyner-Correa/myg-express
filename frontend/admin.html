@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administracion central - MyG Express</title>
+   <link rel="icon" type="image/png" href="img/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green-900: #0a2e1a;
+      --green-800: #0f3d22;
+      --green-700: #155230;
+      --green-600: #1a6b3e;
+      --green-500: #1f8a4e;
+      --green-400: #25a85f;
+      --green-300: #3dc97a;
+      --green-100: #c8f5da;
+      --green-50: #edfaf3;
+      --white: #ffffff;
+      --gray-50: #f7faf8;
+      --gray-100: #eef2f0;
+      --gray-150: #e7eeea;
+      --gray-200: #dde6e1;
+      --gray-300: #cbd8d1;
+      --gray-400: #9aada3;
+      --gray-500: #6b8278;
+      --gray-700: #2d4037;
+      --gray-900: #111c16;
+      --red-50: #fff1f1;
+      --red-300: #fca5a5;
+      --red-600: #dc2626;
+      --amber-50: #fffbeb;
+      --amber-300: #fcd34d;
+      --amber-600: #d97706;
+      --radius: 14px;
+      --shadow: 0 2px 12px rgba(10, 46, 26, 0.08);
+      --sidebar-w: 260px;
+      --header-h: 64px;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: linear-gradient(180deg, #fbfdfb 0%, #f4f8f5 100%);
+      color: var(--gray-900);
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, input, select { font: inherit; }
+
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: var(--sidebar-w);
+      height: 100vh;
+      background: var(--green-900);
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 24px 24px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--green-400);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-icon svg { width: 20px; height: 20px; fill: white; }
+    .brand-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.05rem; color: white; letter-spacing: -0.3px; }
+    .brand-text span { color: var(--green-300); }
+
+    .sidebar-section { padding: 20px 16px 8px; }
+    .sidebar-section-label {
+      padding: 0 8px;
+      margin-bottom: 6px;
+      font-size: 0.68rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: rgba(255,255,255,0.3);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: rgba(255,255,255,0.6);
+      font-size: 0.9rem;
+      font-weight: 400;
+      transition: background .15s ease, color .15s ease;
+    }
+
+    .nav-item.active {
+      background: rgba(52,196,114,0.16);
+      color: var(--green-300);
+      font-weight: 500;
+    }
+
+    .nav-item svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; flex-shrink: 0; }
+    .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+
+    .sidebar-spacer { flex: 1; }
+
+    .sidebar-user {
+      margin: 16px;
+      padding: 14px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--green-500);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .user-info { flex: 1; min-width: 0; }
+    .u-name { font-size: 0.85rem; font-weight: 500; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .u-sede { font-size: 0.72rem; color: var(--gray-400); }
+
+    #btn-logout {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      color: var(--gray-400);
+      transition: color 0.15s;
+      display: flex;
+    }
+    #btn-logout svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+    #btn-logout:hover { color: #f87171; }
+
+    .main {
+      margin-left: var(--sidebar-w);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      height: var(--header-h);
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--gray-200);
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .topbar-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--green-900);
+    }
+
+    .topbar-sub {
+      margin-top: 2px;
+      font-size: 0.8rem;
+      color: var(--gray-400);
+    }
+
+    .topbar-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--green-100);
+      background: var(--green-50);
+      color: var(--green-700);
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+
+    .topbar-badge::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green-400);
+    }
+
+    .content {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .hero-card {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid rgba(212,223,217,0.9);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+    }
+
+    .hero-card h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.18rem;
+      letter-spacing: -0.6px;
+      color: var(--green-900);
+    }
+
+    .hero-card p {
+      margin-top: 6px;
+      color: var(--gray-500);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+    .hero-strip {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .strip-item {
+      padding: 13px 14px;
+      border-radius: 13px;
+      background: linear-gradient(180deg, #fcfefd, #f5faf7);
+      border: 1px solid var(--gray-150);
+    }
+
+    .strip-item span {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--gray-400);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      margin-bottom: 7px;
+    }
+
+    .strip-item strong {
+      display: block;
+      font-family: 'Syne', sans-serif;
+      font-size: 1.16rem;
+      color: var(--green-900);
+      letter-spacing: -0.5px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      padding: 16px 16px 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.94);
+      border: 1px solid rgba(212,223,217,0.86);
+      box-shadow: var(--shadow);
+    }
+
+    .stat-kicker {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--gray-500);
+      font-size: 0.78rem;
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.65rem;
+      letter-spacing: -1px;
+      color: var(--green-900);
+      line-height: 1;
+    }
+
+    .stat-sub {
+      margin-top: 8px;
+      color: var(--gray-400);
+      font-size: 0.78rem;
+    }
+
+    .panel {
+      background: rgba(255,255,255,0.94);
+      border: 1px solid rgba(212,223,217,0.86);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-head {
+      padding: 18px 22px 16px;
+      border-bottom: 1px solid var(--gray-150);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .panel-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.98rem;
+      color: var(--green-900);
+    }
+
+    .panel-sub {
+      margin-top: 3px;
+      font-size: 0.78rem;
+      color: var(--gray-400);
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.82rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform .1s ease, background .15s ease, border-color .15s ease;
+    }
+
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--green-500); color: #fff; }
+    .btn-primary:hover { background: var(--green-600); }
+    .btn-soft { background: var(--green-50); color: var(--green-700); border: 1px solid var(--green-100); }
+    .btn-soft:hover { background: var(--green-100); }
+    .btn-danger { background: var(--red-50); color: var(--red-600); border: 1px solid var(--red-300); }
+    .btn-danger:hover { background: #fee2e2; }
+
+    .panel-body { padding: 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 13px 18px;
+      text-align: left;
+      border-bottom: 1px solid var(--gray-100);
+      font-size: 0.84rem;
+    }
+
+    th {
+      background: #f9fbfa;
+      color: var(--gray-400);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      font-size: 0.68rem;
+      font-weight: 700;
+    }
+
+    td { color: var(--gray-700); }
+    tr:last-child td { border-bottom: none; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 700;
+    }
+
+    .chip.ok { background: var(--green-50); color: var(--green-700); border: 1px solid var(--green-100); }
+    .chip.off { background: var(--gray-100); color: var(--gray-500); border: 1px solid var(--gray-200); }
+    .chip.warn { background: var(--amber-50); color: var(--amber-600); border: 1px solid var(--amber-300); }
+
+    .row-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .action-link {
+      border: none;
+      background: transparent;
+      color: var(--green-600);
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .action-link.danger { color: var(--red-600); }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      padding: 16px 0 0;
+    }
+
+    .mini-card {
+      border-radius: 14px;
+      border: 1px solid var(--gray-150);
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbf9 100%);
+      padding: 14px 14px 13px;
+    }
+
+    .mini-card strong {
+      display: block;
+      font-size: 0.88rem;
+      color: var(--green-900);
+      margin-bottom: 4px;
+    }
+
+    .mini-card span {
+      display: block;
+      font-size: 0.74rem;
+      color: var(--gray-500);
+      line-height: 1.5;
+    }
+
+    .empty {
+      padding: 32px 18px;
+      text-align: center;
+      color: var(--gray-400);
+      font-size: 0.84rem;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(8,30,17,0.48);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease;
+      z-index: 60;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal {
+      width: min(100%, 560px);
+      background: #fff;
+      border-radius: 20px;
+      border: 1px solid var(--gray-150);
+      box-shadow: 0 28px 70px rgba(8,30,17,0.18);
+      transform: translateY(12px) scale(.98);
+      transition: transform .18s ease;
+      overflow: hidden;
+    }
+
+    .modal-overlay.open .modal { transform: translateY(0) scale(1); }
+
+    .modal-head {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--gray-150);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .modal-head h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1rem;
+      color: var(--green-900);
+    }
+
+    .modal-head p {
+      margin-top: 4px;
+      font-size: 0.78rem;
+      color: var(--gray-400);
+    }
+
+    .close-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: none;
+      background: #f5f8f6;
+      color: var(--gray-500);
+      cursor: pointer;
+    }
+
+    .modal-body {
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: var(--gray-500);
+    }
+
+    .field input, .field select {
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--gray-200);
+      background: #fff;
+      padding: 0 13px;
+      color: var(--gray-900);
+      outline: none;
+    }
+
+    .field input:focus, .field select:focus {
+      border-color: var(--green-300);
+      box-shadow: 0 0 0 4px rgba(35,154,92,0.1);
+    }
+
+    .modal-foot {
+      padding: 14px 22px 20px;
+      border-top: 1px solid var(--gray-150);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .feedback {
+      display: none;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .feedback.show { display: block; }
+    .feedback.error { background: var(--red-50); color: var(--red-600); border: 1px solid var(--red-300); }
+    .feedback.success { background: var(--green-50); color: var(--green-700); border: 1px solid var(--green-100); }
+
+    @media (max-width: 1180px) {
+      .hero, .stats-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 900px) {
+      .sidebar { transform: translateX(-100%); }
+      .main { margin-left: 0; }
+      .hero, .stats-grid, .mini-grid, .field-row { grid-template-columns: 1fr; }
+      .content { padding: 18px; }
+      .topbar { padding: 0 18px; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24"><path d="M20 8H4a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2v-8a2 2 0 00-2-2zm-9 8H7v-2h4v2zm6-4H7v-2h10v2zM20 4H4L2 8h20l-2-4z"/></svg>
+      </div>
+      <div class="brand-text">MyG <span>Express</span></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Principal</div>
+      <a href="/panel-de-control" class="nav-item">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </a>
+      <a href="/rutas" class="nav-item">
+        <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        Rutas
+      </a>
+      <a href="/whatsapp" class="nav-item">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        WhatsApp
+      </a>
+      <a href="/consulta-rutas" class="nav-item">
+        <svg viewBox="0 0 24 24"><path d="M3 7h13v10H3z"/><path d="M16 10h2l3 3v4h-5z"/><circle cx="7.5" cy="18.5" r="1.5"/><circle cx="17.5" cy="18.5" r="1.5"/></svg>
+        Consulta de rutas
+      </a>
+    </div>
+
+
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">A</div>
+      <div class="user-info">
+        <div class="u-name" id="user-nombre">Administrador</div>
+        <div class="u-sede" id="user-sede">Administracion central</div>
+      </div>
+      <button id="btn-logout" title="Cerrar sesion">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">Administracion central</div>
+        <div class="topbar-sub">Control de sedes y usuarios</div>
+      </div>
+      <div class="topbar-badge">SysAdmin</div>
+    </header>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-card">
+          <h2>Vista general</h2>
+          <p>Administra accesos, revisa el estado general de las sedes y mantén el control central del sistema sin intervenir en la operación diaria.</p>
+          <div class="hero-strip">
+            <div class="strip-item">
+              <span>Sedes activas</span>
+              <strong id="hero-sedes-activas">0</strong>
+            </div>
+            <div class="strip-item">
+              <span>Usuarios activos</span>
+              <strong id="hero-usuarios">0</strong>
+            </div>
+            <div class="strip-item">
+              <span>Destinatarios cargados</span>
+              <strong id="hero-destinatarios">0</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-card">
+          <h2>Resumen rapido por sede</h2>
+          <p>Lectura corta del movimiento principal para detectar rapidamente qué sedes tienen actividad y cuáles siguen vacías.</p>
+          <div class="mini-grid" id="mini-sedes-grid">
+            <div class="mini-card">
+              <strong>Cargando sedes</strong>
+              <span>Preparando resumen general...</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-kicker"><span>Total sedes</span><span id="stat-sedes-activas-chip">0 activas</span></div>
+          <div class="stat-value" id="stat-total-sedes">0</div>
+          <div class="stat-sub">Cantidad total de sucursales registradas</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-kicker"><span>Total usuarios</span><span>Accesos</span></div>
+          <div class="stat-value" id="stat-total-usuarios">0</div>
+          <div class="stat-sub">Usuarios creados para trabajo por sede</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-kicker"><span>Lotes cargados</span><span>Historico</span></div>
+          <div class="stat-value" id="stat-total-lotes">0</div>
+          <div class="stat-sub">Registros de trabajo acumulados</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-kicker"><span>Lotes activos</span><span>Hoy</span></div>
+          <div class="stat-value" id="stat-lotes-activos">0</div>
+          <div class="stat-sub">Lotes pendientes o en proceso</div>
+        </div>
+      </section>
+
+      <section class="panel" id="sedes-panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">Sedes registradas</div>
+            <div class="panel-sub">Alta, edición y estado operativo de cada sede.</div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-soft" id="btn-refresh-sedes">Actualizar</button>
+            <button class="btn btn-primary" id="btn-open-sede-modal">Nueva sede</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead>
+              <tr>
+                <th>Sede</th>
+                <th>Estado</th>
+                <th>Usuarios</th>
+                <th>Sesiones</th>
+                <th>Lotes</th>
+                <th>Destinatarios</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="sedes-body">
+              <tr><td colspan="7" class="empty">Cargando sedes...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" id="usuarios-panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">Usuarios por sede</div>
+            <div class="panel-sub">Controla accesos y revisa claramente a qué sede pertenece cada usuario.</div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-soft" id="btn-refresh-users">Actualizar</button>
+            <button class="btn btn-primary" id="btn-open-user-modal">Nuevo usuario</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Usuario</th>
+                <th>Sede</th>
+                <th>Rol</th>
+                <th>Estado</th>
+                <th>Creado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="users-body">
+              <tr><td colspan="7" class="empty">Cargando usuarios...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="sede-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h3 id="sede-modal-title">Nueva sede</h3>
+          <p>Registra una nueva sucursal y define su informacion base.</p>
+        </div>
+        <button class="close-btn" data-close="sede-modal">✕</button>
+      </div>
+      <form id="sede-form">
+        <div class="modal-body">
+          <div id="sede-feedback" class="feedback"></div>
+          <input type="hidden" id="sede-id" />
+          <div class="field">
+            <label>Nombre de la sede</label>
+            <input type="text" id="sede-nombre" placeholder="Ej: La Merced" required />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Direccion</label>
+              <input type="text" id="sede-direccion" placeholder="Direccion o referencia" />
+            </div>
+            <div class="field">
+              <label>Telefono</label>
+              <input type="text" id="sede-telefono" placeholder="Numero de contacto" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Estado</label>
+            <select id="sede-estado">
+              <option value="activo">Activa</option>
+              <option value="inactivo">Inactiva</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-soft" data-close="sede-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-sede">Guardar sede</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="user-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h3 id="user-modal-title">Nuevo usuario</h3>
+          <p>Crea un acceso y asignalo a la sede correcta.</p>
+        </div>
+        <button class="close-btn" data-close="user-modal">✕</button>
+      </div>
+      <form id="user-form">
+        <div class="modal-body">
+          <div id="user-feedback" class="feedback"></div>
+          <input type="hidden" id="user-id" />
+          <div class="field-row">
+            <div class="field">
+              <label>Nombre</label>
+              <input type="text" id="user-nombre" placeholder="Nombre completo" required />
+            </div>
+            <div class="field">
+              <label>Usuario</label>
+              <input type="text" id="user-usuario" placeholder="usuario_login" required />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field" style="grid-column: span 2;">
+              <label>Sede</label>
+              <select id="user-sede" required></select>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Estado</label>
+              <select id="user-estado">
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Contraseña</label>
+              <input type="password" id="user-password" placeholder="Obligatoria al crear" />
+            </div>
+          </div>
+          <div class="field-row" style="margin-top: 8px;">
+            <div class="field" style="grid-column: span 2; display: flex; flex-direction: row; align-items: center; gap: 8px;">
+              <input type="checkbox" id="user-superadmin" style="height: 18px; width: 18px; margin: 0; cursor: pointer;" />
+              <label for="user-superadmin" style="margin: 0; cursor: pointer; font-size: 0.78rem; text-transform: none; font-weight: 500; color: var(--gray-700);">
+                Asignar privilegios de Administrador de Sistemas (SysAdmin) - Acceso a todas las sedes y control central
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-soft" data-close="user-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-user">Guardar usuario</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/runtime-config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

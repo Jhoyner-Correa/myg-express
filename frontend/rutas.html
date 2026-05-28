@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Rutas - MyG Express</title>
+  <link rel="icon" type="image/png" href="img/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green-900: #0a2e1a;
+      --green-800: #0f3d22;
+      --green-700: #155230;
+      --green-600: #1a6b3e;
+      --green-500: #1f8a4e;
+      --green-400: #25a85f;
+      --green-300: #3dc97a;
+      --green-100: #c8f5da;
+      --green-50: #edfaf3;
+      --white: #ffffff;
+      --gray-50: #f7faf8;
+      --gray-100: #eef2f0;
+      --gray-150: #e7eeea;
+      --gray-200: #dde6e1;
+      --gray-300: #cbd8d1;
+      --gray-400: #9aada3;
+      --gray-500: #6b8278;
+      --gray-600: #4a5e55;
+      --gray-700: #2d4037;
+      --gray-900: #111c16;
+      --blue-50: #eff6ff;
+      --blue-200: #bfdbfe;
+      --blue-700: #1d4ed8;
+      --red-50: #fef2f2;
+      --red-200: #fecaca;
+      --red-700: #b91c1c;
+      --yellow-50: #fff7ed;
+      --yellow-200: #fed7aa;
+      --yellow-700: #9a3412;
+      --sidebar-w: 260px;
+      --header-h: 64px;
+      --radius: 16px;
+      --shadow: 0 10px 28px rgba(10, 46, 26, 0.08);
+    }
+
+    html, body {
+      min-height: 100%;
+      font-family: 'DM Sans', sans-serif;
+      background: linear-gradient(180deg, #fbfdfb 0%, #f4f8f5 100%);
+      color: var(--gray-900);
+    }
+
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: var(--sidebar-w);
+      height: 100vh;
+      background: var(--green-900);
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 24px 24px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--green-400);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-icon svg { width: 20px; height: 20px; fill: white; }
+    .brand-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.05rem; color: white; }
+    .brand-text span { color: var(--green-300); }
+
+    .sidebar-section { padding: 20px 16px 8px; }
+    .sidebar-section-label {
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.34);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      padding: 0 8px;
+      margin-bottom: 6px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      color: rgba(255,255,255,0.64);
+      font-size: 0.92rem;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .nav-item svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.9;
+      flex-shrink: 0;
+    }
+
+    .nav-item:hover { background: rgba(255,255,255,0.07); color: white; }
+    .nav-item.active { background: rgba(37,168,95,0.18); color: var(--green-300); font-weight: 600; }
+    .sidebar-spacer { flex: 1; }
+
+    .sidebar-user {
+      margin: 16px;
+      padding: 14px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--green-500);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .user-info { flex: 1; min-width: 0; }
+    .u-name { font-size: 0.85rem; font-weight: 600; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .u-sede { font-size: 0.72rem; color: var(--gray-400); }
+
+    #btn-logout {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      color: var(--gray-400);
+      display: flex;
+    }
+
+    #btn-logout svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+    #btn-logout:hover { color: #f87171; }
+
+    .main {
+      margin-left: var(--sidebar-w);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      height: var(--header-h);
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--gray-200);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .topbar-title { font-family: 'Syne', sans-serif; font-size: 1.15rem; font-weight: 700; color: var(--green-900); }
+    .topbar-sub { margin-top: 2px; font-size: 0.8rem; color: var(--gray-400); }
+    .topbar-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--green-100);
+      background: var(--green-50);
+      color: var(--green-700);
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    .topbar-badge::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green-400);
+    }
+
+    .content {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      flex: 1;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .search-wrap { position: relative; }
+    .search-wrap svg {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      stroke: var(--gray-400);
+      fill: none;
+      stroke-width: 2;
+      pointer-events: none;
+    }
+
+    #input-buscar {
+      width: 260px;
+      padding: 10px 14px 10px 38px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 12px;
+      background: var(--white);
+      color: var(--gray-900);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    #input-buscar:focus {
+      border-color: var(--green-400);
+      box-shadow: 0 0 0 3px rgba(37,168,95,0.1);
+    }
+
+    .lotes-count-badge {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--gray-100);
+      color: var(--gray-500);
+      font-size: 0.82rem;
+    }
+
+    .lotes-count-badge strong { color: var(--green-700); }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 12px;
+      background: var(--green-500);
+      color: white;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: var(--green-600);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(31,138,78,0.26);
+    }
+
+    .btn-primary svg { width: 16px; height: 16px; stroke: white; fill: none; stroke-width: 2.5; }
+
+    .table-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      padding: 12px 16px;
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-200);
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    tbody tr { border-bottom: 1px solid var(--gray-100); transition: background 0.12s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--gray-50); }
+    tbody td { padding: 14px 16px; font-size: 0.88rem; color: var(--gray-600); }
+
+    .lote-nombre { font-weight: 600; color: var(--gray-900); }
+    .lote-submeta { margin-top: 4px; font-size: 0.78rem; color: var(--gray-500); }
+
+    .badge-origen {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--green-50);
+      border: 1px solid var(--green-100);
+      color: var(--green-700);
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+
+    .paquetes-count { font-weight: 700; color: var(--gray-900); }
+
+    .estado-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+
+    .estado-badge::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .estado-pendiente { background: #fef3c7; color: #92400e; }
+    .estado-procesando { background: #dbeafe; color: #1d4ed8; }
+    .estado-completado { background: #dcfce7; color: #15803d; }
+    .estado-cancelado { background: #fee2e2; color: #b91c1c; }
+    .estado-pausado { background: #ffedd5; color: #9a3412; }
+
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    .btn-editar, .btn-reporte {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      color: var(--gray-500);
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-editar:hover, .btn-reporte:hover {
+      background: var(--gray-100);
+      color: var(--gray-900);
+      border-color: var(--gray-200);
+    }
+
+    .btn-reporte { color: var(--blue-700); }
+    .btn-reporte:hover { background: var(--blue-50); border-color: var(--blue-200); }
+    .btn-editar svg, .btn-reporte svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+    .btn-ver {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--green-100);
+      background: var(--green-50);
+      color: var(--green-700);
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .btn-ver:hover { background: var(--green-100); color: var(--green-800); }
+    .btn-ver svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+
+    .empty-row {
+      padding: 48px 16px !important;
+      text-align: center;
+      color: var(--gray-400);
+      font-size: 0.88rem;
+    }
+
+    .error-row { color: var(--red-700) !important; }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10,46,26,0.45);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal-box {
+      width: 100%;
+      max-width: 480px;
+      background: var(--white);
+      border-radius: 18px;
+      box-shadow: 0 24px 64px rgba(10,46,26,0.2);
+      overflow: hidden;
+      transform: translateY(20px) scale(0.98);
+      transition: transform 0.25s ease;
+    }
+
+    .modal-overlay.open .modal-box { transform: translateY(0) scale(1); }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .modal-title { font-family: 'Syne', sans-serif; font-size: 1.05rem; font-weight: 700; color: var(--green-900); }
+
+    .modal-close {
+      width: 34px;
+      height: 34px;
+      border: none;
+      border-radius: 10px;
+      background: none;
+      color: var(--gray-400);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .modal-close:hover { background: var(--gray-100); color: var(--gray-900); }
+    .modal-close svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+    .modal-body { padding: 24px; }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 16px 24px;
+      border-top: 1px solid var(--gray-100);
+    }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--green-800);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .field input {
+      padding: 10px 14px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 12px;
+      background: var(--gray-50);
+      color: var(--gray-900);
+      font-size: 0.92rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+
+    .field input:focus {
+      border-color: var(--green-400);
+      background: var(--white);
+      box-shadow: 0 0 0 3px rgba(37,168,95,0.1);
+    }
+
+    .btn-secondary {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 12px;
+      background: var(--gray-100);
+      color: var(--gray-600);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-secondary:hover { background: var(--gray-200); }
+
+    #btn-guardar-lote {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 12px;
+      background: var(--green-500);
+      color: white;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #btn-guardar-lote:hover:not(:disabled) { background: var(--green-600); }
+    #btn-guardar-lote:disabled { opacity: 0.65; cursor: not-allowed; }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .toast {
+      position: fixed;
+      top: 28px;
+      right: 28px;
+      z-index: 9999;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      min-width: 320px;
+      max-width: 420px;
+      padding: 14px 16px 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid rgba(221,230,225,0.95);
+      box-shadow: 0 18px 44px rgba(10,46,26,0.14), 0 3px 12px rgba(10,46,26,0.08);
+      backdrop-filter: blur(14px);
+      transform: translateY(-26px) scale(0.96);
+      opacity: 0;
+      pointer-events: none;
+      overflow: hidden;
+      transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .toast.show {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .toast-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .toast-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; }
+    .toast-success .toast-icon { background: #dcfce7; color: #16a34a; }
+    .toast-error .toast-icon { background: #fee2e2; color: #ef4444; }
+    .toast-info .toast-icon { background: #dbeafe; color: #2563eb; }
+    .toast-warning .toast-icon { background: #ffedd5; color: #ea580c; }
+
+    .toast-copy { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+    .toast-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--gray-900);
+      line-height: 1.1;
+    }
+
+    .toast-content {
+      font-size: 0.86rem;
+      font-weight: 500;
+      color: var(--gray-600);
+      line-height: 1.35;
+    }
+
+    .toast-progress {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      background: var(--gray-200);
+    }
+
+    .toast-progress::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--green-500);
+      transform-origin: left;
+    }
+
+    .toast-success .toast-progress::after { background: #16a34a; }
+    .toast-error .toast-progress::after { background: #ef4444; }
+    .toast-info .toast-progress::after { background: #2563eb; }
+    .toast-warning .toast-progress::after { background: #ea580c; }
+    .toast.show .toast-progress::after { animation: toast-prog 4s linear forwards; }
+    @keyframes toast-prog { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+    @media (max-width: 980px) {
+      .sidebar { transform: translateX(-100%); }
+      .main { margin-left: 0; }
+      .content { padding: 20px; }
+      #input-buscar { width: 180px; }
+      .toast { left: 16px; right: 16px; min-width: auto; max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebar"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">Rutas</div>
+        <div class="topbar-sub">Gestión de rutas diarias por sede</div>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-badge" id="user-rol">—</span>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="input-buscar" placeholder="Buscar ruta..." />
+          </div>
+          <div class="lotes-count-badge">
+            Total: <strong id="lotes-count">0</strong> rutas
+          </div>
+        </div>
+        <button class="btn-primary" id="btn-nuevo-lote">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nueva ruta
+        </button>
+      </div>
+
+      <section>
+        <h3 style="font-size:1rem; color:var(--green-800); margin-bottom:12px;">Rutas pendientes de hoy</h3>
+        <div class="table-card" style="margin-bottom:30px;">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px; text-align: center;">#</th>
+                <th>Ruta</th>
+                <th>Origen</th>
+                <th>Fecha</th>
+                <th>Paquetes</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tabla-lotes-hoy">
+              <tr><td colspan="7" class="empty-row">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h3 style="font-size:0.92rem; color:var(--gray-600); margin-bottom:12px; border-top:1px solid var(--gray-200); padding-top:20px;">Rutas finalizadas / Historial</h3>
+        <div class="table-card">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px; text-align: center;">#</th>
+                <th>Ruta</th>
+                <th>Origen</th>
+                <th>Fecha</th>
+                <th>Paquetes</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tabla-lotes-historial">
+              <tr><td colspan="7" class="empty-row">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="modal-lote">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title">Crear nueva ruta</div>
+        <button class="modal-close" id="btn-cerrar-modal">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form id="form-lote" novalidate>
+          <div style="text-align:center; padding:10px 0;">
+            <div style="width:48px; height:48px; border-radius:50%; background:var(--green-50); color:var(--green-500); display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px;">
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+            </div>
+            <p style="font-size:0.85rem; color:var(--gray-500); line-height:1.5; margin-bottom:20px;">
+              Escribe solo el nombre de la ruta. El sistema asignará el origen <strong>Temu</strong> y generará el número consecutivo automáticamente.
+            </p>
+            <div class="field" style="text-align:left;">
+              <label for="input-nombre-lote">Nombre de la ruta</label>
+              <input type="text" id="input-nombre-lote" placeholder="Ej: La Merced" />
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btn-cancelar-modal" type="button">Cancelar</button>
+        <button id="btn-guardar-lote" form="form-lote" type="submit">Crear ruta ahora</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-reporte">
+    <div class="modal-box" style="max-width: 500px;">
+      <div class="modal-header">
+        <div class="modal-title">Reporte de ruta</div>
+        <button class="modal-close" id="btn-cerrar-reporte">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="modal-body" id="reporte-body">
+        <div style="text-align:center; padding:30px; color:var(--gray-400);">Cargando métricas...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/runtime-config.js"></script>
+  <script src="js/shared-ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="components/sidebar.js"></script>
+  <script src="js/rutas.js"></script>
+</body>
+</html>
