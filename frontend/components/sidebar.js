@@ -60,10 +60,13 @@
   }
 
   function buildNavItems(user) {
-    const path = window.location.pathname.replace(/\/$/, '');
+    const path = window.location.pathname.replace(/\/$/, '').toLowerCase();
     const items = user?.es_superadmin ? SYS_ITEMS : OP_ITEMS;
     return items.map(({ href, label, icon }) => {
-      const isActive = path === href || path.startsWith(href + '/');
+      const isActive = path === href || 
+                       path.startsWith(href + '/') || 
+                       path === href + '.html' ||
+                       (href === '/panel-de-control' && (path === '/dashboard' || path === '/dashboard.html'));
       return `
         <a href="${href}" class="nav-item${isActive ? ' active' : ''}">
           <svg viewBox="0 0 24 24">${icon}</svg>
@@ -74,6 +77,10 @@
 
   function buildSidebar(user) {
     const sectionLabel = user?.es_superadmin ? 'Administración' : 'Principal';
+    const avatar = (user?.nombre || 'U').charAt(0).toUpperCase();
+    const nombre = user?.nombre || '—';
+    const sede = user?.es_superadmin ? 'Administración Central' : (user?.sede_nombre || '—');
+
     return `
       <aside class="sidebar" id="app-sidebar">
         <div class="sidebar-brand">
@@ -93,10 +100,10 @@
         <div class="sidebar-spacer"></div>
 
         <div class="sidebar-user">
-          <div class="user-avatar" id="user-avatar">U</div>
+          <div class="user-avatar" id="user-avatar">${avatar}</div>
           <div class="user-info">
-            <div class="u-name" id="user-nombre">—</div>
-            <div class="u-sede" id="user-sede">—</div>
+            <div class="u-name" id="user-nombre">${nombre}</div>
+            <div class="u-sede" id="user-sede">${sede}</div>
           </div>
           <button id="btn-logout" title="Cerrar sesión">
             <svg viewBox="0 0 24 24">
@@ -110,25 +117,32 @@
   }
 
   function hydrateSidebar() {
+    let bound = false;
     const tryHydrate = () => {
       if (typeof API === 'undefined' || typeof API.getUser !== 'function') return;
 
       const user = API.getUser();
       if (!user) return;
 
-      const avatarEl   = document.getElementById('user-avatar');
+      const avatarEl  = document.getElementById('user-avatar');
       const nombreEl  = document.getElementById('user-nombre');
       const sedeEl    = document.getElementById('user-sede');
       const logoutBtn = document.getElementById('btn-logout');
 
-      if (avatarEl)  avatarEl.textContent  = (user.nombre || 'U').charAt(0).toUpperCase();
-      if (nombreEl)  nombreEl.textContent  = user.nombre || '—';
-      if (sedeEl)    sedeEl.textContent    = user.es_superadmin ? 'Administración Central' : (user.sede_nombre || '—');
-      if (logoutBtn) logoutBtn.addEventListener('click', () => API.Auth.logout());
+      if (avatarEl) avatarEl.textContent = (user.nombre || 'U').charAt(0).toUpperCase();
+      if (nombreEl) nombreEl.textContent = user.nombre || '—';
+      if (sedeEl)   sedeEl.textContent   = user.es_superadmin ? 'Administración Central' : (user.sede_nombre || '—');
+
+      if (logoutBtn && !bound) {
+        logoutBtn.addEventListener('click', () => API.Auth.logout());
+        bound = true;
+      }
     };
 
     tryHydrate();
-    setTimeout(tryHydrate, 300);
+    // In case API initializes late, retry a couple times
+    setTimeout(tryHydrate, 100);
+    setTimeout(tryHydrate, 500);
   }
 
   function mount() {

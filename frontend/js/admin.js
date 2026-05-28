@@ -42,9 +42,12 @@ function bindForms() {
 
 function hydrateUser() {
   const user = API.getUser();
-  document.getElementById('user-nombre').textContent = user?.nombre || 'Administrador';
-  document.getElementById('user-sede').textContent = 'Administracion central';
-  document.getElementById('user-avatar').textContent = (user?.nombre || 'A').charAt(0).toUpperCase();
+  const nombreEl = document.getElementById('user-nombre');
+  const sedeEl = document.getElementById('user-sede');
+  const avatarEl = document.getElementById('user-avatar');
+  if (nombreEl) nombreEl.textContent = user?.nombre || 'Administrador';
+  if (sedeEl) sedeEl.textContent = 'Administracion central';
+  if (avatarEl) avatarEl.textContent = (user?.nombre || 'A').charAt(0).toUpperCase();
 }
 
 async function cargarTodo() {
@@ -218,7 +221,7 @@ function renderUsuarios() {
 }
 
 function syncSedeSelect() {
-  const select = document.getElementById('user-sede');
+  const select = document.getElementById('user-form-sede');
   if (!select) return;
 
   select.innerHTML = state.sedes.map((sede) => `
@@ -241,14 +244,14 @@ function openSedeModal(sede = null) {
 function openUserModal(user = null) {
   resetFeedback('user-feedback');
   document.getElementById('user-form').reset();
-  document.getElementById('user-id').value = user?.id || '';
-  document.getElementById('user-nombre').value = user?.nombre || '';
-  document.getElementById('user-usuario').value = user?.usuario || '';
-  document.getElementById('user-sede').value = user?.sede_id || state.sedes[0]?.id || '';
-  document.getElementById('user-estado').value = user?.estado || 'activo';
-  document.getElementById('user-password').value = '';
+  document.getElementById('user-form-id').value = user?.id || '';
+  document.getElementById('user-form-nombre').value = user?.nombre || '';
+  document.getElementById('user-form-usuario').value = user?.usuario || '';
+  document.getElementById('user-form-sede').value = user?.sede_id || state.sedes[0]?.id || '';
+  document.getElementById('user-form-estado').value = user?.estado || 'activo';
+  document.getElementById('user-form-password').value = '';
   document.getElementById('user-modal-title').textContent = user ? 'Editar usuario' : 'Nuevo usuario';
-  document.getElementById('user-password').placeholder = user ? 'Solo llena si deseas cambiarla' : 'Obligatoria al crear';
+  document.getElementById('user-form-password').placeholder = user ? 'Solo llena si deseas cambiarla' : 'Obligatoria al crear';
   openModal('user-modal');
 }
 
@@ -282,14 +285,14 @@ async function guardarSede(event) {
 async function guardarUsuario(event) {
   event.preventDefault();
 
-  const id = document.getElementById('user-id').value;
+  const id = document.getElementById('user-form-id').value;
   const payload = {
-    sede_id: Number(document.getElementById('user-sede').value),
-    nombre: document.getElementById('user-nombre').value.trim(),
-    usuario: document.getElementById('user-usuario').value.trim(),
+    sede_id: Number(document.getElementById('user-form-sede').value),
+    nombre: document.getElementById('user-form-nombre').value.trim(),
+    usuario: document.getElementById('user-form-usuario').value.trim(),
     rol: 'admin',
-    estado: document.getElementById('user-estado').value,
-    password: document.getElementById('user-password').value.trim()
+    estado: document.getElementById('user-form-estado').value,
+    password: document.getElementById('user-form-password').value.trim()
   };
 
   if (!id && !payload.password) {

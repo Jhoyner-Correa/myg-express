@@ -612,49 +612,7 @@
   </style>
 </head>
 <body>
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-icon">
-        <svg viewBox="0 0 24 24"><path d="M20 8H4a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2v-8a2 2 0 00-2-2zm-9 8H7v-2h4v2zm6-4H7v-2h10v2zM20 4H4L2 8h20l-2-4z"/></svg>
-      </div>
-      <div class="brand-text">MyG <span>Express</span></div>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Principal</div>
-      <a href="/panel-de-control" class="nav-item">
-        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Dashboard
-      </a>
-      <a href="/rutas" class="nav-item">
-        <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-        Rutas
-      </a>
-      <a href="/whatsapp" class="nav-item">
-        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        WhatsApp
-      </a>
-      <a href="/consulta-rutas" class="nav-item">
-        <svg viewBox="0 0 24 24"><path d="M3 7h13v10H3z"/><path d="M16 10h2l3 3v4h-5z"/><circle cx="7.5" cy="18.5" r="1.5"/><circle cx="17.5" cy="18.5" r="1.5"/></svg>
-        Consulta de rutas
-      </a>
-    </div>
-
-
-
-    <div class="sidebar-spacer"></div>
-
-    <div class="sidebar-user">
-      <div class="user-avatar" id="user-avatar">A</div>
-      <div class="user-info">
-        <div class="u-name" id="user-nombre">Administrador</div>
-        <div class="u-sede" id="user-sede">Administracion central</div>
-      </div>
-      <button id="btn-logout" title="Cerrar sesion">
-        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      </button>
-    </div>
-  </aside>
+  <div id="sidebar"></div>
 
   <div class="main">
     <header class="topbar">
@@ -840,34 +798,34 @@
       <form id="user-form">
         <div class="modal-body">
           <div id="user-feedback" class="feedback"></div>
-          <input type="hidden" id="user-id" />
+          <input type="hidden" id="user-form-id" />
           <div class="field-row">
             <div class="field">
               <label>Nombre</label>
-              <input type="text" id="user-nombre" placeholder="Nombre completo" required />
+              <input type="text" id="user-form-nombre" placeholder="Nombre completo" required />
             </div>
             <div class="field">
               <label>Usuario</label>
-              <input type="text" id="user-usuario" placeholder="usuario_login" required />
+              <input type="text" id="user-form-usuario" placeholder="usuario_login" required />
             </div>
           </div>
           <div class="field-row">
             <div class="field" style="grid-column: span 2;">
               <label>Sede</label>
-              <select id="user-sede" required></select>
+              <select id="user-form-sede" required></select>
             </div>
           </div>
           <div class="field-row">
             <div class="field">
               <label>Estado</label>
-              <select id="user-estado">
+              <select id="user-form-estado">
                 <option value="activo">Activo</option>
                 <option value="inactivo">Inactivo</option>
               </select>
             </div>
             <div class="field">
               <label>Contraseña</label>
-              <input type="password" id="user-password" placeholder="Obligatoria al crear" />
+              <input type="password" id="user-form-password" placeholder="Obligatoria al crear" />
             </div>
           </div>
         </div>
@@ -881,6 +839,7 @@
 
   <script src="js/runtime-config.js"></script>
   <script src="js/api.js"></script>
+  <script src="components/sidebar.js"></script>
   <script src="js/admin.js"></script>
 </body>
 </html>
