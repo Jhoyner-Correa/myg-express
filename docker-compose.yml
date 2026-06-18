@@ -1,0 +1,76 @@
+services:
+  redis-myg:
+    image: redis:7-alpine
+    container_name: myg-redis
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - noeviction
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-myg-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: myg-api
+    command: ["node", "dist/app.js"]
+    restart: unless-stopped
+    env_file:
+      - backend/.env
+    environment:
+      NODE_ENV: production
+      REDIS_HOST: redis-myg
+      REDIS_PORT: 6379
+      REDIS_CONNECTION_NAME: myg-express-api
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./backend/storage:/app/backend/storage
+    depends_on:
+      redis-myg:
+        condition: service_healthy
+
+  worker-whatsapp:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: myg-worker-whatsapp
+    command: ["node", "dist/worker.js"]
+    restart: unless-stopped
+    env_file:
+      - backend/.env
+    environment:
+      NODE_ENV: production
+      REDIS_HOST: redis-myg
+      REDIS_PORT: 6379
+      REDIS_CONNECTION_NAME: myg-express-worker
+      WHATSAPP_WORKER_REQUIRE_DB_LOCK: "true"
+    ports:
+      - "3001:3001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./backend/storage:/app/backend/storage
+    depends_on:
+      redis-myg:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+volumes:
+  redis-myg-data:

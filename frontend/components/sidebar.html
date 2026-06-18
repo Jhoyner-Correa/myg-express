@@ -1,75 +1,136 @@
-<aside class="sidebar" id="app-sidebar">
-  <div class="sidebar-brand">
-    <div class="brand-icon">
-      <svg viewBox="0 0 24 24">
-        <path d="M20 8H4a2 2 0 00-2 2v8a2 2 0 002 2h16a2 2 0 002-2v-8a2 2 0 00-2-2zm-9 8H7v-2h4v2zm6-4H7v-2h10v2zM20 4H4L2 8h20l-2-4z"/>
-      </svg>
+<aside class="sidebar" id="app-sidebar" data-collapsed="false" data-sidebar-ready="false">
+  <div class="sidebar__scroll">
+    <div class="sidebar__header">
+      <a class="sidebar__brand" href="/panel-de-control" aria-label="MyG Express">
+        <span class="sidebar__logo-wrap">
+          <img class="sidebar__logo" src="/img/logoblanco.png" alt="MyG Express">
+        </span>
+        <span class="sidebar__brand-text">
+          <span class="sidebar__brand-role" id="sidebar-role-label">Operador del Sistema</span>
+        </span>
+      </a>
     </div>
-    <div class="brand-text">MyG <span>Express</span></div>
-  </div>
 
-  <!-- Grupo Operaciones (Visible para Operadores/Encargados) -->
-  <div class="sidebar-section" data-group="operations">
-    <div class="sidebar-section-label">Operaciones</div>
-    <a href="/panel-de-control" class="nav-item" data-page="dashboard">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      Dashboard
-    </a>
-    <a href="/rutas" class="nav-item" data-page="rutas">
-      <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-      Rutas
-    </a>
-    <a href="/whatsapp" class="nav-item" data-page="whatsapp">
-      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-      WhatsApp
-    </a>
-    <a href="/consulta-rutas" class="nav-item" data-page="consulta-rutas">
-      <svg viewBox="0 0 24 24"><path d="M3 7h13v10H3z"/><path d="M16 10h2l3 3v4h-5z"/><circle cx="7.5" cy="18.5" r="1.5"/><circle cx="17.5" cy="18.5" r="1.5"/></svg>
-      Consulta de rutas
-    </a>
-  </div>
+    <nav class="sidebar__nav" aria-label="Menu principal">
 
-  <!-- Grupo Administración Central (Visible solo para SysAdmin) -->
-  <div class="sidebar-section" data-group="administration" style="display: none;">
-    <div class="sidebar-section-label">SaaS & Control</div>
-    <a href="/admin" class="nav-item" data-page="admin">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      Panel central
-    </a>
-  </div>
+      <div class="sidebar__section sidebar-section" data-group="operations" data-permission-any="rutas.ver,whatsapp.ver,urbano.rutas.ver">
+        <button class="sidebar__link sidebar__section-header" type="button" aria-expanded="false" title="WhatsApp Masivo">
+          <span class="sidebar__link-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 12a7.6 7.6 0 0 1-7.8 7.5 8.5 8.5 0 0 1-2.5-.38L5 20.5l1.42-4.22A7.18 7.18 0 0 1 5.4 12 7.6 7.6 0 0 1 13.2 4.5 7.6 7.6 0 0 1 21 12Z"></path>
+              <path d="M9.3 11.2h6.2"></path>
+              <path d="M9.3 14.2h3.8"></path>
+            </svg>
+          </span>
+          <span class="sidebar__link-text">WhatsApp Masivo</span>
+          <svg class="sidebar__section-arrow" viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
 
-  <!-- Grupo Infraestructura y DevOps (Fácilmente expandible para SysAdmin, muestra el nivel Enterprise) -->
-  <div class="sidebar-section" data-group="infrastructure" style="display: none;">
-    <div class="sidebar-section-label">DevOps & Infra</div>
-    <a href="#" class="nav-item disabled" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Próximamente">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      Monitoreo & Logs
-    </a>
-    <a href="#" class="nav-item disabled" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Próximamente">
-      <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-      Docker Containers
-    </a>
-    <a href="#" class="nav-item disabled" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;" title="Próximamente">
-      <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      Seguridad & APIs
-    </a>
-  </div>
+        <div class="sidebar__section-body collapsed">
+          <div class="sidebar__menu sidebar__menu--nested">
+            <a href="/rutas" class="nav-item sidebar__sub-link" data-page="rutas" data-permission="rutas.ver" title="Rutas">
+              <span class="sidebar__sub-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+              </span>
+              <span>Rutas</span>
+            </a>
 
-  <div class="sidebar-spacer"></div>
+            <a href="/whatsapp" class="nav-item sidebar__sub-link" data-page="whatsapp" data-permission="whatsapp.ver" title="WhatsApp">
+              <span class="sidebar__sub-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6.6 4.8 8.35 4a1.35 1.35 0 0 1 1.72.58l1.15 2.02a1.35 1.35 0 0 1-.24 1.62l-.92.92a10.6 10.6 0 0 0 4.8 4.8l.92-.92a1.35 1.35 0 0 1 1.62-.24l2.02 1.15a1.35 1.35 0 0 1 .58 1.72l-.8 1.75a2.8 2.8 0 0 1-2.95 1.6C10.3 18.1 5.9 13.7 5 7.75a2.8 2.8 0 0 1 1.6-2.95Z"></path>
+                </svg>
+              </span>
+              <span>WhatsApp</span>
+            </a>
 
-  <!-- Información del Usuario y Cierre de Sesión -->
-  <div class="sidebar-user">
-    <div class="user-avatar" id="user-avatar">U</div>
-    <div class="user-info">
-      <div class="u-name" id="user-nombre">—</div>
-      <div class="u-sede" id="user-sede">—</div>
+            <a href="/consulta-rutas" class="nav-item sidebar__sub-link" data-page="consulta-rutas" data-permission="urbano.rutas.ver" title="Consulta de rutas">
+              <span class="sidebar__sub-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 7h13v10H3z"></path>
+                  <path d="M16 10h2l3 3v4h-5z"></path>
+                  <circle cx="7.5" cy="18.5" r="1.5"></circle>
+                  <circle cx="17.5" cy="18.5" r="1.5"></circle>
+                </svg>
+              </span>
+              <span>Consulta de rutas</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar__section sidebar-section" data-group="tools" data-permission-any="entregas.ver">
+        <a href="/gestion-entregas" class="nav-item sidebar__link" data-page="gestion-entregas" data-permission="entregas.ver" title="Gestión de entregas">
+          <span class="sidebar__link-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+              <path d="M9 14l2 2 4-4"></path>
+            </svg>
+          </span>
+          <span class="sidebar__link-text">Gestión de entregas</span>
+        </a>
+      </div>
+
+      <div class="sidebar__section sidebar-section" data-group="tools" data-permission-any="rutas.ver">
+        <a href="/etiquetas" class="nav-item sidebar__link" data-permission="rutas.ver" title="Generar etiquetas">
+          <span class="sidebar__link-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+              <line x1="7" y1="7" x2="7.01" y2="7"></line>
+            </svg>
+          </span>
+          <span class="sidebar__link-text">Generar etiquetas</span>
+        </a>
+      </div>
+
+      <div class="sidebar__section sidebar-section" data-group="administration" data-permission-any="admin.panel.ver">
+        <div class="sidebar__menu">
+          <a href="/admin" class="nav-item sidebar__link" data-page="admin" data-permission="admin.panel.ver" title="Panel central">
+            <span class="sidebar__link-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+              </svg>
+            </span>
+            <span class="sidebar__link-text">Panel central</span>
+          </a>
+        </div>
+      </div>
+
+    </nav>
+
+    <div class="sidebar__spacer"></div>
+
+    <div class="sidebar__footer">
+      <div class="sidebar__user-card">
+        <div class="sidebar__avatar" id="user-avatar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.25"/>
+            <circle cx="12" cy="9.55" r="2.35"/>
+            <path d="M7.8 16.65c.78-2.1 2.32-3.15 4.2-3.15s3.42 1.05 4.2 3.15"/>
+          </svg>
+        </div>
+        <div class="sidebar__user-info">
+          <div class="sidebar__user-name" id="user-nombre">LA MERCED</div>
+          <div class="sidebar__user-role" id="user-sede">merced</div>
+        </div>
+        <button class="sidebar__logout" id="btn-logout" type="button" title="Cerrar sesion" aria-label="Cerrar sesion">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </button>
+      </div>
     </div>
-    <button id="btn-logout" title="Cerrar sesión">
-      <svg viewBox="0 0 24 24">
-        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-        <polyline points="16 17 21 12 16 7"/>
-        <line x1="21" y1="12" x2="9" y2="12"/>
-      </svg>
-    </button>
   </div>
 </aside>

@@ -4,20 +4,26 @@ import {
   cancelarPendientesLoteWhatsApp,
   enviarLoteWhatsApp,
   marcarLoteWhatsAppManual,
+  pausarLoteWhatsApp,
   reanudarLoteWhatsAppInterrumpido
 } from '../controllers/whatsappLoteController';
 import { recibirWebhookEvolution } from '../controllers/whatsappSesionesController';
+import { PERMISSIONS } from '../constants/permissions';
 import { verificarToken } from '../middlewares/authMiddleware';
+import { requirePermission } from '../middlewares/permissionMiddleware';
 
 const router = Router();
 
-router.post('/send', verificarToken, sendWhatsAppMessage);
-router.post('/enviar-lote', verificarToken, enviarLoteWhatsApp);
-router.post('/lotes/:loteId/resume', verificarToken, reanudarLoteWhatsAppInterrumpido);
-router.post('/lotes/:loteId/mark-manual', verificarToken, marcarLoteWhatsAppManual);
-router.post('/lotes/:loteId/cancel-pending', verificarToken, cancelarPendientesLoteWhatsApp);
-
 // Webhook para recibir notificaciones desde Evolution API (autenticado internamente mediante apiKey)
 router.post('/webhook*', recibirWebhookEvolution);
+
+router.use(verificarToken, requirePermission(PERMISSIONS.WHATSAPP_MANAGE));
+
+router.post('/send', sendWhatsAppMessage);
+router.post('/enviar-lote', enviarLoteWhatsApp);
+router.post('/lotes/:loteId/pause', pausarLoteWhatsApp);
+router.post('/lotes/:loteId/resume', reanudarLoteWhatsAppInterrumpido);
+router.post('/lotes/:loteId/mark-manual', marcarLoteWhatsAppManual);
+router.post('/lotes/:loteId/cancel-pending', cancelarPendientesLoteWhatsApp);
 
 export default router;

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Generar etiquetas &mdash; MyG Express</title>
+  <link rel="icon" type="image/png" href="img/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/shared-ui.css">
+  <script src="js/sidebar-preload.js"></script>
+  <link rel="stylesheet" href="/css/sidebar.css?v=38">
+  <style>
+    body {
+      margin: 0;
+      background: #f8fafc;
+    }
+    .etq-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 80vh;
+      text-align: center;
+      padding: 40px 20px;
+      animation: etqFadeIn 0.7s ease-out;
+    }
+    .etq-icon {
+      width: 80px;
+      height: 80px;
+      background: #f0fdf4;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+    .etq-icon svg {
+      width: 38px;
+      height: 38px;
+      stroke: #16a34a;
+      stroke-width: 1.8;
+      fill: none;
+    }
+    .etq-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.7rem;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+    .etq-sub {
+      font-size: 1rem;
+      color: #64748b;
+      max-width: 400px;
+      line-height: 1.6;
+    }
+    .etq-badge {
+      margin-top: 24px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      background: #f1f5f9;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #475569;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .etq-badge svg {
+      width: 14px;
+      height: 14px;
+      stroke: #94a3b8;
+      stroke-width: 2;
+    }
+    @keyframes etqFadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebar-container"></div>
+
+  <div class="main">
+    <main class="content">
+      <div class="etq-wrapper">
+        <div class="etq-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+            <line x1="7" y1="7" x2="7.01" y2="7"/>
+          </svg>
+        </div>
+        <h1 class="etq-title">Generador de etiquetas</h1>
+        <p class="etq-sub">Esta funcionalidad se encuentra en desarrollo. Estará disponible próximamente.</p>
+        <span class="etq-badge">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Próximamente
+        </span>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/shared-ui.js"></script>
+  <script src="js/runtime-config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="components/sidebar.js"></script>
+</body>
+</html>

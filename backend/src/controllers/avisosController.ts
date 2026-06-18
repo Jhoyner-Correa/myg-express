@@ -6,7 +6,32 @@ function normalizarTelefono(telefono: string): string {
   return String(telefono || '').replace(/[^\d]/g, '').trim();
 }
 
-// Crear aviso
+function normalizarTextoOpcional(value: unknown, maxLength: number): string | null {
+  const clean = String(value ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return clean ? clean.slice(0, maxLength) : null;
+}
+
+function normalizarPesoKg(value: unknown): number | null {
+  const raw = String(value ?? '')
+    .replace(',', '.')
+    .replace(/[^\d.]/g, '')
+    .trim();
+
+  if (!raw) return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed >= 100000) return null;
+  return Number(parsed.toFixed(3));
+}
+
+function normalizarEnteroPositivo(value: unknown): number | null {
+  const parsed = Number(String(value ?? '').replace(/[^\d]/g, ''));
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 9999) return null;
+  return Math.floor(parsed);
+}
 
 // Crear aviso
 export const crearAviso = async (req: AuthRequest, res: Response) => {
@@ -16,6 +41,10 @@ export const crearAviso = async (req: AuthRequest, res: Response) => {
       nombre,
       telefono,
       codigo_paquete,
+      peso_kg,
+      tipo_paquete_urbano,
+      piezas,
+      contenido_paquete,
       id_plantilla,
       mensaje
     } = req.body;
@@ -55,14 +84,18 @@ export const crearAviso = async (req: AuthRequest, res: Response) => {
 
     const [result]: any = await pool.query(
       `INSERT INTO avisos_diarios
-      (lote_id, sede_id, nombre, telefono, codigo_paquete, id_plantilla, mensaje_personalizado)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      (lote_id, sede_id, nombre, telefono, codigo_paquete, peso_kg, tipo_paquete_urbano, piezas, contenido_paquete, id_plantilla, mensaje_personalizado)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         lote_id,
         sede_id,
         nombre || null,
         limpioTelefono,
         codigo_paquete || null,
+        normalizarPesoKg(peso_kg),
+        normalizarTextoOpcional(tipo_paquete_urbano, 80),
+        normalizarEnteroPositivo(piezas),
+        normalizarTextoOpcional(contenido_paquete, 255),
         id_plantilla || null,
         mensaje || null
       ]
@@ -99,11 +132,18 @@ export const listarAvisosPorLote = async (req: AuthRequest, res: Response) => {
         nombre,
         telefono,
         codigo_paquete,
+        peso_kg,
+        tipo_paquete_urbano,
+        piezas,
+        contenido_paquete,
         id_plantilla,
         mensaje_personalizado,
         estado_aviso,
+        estado_entrega,
         whatsapp_message_id,
         fecha_envio,
+        fecha_entrega,
+        observacion_entrega,
         created_at
       FROM avisos_diarios
       WHERE lote_id = ? AND sede_id = ?
@@ -138,7 +178,7 @@ export const actualizarEstadoAviso = async (req: AuthRequest, res: Response) => 
       });
     }
 
-    const estadosValidos = ['pendiente', 'en_cola', 'enviado', 'fallido', 'sin_whatsapp', 'cancelado'];
+    const estadosValidos = ['pendiente', 'en_cola', 'enviado', 'enviado_manual', 'fallido', 'sin_whatsapp', 'cancelado'];
 
     if (!estadosValidos.includes(estado_aviso)) {
       return res.status(400).json({
@@ -208,6 +248,10 @@ export const importarAvisos = async (req: AuthRequest, res: Response) => {
         nombre: item.nombre?.trim() || null,
         telefono: normalizarTelefono(item.telefono),
         codigo_paquete: item.codigo_paquete?.trim() || null,
+        peso_kg: normalizarPesoKg(item.peso_kg ?? item.peso),
+        tipo_paquete_urbano: normalizarTextoOpcional(item.tipo_paquete_urbano ?? item.tipo_paquete, 80),
+        piezas: normalizarEnteroPositivo(item.piezas),
+        contenido_paquete: normalizarTextoOpcional(item.contenido_paquete ?? item.contenido, 255),
         id_plantilla: item.id_plantilla || null,
         mensaje_personalizado: item.mensaje?.trim() || null
       }))
@@ -228,13 +272,17 @@ export const importarAvisos = async (req: AuthRequest, res: Response) => {
       aviso.nombre,
       aviso.telefono,
       aviso.codigo_paquete,
+      aviso.peso_kg,
+      aviso.tipo_paquete_urbano,
+      aviso.piezas,
+      aviso.contenido_paquete,
       aviso.id_plantilla,
       aviso.mensaje_personalizado
     ]);
 
     await connection.query(
       `INSERT INTO avisos_diarios
-      (lote_id, sede_id, nombre, telefono, codigo_paquete, id_plantilla, mensaje_personalizado)
+      (lote_id, sede_id, nombre, telefono, codigo_paquete, peso_kg, tipo_paquete_urbano, piezas, contenido_paquete, id_plantilla, mensaje_personalizado)
       VALUES ?`,
       [values]
     );

@@ -7,6 +7,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
     "dev:worker": "ts-node-dev --respawn --transpile-only src/worker.ts",
     "build": "tsc",
+    "configurar:urbano-sede": "ts-node src/scripts/configurarUrbanoSede.ts",
     "start": "node dist/app.js",
     "start:worker": "node dist/worker.js"
   },

@@ -1,515 +1,883 @@
-const POLL_MS = 15000;
-const QR_POLL_MS = 5000;
+const WHATSAPP_POLL_MS = 15000;
+const WHATSAPP_QR_POLL_MS = 5000;
+const QR_VISIBLE_SECONDS = 60;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  if(typeof API !== 'undefined'){
+  if (typeof API !== 'undefined') {
     API.Auth?.requireAuth?.();
     API.ensureSuperadminSidebar?.();
   }
 
   const user = typeof API !== 'undefined' ? API.getUser?.() : null;
-  const S = {
-    sesiones:[],openQr:new Set(),timers:{},
-    pendingDel:null,mainTimer:null,qrTimer:null,loading:false,sync:null
+  const state = {
+    sesiones: [],
+    openQr: new Set(),
+    qrCache: new Map(),
+    qrFetches: new Set(),
+    qrTimers: new Map(),
+    mainTimer: null,
+    qrPollTimer: null,
+    loading: false,
+    syncAt: null
   };
 
-  hydrateChrome(user);
-  bindModals();
-  await load();
-  startPoll();
-  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) load(true); });
-  window.addEventListener('beforeunload',cleanup);
+  const dom = {
+    grid: document.getElementById('sessions-grid'),
+    empty: document.getElementById('empty-state'),
+    userRole: document.getElementById('user-rol'),
 
-  function hydrateChrome(u){
-    set('user-nombre', u?.nombre||'Usuario');
-    set('user-sede', u?.sede_nombre||'-');
-    set('user-rol', u?.rol||'-');
-    set('user-avatar', (u?.nombre||'U')[0].toUpperCase());
-    document.getElementById('btn-logout')?.addEventListener('click',()=>API.Auth?.logout?.());
-  }
 
-  async function load(silent=false){
-    if(S.loading) return;
-    if(!silent){
-      document.getElementById('sessions-grid').innerHTML = renderSkel();
-      document.getElementById('empty-state').style.display='none';
+    overlay: document.getElementById('overlay-session'),
+    modalTitle: document.getElementById('m-title'),
+    modalSub: document.getElementById('m-sub'),
+    modalFeedback: document.getElementById('m-feedback'),
+    deviceInput: document.getElementById('m-device'),
+    saveBtn: document.getElementById('btn-save-m')
+  };
+
+  setUserRole(user);
+  bindModalEvents();
+  bindSessionActions();
+  await loadSessions();
+  startPolling();
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) loadSessions(true);
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && dom.overlay?.classList.contains('open')) {
+      closeModal();
     }
-    S.loading=true;
-    try{
-      const data = await API.WhatsAppSesiones?.listar?.();
-      const raw = data?.data||[];
-      S.sesiones = raw.map(s=>({...s,estado_real:String(s.estado_real||s.estado||'disconnected').toLowerCase()}));
-      S.sync = new Date();
-      renderAll();
-    }catch(e){
-      if(!silent) renderWorkerUnavailableState(e);
-    }finally{
-      S.loading=false;
+  });
+
+  window.addEventListener('beforeunload', cleanup);
+
+  function setUserRole(currentUser) {
+    if (!dom.userRole) return;
+    dom.userRole.textContent = currentUser?.rol_label || currentUser?.rol || 'Encargado de Oficina';
+  }
+
+  async function loadSessions(silent = false) {
+    if (state.loading) return;
+    state.loading = true;
+
+    if (!silent) {
+      renderSkeleton();
+    }
+
+    try {
+      const response = await API.WhatsAppSesiones?.listar?.();
+      state.sesiones = normalizeSessions(response?.data || []);
+      state.syncAt = new Date();
+      renderPage();
+    } catch (error) {
+      if (!silent) {
+        renderUnavailable(error);
+      }
+    } finally {
+      state.loading = false;
     }
   }
 
-  function startPoll(){
-    if(S.mainTimer) clearInterval(S.mainTimer);
-    S.mainTimer = setInterval(()=>{ if(!document.hidden) load(true); }, POLL_MS);
-    syncQrPoll();
+  function normalizeSessions(rows) {
+    return rows.map(session => ({
+      ...session,
+      estado_real: String(session.estado_real || session.estado || 'disconnected').toLowerCase()
+    }));
   }
 
-  function syncQrPoll(){
-    if(S.qrTimer){ clearInterval(S.qrTimer); S.qrTimer=null; }
-    if(S.openQr.size===0) return;
-    S.qrTimer = setInterval(()=>{ if(!document.hidden) load(true); }, QR_POLL_MS);
+  function startPolling() {
+    clearInterval(state.mainTimer);
+    state.mainTimer = setInterval(() => {
+      if (!document.hidden) loadSessions(true);
+    }, WHATSAPP_POLL_MS);
+    syncQrPolling();
   }
 
-  function cleanup(){
-    if(S.mainTimer) clearInterval(S.mainTimer);
-    if(S.qrTimer) clearInterval(S.qrTimer);
-    Object.keys(S.timers).forEach(id=>clearTimer(id));
+  function syncQrPolling() {
+    clearInterval(state.qrPollTimer);
+    state.qrPollTimer = null;
+
+    if (!state.openQr.size) return;
+
+    state.qrPollTimer = setInterval(() => {
+      if (!document.hidden) loadSessions(true);
+    }, WHATSAPP_QR_POLL_MS);
   }
 
-  function renderAll(){
-    const grid = document.getElementById('sessions-grid');
-    const empty = document.getElementById('empty-state');
-    const primary = S.sesiones[0]||null;
-    const conn = primary && isConn(primary.estado_real);
+  function cleanup() {
+    clearInterval(state.mainTimer);
+    clearInterval(state.qrPollTimer);
+    state.qrTimers.forEach(timer => clearInterval(timer));
+    state.qrTimers.clear();
+  }
 
-    set('count-total', primary?1:0);
-    set('count-activas', conn?1:0);
-    set('count-inactivas', primary&&!conn?1:0);
-    set('count-hora', fmtTime(S.sync));
-    set('count-fecha', fmtDate(S.sync));
-    syncUI();
+  function renderPage() {
+    const primary = state.sesiones[0] || null;
 
-    if(!primary){
-      grid.innerHTML='';
-      empty.style.display='flex';
-      bindEvents();
+    updateModalCopy();
+
+    if (!dom.grid || !dom.empty) return;
+
+    if (!primary) {
+      dom.grid.innerHTML = '';
+      renderEmpty({
+        title: 'Sin dispositivo configurado',
+        text: 'Conecta un dispositivo WhatsApp para habilitar el canal de mensajeria de esta sede.',
+        variant: 'setup'
+      });
       return;
     }
-    empty.style.display='none';
-    grid.innerHTML = renderCard(primary);
-    bindEvents();
-    restoreQr();
+
+    dom.empty.style.display = 'none';
+    dom.grid.innerHTML = renderSessionCard(primary);
+    restoreOpenQrPanels();
   }
 
-  function renderWorkerUnavailableState(error){
-    const grid = document.getElementById('sessions-grid');
-    const empty = document.getElementById('empty-state');
+  function renderSkeleton() {
+    if (!dom.grid) return;
+    dom.grid.innerHTML = `
+      <div class="wa-sk-card">
+        <div class="wa-sk wa-sk-h"></div>
+        <div class="wa-sk wa-sk-t"></div>
+        <div class="wa-sk wa-sk-l"></div>
+        <div class="wa-sk wa-sk-l s"></div>
+        <div class="wa-sk wa-sk-l"></div>
+        <div class="wa-sk wa-sk-l s"></div>
+      </div>`;
+    if (dom.empty) dom.empty.style.display = 'none';
+  }
+
+  function renderUnavailable(error) {
     const message = error?.serviceUnavailable
-      ? 'El servicio de WhatsApp esta temporalmente fuera de linea. El resto del sistema sigue funcionando normal.'
-      : (error?.message || 'No se pudieron cargar las sesiones de WhatsApp.');
+      ? 'El servicio de mensajería está temporalmente fuera de línea. El resto del sistema continúa operando con normalidad.'
+      : error?.message || 'No se pudieron cargar los datos del dispositivo.';
 
-    S.sesiones = [];
-    set('count-total', 0);
-    set('count-activas', 0);
-    set('count-inactivas', 0);
-    set('count-hora', '--:--');
-    set('count-fecha', 'Sin sincronizacion');
-    syncUI();
+    state.sesiones = [];
 
-    if (grid) {
-      grid.innerHTML = '';
-    }
-
-    if (empty) {
-      empty.style.display = 'flex';
-      empty.innerHTML = `
-        <div class="empty-state-icon">
-          <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.75V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.25A7 7 0 0 0 12 2z"/><path d="M5 5l14 14"/></svg>
-        </div>
-        <div class="empty-state-content">
-          <h3>Worker de WhatsApp no disponible</h3>
-          <p>${esc(message)}</p>
-        </div>
-      `;
-    }
-
-    toast(message,'error');
-  }
-
-  function renderCard(s){
-    const est = s.estado_real;
-    const conn = isConn(est);
-    const numero = s.numero_whatsapp||'Sin numero';
-    const ultima = s.ultima_conexion ? fmtDateLong(s.ultima_conexion) : 'Sin conexion registrada';
-    return `
-<div class="session-card" data-id="${s.id}">
-  <div class="sc-header">
-    <div class="sc-identity">
-      <div class="sc-icon">
-        <div class="sc-icon-pulse"></div>
-        <svg viewBox="0 0 24 24"><path d="M20.52 3.48A11.85 11.85 0 0 0 12.05 0C5.52 0 .2 5.31.2 11.85c0 2.09.54 4.13 1.57 5.93L0 24l6.39-1.68a11.8 11.8 0 0 0 5.66 1.44h.01c6.53 0 11.85-5.31 11.85-11.85 0-3.17-1.24-6.14-3.39-8.43zM12.06 21.7h-.01a9.8 9.8 0 0 1-4.99-1.36l-.36-.21-3.79 1 1.01-3.69-.23-.38a9.8 9.8 0 0 1-1.5-5.21c0-5.43 4.42-9.85 9.86-9.85 2.63 0 5.09 1.02 6.95 2.89a9.79 9.79 0 0 1 2.89 6.96c0 5.43-4.42 9.85-9.84 9.85zm5.4-7.36c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15s-.77.97-.95 1.17c-.17.2-.35.22-.65.07-.3-.15-1.28-.47-2.43-1.49-.9-.8-1.51-1.79-1.68-2.09-.18-.3-.02-.46.13-.61.14-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.21 5.1 4.5.71.31 1.27.49 1.71.63.72.23 1.37.2 1.88.12.57-.09 1.77-.72 2.02-1.41.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z"/></svg>
-      </div>
-      <div>
-        <div class="sc-name">${esc(s.nombre_dispositivo||'Dispositivo sin nombre')}</div>
-        <div class="sc-sub">WhatsApp oficial configurado para esta sede</div>
-      </div>
-    </div>
-    <div class="sc-badges">
-      <span class="badge ${conn?'badge-active':'badge-idle'}">
-        <span class="badge-dot"></span>
-        ${conn?'Activa':fmtStatus(est)}
-      </span>
-      <span class="badge badge-ws ws-${est}">${fmtStatus(est)}</span>
-    </div>
-  </div>
-
-  <div class="sc-body">
-    <div class="sc-chips">
-      <div class="chip">
-        <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.95 10.91 19.79 19.79 0 0 1 .88 2.27 2 2 0 0 1 2.86.09h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 7.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-        <strong>${esc(numero)}</strong>
-      </div>
-      <div class="chip">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
-        <strong>${esc(ultima)}</strong>
-      </div>
-      ${s.created_at?`<div class="chip"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><strong>Registrada: ${esc(fmtDateLong(s.created_at))}</strong></div>`:''}
-    </div>
-
-    <div class="sc-grid">
-      <div class="sg-item">
-        <div class="sg-lbl">Estado del cliente</div>
-        <div class="sg-val">${esc(fmtStatus(est))}</div>
-        <div class="sg-copy">Estado actual reportado por el servidor</div>
-      </div>
-      <div class="sg-item">
-        <div class="sg-lbl">Numero vinculado</div>
-        <div class="sg-val">${esc(numero)}</div>
-        <div class="sg-copy">Numero de referencia registrado</div>
-      </div>
-      <div class="sg-item">
-        <div class="sg-lbl">Ultima sincronizacion</div>
-        <div class="sg-val" id="sync-display">${fmtTime(S.sync)}</div>
-        <div class="sg-copy">${fmtDate(S.sync)}</div>
-      </div>
-    </div>
-
-    <div id="qr-panel-${s.id}" style="display:none">
-      <div class="qr-wrap">
-        <div class="qr-head">
-          <div class="qr-title">
-            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-            Escanear codigo QR
-          </div>
-          <button class="qr-close" type="button" data-action="close-qr" data-id="${s.id}">
-            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-        <p class="qr-inst">Abre <strong>WhatsApp</strong> -> <strong>Dispositivos vinculados</strong> -> <strong>Vincular dispositivo</strong></p>
-        <div class="qr-status-row">
-          <span class="qr-pill loading" id="qr-pill-${s.id}">Preparando QR</span>
-          <span class="qr-timer" id="qr-timer-${s.id}">Esperando...</span>
-        </div>
-        <div class="qr-display" id="qr-display-${s.id}">
-          <div class="qr-loading">
-            <span class="spin"></span>
-            <span>Generando QR...</span>
-            <small>Esto puede tardar unos segundos.</small>
-          </div>
-        </div>
-        <div class="qr-track"><span class="qr-bar" id="qr-bar-${s.id}"></span></div>
-        <div class="qr-foot">
-          <span class="qr-helper" id="qr-helper-${s.id}">Cuando aparezca el codigo, escanealo desde tu celular.</span>
-          <button class="btn-qr-refresh" type="button" data-action="refresh-qr" data-id="${s.id}">
-            <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
-            Actualizar
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="sc-actions">
-    ${conn?
-      `<button class="btn btn-ghost" data-action="status" data-id="${s.id}"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg>Ver estado</button>`
-    :
-      `<button class="btn btn-blue" data-action="qr" data-id="${s.id}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Abrir QR</button>`
-    }
-    <button class="btn btn-amber" data-action="reconnect" data-id="${s.id}" ${est==='initializing'?'disabled':''}>
-      <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>Reconectar
-    </button>
-    <button class="btn btn-red" data-action="logout" data-id="${s.id}">
-      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Cerrar sesion
-    </button>
-    <button class="btn btn-ghost" data-action="change">
-      <svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>Cambiar WhatsApp
-    </button>
-    <button class="btn btn-dark" data-action="delete" data-id="${s.id}">
-      <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Eliminar
-    </button>
-  </div>
-</div>`;
-  }
-
-  function renderSkel(){
-    return `<div class="sk-card skeleton-card"><div class="sk sk-h"></div><div class="sk sk-t"></div><div class="sk sk-l"></div><div class="sk sk-l s"></div><div class="sk sk-l"></div></div>`;
-  }
-
-  function bindEvents(){
-    on('delete', btn=>{
-      const id=+btn.dataset.id;
-      const s=byId(id);
-      openDel(id, s?.nombre_dispositivo||'este dispositivo');
+    if (dom.grid) dom.grid.innerHTML = '';
+    renderEmpty({
+      title: 'Servicio temporalmente fuera de línea',
+      text: message,
+      icon: ICONS.offline,
+      variant: 'error'
     });
-    on('qr', btn=>openQr(+btn.dataset.id));
-    on('status', btn=>doAction('status',+btn.dataset.id));
-    on('reconnect', btn=>doAction('reconnect',+btn.dataset.id));
-    on('logout', btn=>doAction('logout',+btn.dataset.id));
-    on('close-qr', btn=>closeQr(+btn.dataset.id));
-    on('refresh-qr', btn=>refreshQr(+btn.dataset.id));
-    on('change', ()=>openModal());
+
+    toast(message, 'error');
   }
 
-  function on(action, cb){
-    document.querySelectorAll(`[data-action="${action}"]`).forEach(b=>b.addEventListener('click',()=>cb(b)));
+  function renderEmpty({ title, text, icon, variant = 'setup' }) {
+    if (!dom.empty) return;
+    dom.empty.className = `wa-empty is-${variant}`;
+    dom.empty.style.display = variant === 'setup' ? 'grid' : 'flex';
+    if (variant === 'setup') {
+      dom.empty.innerHTML = `
+        <div class="wa-empty-hero" aria-hidden="true">
+          <span class="wa-empty-orbit orbit-one"></span>
+          <span class="wa-empty-orbit orbit-two"></span>
+          <span class="wa-empty-orbit-dot dot-one"></span>
+          <span class="wa-empty-orbit-dot dot-two"></span>
+          <span class="wa-empty-orbit-dot dot-three"></span>
+          <img src="/img/whatsapp-hero-3d-crop.png" alt="" loading="eager">
+        </div>
+        <strong>Sin dispositivo configurado</strong>
+        <span>Conecta un dispositivo WhatsApp para habilitar el canal de mensajeria de esta sede.</span>
+        <div class="wa-empty-benefits" aria-label="Beneficios del dispositivo WhatsApp">
+          <div class="wa-empty-benefit">
+            <div class="wa-empty-benefit-icon">${ICONS.shield}</div>
+            <b>Conexion segura</b>
+            <small>Tus datos y conversaciones siempre protegidos.</small>
+          </div>
+          <div class="wa-empty-benefit">
+            <div class="wa-empty-benefit-icon">${ICONS.clock}</div>
+            <b>En tiempo real</b>
+            <small>Sincronizacion inmediata de mensajes y estados.</small>
+          </div>
+          <div class="wa-empty-benefit">
+            <div class="wa-empty-benefit-icon">${ICONS.message}</div>
+            <b>Comunicacion efectiva</b>
+            <small>Envia y recibe mensajes de manera rapida y organizada.</small>
+          </div>
+        </div>
+        <button class="ge-primary-btn wa-empty-btn" type="button" id="btn-open-modal-empty">
+          ${ICONS.qr}
+          Configurar dispositivo
+        </button>
+        <button class="wa-empty-help" type="button">Como conectar mi dispositivo</button>`;
+      const emptyBtn = document.getElementById('btn-open-modal-empty');
+      if (emptyBtn) emptyBtn.addEventListener('click', openModal);
+      const helpBtn = dom.empty.querySelector('.wa-empty-help');
+      if (helpBtn) {
+        helpBtn.addEventListener('click', () => {
+          toast('Registra el dispositivo, abre el QR y escanealo desde WhatsApp > Dispositivos vinculados.', 'info');
+        });
+      }
+      return;
+    }
+
+    dom.empty.innerHTML = `
+      <div class="wa-empty-icon">${icon}</div>
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(text)}</span>
+      <button class="ge-primary-btn wa-empty-btn" type="button" id="btn-open-modal-empty">
+        <svg viewBox="0 0 24 24" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Configurar dispositivo
+      </button>`;
+    const emptyBtn = document.getElementById('btn-open-modal-empty');
+    if (emptyBtn) emptyBtn.addEventListener('click', openModal);
   }
 
-  function bindModals(){
-    document.getElementById('btn-open-modal')?.addEventListener('click', openModal);
+  function renderSessionCard(session) {
+    const status = session.estado_real;
+    const connected = isConnected(status);
+    const phone = session.numero_whatsapp || 'No registrado';
+    const lastConnection = session.ultima_conexion
+      ? formatDateTime(session.ultima_conexion)
+      : 'Sin registro de conexión';
+    const createdAt = session.created_at
+      ? formatDateTime(session.created_at)
+      : '-';
+
+    return `
+      <article class="wa-device-card ${connected ? 'is-connected' : 'is-offline'}" data-id="${session.id}">
+        <div class="wa-device-header">
+          <div class="wa-device-info-group">
+            <div class="wa-device-icon">
+              <img src="/img/whatsapp-hero-3d-crop.png" alt="" loading="eager">
+            </div>
+            <div>
+              <div class="wa-device-name">${escapeHtml(session.nombre_dispositivo || 'Dispositivo sin nombre')}</div>
+              <div class="wa-device-sub">Dispositivo oficial de la sede</div>
+            </div>
+          </div>
+          <div class="wa-device-status">
+            <div class="wa-status-copy">
+              <span class="wa-status-badge ${escapeAttr(status)}">
+                <span class="wa-status-dot"></span>
+                ${connected ? 'Conectado' : 'Desconectado'}
+              </span>
+              <span class="wa-status-label">Estado del dispositivo</span>
+              <span class="wa-status-memory">Memoria en uso: <strong>116 MB</strong></span>
+            </div>
+            <span class="wa-status-signal" aria-hidden="true">${ICONS.signal}</span>
+          </div>
+        </div>
+
+        <div class="wa-device-body">
+          <div class="wa-device-meta">
+            <div class="wa-meta-item">
+              <div class="wa-meta-icon">${ICONS.phone}</div>
+              <div class="wa-meta-copy">
+                <span class="wa-meta-label">Número</span>
+                <div class="wa-meta-value">${escapeHtml(phone)}<span class="wa-copy-trigger" data-action="copy" data-phone="${escapeAttr(session.numero_whatsapp || '')}" title="Copiar número">${ICONS.copy}</span></div>
+              </div>
+            </div>
+            <div class="wa-meta-item">
+              <div class="wa-meta-icon">${ICONS.clock}</div>
+              <div class="wa-meta-copy">
+                <span class="wa-meta-label">Última conexión</span>
+                <div class="wa-meta-value">${escapeHtml(lastConnection)}</div>
+              </div>
+            </div>
+            <div class="wa-meta-item">
+              <div class="wa-meta-icon">${ICONS.calendar}</div>
+              <div class="wa-meta-copy">
+                <span class="wa-meta-label">Registrado</span>
+                <div class="wa-meta-value">${escapeHtml(createdAt)}</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="qr-panel-${session.id}" style="display:none">
+            ${renderQrPanel(session)}
+          </div>
+        </div>
+
+        <div class="wa-device-actions">
+          ${renderDeviceActions(session)}
+        </div>
+      </article>`;
+  }
+
+  function renderDeviceActions(session) {
+    return `
+      <button class="wa-action-btn outline" type="button" data-action="qr" data-id="${session.id}">
+        ${ICONS.qr}<span>Abrir QR</span>
+      </button>
+      <button class="wa-action-btn outline" type="button" data-action="reconnect" data-id="${session.id}">
+        ${ICONS.refresh}<span>Reconectar</span>
+      </button>
+      <button class="wa-action-btn outline" type="button" data-action="change" data-id="${session.id}">
+        ${ICONS.switch}<span>Reemplazar dispositivo</span>
+      </button>
+      <button class="wa-action-btn outline" type="button" data-action="delete" data-id="${session.id}">
+        ${ICONS.trash}<span>Eliminar dispositivo</span>
+      </button>`;
+  }
+
+  function renderQrPanel(session) {
+    return `
+      <div class="wa-qr-wrap">
+        <div class="wa-qr-head">
+          <div class="wa-qr-title">${ICONS.qr}Vincular dispositivo</div>
+          <button class="wa-qr-close" type="button" data-action="close-qr" data-id="${session.id}" aria-label="Cerrar QR">
+            ${ICONS.close}
+          </button>
+        </div>
+        <p class="wa-qr-inst">Abra <strong>WhatsApp</strong> &gt; <strong>Dispositivos vinculados</strong> &gt; <strong>Vincular dispositivo</strong> y escanee el código.</p>
+        <div class="wa-qr-status">
+          <span class="wa-qr-pill loading" id="qr-pill-${session.id}">Preparando código</span>
+          <span class="wa-qr-timer" id="qr-timer-${session.id}">Esperando...</span>
+        </div>
+        <div class="wa-qr-display" id="qr-display-${session.id}">
+          <div class="wa-qr-loading">
+            <span class="wa-spin"></span>
+            <span>Generando código QR...</span>
+            <small>La operación puede tardar unos segundos.</small>
+          </div>
+        </div>
+        <div class="wa-qr-track"><span class="wa-qr-bar" id="qr-bar-${session.id}"></span></div>
+        <div class="wa-qr-foot">
+          <span class="wa-qr-helper" id="qr-helper-${session.id}">Escaneé el código con la cámara de su celular para vincular el dispositivo.</span>
+          <button class="wa-btn-qr-refresh" type="button" data-action="refresh-qr" data-id="${session.id}">
+            ${ICONS.refresh}Actualizar
+          </button>
+        </div>
+      </div>`;
+  }
+
+  function bindSessionActions() {
+    dom.grid?.addEventListener('click', async event => {
+      const button = event.target.closest('[data-action]');
+      if (!button) return;
+
+      const action = button.dataset.action;
+      const id = Number(button.dataset.id);
+
+      if (action === 'qr') return openQr(id);
+      if (action === 'close-qr') return closeQr(id);
+      if (action === 'refresh-qr') return refreshQr(id, button);
+      if (action === 'change') return openModal();
+      if (action === 'status') return checkStatus(id, button);
+      if (action === 'reconnect') return reconnectSession(id, button);
+      if (action === 'logout') return logoutSession(id, button);
+      if (action === 'delete') return deleteSession(id, button);
+      if (action === 'copy') return copyPhone(button);
+    });
+  }
+
+  async function checkStatus(id, button) {
+    setBtnLoading(button, true, 'Verificando...');
+    try {
+      const response = await API.WhatsAppSesiones?.obtenerStatus?.(id);
+      const status = response?.status || response?.estado || 'disconnected';
+      await alertBox({
+        title: 'Estado del dispositivo',
+        message: `Estado actual: ${formatStatus(status)}`,
+        type: isConnected(status) ? 'success' : 'info'
+      });
+      await loadSessions(true);
+    } catch (error) {
+      toast(error?.message || 'No se pudo verificar el estado del dispositivo.', 'error');
+    } finally {
+      setBtnLoading(button, false);
+    }
+  }
+
+  async function reconnectSession(id, button) {
+    setBtnLoading(button, true, 'Conectando...');
+    try {
+      state.openQr.add(id);
+      await API.WhatsAppSesiones?.reconectar?.(id);
+      toast('Reconexión iniciada. Espere mientras se restablece la conexión.', 'success');
+      await loadSessions(true);
+      window.setTimeout(() => openQr(id), 1200);
+    } catch (error) {
+      toast(error?.message || 'No se pudo iniciar la reconexión.', 'error');
+    } finally {
+      setBtnLoading(button, false);
+    }
+  }
+
+  async function logoutSession(id, button) {
+    const accepted = await confirmBox({
+      title: 'Cerrar sesión',
+      message: '¿Desea cerrar la sesión de WhatsApp en este dispositivo?',
+      confirmText: 'Cerrar sesión',
+      cancelText: 'Cancelar',
+      type: 'warning'
+    });
+    if (!accepted) return;
+
+    setBtnLoading(button, true, 'Cerrando...');
+    try {
+      await API.WhatsAppSesiones?.cerrar?.(id);
+      closeQr(id);
+      toast('Sesión cerrada correctamente. El dispositivo ya no está vinculado.', 'success');
+      await loadSessions(true);
+    } catch (error) {
+      toast(error?.message || 'No se pudo cerrar la sesión.', 'error');
+    } finally {
+      setBtnLoading(button, false);
+    }
+  }
+
+  async function deleteSession(id, button) {
+    const session = findSession(id);
+    const accepted = await confirmBox({
+      title: 'Eliminar dispositivo',
+      message: `¿Desea eliminar "${session?.nombre_dispositivo || 'este dispositivo'}"? Se eliminará la sesión local y la instancia remota.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      type: 'danger'
+    });
+    if (!accepted) return;
+
+    setBtnLoading(button, true, 'Eliminando...');
+    try {
+      await API.WhatsAppSesiones?.eliminar?.(id);
+      closeQr(id);
+      toast('Dispositivo eliminado correctamente.', 'success');
+      await loadSessions(true);
+    } catch (error) {
+      toast(error?.message || 'No se pudo eliminar la sesión.', 'error');
+    } finally {
+      setBtnLoading(button, false);
+    }
+  }
+
+  function copyPhone(button) {
+    const phone = button?.dataset?.phone;
+    if (!phone) return;
+    navigator.clipboard.writeText(phone).then(() => {
+      toast('Número copiado al portapapeles.', 'success');
+    }).catch(() => {
+      toast('No se pudo copiar el número.', 'error');
+    });
+  }
+
+  function bindModalEvents() {
     document.getElementById('btn-close-m')?.addEventListener('click', closeModal);
     document.getElementById('btn-cancel-m')?.addEventListener('click', closeModal);
-    document.getElementById('btn-save-m')?.addEventListener('click', saveSession);
-    document.getElementById('overlay-session')?.addEventListener('click', e=>{ if(e.target.id==='overlay-session') closeModal(); });
-    document.getElementById('btn-close-del')?.addEventListener('click', closeDel);
-    document.getElementById('btn-cancel-del')?.addEventListener('click', closeDel);
-    document.getElementById('btn-confirm-del')?.addEventListener('click', confirmDel);
-    document.getElementById('overlay-delete')?.addEventListener('click', e=>{ if(e.target.id==='overlay-delete') closeDel(); });
+    dom.saveBtn?.addEventListener('click', saveSession);
+    dom.overlay?.addEventListener('click', event => {
+      if (event.target === dom.overlay) closeModal();
+    });
   }
 
-  function openModal(){
-    syncUI();
-    document.getElementById('overlay-session').classList.add('open');
-    setFb('','');
-    document.getElementById('m-device')?.focus();
-  }
-  function closeModal(){
-    document.getElementById('overlay-session').classList.remove('open');
-    document.getElementById('m-device').value='';
-    document.getElementById('m-phone').value='';
-    setFb('','');
+  function openModal() {
+    updateModalCopy();
+    setFeedback();
+    dom.overlay?.classList.add('open');
+    dom.overlay?.setAttribute('aria-hidden', 'false');
+    window.setTimeout(() => dom.deviceInput?.focus(), 40);
   }
 
-  async function saveSession(){
-    const nombre = document.getElementById('m-device').value.trim();
-    const numero = document.getElementById('m-phone').value.trim();
-    const btn = document.getElementById('btn-save-m');
-    if(!nombre){ setFb('Escribe un nombre para el dispositivo.','error'); return; }
-    try{
-      btn.disabled=true; btn.textContent='Guardando...';
-      const r = await API.WhatsAppSesiones?.crear?.({nombre_dispositivo:nombre,numero_whatsapp:numero||null});
-      toast(r?.message||'Sesion guardada correctamente.','success');
+  function closeModal() {
+    dom.overlay?.classList.remove('open');
+    dom.overlay?.setAttribute('aria-hidden', 'true');
+    if (dom.deviceInput) dom.deviceInput.value = '';
+    setFeedback();
+  }
+
+  async function saveSession() {
+    const nombre = dom.deviceInput?.value.trim() || '';
+
+    if (!nombre) {
+      setFeedback('Escribe un nombre para el dispositivo.', 'error');
+      return;
+    }
+
+    setBtnLoading(dom.saveBtn, true, 'Guardando dispositivo...');
+    try {
+      const response = await API.WhatsAppSesiones?.crear?.({
+        nombre_dispositivo: nombre
+      });
+      toast(response?.message || 'Dispositivo guardado correctamente.', 'success');
       closeModal();
-      await load(true);
-    }catch(e){
-      setFb(e?.message||'No se pudo guardar la sesion.','error');
-    }finally{
-      btn.disabled=false; btn.textContent=S.sesiones.length?'Cambiar WhatsApp':'Guardar sesion';
+      await loadSessions(true);
+    } catch (error) {
+      setFeedback(error?.message || 'No se pudo guardar la sesión.', 'error');
+    } finally {
+      setBtnLoading(dom.saveBtn, false);
+      updateModalCopy();
     }
   }
 
-  function setFb(msg, type){
-    const fb=document.getElementById('m-feedback');
-    fb.textContent=msg||''; fb.className='fb';
-    if(msg) fb.classList.add('show',type||'error');
-  }
+  function updateModalCopy() {
+    const hasSession = state.sesiones.length > 0;
 
-  function openDel(id,name){
-    S.pendingDel={id,name};
-    document.getElementById('del-msg').textContent=`Vas a eliminar la sesion "${name}". Esta accion es irreversible.`;
-    document.getElementById('overlay-delete').classList.add('open');
-  }
-  function closeDel(){ S.pendingDel=null; document.getElementById('overlay-delete').classList.remove('open'); }
-
-  async function confirmDel(){
-    const t=S.pendingDel; if(!t) return;
-    const btn=document.getElementById('btn-confirm-del');
-    try{
-      btn.disabled=true; btn.textContent='Eliminando...';
-      await API.WhatsAppSesiones?.eliminar?.(t.id);
-      closeQr(t.id); closeDel();
-      toast(`Sesion "${t.name}" eliminada.`,'success');
-      await load(true);
-    }catch(e){
-      toast(e?.message||'No se pudo eliminar.','error');
-    }finally{
-      btn.disabled=false; btn.textContent='Eliminar sesion';
+    if (dom.modalTitle) {
+      dom.modalTitle.textContent = hasSession ? 'Cambiar dispositivo' : 'Configurar dispositivo';
     }
+    if (dom.modalSub) {
+      dom.modalSub.textContent = hasSession
+        ? 'La sesión actual será reemplazada. Realice este cambio solo cuando no haya envíos en curso.'
+        : 'Registre el dispositivo WhatsApp autorizado para esta sede.';
+    }
+    if (dom.saveBtn && !dom.saveBtn.disabled) {
+      dom.saveBtn.textContent = hasSession ? 'Cambiar dispositivo' : 'Guardar dispositivo';
+    }
+
+
   }
 
-  async function doAction(accion, id){
-    const btn=document.querySelector(`[data-action="${accion}"][data-id="${id}"]`);
-    try{
-      if(btn){btn.disabled=true;btn.style.opacity='.5';}
-      if(accion==='status'){
-        const d=await API.WhatsAppSesiones?.obtenerStatus?.(id);
-        toast(`Estado: ${fmtStatus(d?.status)}`,'info');
-        await load(true);
-      }else if(accion==='reconnect'){
-        toast('Reconectando...','info');
-        S.openQr.add(id);
-        await API.WhatsAppSesiones?.reconectar?.(id);
-        toast('Reconexion iniciada.','success');
-        await load(true);
-        setTimeout(()=>openQr(id),1800);
-      }else if(accion==='logout'){
-        if(!confirm('Se cerrara la sesion de este dispositivo. Continuar?')) return;
-        await API.WhatsAppSesiones?.cerrar?.(id);
-        closeQr(id);
-        toast('Sesion cerrada.','success');
-        await load(true);
-      }
-    }catch(e){ toast(e?.message||'Error al ejecutar accion.','error'); }
-    finally{ if(btn){btn.disabled=false;btn.style.opacity='1';} }
+  function setFeedback(message = '', type = 'error') {
+    if (!dom.modalFeedback) return;
+    dom.modalFeedback.textContent = message;
+    dom.modalFeedback.className = 'fb';
+    if (message) dom.modalFeedback.classList.add('show', type);
   }
 
-  async function openQr(id){
-    const panel=document.getElementById(`qr-panel-${id}`);
-    if(!panel) return;
-    const s=byId(id);
-    const est=s?.estado_real||'';
-    S.openQr.add(id); syncQrPoll();
-    panel.style.display='block';
-    panel.scrollIntoView({behavior:'smooth',block:'nearest'});
-    if(isConn(est)){ paintConn(id); clearTimer(id); return; }
+  async function openQr(id) {
+    const panel = getQrPanel(id);
+    if (!panel) return;
+
+    state.openQr.add(id);
+    syncQrPolling();
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    const session = findSession(id);
+    if (isConnected(session?.estado_real)) {
+      renderConnectedQr(id);
+      return;
+    }
+
+    if (!state.qrCache.has(id)) {
+      state.qrCache.set(id, { qr: null, seconds: QR_VISIBLE_SECONDS });
+    }
+
     await renderQr(id);
-    startTimer(id);
   }
 
-  async function renderQr(id){
-    const disp=document.getElementById(`qr-display-${id}`);
-    const pill=document.getElementById(`qr-pill-${id}`);
-    const bar=document.getElementById(`qr-bar-${id}`);
-    const timer=document.getElementById(`qr-timer-${id}`);
-    const helper=document.getElementById(`qr-helper-${id}`);
-    if(!disp) return;
-    const s=byId(id); const est=s?.estado_real||'';
-    if(isConn(est)){ paintConn(id); clearTimer(id); return; }
-    if(pill){pill.className='qr-pill loading';pill.textContent='Cargando QR';}
-    if(bar) bar.style.width='10%';
-    disp.innerHTML=`<div class="qr-loading"><span class="spin"></span><span>Obteniendo QR...</span><small>La primera carga puede tardar entre 5 y 15 segundos.</small></div>`;
-    try{
-      const data=await API.WhatsAppSesiones?.obtenerQr?.(id);
-      const qr=data?.qr;
-      if(!qr){
-        if(pill){pill.className='qr-pill loading';pill.textContent='Esperando QR';}
-        if(bar) bar.style.width='24%';
-        disp.innerHTML='<div class="qr-aviso">QR no disponible aun. Espera unos segundos y vuelve a actualizar.</div>';
+  async function renderQr(id) {
+    const display = document.getElementById(`qr-display-${id}`);
+    if (!display || state.qrFetches.has(id)) return;
+
+    const session = findSession(id);
+    if (isConnected(session?.estado_real)) {
+      renderConnectedQr(id);
+      return;
+    }
+
+    setQrState(id, {
+      pillClass: 'loading',
+      pillText: 'Cargando código',
+      timerText: 'Generando código...',
+      bar: 10
+    });
+    display.innerHTML = `
+      <div class="wa-qr-loading">
+        <span class="wa-spin"></span>
+        <span>Solicitando código QR...</span>
+        <small>La primera carga puede tardar entre 5 y 15 segundos.</small>
+      </div>`;
+
+    state.qrFetches.add(id);
+    try {
+      const response = await API.WhatsAppSesiones?.obtenerQr?.(id);
+      const qr = response?.qr;
+
+      if (!qr) {
+        setQrState(id, {
+          pillClass: 'loading',
+          pillText: 'Esperando código',
+          timerText: 'Actualice en unos segundos.',
+          bar: 25
+        });
+        display.innerHTML = '<div class="wa-qr-aviso">Código QR no disponible aún.<small>El servidor está preparando la vinculación. Intente nuevamente en unos segundos.</small></div>';
         return;
       }
-      disp.innerHTML='';
-      if(pill){pill.className='qr-pill ready';pill.textContent='QR listo para escanear';}
-      if(bar) bar.style.width='100%';
-      if(helper) helper.textContent='Escanea este codigo desde WhatsApp para vincular el dispositivo.';
-      if(qr.startsWith('data:image')){
-        const img=document.createElement('img'); img.src=qr; img.className='qr-img'; img.alt='QR WhatsApp';
-        disp.appendChild(img); return;
-      }
-      if(typeof QRCode==='undefined'){ disp.innerHTML='<div class="qr-aviso">No se pudo renderizar el QR.</div>'; return; }
-      const wrap=document.createElement('div');
-      wrap.style.cssText='background:white;padding:10px;border-radius:10px;display:inline-block;';
-      disp.appendChild(wrap);
-      new QRCode(wrap,{text:qr,width:210,height:210,colorDark:'#0a0f0d',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
-    }catch(e){
-      if(pill){pill.className='qr-pill expired';pill.textContent='Error al cargar QR';}
-      if(bar) bar.style.width='0%';
-      disp.innerHTML=`<div class="qr-aviso">No se pudo obtener el QR.<br><small>${esc(e?.message||'')}</small></div>`;
+
+      state.qrCache.set(id, { qr, seconds: QR_VISIBLE_SECONDS });
+      drawQr(id);
+      startQrTimer(id);
+    } catch (error) {
+      setQrState(id, {
+        pillClass: 'expired',
+        pillText: 'Error al cargar código',
+        timerText: 'No se pudo obtener el código.',
+        bar: 0
+      });
+      display.innerHTML = `<div class="wa-qr-aviso">No se pudo obtener el código QR.<small>${escapeHtml(error?.message || 'Intente nuevamente.')}</small></div>`;
+    } finally {
+      state.qrFetches.delete(id);
     }
   }
 
-  function startTimer(id){
-    clearTimer(id);
-    const timer=document.getElementById(`qr-timer-${id}`);
-    const helper=document.getElementById(`qr-helper-${id}`);
-    const pill=document.getElementById(`qr-pill-${id}`);
-    const bar=document.getElementById(`qr-bar-${id}`);
-    let secs=60;
-    const tick=()=>{
-      const panel=document.getElementById(`qr-panel-${id}`);
-      if(!panel||panel.style.display==='none'){ clearTimer(id); return; }
-      const s=byId(id); const est=s?.estado_real||'';
-      if(isConn(est)){ paintConn(id); clearTimer(id); return; }
-      if(timer) timer.textContent = secs>0?`QR visible por ${secs}s`:'QR posiblemente vencido';
-      if(bar) bar.style.width=`${Math.max(0,(secs/60)*100)}%`;
-      if(secs<=0){
-        if(pill){pill.className='qr-pill expired';pill.textContent='Actualizar si no conecto';}
-        if(helper) helper.textContent='Si ya lo escaneaste, espera la conexion. Si no, usa "Actualizar".';
-        clearTimer(id); return;
+  function drawQr(id) {
+    const display = document.getElementById(`qr-display-${id}`);
+    const cache = state.qrCache.get(id);
+    if (!display || !cache?.qr) return;
+
+    setQrState(id, {
+      pillClass: 'ready',
+        pillText: 'Código listo para escanear',
+        timerText: `Código visible por ${cache.seconds}s`,
+      helperText: 'Escaneé el código desde WhatsApp para vincular el dispositivo.',
+      bar: Math.max(0, (cache.seconds / QR_VISIBLE_SECONDS) * 100)
+    });
+
+    const qr = String(cache.qr);
+    if (qr.startsWith('data:image') || /^https?:\/\//i.test(qr)) {
+      display.innerHTML = `<img src="${escapeAttr(qr)}" class="wa-qr-img" alt="QR WhatsApp">`;
+      return;
+    }
+
+      display.innerHTML = `
+      <div class="wa-qr-aviso">
+        El código QR se recibió en formato de texto.
+        <small>Configure el proveedor para devolver la imagen en formato base64 o vuelva a generar la sesión.</small>
+      </div>`;
+  }
+
+  function startQrTimer(id) {
+    clearQrTimer(id);
+
+    const tick = () => {
+      const panel = getQrPanel(id);
+      if (!panel || panel.style.display === 'none') {
+        clearQrTimer(id);
+        return;
       }
-      secs--;
+
+      const session = findSession(id);
+      if (isConnected(session?.estado_real)) {
+        renderConnectedQr(id);
+        return;
+      }
+
+      const cache = state.qrCache.get(id);
+      if (!cache) return;
+
+      setQrState(id, {
+        timerText: cache.seconds > 0 ? `Código visible por ${cache.seconds}s` : 'Código vencido',
+        bar: Math.max(0, (cache.seconds / QR_VISIBLE_SECONDS) * 100)
+      });
+
+      if (cache.seconds <= 0) {
+        setQrState(id, {
+          pillClass: 'expired',
+          pillText: 'QR expirado',
+          helperText: 'Si ya escaneó el código, espere la conexión. De lo contrario, presione Actualizar.'
+        });
+        clearQrTimer(id);
+        return;
+      }
+
+      cache.seconds -= 1;
     };
+
     tick();
-    S.timers[id]=setInterval(tick,1000);
+    state.qrTimers.set(id, setInterval(tick, 1000));
   }
 
-  async function refreshQr(id){ clearTimer(id); await renderQr(id); startTimer(id); }
-
-  function closeQr(id){
-    const panel=document.getElementById(`qr-panel-${id}`);
-    if(panel) panel.style.display='none';
-    S.openQr.delete(id); clearTimer(id); syncQrPoll();
-  }
-
-  async function restoreQr(){
-    for(const id of S.openQr){
-      const panel=document.getElementById(`qr-panel-${id}`);
-      const s=byId(id); const est=s?.estado_real||'';
-      if(!panel){ S.openQr.delete(id); clearTimer(id); syncQrPoll(); continue; }
-      panel.style.display='block';
-      if(isConn(est)){ paintConn(id); clearTimer(id); continue; }
-      await renderQr(id); startTimer(id);
+  async function refreshQr(id, button) {
+    clearQrTimer(id);
+    state.qrCache.set(id, { qr: null, seconds: QR_VISIBLE_SECONDS });
+    setBtnLoading(button, true, 'Actualizando...');
+    try {
+      await renderQr(id);
+    } finally {
+      setBtnLoading(button, false);
     }
   }
 
-  function paintConn(id){
-    const disp=document.getElementById(`qr-display-${id}`);
-    const pill=document.getElementById(`qr-pill-${id}`);
-    const helper=document.getElementById(`qr-helper-${id}`);
-    const timer=document.getElementById(`qr-timer-${id}`);
-    const bar=document.getElementById(`qr-bar-${id}`);
-    const rb=document.querySelector(`[data-action="refresh-qr"][data-id="${id}"]`);
-    if(pill){pill.className='qr-pill ready';pill.textContent='Sesion conectada';}
-    if(timer) timer.textContent='No se necesita QR';
-    if(helper) helper.textContent='Este dispositivo ya esta vinculado y listo para enviar mensajes.';
-    if(bar) bar.style.width='100%';
-    if(rb){rb.disabled=true;rb.textContent='Sesion activa';}
-    if(disp) disp.innerHTML='<div class="qr-aviso">Esta sesion ya se encuentra conectada.<br><small>No es necesario generar un QR nuevo.</small></div>';
+  function closeQr(id) {
+    const panel = getQrPanel(id);
+    if (panel) panel.style.display = 'none';
+    state.openQr.delete(id);
+    state.qrCache.delete(id);
+    clearQrTimer(id);
+    syncQrPolling();
   }
 
-  function syncUI(){
-    const has=S.sesiones.length>0;
-    const openBtn=document.getElementById('btn-open-modal');
-    const sub=document.getElementById('sec-subtitle');
-    const mTitle=document.getElementById('m-title');
-    const mSub=document.getElementById('m-sub');
-    const saveBtn=document.getElementById('btn-save-m');
-    if(openBtn) openBtn.innerHTML=`<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>${has?'Cambiar WhatsApp':'Configurar WhatsApp'}`;
-    if(sub) sub.textContent=has?'Esta sede ya tiene una sesion. Puedes reemplazarla si no hay envios pendientes.':'Solo se permite una sesion por sede.';
-    if(mTitle) mTitle.textContent=has?'Cambiar WhatsApp':'Configurar WhatsApp';
-    if(mSub) mSub.textContent=has?'La sesion actual sera reemplazada. Solo si no hay envios pendientes.':'Registra la unica sesion permitida para esta sede.';
-    if(saveBtn) saveBtn.textContent=has?'Cambiar WhatsApp':'Guardar sesion';
+  function restoreOpenQrPanels() {
+    const openIds = Array.from(state.openQr);
+    for (const id of openIds) {
+      const panel = getQrPanel(id);
+      if (!panel) {
+        state.openQr.delete(id);
+        clearQrTimer(id);
+        continue;
+      }
+
+      panel.style.display = 'block';
+      const session = findSession(id);
+      if (isConnected(session?.estado_real)) {
+        renderConnectedQr(id);
+        continue;
+      }
+
+      if (state.qrCache.get(id)?.qr) {
+        drawQr(id);
+        if (!state.qrTimers.has(id)) startQrTimer(id);
+      } else {
+        renderQr(id);
+      }
+    }
+    syncQrPolling();
   }
 
-  function clearTimer(id){ if(S.timers[id]){ clearInterval(S.timers[id]); delete S.timers[id]; } }
-  function byId(id){ return S.sesiones.find(s=>Number(s.id)===Number(id))||null; }
-  function isConn(s){ return String(s||'').toLowerCase()==='connected'; }
+  function renderConnectedQr(id) {
+    clearQrTimer(id);
+    setQrState(id, {
+      pillClass: 'ready',
+      pillText: 'Sesión conectada',
+      timerText: 'Conexión activa',
+        helperText: 'Dispositivo vinculado y listo para enviar mensajes.',
+      bar: 100
+    });
 
-  function fmtStatus(s){
-    const v=String(s||'disconnected').toLowerCase();
-    const m={connected:'Conectada',disconnected:'Inactiva',waiting_qr:'Esperando QR',authenticated:'Autenticada',initializing:'Iniciando',reconnecting:'Reconectando',auth_failure:'Error de acceso'};
-    return m[v]||(v.charAt(0).toUpperCase()+v.slice(1).replace(/_/g,' '));
+    const display = document.getElementById(`qr-display-${id}`);
+    if (display) {
+      display.innerHTML = '<div class="wa-qr-aviso">El dispositivo ya está conectado.<small>No es necesario generar un nuevo código de vinculación.</small></div>';
+    }
+
+    const refreshButton = document.querySelector(`[data-action="refresh-qr"][data-id="${id}"]`);
+    if (refreshButton) {
+      refreshButton.disabled = true;
+      refreshButton.innerHTML = `${ICONS.check}Vinculado`;
+    }
   }
 
-  function fmtTime(d){ if(!d) return '--:--'; return new Date(d).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}); }
-  function fmtDate(d){ if(!d) return 'Sin sincronizacion'; return new Date(d).toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric'}); }
-  function fmtDateLong(d){ if(!d) return '-'; return new Date(d).toLocaleString('es-PE',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+  function setQrState(id, options) {
+    const pill = document.getElementById(`qr-pill-${id}`);
+    const timer = document.getElementById(`qr-timer-${id}`);
+    const helper = document.getElementById(`qr-helper-${id}`);
+    const bar = document.getElementById(`qr-bar-${id}`);
 
-  function set(id,v){ const el=document.getElementById(id); if(el) el.textContent=String(v??''); }
-  function esc(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    if (pill && options.pillClass) pill.className = `wa-qr-pill ${options.pillClass}`;
+    if (pill && options.pillText) pill.textContent = options.pillText;
+    if (timer && options.timerText) timer.textContent = options.timerText;
+    if (helper && options.helperText) helper.textContent = options.helperText;
+    if (bar && typeof options.bar === 'number') bar.style.width = `${options.bar}%`;
+  }
 
-  function toast(msg, type='success'){
-    const t=document.getElementById('toast');
-    if(!t) return;
-    t.textContent=msg; t.className=`toast toast-${type} show`;
-    setTimeout(()=>t.classList.remove('show'),3500);
+  function clearQrTimer(id) {
+    const timer = state.qrTimers.get(id);
+    if (timer) clearInterval(timer);
+    state.qrTimers.delete(id);
+  }
+
+  function getQrPanel(id) {
+    return document.getElementById(`qr-panel-${id}`);
+  }
+
+  function findSession(id) {
+    return state.sesiones.find(session => Number(session.id) === Number(id)) || null;
+  }
+
+  function isConnected(status) {
+    return String(status || '').toLowerCase() === 'connected';
+  }
+
+  function formatStatus(status) {
+    const value = String(status || 'disconnected').toLowerCase();
+    const labels = {
+      connected: 'Conectado',
+      disconnected: 'Desconectado',
+      waiting_qr: 'Esperando QR',
+      authenticated: 'Autenticado',
+      initializing: 'Inicializando',
+      reconnecting: 'Reconectando',
+      auth_failure: 'Error de autenticación',
+      blocked: 'Bloqueado',
+      inactive: 'Inactivo'
+    };
+    return labels[value] || value.replace(/_/g, ' ').replace(/^\w/, char => char.toUpperCase());
+  }
+
+  function formatTime(date) {
+    if (!date) return '--:--';
+    return new Date(date).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function formatDate(date) {
+    if (!date) return 'Sin sincronización';
+    return new Date(date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function formatDateTime(date) {
+    if (!date) return '-';
+    return new Date(date).toLocaleString('es-PE', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  function setMetric(id, value) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = String(value ?? '');
+  }
+
+  function escapeHtml(value) {
+    if (window.SharedUI?.escapeHtml) return window.SharedUI.escapeHtml(value);
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value).replace(/`/g, '&#096;');
+  }
+
+  function toast(message, type = 'info') {
+    if (window.SharedUI?.showToast) {
+      window.SharedUI.showToast(message, type);
+    } else {
+      console[type === 'error' ? 'error' : 'log'](message);
+    }
+  }
+
+  function setBtnLoading(button, loading, label) {
+    if (!button) return;
+    if (window.SharedUI?.setButtonLoading) {
+      window.SharedUI.setButtonLoading(button, loading, label);
+      return;
+    }
+    button.disabled = loading;
+    if (loading && label) button.textContent = label;
+  }
+
+  async function confirmBox(options) {
+    if (window.SharedUI?.confirm) return window.SharedUI.confirm(options);
+    return window.confirm(options.message);
+  }
+
+  async function alertBox(options) {
+    if (window.SharedUI?.alert) return window.SharedUI.alert(options);
+    window.alert(options.message);
   }
 });
+
+const ICONS = {
+  whatsapp: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.52 3.48A11.85 11.85 0 0 0 12.05 0C5.52 0 .2 5.31.2 11.85c0 2.09.54 4.13 1.57 5.93L0 24l6.39-1.68a11.8 11.8 0 0 0 5.66 1.44h.01c6.53 0 11.85-5.31 11.85-11.85 0-3.17-1.24-6.14-3.39-8.43zM12.06 21.7h-.01a9.8 9.8 0 0 1-4.99-1.36l-.36-.21-3.79 1 1.01-3.69-.23-.38a9.8 9.8 0 0 1-1.5-5.21c0-5.43 4.42-9.85 9.86-9.85 2.63 0 5.09 1.02 6.95 2.89a9.79 9.79 0 0 1 2.89 6.96c0 5.43-4.42 9.85-9.84 9.85zm5.4-7.36c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15s-.77.97-.95 1.17c-.17.2-.35.22-.65.07-.3-.15-1.28-.47-2.43-1.49-.9-.8-1.51-1.79-1.68-2.09-.18-.3-.02-.46.13-.61.14-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.21 5.1 4.5.71.31 1.27.49 1.71.63.72.23 1.37.2 1.88.12.57-.09 1.77-.72 2.02-1.41.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35z"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+  message: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+  qr: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+  logout: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+  switch: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  more: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg>',
+  chevronDown: '<svg class="wa-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
+  close: '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  copy: '<svg class="wa-copy-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  check: '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>',
+  signal: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M1 9.1 3.15 11.25c4.9-4.9 12.8-4.9 17.7 0L23 9.1C16.93 3.03 7.08 3.03 1 9.1Z"/><path d="m5.28 13.38 2.15 2.15a6.45 6.45 0 0 1 9.14 0l2.15-2.15c-3.7-3.7-9.74-3.7-13.44 0Z"/><path d="M9.55 17.65 12 20.1l2.45-2.45a3.46 3.46 0 0 0-4.9 0Z"/></svg>',
+  offline: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.75V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.25A7 7 0 0 0 12 2z"/><path d="M5 5l14 14"/></svg>'
+};

@@ -6,13 +6,80 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>Dashboard â€” MyG Express</title>
+  <title>Dashboard &mdash; MyG Express</title>
   <link rel="icon" type="image/png" href="img/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/dashboard.css?v=4">
+  <link rel="stylesheet" href="/css/shared-ui.css">
+  <script src="js/sidebar-preload.js"></script>
+  <link rel="stylesheet" href="/css/sidebar.css?v=38">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Ocultar elementos del dashboard para mostrar pantalla limpia */
+    .stats-grid,
+    .charts-grid,
+    .card {
+      display: none !important;
+    }
+
+    /* Ocultar la cabecera en el panel de control para que no salga Dashboard, Resumen operativo, etc. */
+    @media (min-width: 769px) {
+      .topbar {
+        display: none !important;
+      }
+    }
+    @media (max-width: 768px) {
+      .topbar-title,
+      .topbar-sub,
+      .topbar-badge {
+        display: none !important;
+      }
+    }
+    
+    /* Contenedor de Bienvenida en Blanco Premium */
+    .welcome-watermark {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 65vh;
+      text-align: center;
+      padding: 40px 20px;
+      animation: fadeInWelcome 0.8s ease-out;
+    }
+
+    .welcome-watermark__logo {
+      height: 72px;
+      width: auto;
+      opacity: 0.08;
+      margin-bottom: 24px;
+      filter: grayscale(1);
+    }
+
+    .welcome-watermark__title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.60rem;
+      font-weight: 700;
+      color: rgba(8, 38, 21, 0.20);
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+
+    .welcome-watermark__subtitle {
+      font-size: 0.9rem;
+      font-weight: 450;
+      color: rgba(8, 38, 21, 0.35);
+      max-width: 320px;
+      line-height: 1.5;
+    }
+
+    @keyframes fadeInWelcome {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
 <body>
   <div id="sidebar-container"></div>
@@ -24,11 +91,17 @@
         <div class="topbar-sub">Resumen operativo de la sede</div>
       </div>
       <div class="topbar-right">
-        <span class="topbar-badge" id="user-rol">-</span>
       </div>
     </header>
 
     <main class="content">
+      <!-- Marca de agua de bienvenida (Pantalla Limpia) -->
+      <div class="welcome-watermark">
+        <img class="welcome-watermark__logo" src="/img/logo.png" alt="MyG Express Logo">
+        <h2 class="welcome-watermark__title">Conectando la Selva Central</h2>
+        <p class="welcome-watermark__subtitle">Por favor, seleccione una opción en el menú lateral para comenzar.</p>
+      </div>
+
       <section class="stats-grid">
         <article class="stat-card">
           <div class="stat-head">
@@ -66,7 +139,7 @@
               <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
             </div>
           </div>
-          <div class="stat-trend">Alcance total de campaÃ±a</div>
+          <div class="stat-trend">Alcance total de campaña</div>
         </article>
 
         <article class="stat-card">
@@ -115,8 +188,8 @@
       <section class="card">
         <div class="card-header">
           <div class="card-title-wrap">
-            <div class="card-title">Ãšltimas rutas registradas</div>
-            <div class="card-sub">Lectura operativa de lo mÃ¡s reciente en el sistema.</div>
+            <div class="card-title">Últimas rutas registradas</div>
+            <div class="card-sub">Lectura operativa de lo más reciente en el sistema.</div>
           </div>
           <div class="card-filters">
             <input type="text" class="filter-input" placeholder="Buscar ruta...">
@@ -136,7 +209,7 @@
               <th>Destinatarios</th>
               <th>Estado</th>
               <th>Progreso</th>
-              <th>AcciÃ³n</th>
+              <th>Acción</th>
             </tr>
           </thead>
           <tbody id="tabla-lotes-body">
@@ -149,9 +222,9 @@
 
   <script src="js/shared-ui.js?v=1"></script>
   <script src="js/runtime-config.js?v=4"></script>
-  <script src="js/api.js?v=4"></script>
-  <script src="components/sidebar.js"></script>
+  <script src="js/api.js?v=6"></script>
+  <script src="components/sidebar.js?v=11"></script>
   <script src="js/live-updates.js?v=4"></script>
-  <script src="js/dashboard.js?v=4"></script>
+  <script src="js/dashboard.js?v=5"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-import { IWhatsAppProvider } from './IWhatsAppProvider';
+import { IWhatsAppProvider, WhatsAppProviderInstance } from './IWhatsAppProvider';
 import { readFile } from 'fs/promises';
 import path from 'path';
 
@@ -16,11 +16,24 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
   private readonly apiUrl: string;
   private readonly apiKey: string;
   private readonly webhookUrl: string;
+  private readonly statusGraceMs: number;
+  private readonly qrCacheMs: number;
+  private readonly lastConnectedAt = new Map<string, number>();
+  private readonly qrCache = new Map<string, { qr: string | null; expiresAt: number }>();
+  private readonly qrInflight = new Map<string, Promise<string | null>>();
+  private readonly mediaBase64Cache = new Map<string, string>();
 
   constructor() {
     this.apiUrl = (process.env.EVOLUTION_API_URL || 'http://localhost:8080').replace(/\/$/, '');
     this.apiKey = process.env.EVOLUTION_API_APIKEY || '';
     this.webhookUrl = process.env.EVOLUTION_API_WEBHOOK_URL || '';
+    this.statusGraceMs = this.readMs('EVOLUTION_STATUS_GRACE_MS', 15000);
+    this.qrCacheMs = this.readMs('EVOLUTION_QR_CACHE_MS', 55000);
+  }
+
+  private readMs(name: string, fallback: number): number {
+    const parsed = Number(process.env[name]);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
   }
 
   private getHeaders(): Record<string, string> {
@@ -49,6 +62,38 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
     return 'disconnected';
   }
 
+  private isConnectedState(state: unknown): boolean {
+    const normalized = String(state || '').trim().toLowerCase();
+    return normalized === 'open' || normalized === 'connected';
+  }
+
+  private isInsideConnectedGrace(sessionKey: string): boolean {
+    const last = this.lastConnectedAt.get(sessionKey) || 0;
+    return last > 0 && Date.now() - last <= this.statusGraceMs;
+  }
+
+  private stabilizeStatus(sessionKey: string, mappedStatus: string, persistedStatus?: string | null): string {
+    const persisted = String(persistedStatus || '').toLowerCase();
+
+    if (mappedStatus === 'connected') {
+      this.lastConnectedAt.set(sessionKey, Date.now());
+      return 'connected';
+    }
+
+    if (mappedStatus === 'initializing') {
+      if (persisted === 'connected' || this.isInsideConnectedGrace(sessionKey)) {
+        return 'connected';
+      }
+      return 'initializing';
+    }
+
+    if (mappedStatus === 'disconnected' && this.isInsideConnectedGrace(sessionKey)) {
+      return 'connected';
+    }
+
+    return mappedStatus;
+  }
+
   private cleanPhoneNumber(to: string): string {
     const raw = String(to || '').trim();
     const withoutSuffix = raw.replace(/@c\.us$/i, '');
@@ -69,6 +114,16 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
     }
 
     return digits;
+  }
+
+  private async getMediaBase64(mediaPath: string): Promise<string> {
+    const cached = this.mediaBase64Cache.get(mediaPath);
+    if (cached) return cached;
+
+    const fileBuffer = await readFile(mediaPath);
+    const fileBase64 = fileBuffer.toString('base64');
+    this.mediaBase64Cache.set(mediaPath, fileBase64);
+    return fileBase64;
   }
 
   /**
@@ -150,7 +205,7 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
   /**
    * Obtiene el estado en tiempo real.
    */
-  async getStatus(sessionKey: string): Promise<string> {
+  async getStatus(sessionKey: string, persistedStatus?: string | null): Promise<string> {
     try {
       const res = await this.safeFetch(`${this.apiUrl}/instance/connectionState/${sessionKey}`, {
         method: 'GET',
@@ -163,14 +218,14 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
 
       const data: any = await res.json();
       const state = data?.instance?.state || data?.instance?.status;
-      return this.mapState(state);
+      return this.stabilizeStatus(sessionKey, this.mapState(state), persistedStatus);
     } catch (error) {
       return 'disconnected';
     }
   }
 
   async resolveStatus(sessionKey: string, persistedStatus?: string | null): Promise<string> {
-    return this.getStatus(sessionKey);
+    return this.getStatus(sessionKey, persistedStatus);
   }
 
   async isConnected(sessionKey: string): Promise<boolean> {
@@ -182,7 +237,32 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
    * Obtiene el código QR de conexión en base64 para pintar en la UI.
    */
   async getQr(sessionKey: string): Promise<string | null> {
+    const cached = this.qrCache.get(sessionKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.qr;
+    }
+
+    const inflight = this.qrInflight.get(sessionKey);
+    if (inflight) {
+      return inflight;
+    }
+
+    const task = this.fetchQr(sessionKey).finally(() => {
+      this.qrInflight.delete(sessionKey);
+    });
+
+    this.qrInflight.set(sessionKey, task);
+    return task;
+  }
+
+  private async fetchQr(sessionKey: string): Promise<string | null> {
     try {
+      const status = await this.getStatus(sessionKey);
+      if (status === 'connected') {
+        this.qrCache.set(sessionKey, { qr: null, expiresAt: Date.now() + 8000 });
+        return null;
+      }
+
       await this.init(sessionKey);
       console.log(`[Evolution API] Solicitando QR para "${sessionKey}"...`);
       const res = await this.safeFetch(`${this.apiUrl}/instance/connect/${sessionKey}`, {
@@ -192,14 +272,20 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
 
       if (!res.ok) {
         console.warn(`[Evolution API] No se pudo obtener QR. Estado HTTP: ${res.status}`);
+        this.qrCache.set(sessionKey, { qr: null, expiresAt: Date.now() + 8000 });
         return null;
       }
 
       const data: any = await res.json();
       const base64 = data?.base64 || data?.qrcode?.base64 || null;
+      this.qrCache.set(sessionKey, {
+        qr: base64,
+        expiresAt: Date.now() + (base64 ? this.qrCacheMs : 8000)
+      });
       return base64;
     } catch (error: any) {
       console.error(`[Evolution API] Error obteniendo QR para "${sessionKey}":`, error.message);
+      this.qrCache.set(sessionKey, { qr: null, expiresAt: Date.now() + 8000 });
       return null;
     }
   }
@@ -225,8 +311,7 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
       // 1. Envío con archivo multimedia adjunto
       if (mediaPath) {
         console.log(`[Evolution API] Enviando mensaje con imagen a ${cleanNumber}...`);
-        const fileBuffer = await readFile(mediaPath);
-        const fileBase64 = fileBuffer.toString('base64');
+        const fileBase64 = await this.getMediaBase64(mediaPath);
         const mediatype = (mediaMimeType || '').startsWith('image') ? 'image' : 'document';
 
         const payload = {
@@ -331,11 +416,66 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
         headers: this.getHeaders()
       });
 
+      if (res.status === 404) {
+        console.log(`[Evolution API] La instancia "${sessionKey}" no existe en Evolution. Se considera eliminada.`);
+        return;
+      }
+
       if (!res.ok) {
-        console.warn(`[Evolution API] Fallo al eliminar instancia (${res.status})`);
+        const errText = await res.text();
+        throw new Error(`Fallo al eliminar instancia en Evolution (${res.status}): ${errText}`);
       }
     } catch (error: any) {
       console.error(`[Evolution API] Error al eliminar "${sessionKey}":`, error.message);
+      throw error;
+    }
+  }
+
+  async listProviderInstances(): Promise<WhatsAppProviderInstance[]> {
+    try {
+      const res = await this.safeFetch(`${this.apiUrl}/instance/fetchInstances`, {
+        method: 'GET',
+        headers: this.getHeaders()
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`No se pudo consultar Evolution (${res.status}): ${errText}`);
+      }
+
+      const data: any = await res.json();
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.instances)
+          ? data.instances
+          : Array.isArray(data?.data)
+            ? data.data
+            : [];
+
+      return list
+        .map((item: any): WhatsAppProviderInstance => {
+          const name = String(item?.name || item?.instanceName || item?.instance?.instanceName || '').trim();
+          const connectionStatus = String(
+            item?.connectionStatus ||
+            item?.state ||
+            item?.instance?.state ||
+            item?.instance?.status ||
+            'unknown'
+          ).trim();
+
+          return {
+            name,
+            connectionStatus,
+            connected: this.isConnectedState(connectionStatus),
+            ownerJid: item?.ownerJid ? String(item.ownerJid) : null,
+            profileName: item?.profileName ? String(item.profileName) : null,
+            updatedAt: item?.updatedAt ? String(item.updatedAt) : null
+          };
+        })
+        .filter((item: WhatsAppProviderInstance) => item.name);
+    } catch (error: any) {
+      console.error('[Evolution API] Error listando instancias:', error.message);
+      throw error;
     }
   }
 

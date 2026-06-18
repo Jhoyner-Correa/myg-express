@@ -10,7 +10,13 @@ const dashboardCharts = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  API.Auth.requireAuth();
+  if (!API.Auth.requireAuth()) return;
+  if (!API.hasPermission('dashboard.ver')) {
+    if (API.hasPermission('admin.panel.ver')) {
+      window.location.href = API.Routes.admin;
+    }
+    return;
+  }
   API.ensureSuperadminSidebar();
 
   const user = API.getUser();

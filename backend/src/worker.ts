@@ -2,8 +2,9 @@ import dotenv from 'dotenv';
 import { NextFunction, Request, Response } from 'express';
 
 import { pool } from './config/database';
+import { PERMISSIONS } from './constants/permissions';
 import { verificarToken } from './middlewares/authMiddleware';
-import { verificarSuperadmin } from './middlewares/superadminMiddleware';
+import { requirePermission } from './middlewares/permissionMiddleware';
 import whatsappRoutes from './routes/whatsappRoutes';
 import whatsappSesionesRoutes from './routes/whatsappSesionesRoutes';
 import { createHttpApp } from './server/createHttpApp';
@@ -76,7 +77,7 @@ async function shutdownWorker(signal: string) {
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/whatsapp-sesiones', whatsappSesionesRoutes);
 
-app.get('/api/whatsapp/health', verificarToken, verificarSuperadmin, async (_req, res) => {
+app.get('/api/whatsapp/health', verificarToken, requirePermission(PERMISSIONS.QUEUES_VIEW), async (_req, res) => {
   let queueStats = { active: 0, completed: 0, failed: 0, delayed: 0, waiting: 0, paused: 0 };
   try {
     queueStats = await waQueue.getJobCounts() as any;

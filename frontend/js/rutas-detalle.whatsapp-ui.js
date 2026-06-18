@@ -17,13 +17,56 @@
 
     function normalizeQueueControl(control) {
       const safe = control || {};
+      const routeStatus = String(safe.routeStatus || '').toLowerCase();
+      const pendingJobs = Number(safe.pendingJobs || 0);
+      const processingJobs = Number(safe.processingJobs || safe.queuedCount || 0);
+      const pausedJobs = Number(safe.pausedJobs || 0);
+      const failedJobs = Number(safe.failedCount || 0);
+      const hasPendingWork = pendingJobs > 0 || processingJobs > 0 || failedJobs > 0;
+      const hasInterruptedFlow = hasPendingWork && (Boolean(safe.hasInterruptedFlow) || routeStatus === 'pausado' || pausedJobs > 0);
+      const isProcessing = hasPendingWork && (Boolean(safe.isProcessing) || routeStatus === 'procesando' || processingJobs > 0);
+      const isPaused = hasPendingWork && (Boolean(safe.isPaused) || routeStatus === 'pausado');
       return {
-        pendingJobs: Number(safe.pendingJobs || 0),
-        processingJobs: Number(safe.processingJobs || 0),
-        pausedJobs: Number(safe.pausedJobs || 0),
-        hasInterruptedFlow: Boolean(safe.hasInterruptedFlow) || Number(safe.pausedJobs || 0) > 0,
+        totalJobs: Number(safe.totalJobs || 0),
+        routeStatus,
+        pendingCount: Number(safe.pendingCount || 0),
+        queuedCount: Number(safe.queuedCount || processingJobs),
+        failedCount: failedJobs,
+        pendingJobs,
+        processingJobs,
+        pausedJobs,
+        hasInterruptedFlow,
+        isProcessing,
+        isPaused,
+        canResume: hasPendingWork && (Boolean(safe.canResume) || (isPaused && (pendingJobs > 0 || failedJobs > 0))),
+        canPause: Boolean(safe.canPause) || (isProcessing && pendingJobs > 0),
+        canCancel: hasPendingWork && (Boolean(safe.canCancel) || pendingJobs > 0 || hasInterruptedFlow),
         lastError: safe.lastError ? String(safe.lastError) : null
       };
+    }
+
+    function updatePrimarySendButtonState() {
+      const btn = document.getElementById('btn-enviar-lote');
+      if (!btn) return;
+
+      const control = state.queueControl || {};
+      btn.disabled = false;
+      btn.classList.remove('is-paused', 'is-processing');
+
+      if (control.isProcessing || control.canPause) {
+        btn.textContent = 'Envio en curso';
+        btn.disabled = true;
+        btn.classList.add('is-processing');
+        return;
+      }
+
+      if (control.canResume || control.isPaused || control.hasInterruptedFlow) {
+        btn.textContent = 'Retomar envio';
+        btn.classList.add('is-paused');
+        return;
+      }
+
+      btn.textContent = 'Enviar mensajes';
     }
 
     function renderEnvioInterruptionPanel() {
@@ -31,7 +74,10 @@
       if (!container) return;
 
       const control = state.queueControl;
-      if (!control?.hasInterruptedFlow || control.pausedJobs <= 0) {
+      updatePrimarySendButtonState();
+
+      const shouldShow = Boolean(control?.isProcessing || control?.canPause || control?.isPaused || control?.hasInterruptedFlow);
+      if (!shouldShow) {
         container.innerHTML = '';
         container.style.display = 'none';
         return;
@@ -40,31 +86,90 @@
       const selectedSession = getSelectedSessionRecord();
       const selectedSessionReady = selectedSession && String(selectedSession.estado_real || selectedSession.estado || '').toLowerCase() === 'connected';
       const pendingCount = state.avisos.filter((item) => String(item.estado_aviso || '').toLowerCase() === 'pendiente').length;
-      const detail = control.lastError || 'La sesion de WhatsApp se interrumpio y la ruta quedo en pausa para evitar reenvios automaticos.';
+      const isProcessing = Boolean(control.isProcessing || control.canPause);
+      const detail = control.lastError || (
+        isProcessing
+          ? 'El envio esta activo. Puedes pausarlo si necesitas detener los pendientes sin perderlos.'
+          : 'La ruta quedo pausada para evitar reenvios automaticos. Decide como continuar con los mensajes pendientes.'
+      );
+      const triggerText = isProcessing ? 'Envio en curso' : 'Ruta pausada';
+      const triggerHelp = isProcessing ? 'Gestionar' : 'Revisar decision';
+      const modalTitle = isProcessing ? 'Control de envio' : 'Ruta pausada';
+      const modalIntro = isProcessing
+        ? 'La ruta esta enviando mensajes. Si detectas un problema, puedes pausar el envio y retomarlo despues.'
+        : 'Esta ruta requiere una decision antes de continuar. No se reenviara nada automaticamente.';
 
+      const actions = isProcessing
+        ? `
+            <button type="button" class="btn-primary" id="btn-pausar-interrumpido">Pausar envio</button>
+            <button type="button" class="btn-soft btn-danger-soft" id="btn-cancelar-interrumpido">Cancelar pendientes</button>
+          `
+        : `
+            <button type="button" class="btn-primary" id="btn-retomar-interrumpido" ${selectedSessionReady ? '' : 'disabled'}>Retomar envio</button>
+            <button type="button" class="btn-soft" id="btn-marcar-manual-interrumpido">Registrar cierre manual</button>
+            <button type="button" class="btn-soft btn-danger-soft" id="btn-cancelar-interrumpido">Cancelar pendientes</button>
+          `;
       container.innerHTML = `
-        <div class="envio-pause-card">
-          <div class="envio-pause-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M12 8v5"></path><path d="M12 16h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg>
-          </div>
-          <div class="envio-pause-content">
-            <div class="envio-pause-kicker">Envio interrumpido</div>
-            <div class="envio-pause-title">Esta ruta quedo pausada y requiere tu decision</div>
-            <div class="envio-pause-copy">${escapeHtml(detail)}</div>
-            <div class="envio-pause-pills">
-              <span class="envio-pause-pill">${control.pausedJobs} en pausa</span>
-              <span class="envio-pause-pill">${pendingCount} pendientes en tabla</span>
-              <span class="envio-pause-pill">${selectedSessionReady ? 'Sesion lista para retomar' : 'Selecciona una sesion activa arriba'}</span>
+        <button type="button" class="envio-control-trigger ${isProcessing ? 'is-processing' : 'is-paused'}" id="btn-open-envio-control" aria-haspopup="dialog" aria-controls="envio-control-modal">
+          <span class="envio-control-trigger-dot" aria-hidden="true"></span>
+          <span>
+            <strong>${triggerText}</strong>
+            <small>${triggerHelp}</small>
+          </span>
+        </button>
+
+        <div class="envio-control-modal" id="envio-control-modal" role="dialog" aria-modal="true" aria-labelledby="envio-control-title" aria-hidden="true">
+          <div class="envio-control-dialog">
+            <button type="button" class="envio-control-close" data-envio-modal-close aria-label="Cerrar panel">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+            </button>
+            <div class="envio-control-head">
+              <span class="envio-control-icon ${isProcessing ? 'is-processing' : 'is-paused'}" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 8v5"></path><path d="M12 16h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg>
+              </span>
+              <div>
+                <p class="envio-control-kicker">${isProcessing ? 'Envio activo' : 'Decision requerida'}</p>
+                <h2 id="envio-control-title">${modalTitle}</h2>
+                <p>${modalIntro}</p>
+              </div>
             </div>
-            <div class="envio-pause-actions">
-              <button type="button" class="btn-primary" id="btn-retomar-interrumpido" ${selectedSessionReady ? '' : 'disabled'}>Retomar envio</button>
-              <button type="button" class="btn-soft" id="btn-marcar-manual-interrumpido">Marcar como enviados manualmente</button>
-              <button type="button" class="btn-soft btn-danger-soft" id="btn-cancelar-interrumpido">Cancelar pendientes</button>
+            <div class="envio-control-note">
+              ${escapeHtml(detail)}
+            </div>
+            <div class="envio-control-stats">
+              ${isProcessing ? `
+                <span><strong>${Number(control.queuedCount || control.processingJobs || 0)}</strong> en cola</span>
+                <span><strong>${pendingCount}</strong> pendientes en tabla</span>
+                <span><strong>${selectedSessionReady ? 'Lista' : 'Sin conexion'}</strong> sesion</span>
+              ` : `
+                <span><strong>${Number(control.pausedJobs || 0)}</strong> en pausa</span>
+                <span><strong>${pendingCount}</strong> pendientes en tabla</span>
+                <span><strong>${selectedSessionReady ? 'Lista' : 'Pendiente'}</strong> sesion</span>
+              `}
+            </div>
+            <div class="envio-control-actions">
+              ${actions}
             </div>
           </div>
         </div>
       `;
-      container.style.display = 'block';
+      container.style.display = 'inline-flex';
+    }
+
+    function openEnvioControlModal() {
+      const modal = document.getElementById('envio-control-modal');
+      if (!modal) return;
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('envio-control-modal-open');
+    }
+
+    function closeEnvioControlModal() {
+      const modal = document.getElementById('envio-control-modal');
+      if (!modal) return;
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('envio-control-modal-open');
     }
 
     async function runInterruptionAction(button, task) {
@@ -87,7 +192,20 @@
 
     function bindEnvioInterrumpido() {
       document.getElementById('envio-interrupcion')?.addEventListener('click', async (event) => {
-        const target = event.target.closest('button');
+        const clicked = event.target instanceof Element ? event.target : event.target?.parentElement;
+        if (!clicked) return;
+
+        if (clicked.closest('#btn-open-envio-control')) {
+          openEnvioControlModal();
+          return;
+        }
+
+        if (clicked.classList.contains('envio-control-modal') || clicked.closest('[data-envio-modal-close]')) {
+          closeEnvioControlModal();
+          return;
+        }
+
+        const target = clicked.closest('button');
         if (!target || state.interruptionActionRunning) return;
 
         if (target.id === 'btn-retomar-interrumpido') {
@@ -102,7 +220,8 @@
             return;
           }
 
-          if (!window.confirm('Se retomaran solo los mensajes interrumpidos de esta ruta. Deseas continuar?')) return;
+          const conf1 = await SharedUI.confirm({ title: 'Retomar envio', message: 'Se retomaran solo los mensajes interrumpidos de esta ruta. Deseas continuar?', confirmText: 'Retomar', cancelText: 'Cancelar', type: 'info' });
+          if (!conf1) return;
 
           await runInterruptionAction(target, async () => {
             const response = await API.WhatsAppEnvio.reanudarLote(Number(rutaId), Number(selectedSession.id));
@@ -116,23 +235,42 @@
           return;
         }
 
+        if (target.id === 'btn-pausar-interrumpido') {
+          const confPause = await SharedUI.confirm({ title: 'Pausar envio', message: 'Se detendran los mensajes pendientes de esta ruta. El mensaje que ya este saliendo puede completarse, pero no se enviaran los siguientes hasta que retomes.', confirmText: 'Pausar envio', cancelText: 'Volver', type: 'warning' });
+          if (!confPause) return;
+
+          await runInterruptionAction(target, async () => {
+            const response = await API.WhatsAppEnvio.pausarLote(Number(rutaId));
+            state.queueControl = normalizeQueueControl(response?.control || state.queueControl);
+            setEnvioVisualState('error', {
+              title: 'Envio pausado',
+              message: response?.message || 'La ruta quedo pausada. Puedes retomar o cancelar los pendientes cuando lo decidas.',
+              meta: [`${Number(response?.paused || 0)} mensajes detenidos`, `${Number(response?.removed_jobs || 0)} jobs limpiados`]
+            });
+            mostrarToast(response?.message || 'Envio pausado.', 'success');
+          });
+          return;
+        }
+
         if (target.id === 'btn-marcar-manual-interrumpido') {
-          if (!window.confirm('Esto marcara los mensajes pausados como enviados manualmente. Usalo solo si ya terminaste esos mensajes desde el celular. Deseas continuar?')) return;
+          const conf2 = await SharedUI.confirm({ title: 'Registrar cierre manual', message: 'Los pendientes se cerraran como gestion manual de oficina. No se marcaran como enviados por WhatsApp ni se reenviaran desde el sistema.', confirmText: 'Registrar cierre', cancelText: 'Cancelar', type: 'warning' });
+          if (!conf2) return;
 
           await runInterruptionAction(target, async () => {
             const response = await API.WhatsAppEnvio.marcarManual(Number(rutaId));
             setEnvioVisualState('queued', {
-              title: 'Mensajes cerrados manualmente',
-              message: response?.message || 'Los mensajes pausados se marcaron como enviados manualmente.',
-              meta: [`${Number(response?.processed || 0)} mensajes cerrados`]
+              title: 'Cierre manual registrado',
+              message: response?.message || 'Los mensajes pendientes quedaron cerrados como gestion manual de oficina.',
+              meta: [`${Number(response?.processed || 0)} mensajes cerrados manualmente`]
             });
-            mostrarToast(response?.message || 'Mensajes marcados manualmente.', 'success');
+            mostrarToast(response?.message || 'Cierre manual registrado.', 'success');
           });
           return;
         }
 
         if (target.id === 'btn-cancelar-interrumpido') {
-          if (!window.confirm('Esto cancelara los mensajes pausados y dejara el lote detenido. Esta accion no enviara esos pendientes. Deseas continuar?')) return;
+          const conf3 = await SharedUI.confirm({ title: 'Cancelar pendientes', message: 'Esto cancelara los mensajes pausados y dejara el lote detenido. Esta accion no enviara esos pendientes.', confirmText: 'Cancelar pendientes', cancelText: 'Volver', type: 'danger' });
+          if (!conf3) return;
 
           await runInterruptionAction(target, async () => {
             const response = await API.WhatsAppEnvio.cancelarPendientes(Number(rutaId));
@@ -145,46 +283,55 @@
           });
         }
       });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeEnvioControlModal();
+      });
     }
 
     function updateSessionSummary(customMessage, customClass) {
-      const summary = document.getElementById('session-summary');
+      const display = document.getElementById('session-info-display');
+      const text = document.getElementById('session-info-text');
+      const indicator = document.getElementById('session-indicator');
       const select = document.getElementById('select-sesion');
-      if (!summary) return;
+      if (!display || !text) return;
 
-      summary.className = 'session-summary';
       if (typeof customMessage === 'string' && customMessage) {
-        summary.textContent = customMessage;
-        if (customClass) summary.classList.add(customClass);
+        text.textContent = customMessage;
+        if (indicator) indicator.className = 'session-indicator' + (customClass ? ' ' + customClass : '');
         return;
       }
 
       const selectedId = select?.value;
       if (!selectedId) {
         state.selectedSessionId = null;
-        summary.textContent = 'Sin sesion seleccionada';
+        text.textContent = 'Sin sesión disponible';
+        if (indicator) indicator.className = 'session-indicator';
         return;
       }
 
       const sesion = state.sesiones.find((item) => String(item.id) === String(selectedId));
       if (!sesion) {
         state.selectedSessionId = null;
-        summary.textContent = 'Sesion no encontrada';
-        summary.classList.add('is-error');
+        text.textContent = 'Sesión no encontrada';
+        if (indicator) indicator.className = 'session-indicator is-error';
         return;
       }
 
       state.selectedSessionId = String(selectedId);
-      const device = sesion.nombre_dispositivo || 'Dispositivo';
-      const number = sesion.numero_whatsapp ? ` - ${sesion.numero_whatsapp}` : '';
+      const device = sesion.nombre_dispositivo || 'WhatsApp';
+      const number = sesion.numero_whatsapp || '';
       const estado = String(sesion.estado_real || sesion.estado || '').toLowerCase();
       const isActive = estado === 'connected';
 
-      summary.textContent = isActive
-        ? `${device}${number} - Activa`
-        : `${device}${number} - ${formatSessionStatus(estado)}`;
+      text.textContent = isActive
+        ? `${device}${number ? ' · ' + number : ''}`
+        : `${device} · ${formatSessionStatus(estado)}`;
 
-      summary.classList.add(isActive ? 'is-active' : estado === 'auth_failure' ? 'is-error' : 'is-inactive');
+      if (indicator) {
+        indicator.className = 'session-indicator' +
+          (isActive ? ' is-active' : estado === 'auth_failure' ? ' is-error' : ' is-inactive');
+      }
     }
 
     function getHeroStatusClass(status) {
@@ -247,47 +394,8 @@
       const container = document.getElementById('envio-resultado');
       if (!container) return;
 
-      if (!type) {
-        container.innerHTML = '';
-        container.style.display = 'none';
-        return;
-      }
-
-      const normalizedType = ['loading', 'queued', 'error'].includes(type) ? type : 'loading';
-      const safeMeta = meta.filter(Boolean).map((item) => `<span class="envio-status-pill">${escapeHtml(item)}</span>`).join('');
-      const dots = normalizedType === 'loading'
-        ? '<span class="envio-status-dots" aria-hidden="true"><span></span><span></span><span></span></span>'
-        : '';
-
-      container.innerHTML = `
-        <div class="envio-status-card is-${normalizedType}">
-          <div class="envio-status-icon" aria-hidden="true">${getEnvioStateIcon(normalizedType)}</div>
-          <div class="envio-status-content">
-            <div class="envio-status-kicker">${escapeHtml(getEnvioStateKicker(normalizedType))}</div>
-            <div class="envio-status-title">${escapeHtml(title || 'Estado del envio')}${dots}</div>
-            <div class="envio-status-copy">${escapeHtml(message || '').replace(/\n/g, '<br>')}</div>
-            ${safeMeta ? `<div class="envio-status-meta">${safeMeta}</div>` : ''}
-            <div class="envio-status-progress"><span></span></div>
-          </div>
-        </div>
-      `;
-      container.style.display = 'block';
-    }
-
-    function getEnvioStateKicker(type) {
-      if (type === 'queued') return 'Envios en proceso';
-      if (type === 'error') return 'Atencion requerida';
-      return 'Iniciando envio';
-    }
-
-    function getEnvioStateIcon(type) {
-      if (type === 'queued') {
-        return '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"></path></svg>';
-      }
-      if (type === 'error') {
-        return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="7.5" x2="12" y2="12.5"></line><line x1="12" y1="16.5" x2="12.01" y2="16.5"></line></svg>';
-      }
-      return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" opacity="0.25"></circle><path d="M12 7v5l3 2"></path></svg>';
+      container.innerHTML = '';
+      container.style.display = 'none';
     }
 
     function sortEnvioTimelineItems(items) {
@@ -496,7 +604,7 @@
 
       setTimeout(() => {
         if (typing) typing.classList.remove('vis');
-        if (status) status.textContent = 'en linea';
+        if (status) status.textContent = 'En sesión elegida';
         if (bubble) {
           bubble.style.display = 'block';
           bubble.style.animation = 'none';
@@ -511,7 +619,7 @@
       const rowEl = document.getElementById(`row-${aviso.id}`);
 
       if (visualStatus === 'enviando' && rowEl) {
-        const phoneEl = document.querySelector('.preview-phone-shell');
+        const phoneEl = document.querySelector('.phone-frame') || document.querySelector('.phone-stage');
         if (phoneEl) spawnBeam(rowEl, phoneEl);
       } else if (visualStatus === 'enviado' && previousStatus === 'enviando') {
         if (rowEl) {
@@ -566,6 +674,7 @@
     return {
       normalizeQueueControl,
       renderEnvioInterruptionPanel,
+      updatePrimarySendButtonState,
       bindEnvioInterrumpido,
       updateSessionSummary,
       bindConfirmacionEnvio,

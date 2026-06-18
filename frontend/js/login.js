@@ -22,9 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (window.API.Auth.isLoggedIn()) {
-    window.location.href = window.API.Auth.isSuperadmin()
-      ? window.API.Routes.admin
-      : window.API.Routes.dashboard;
+    window.location.href = getHomeRoute();
     return;
   }
 
@@ -37,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const password = inputPass.value.trim();
 
     if (!usuario || !password) {
-      showError('Completa todos los campos.');
+      showError('Complete todos los campos requeridos.');
       setLoading(false);
       return;
     }
@@ -48,9 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.ok) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        window.location.href = data.user?.es_superadmin
-          ? window.API.Routes.admin
-          : window.API.Routes.dashboard;
+        window.location.href = getHomeRoute(data.user);
       } else {
         showError(data.message || 'Credenciales incorrectas.');
       }
@@ -72,6 +68,10 @@ document.addEventListener('DOMContentLoaded', () => {
       : 'Ingresar';
   }
 
+  function getHomeRoute(user = null) {
+    return window.API.Routes.dashboard;
+  }
+
   function showError(message) {
     const label = errorMsg.querySelector('span');
     if (label) {
@@ -88,5 +88,57 @@ document.addEventListener('DOMContentLoaded', () => {
       label.textContent = '';
     }
     errorMsg.style.display = 'none';
+  }
+
+  // ============================================================
+  // Controles Interactivos de UI (Compatibles con CSP)
+  // ============================================================
+  
+  // 1. Mostrar/Ocultar Contraseña
+  const toggleBtn = document.getElementById('toggle-password');
+  const passwordInput = document.getElementById('input-password');
+  
+  if (toggleBtn && passwordInput) {
+    const eyeShow = toggleBtn.querySelector('.eye-show');
+    const eyeHide = toggleBtn.querySelector('.eye-hide');
+    
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault(); // Evita focos
+      
+      const isPassword = passwordInput.getAttribute('type') === 'password';
+      passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
+      
+      if (isPassword) {
+        if (eyeShow) eyeShow.style.display = 'none';
+        if (eyeHide) eyeHide.style.display = 'block';
+        passwordInput.classList.add('password-field');
+      } else {
+        if (eyeShow) eyeShow.style.display = 'block';
+        if (eyeHide) eyeHide.style.display = 'none';
+        passwordInput.classList.remove('password-field');
+      }
+    });
+  }
+
+  // 2. Modal de Soporte para Restablecer Contraseña
+  const forgotLink = document.getElementById('forgot-password-link');
+  const modal = document.getElementById('support-modal');
+  const closeBtn = document.getElementById('close-support-modal');
+  
+  if (forgotLink && modal && closeBtn) {
+    forgotLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      modal.style.display = 'flex';
+    });
+    
+    closeBtn.addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+    
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.style.display = 'none';
+      }
+    });
   }
 });

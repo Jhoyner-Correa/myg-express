@@ -13,6 +13,10 @@ type PlantillaRow = RowDataPacket & {
   sede_id: number;
 };
 
+type SedeConfiguracionRow = RowDataPacket & {
+  plantilla_whatsapp_default_id: number | null;
+};
+
 function obtenerSedeId(req: AuthRequest): number | null {
   return req.user?.sede_id ?? null;
 }
@@ -34,9 +38,79 @@ export async function listarPlantillas(req: AuthRequest, res: Response): Promise
       [sedeId]
     );
 
-    res.json({ ok: true, datos: rows });
+    const [configRows] = await pool.query<SedeConfiguracionRow[]>(
+      `SELECT plantilla_whatsapp_default_id
+       FROM sede_configuracion
+       WHERE sede_id = ?
+       LIMIT 1`,
+      [sedeId]
+    );
+
+    const configuredDefaultId = configRows[0]?.plantilla_whatsapp_default_id ?? null;
+    const defaultExistsInSede = configuredDefaultId
+      ? rows.some((plantilla) => Number(plantilla.id) === Number(configuredDefaultId))
+      : false;
+
+    res.json({
+      ok: true,
+      datos: rows,
+      default_plantilla_id: defaultExistsInSede ? configuredDefaultId : null
+    });
   } catch (error) {
     console.error('Error al listar plantillas:', error);
+    res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+  }
+}
+
+export async function establecerPlantillaDefault(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const sedeId = obtenerSedeId(req);
+    const plantillaId = Number(req.body?.plantilla_id);
+
+    if (!sedeId) {
+      res.status(401).json({ ok: false, mensaje: 'Sesion no valida' });
+      return;
+    }
+
+    if (!Number.isInteger(plantillaId) || plantillaId <= 0) {
+      res.status(400).json({ ok: false, mensaje: 'plantilla_id es obligatorio' });
+      return;
+    }
+
+    const [plantillaRows] = await pool.query<PlantillaRow[]>(
+      `SELECT id
+       FROM plantillas
+       WHERE id = ?
+         AND sede_id = ?
+         AND estado = 'activo'
+       LIMIT 1`,
+      [plantillaId, sedeId]
+    );
+
+    if (!plantillaRows.length) {
+      res.status(404).json({
+        ok: false,
+        mensaje: 'La plantilla no existe, esta inactiva o no pertenece a tu sede'
+      });
+      return;
+    }
+
+    await pool.query<ResultSetHeader>(
+      `INSERT INTO sede_configuracion (sede_id, plantilla_whatsapp_default_id)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE
+         plantilla_whatsapp_default_id = VALUES(plantilla_whatsapp_default_id),
+         updated_at = CURRENT_TIMESTAMP`,
+      [sedeId, plantillaId]
+    );
+
+    res.json({
+      ok: true,
+      mensaje: 'Plantilla predeterminada actualizada',
+      default_plantilla_id: plantillaId
+    });
+  } catch (error) {
+    console.error('Error al establecer plantilla predeterminada:', error);
     res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
   }
 }

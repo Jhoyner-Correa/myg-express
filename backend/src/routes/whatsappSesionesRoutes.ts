@@ -1,6 +1,7 @@
-import { Router } from 'express';
+import { NextFunction, Response, Router } from 'express';
 import {
   listarSesionesWhatsApp,
+  auditarSesionesEvolution,
   crearSesionWhatsApp,
   iniciarSesionWhatsApp,
   obtenerEstadoSesionWhatsApp,
@@ -9,17 +10,33 @@ import {
   cerrarSesionWhatsApp,
   eliminarSesionWhatsApp
 } from '../controllers/whatsappSesionesController';
-import { verificarToken } from '../middlewares/authMiddleware';
+import { PERMISSIONS } from '../constants/permissions';
+import { AuthRequest, verificarToken } from '../middlewares/authMiddleware';
+import { requirePermission } from '../middlewares/permissionMiddleware';
 
 const router = Router();
 
-router.get('/', verificarToken, listarSesionesWhatsApp);
-router.post('/', verificarToken, crearSesionWhatsApp);
-router.get('/:id/status', verificarToken, obtenerEstadoSesionWhatsApp);
-router.get('/:id/qr', verificarToken, obtenerQrSesionWhatsApp);
-router.post('/:id/init', verificarToken, iniciarSesionWhatsApp);
-router.post('/:id/reconnect', verificarToken, reconectarSesionWhatsApp);
-router.post('/:id/logout', verificarToken, cerrarSesionWhatsApp);
-router.delete('/:id', verificarToken, eliminarSesionWhatsApp);
+router.use(verificarToken);
+
+const requireWhatsappAuditAccess = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (req.user?.es_superadmin || req.user?.permisos?.includes(PERMISSIONS.WHATSAPP_VIEW)) {
+    return next();
+  }
+
+  return res.status(403).json({
+    ok: false,
+    message: 'No tienes permiso para auditar WhatsApp'
+  });
+};
+
+router.get('/', requirePermission(PERMISSIONS.WHATSAPP_VIEW), listarSesionesWhatsApp);
+router.get('/auditoria/evolution', requireWhatsappAuditAccess, auditarSesionesEvolution);
+router.post('/', requirePermission(PERMISSIONS.WHATSAPP_MANAGE), crearSesionWhatsApp);
+router.get('/:id/status', requirePermission(PERMISSIONS.WHATSAPP_VIEW), obtenerEstadoSesionWhatsApp);
+router.get('/:id/qr', requirePermission(PERMISSIONS.WHATSAPP_VIEW), obtenerQrSesionWhatsApp);
+router.post('/:id/init', requirePermission(PERMISSIONS.WHATSAPP_MANAGE), iniciarSesionWhatsApp);
+router.post('/:id/reconnect', requirePermission(PERMISSIONS.WHATSAPP_MANAGE), reconectarSesionWhatsApp);
+router.post('/:id/logout', requirePermission(PERMISSIONS.WHATSAPP_MANAGE), cerrarSesionWhatsApp);
+router.delete('/:id', requirePermission(PERMISSIONS.WHATSAPP_MANAGE), eliminarSesionWhatsApp);
 
 export default router;

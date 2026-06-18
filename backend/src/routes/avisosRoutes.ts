@@ -7,15 +7,19 @@ import {
   eliminarAviso,
   eliminarAvisosPorLote
 } from '../controllers/avisosController';
+import { PERMISSIONS } from '../constants/permissions';
 import { verificarToken } from '../middlewares/authMiddleware';
+import { requirePermission } from '../middlewares/permissionMiddleware';
 
 const router = Router();
 
-router.post('/', verificarToken, crearAviso);
-router.post('/importar', verificarToken, importarAvisos);
-router.get('/lote/:loteId', verificarToken, listarAvisosPorLote);
-router.delete('/lote/:loteId', verificarToken, eliminarAvisosPorLote);
-router.patch('/:id/estado', verificarToken, actualizarEstadoAviso);
-router.delete('/:id', verificarToken, eliminarAviso);
+router.use(verificarToken);
+
+router.post('/', requirePermission(PERMISSIONS.NOTICES_MANAGE), crearAviso);
+router.post('/importar', requirePermission(PERMISSIONS.NOTICES_MANAGE), importarAvisos);
+router.get('/lote/:loteId', requirePermission(PERMISSIONS.NOTICES_VIEW), listarAvisosPorLote);
+router.delete('/lote/:loteId', requirePermission(PERMISSIONS.NOTICES_MANAGE), eliminarAvisosPorLote);
+router.patch('/:id/estado', requirePermission(PERMISSIONS.NOTICES_MANAGE), actualizarEstadoAviso);
+router.delete('/:id', requirePermission(PERMISSIONS.NOTICES_MANAGE), eliminarAviso);
 
 export default router;

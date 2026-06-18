@@ -1,4 +1,4 @@
-import { IWhatsAppProvider } from './providers/IWhatsAppProvider';
+import { IWhatsAppProvider, WhatsAppProviderInstance } from './providers/IWhatsAppProvider';
 import { WhatsAppWebProvider } from './providers/WhatsAppWebProvider';
 import { EvolutionApiProvider } from './providers/EvolutionApiProvider';
 
@@ -57,6 +57,10 @@ class WhatsAppService {
 
   async removeSessionData(sessionKey: string): Promise<void> {
     await this.provider.removeSessionData(sessionKey);
+  }
+
+  async listProviderInstances(): Promise<WhatsAppProviderInstance[]> {
+    return await this.provider.listProviderInstances();
   }
 
   async bootstrapActiveSessions(): Promise<void> {

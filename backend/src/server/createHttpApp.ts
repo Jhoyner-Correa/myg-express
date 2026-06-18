@@ -23,6 +23,9 @@ export function createHttpApp() {
     'http://127.0.0.1:3001'
   ];
   const corsOrigins = parseList(process.env.APP_CORS_ORIGINS, defaultCorsOrigins);
+  if (isProduction && corsOrigins.length === 0) {
+    console.warn('[Security] APP_CORS_ORIGINS no esta configurado. Solo se permitiran solicitudes same-origin/sin Origin.');
+  }
   const connectSrc = parseList(process.env.APP_CSP_CONNECT_SRC, [
     "'self'",
     ...defaultCorsOrigins,
@@ -98,17 +101,15 @@ export function createHttpApp() {
       }
     }
   }));
-  app.use(cors(corsOrigins.length
-    ? {
-        origin(origin, callback) {
-          if (!origin || corsOrigins.includes(origin)) {
-            callback(null, true);
-            return;
-          }
-          callback(new Error('Origen no permitido por CORS'));
-        }
+  app.use(cors({
+    origin(origin, callback) {
+      if (!origin || corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
       }
-    : undefined));
+      callback(new Error('Origen no permitido por CORS'));
+    }
+  }));
   app.use(morgan('dev'));
   app.use(express.json({ limit: '15mb' }));
   app.use(express.urlencoded({ extended: true, limit: '15mb' }));

@@ -1,8 +1,28 @@
+node_modules/
+dist/
+.env
 backend/.env
-backend/.env.*
-!backend/.env.example
+backend/storage/
+*.log
+.DS_Store
 
-backend/dist/
-backend/node_modules/
+# Build / cache
+coverage/
+.cache/
+.tmp/
+temp/
 
-frontend/node_modules/
+# Windows / editors
+Thumbs.db
+.vscode/
+.idea/
+
+# Uploads / generated files
+backend/uploads/
+backend/tmp/
+
+# Local database dumps with real data
+*.sql
+!database.sql
+!database.production.sql
+!backend/migrations/*.sql

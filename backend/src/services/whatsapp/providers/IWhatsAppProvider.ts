@@ -1,3 +1,12 @@
+export type WhatsAppProviderInstance = {
+  name: string;
+  connectionStatus: string;
+  connected: boolean;
+  ownerJid: string | null;
+  profileName: string | null;
+  updatedAt: string | null;
+};
+
 export interface IWhatsAppProvider {
   init(sessionKey: string): Promise<void>;
   getStatus(sessionKey: string): Promise<string>;
@@ -15,6 +24,7 @@ export interface IWhatsAppProvider {
   reconnect(sessionKey: string): Promise<void>;
   logout(sessionKey: string): Promise<void>;
   removeSessionData(sessionKey: string): Promise<void>;
+  listProviderInstances(): Promise<WhatsAppProviderInstance[]>;
   bootstrapActiveSessions(): Promise<void>;
   cleanupStaleAuthData(retentionDays: number): Promise<number>;
 }

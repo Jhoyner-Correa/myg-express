@@ -1,130 +1,388 @@
-import { Worker, Job } from 'bullmq';
+import { Job, Worker } from 'bullmq';
 import { redisConnection } from '../config/redis.config';
 import { pool } from '../config/database';
-import { WhatsappJobData, QUEUE_NAME } from '../queues/whatsapp.queue';
+import { QUEUE_NAME, waQueue, WhatsappJobData } from '../queues/whatsapp.queue';
 import whatsappService from '../services/whatsapp/whatsappService';
 import whatsappMediaStorage from '../services/whatsapp/media/whatsappMediaStorage';
 import path from 'path';
 
-/**
- * Worker profesional para el envío de mensajes de WhatsApp.
- *
- * Características:
- * - Auto-reconecta la sesión de WhatsApp si el servidor se reinició y
- *   la sesión no está en memoria (pero sí en BD como activa).
- * - Reintentos automáticos: 3 intentos con backoff exponencial.
- * - Rate limiting: máximo 20 mensajes por minuto.
- * - Logs detallados para debugging.
- */
+const lastSendAtBySession = new Map<string, number>();
+
+function envNumber(name: string, fallback: number): number {
+  const parsed = Number(process.env[name]);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const minSendIntervalMs = Math.max(1000, envNumber('WHATSAPP_INTER_MESSAGE_DELAY_MS', 25000));
+const workerConcurrency = Math.max(1, envNumber('WHATSAPP_WORKER_CONCURRENCY', 1));
+const rateLimitMax = Math.max(1, envNumber('WHATSAPP_RATE_LIMIT_MAX', 2));
+const rateLimitDurationMs = Math.max(1000, envNumber('WHATSAPP_RATE_LIMIT_DURATION_MS', 60000));
+const adaptiveAfterMessages = Math.max(1, envNumber('WHATSAPP_ADAPTIVE_AFTER_MESSAGES', 30));
+const adaptiveExtraDelayMs = Math.max(0, envNumber('WHATSAPP_ADAPTIVE_EXTRA_DELAY_MS', 60000));
+const adaptiveStrongAfterMessages = Math.max(adaptiveAfterMessages, envNumber('WHATSAPP_ADAPTIVE_STRONG_AFTER_MESSAGES', 50));
+const adaptiveStrongDelayMs = Math.max(0, envNumber('WHATSAPP_ADAPTIVE_STRONG_DELAY_MS', 240000));
+const hourlyHardLimit = Math.max(1, envNumber('WHATSAPP_HOURLY_HARD_LIMIT', 45));
+const hourlyHardCooldownMs = Math.max(60000, envNumber('WHATSAPP_HOURLY_HARD_COOLDOWN_MS', 1800000));
+const mediaTextOnlyAfterMessages = Math.max(0, envNumber('WHATSAPP_MEDIA_TEXT_ONLY_AFTER_MESSAGES', 35));
+const mediaStrategy = String(process.env.WHATSAPP_MEDIA_STRATEGY || 'text_after_threshold').toLowerCase();
+
+function isWhatsappConnectionError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes('no esta conectada')
+    || normalized.includes('no está conectada')
+    || normalized.includes('not connected')
+    || normalized.includes('disconnected')
+    || normalized.includes('connection closed')
+    || normalized.includes('socket closed')
+    || normalized.includes('timed out')
+    || normalized.includes('timeout')
+    || normalized.includes('reconecta tu telefono')
+    || normalized.includes('reconecta tu teléfono');
+}
+
+function isWhatsappSafetyPauseError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return isWhatsappConnectionError(message)
+    || normalized.includes('blocked')
+    || normalized.includes('bloque')
+    || normalized.includes('rate limit')
+    || normalized.includes('too many requests')
+    || normalized.includes('status":429')
+    || normalized.includes('status 429')
+    || normalized.includes(' 429')
+    || normalized.includes('status":403')
+    || normalized.includes('status 403')
+    || normalized.includes(' 403')
+    || normalized.includes('status":440')
+    || normalized.includes('status 440')
+    || normalized.includes('status":428')
+    || normalized.includes('status 428')
+    || normalized.includes('connection replaced')
+    || normalized.includes('logged out')
+    || normalized.includes('forbidden')
+    || normalized.includes('unauthorized');
+}
+
+function isSinWhatsappError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes('not registered')
+    || normalized.includes('no tiene una cuenta')
+    || normalized.includes('"exists":false')
+    || normalized.includes('exists: false')
+    || normalized.includes('exists:false');
+}
+
+async function waitForSessionPace(sessionKey: string, avisoId: number): Promise<void> {
+  const lastSendAt = lastSendAtBySession.get(sessionKey) || 0;
+  const elapsed = Date.now() - lastSendAt;
+  const waitMs = Math.max(0, minSendIntervalMs - elapsed);
+
+  if (waitMs > 0) {
+    console.log(`[BullMQ] Esperando ${waitMs}ms antes de enviar aviso ${avisoId}.`);
+    await sleep(waitMs);
+  }
+}
+
+async function getSessionTrafficStats(sesionId: number): Promise<{ lastHour: number; today: number }> {
+  const [[stats]]: any = await pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR) THEN 1 ELSE 0 END), 0) AS lastHour,
+       COALESCE(SUM(CASE WHEN DATE(created_at) = CURDATE() THEN 1 ELSE 0 END), 0) AS today
+     FROM mensajes_log
+     WHERE whatsapp_sesion_id = ?
+       AND estado_envio = 'enviado'`,
+    [sesionId]
+  );
+
+  return {
+    lastHour: Number(stats?.lastHour || 0),
+    today: Number(stats?.today || 0)
+  };
+}
+
+function shouldSendMedia(stats: { today: number }, hasMedia: boolean): boolean {
+  if (!hasMedia) return false;
+  if (mediaStrategy === 'always') return true;
+  if (mediaStrategy === 'text_only') return false;
+  if (mediaStrategy === 'text_after_threshold') {
+    return stats.today < mediaTextOnlyAfterMessages;
+  }
+  return true;
+}
+
+async function waitForAdaptiveSafety(sesionId: number, avisoId: number): Promise<void> {
+  const stats = await getSessionTrafficStats(sesionId);
+
+  if (stats.lastHour >= hourlyHardLimit) {
+    console.warn(`[BullMQ] Sesion ${sesionId} alcanzo ${stats.lastHour} envios en la ultima hora. Enfriando ${hourlyHardCooldownMs}ms antes del aviso ${avisoId}.`);
+    await sleep(hourlyHardCooldownMs);
+    return;
+  }
+
+  if (stats.today >= adaptiveStrongAfterMessages && adaptiveStrongDelayMs > 0) {
+    console.log(`[BullMQ] Ritmo fuerte activado para sesion ${sesionId}: ${stats.today} envios hoy. Esperando ${adaptiveStrongDelayMs}ms.`);
+    await sleep(adaptiveStrongDelayMs);
+    return;
+  }
+
+  if (stats.today >= adaptiveAfterMessages && adaptiveExtraDelayMs > 0) {
+    console.log(`[BullMQ] Ritmo conservador activado para sesion ${sesionId}: ${stats.today} envios hoy. Esperando ${adaptiveExtraDelayMs}ms.`);
+    await sleep(adaptiveExtraDelayMs);
+  }
+}
+
+async function removeQueuedJobsForLote(loteId: number): Promise<number> {
+  const jobs = await waQueue.getJobs(['waiting', 'delayed', 'paused']);
+  let removedJobs = 0;
+
+  for (const queuedJob of jobs) {
+    if (Number(queuedJob.data?.loteId) === Number(loteId)) {
+      await queuedJob.remove();
+      removedJobs++;
+    }
+  }
+
+  return removedJobs;
+}
+
+async function pauseLoteForWhatsAppSafety(
+  loteId: number,
+  sedeId: number,
+  reason: string
+): Promise<number> {
+  const removedJobs = await removeQueuedJobsForLote(loteId);
+
+  await pool.query(
+    `UPDATE avisos_diarios
+     SET estado_aviso = 'pendiente',
+         error_detalle = ?
+     WHERE lote_id = ?
+       AND sede_id = ?
+       AND estado_aviso IN ('pendiente', 'en_cola')`,
+    [reason, loteId, sedeId]
+  );
+
+  await pool.query(
+    `UPDATE lotes_carga
+     SET estado = 'pausado'
+     WHERE id = ? AND sede_id = ?`,
+    [loteId, sedeId]
+  );
+
+  return removedJobs;
+}
+
+async function refreshLoteStatusAfterJob(job?: Job<WhatsappJobData>): Promise<void> {
+  if (!job?.data?.loteId || !job?.data?.sedeId) return;
+
+  const loteId = Number(job.data.loteId);
+  const sedeId = Number(job.data.sedeId);
+
+  try {
+    const [[lote]]: any = await pool.query(
+      `SELECT estado
+       FROM lotes_carga
+       WHERE id = ? AND sede_id = ?
+       LIMIT 1`,
+      [loteId, sedeId]
+    );
+
+    if (!lote || String(lote.estado).toLowerCase() !== 'procesando') return;
+
+    const [[stats]]: any = await pool.query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN estado_aviso = 'pendiente' THEN 1 ELSE 0 END), 0) AS pendientes,
+         COALESCE(SUM(CASE WHEN estado_aviso = 'en_cola' THEN 1 ELSE 0 END), 0) AS en_cola,
+         COALESCE(SUM(CASE WHEN estado_aviso = 'fallido' THEN 1 ELSE 0 END), 0) AS fallidos
+       FROM avisos_diarios
+       WHERE lote_id = ? AND sede_id = ?`,
+      [loteId, sedeId]
+    );
+
+    const pendientes = Number(stats?.pendientes || 0);
+    const enCola = Number(stats?.en_cola || 0);
+    const fallidos = Number(stats?.fallidos || 0);
+
+    if (pendientes > 0 || enCola > 0) return;
+
+    const nextStatus = fallidos > 0 ? 'pausado' : 'completado';
+    await pool.query(
+      `UPDATE lotes_carga
+       SET estado = ?
+       WHERE id = ? AND sede_id = ? AND estado = 'procesando'`,
+      [nextStatus, loteId, sedeId]
+    );
+
+    console.log(`[BullMQ] Lote ${loteId} actualizado a ${nextStatus}.`);
+  } catch (error: any) {
+    console.warn(`[BullMQ] No se pudo actualizar estado final del lote ${loteId}:`, error.message);
+  }
+}
+
+async function guardarLogEnvio(params: {
+  sedeId: number;
+  loteId: number;
+  avisoId: number;
+  sesionId: number;
+  telefono: string;
+  nombre: string | null;
+  estado: 'enviado' | 'enviado_manual' | 'fallido' | 'sin_whatsapp' | 'cancelado';
+  whatsappMessageId?: string | null;
+  errorDetalle?: string | null;
+}) {
+  try {
+    const [lotes]: any = await pool.query('SELECT id FROM lotes_carga WHERE id = ?', [params.loteId]);
+    const [sesiones]: any = await pool.query('SELECT id FROM whatsapp_sesiones WHERE id = ?', [params.sesionId]);
+    const [avisos]: any = await pool.query('SELECT id FROM avisos_diarios WHERE id = ?', [params.avisoId]);
+
+    await pool.query(
+      `INSERT INTO mensajes_log
+       (sede_id, lote_id, aviso_id, whatsapp_sesion_id, telefono, nombre_destinatario, estado_envio, whatsapp_message_id, error_detalle, fecha_envio)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        params.sedeId,
+        lotes.length ? params.loteId : null,
+        avisos.length ? params.avisoId : null,
+        sesiones.length ? params.sesionId : null,
+        params.telefono,
+        params.nombre,
+        params.estado,
+        params.whatsappMessageId || null,
+        params.errorDetalle || null
+      ]
+    );
+  } catch (logError: any) {
+    console.warn(`[BullMQ] No se pudo guardar log para aviso ${params.avisoId}:`, logError.message);
+  }
+}
+
 export const whatsappWorker = new Worker<WhatsappJobData>(
   QUEUE_NAME,
   async (job: Job<WhatsappJobData>) => {
-    const { avisoId, loteId, sedeId, telefono, nombre, codigo, sesionId, plantillaId } = job.data;
+    const { avisoId, loteId, sedeId, telefono, nombre, codigo, sesionId, plantillaId, orden } = job.data;
 
-    console.log(`[BullMQ] Procesando job ${job.id} → aviso ${avisoId} para ${telefono}`);
+    console.log(`[BullMQ] Procesando job ${job.id} -> lote ${loteId}, orden ${orden || '-'}, aviso ${avisoId}, telefono ${telefono}`);
 
-    // 1. Marcar el aviso como "en proceso"
     const [updateResult]: any = await pool.query(
       `UPDATE avisos_diarios
-       SET estado_aviso = 'en_cola', intentos = COALESCE(intentos, 0) + 1, id_trabajo_cola = ?
-       WHERE id = ?`,
+       SET estado_aviso = 'en_cola',
+           intentos = COALESCE(intentos, 0) + 1,
+           id_trabajo_cola = ?
+       WHERE id = ?
+         AND estado_aviso IN ('pendiente', 'fallido')`,
       [job.id, avisoId]
     );
 
     if (updateResult.affectedRows === 0) {
-      console.warn(`[BullMQ] El aviso ${avisoId} ya no existe en la base de datos (pudo ser eliminado). Omitiendo envío.`);
-      return { success: false, reason: 'aviso_deleted' };
+      const [rows]: any = await pool.query('SELECT estado_aviso FROM avisos_diarios WHERE id = ?', [avisoId]);
+      const estado = rows[0]?.estado_aviso || 'no_existe';
+      console.warn(`[BullMQ] Aviso ${avisoId} omitido. Estado actual: ${estado}.`);
+      return { success: false, skipped: true, estado };
     }
 
     try {
-      // 2. Obtener la sesión de la BD (sin filtrar por estado, para poder reconectar)
       const [sesiones]: any = await pool.query(
-        `SELECT session_key, estado, activo FROM whatsapp_sesiones WHERE id = ?`,
+        `SELECT session_key, activo FROM whatsapp_sesiones WHERE id = ?`,
         [sesionId]
       );
 
       if (!sesiones.length) {
-        throw new Error(`Sesión de WhatsApp con id=${sesionId} no encontrada en la base de datos`);
+        throw new Error(`Sesion de WhatsApp con id=${sesionId} no encontrada`);
       }
 
       const sesion = sesiones[0];
-
       if (!sesion.activo) {
-        throw new Error('La sesión de WhatsApp está desactivada. Actívala desde el panel.');
+        throw new Error('La sesion de WhatsApp esta desactivada. Activala desde el panel.');
       }
 
       const sessionKey = sesion.session_key;
-
-      // 3. Verificar si la sesión está conectada en memoria; si no, reconectar.
       const conectado = await whatsappService.isConnected(sessionKey);
 
       if (!conectado) {
-        console.log(`[BullMQ] Sesión ${sessionKey} no está en memoria. Intentando reconectar...`);
-        // Intentar inicializar la sesión (usa las credenciales guardadas en disco)
-        try {
-          await whatsappService.init(sessionKey);
-          // Dar tiempo a WhatsApp para establecer la conexión
-          await new Promise((resolve) => setTimeout(resolve, 8000));
-        } catch (initError: any) {
-          throw new Error(`No se pudo reconectar la sesión WhatsApp: ${initError.message}`);
-        }
-
-        // Verificar de nuevo tras la reconexión
-        const reconectado = await whatsappService.isConnected(sessionKey);
-        if (!reconectado) {
-          throw new Error(
-            'La sesión de WhatsApp no está conectada. Por favor reconecta tu teléfono desde el panel de WhatsApp.'
-          );
-        }
+        const pauseReason = 'Envio pausado: WhatsApp no esta conectado. El usuario debe decidir si retoma, marca manualmente o cancela pendientes.';
+        const removedJobs = await pauseLoteForWhatsAppSafety(Number(loteId), Number(sedeId), pauseReason);
+        console.warn(`[BullMQ] Lote ${loteId} pausado por WhatsApp desconectado. Trabajos pendientes removidos: ${removedJobs}`);
+        return { success: false, paused: true, reason: 'whatsapp_disconnected', removedJobs };
       }
 
-      // 4. Obtener la plantilla
-      if (!plantillaId) {
-        throw new Error('No se asignó ninguna plantilla a este aviso. Selecciona una plantilla antes de enviar.');
-      }
-
-      const [plantillas]: any = await pool.query(
-        `SELECT contenido, imagen_path FROM plantillas WHERE id = ?`,
-        [plantillaId]
+      const [avisos]: any = await pool.query(
+        `SELECT nombre, telefono, codigo_paquete, id_plantilla, mensaje_personalizado
+         FROM avisos_diarios
+         WHERE id = ? AND lote_id = ? AND sede_id = ?
+         LIMIT 1`,
+        [avisoId, loteId, sedeId]
       );
 
-      if (!plantillas.length) {
-        throw new Error(`Plantilla con id=${plantillaId} no encontrada`);
+      if (!avisos.length) {
+        throw new Error(`Aviso ${avisoId} no encontrado antes del envio`);
       }
 
-      const plantilla = plantillas[0];
+      const aviso = avisos[0];
+      const actualNombre = aviso.nombre ?? nombre;
+      const actualTelefono = aviso.telefono ?? telefono;
+      const actualCodigo = aviso.codigo_paquete ?? codigo;
+      const actualPlantillaId = aviso.id_plantilla ?? plantillaId;
 
-      // 5. Reemplazar variables en el mensaje
-      let mensaje = String(plantilla.contenido || '');
-      mensaje = mensaje.replace(/\{nombre\}/g, nombre || '');
-      mensaje = mensaje.replace(/\{codigo_paquete\}/g, codigo || '');
+      let plantilla: any = null;
+      if (actualPlantillaId) {
+        const [plantillas]: any = await pool.query(
+          `SELECT contenido, imagen_path FROM plantillas WHERE id = ?`,
+          [actualPlantillaId]
+        );
+        plantilla = plantillas[0] || null;
+      }
 
-      // 6. Resolver ruta de imagen si existe
+      if (!plantilla && !aviso.mensaje_personalizado) {
+        throw new Error('No se asigno ninguna plantilla ni mensaje personalizado a este aviso.');
+      }
+
+      let mensaje = String(aviso.mensaje_personalizado || plantilla?.contenido || '');
+      mensaje = mensaje.replace(/\{nombre\}/g, actualNombre || '');
+      mensaje = mensaje.replace(/\{codigo_paquete\}/g, actualCodigo || '');
+
       let mediaPath: string | undefined;
       let mediaMimeType: string | undefined;
       let mediaFilename: string | undefined;
 
-      if (plantilla.imagen_path) {
-        // resolveAbsolutePath soporta tanto rutas relativas nuevas
-        // como rutas absolutas legadas guardadas en versiones anteriores
-        mediaPath     = whatsappMediaStorage.resolveAbsolutePath(plantilla.imagen_path);
+      if (plantilla?.imagen_path) {
+        mediaPath = whatsappMediaStorage.resolveAbsolutePath(plantilla.imagen_path);
         mediaMimeType = whatsappMediaStorage.mimeTypeFromPath(plantilla.imagen_path);
         mediaFilename = path.basename(plantilla.imagen_path);
       }
 
-      // 7. Enviar el mensaje
-      const result = await whatsappService.sendMessage(
-        sessionKey,
-        telefono,
-        mensaje,
-        mediaPath,
-        mediaMimeType,
-        mediaFilename
-      );
+      const trafficStats = await getSessionTrafficStats(Number(sesionId));
+      if (!shouldSendMedia(trafficStats, Boolean(mediaPath))) {
+        if (mediaPath) {
+          console.log(`[BullMQ] Envio sin imagen para aviso ${avisoId}: estrategia=${mediaStrategy}, enviados_hoy=${trafficStats.today}.`);
+        }
+        mediaPath = undefined;
+        mediaMimeType = undefined;
+        mediaFilename = undefined;
+      }
+
+      await waitForSessionPace(sessionKey, avisoId);
+      await waitForAdaptiveSafety(Number(sesionId), avisoId);
+
+      let result: any;
+      try {
+        result = await whatsappService.sendMessage(
+          sessionKey,
+          actualTelefono,
+          mensaje,
+          mediaPath,
+          mediaMimeType,
+          mediaFilename
+        );
+      } finally {
+        lastSendAtBySession.set(sessionKey, Date.now());
+      }
 
       const messageId = result?.id?._serialized || result?.id || result?.messageId || 'ok';
 
-      // 8. ✅ Éxito: actualizar BD
       await pool.query(
         `UPDATE avisos_diarios
          SET estado_aviso = 'enviado',
@@ -136,48 +394,36 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         [messageId, sesionId, avisoId]
       );
 
-      // 9. Guardar en log de auditoría
-      try {
-        // Validar existencia de entidades asociadas para evitar errores de clave foránea
-        const [lotes]: any = await pool.query('SELECT id FROM lotes_carga WHERE id = ?', [loteId]);
-        const actualLoteId = lotes.length ? loteId : null;
+      await guardarLogEnvio({
+        sedeId,
+        loteId,
+        avisoId,
+        sesionId,
+        telefono: actualTelefono,
+        nombre: actualNombre,
+        estado: 'enviado',
+        whatsappMessageId: messageId
+      });
 
-        const [sesiones]: any = await pool.query('SELECT id FROM whatsapp_sesiones WHERE id = ?', [sesionId]);
-        const actualSessionId = sesiones.length ? sesionId : null;
+      console.log(`[BullMQ] Mensaje enviado correctamente -> aviso ${avisoId} a ${actualTelefono}`);
+      return { success: true, messageId };
+    } catch (error: any) {
+      const errorMessage = String(error?.message || 'Error desconocido').substring(0, 500);
 
-        const [avisos]: any = await pool.query('SELECT id FROM avisos_diarios WHERE id = ?', [avisoId]);
-        const actualAvisoId = avisos.length ? avisoId : null;
-
-        await pool.query(
-          `INSERT INTO mensajes_log
-           (sede_id, lote_id, aviso_id, whatsapp_sesion_id, telefono, nombre_destinatario, estado_envio, whatsapp_message_id, fecha_envio)
-           VALUES (?, ?, ?, ?, ?, ?, 'enviado', ?, NOW())`,
-          [sedeId, actualLoteId, actualAvisoId, actualSessionId, telefono, nombre, messageId]
-        );
-      } catch (logError: any) {
-        // No fallar el job por un error de log
-        console.warn(`[BullMQ] No se pudo guardar log para aviso ${avisoId}:`, logError.message);
+      if (isWhatsappSafetyPauseError(errorMessage)) {
+        const pauseReason = `Envio pausado por seguridad: ${errorMessage}`;
+        const removedJobs = await pauseLoteForWhatsAppSafety(Number(loteId), Number(sedeId), pauseReason);
+        console.warn(`[BullMQ] Lote ${loteId} pausado por seguridad WhatsApp. Trabajos pendientes removidos: ${removedJobs}`);
+        return { success: false, paused: true, reason: 'whatsapp_safety_pause', removedJobs };
       }
 
-      console.log(`[BullMQ] ✅ Mensaje enviado correctamente → aviso ${avisoId} a ${telefono}`);
-      return { success: true, messageId };
-
-    } catch (error: any) {
-      // 10. ❌ Fallo: clasificar el error
-      const errorMessage = String(error?.message || 'Error desconocido').substring(0, 500);
-      const esSinWhatsapp = errorMessage.toLowerCase().includes('not registered')
-        || errorMessage.toLowerCase().includes('no tiene una cuenta')
-        || errorMessage.includes('"exists":false')
-        || errorMessage.includes('exists: false')
-        || errorMessage.toLowerCase().includes('exists:false');
-
-      // Si es el último intento, marcar como fallido definitivo
-      const esUltimoIntento = job.attemptsMade >= (job.opts?.attempts ?? 3) - 1;
+      const esSinWhatsapp = isSinWhatsappError(errorMessage);
+      const esUltimoIntento = job.attemptsMade >= (job.opts?.attempts ?? 1) - 1;
       const estadoFinal = esUltimoIntento
         ? (esSinWhatsapp ? 'sin_whatsapp' : 'fallido')
-        : 'pendiente'; // BullMQ reintentará y volverá a 'en_cola'
+        : 'pendiente';
 
-      console.error(`[BullMQ] ❌ Fallo en aviso ${avisoId} (intento ${job.attemptsMade + 1}): ${errorMessage}`);
+      console.error(`[BullMQ] Fallo en aviso ${avisoId} (intento ${job.attemptsMade + 1}): ${errorMessage}`);
 
       await pool.query(
         `UPDATE avisos_diarios
@@ -186,50 +432,40 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         [estadoFinal, errorMessage, avisoId]
       );
 
-      // Guardar en log solo si es el error final
       if (esUltimoIntento) {
-        try {
-          // Validar existencia de entidades asociadas para evitar errores de clave foránea
-          const [lotes]: any = await pool.query('SELECT id FROM lotes_carga WHERE id = ?', [loteId]);
-          const actualLoteId = lotes.length ? loteId : null;
-
-          const [sesiones]: any = await pool.query('SELECT id FROM whatsapp_sesiones WHERE id = ?', [sesionId]);
-          const actualSessionId = sesiones.length ? sesionId : null;
-
-          const [avisos]: any = await pool.query('SELECT id FROM avisos_diarios WHERE id = ?', [avisoId]);
-          const actualAvisoId = avisos.length ? avisoId : null;
-
-          await pool.query(
-            `INSERT INTO mensajes_log
-             (sede_id, lote_id, aviso_id, whatsapp_sesion_id, telefono, nombre_destinatario, estado_envio, error_detalle, fecha_envio)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-            [sedeId, actualLoteId, actualAvisoId, actualSessionId, telefono, nombre, estadoFinal, errorMessage]
-          );
-        } catch (logError: any) {
-          console.warn(`[BullMQ] No se pudo guardar log de error para aviso ${avisoId}:`, logError.message);
-        }
+        await guardarLogEnvio({
+          sedeId,
+          loteId,
+          avisoId,
+          sesionId,
+          telefono,
+          nombre,
+          estado: estadoFinal as 'fallido' | 'sin_whatsapp',
+          errorDetalle: errorMessage
+        });
       }
 
-      // Relanzar para que BullMQ maneje el reintento
       throw error;
     }
   },
   {
     connection: redisConnection,
-    concurrency: 2, // 2 mensajes en paralelo (más seguro para WhatsApp)
+    concurrency: workerConcurrency,
     limiter: {
-      max: 15,        // máximo 15 mensajes
-      duration: 60000 // por minuto
+      max: rateLimitMax,
+      duration: rateLimitDurationMs
     }
   }
 );
 
 whatsappWorker.on('failed', (job, err) => {
-  console.error(`[BullMQ] ❌ Job fallido ${job?.id}: ${err.message}`);
+  console.error(`[BullMQ] Job fallido ${job?.id}: ${err.message}`);
+  void refreshLoteStatusAfterJob(job as Job<WhatsappJobData> | undefined);
 });
 
 whatsappWorker.on('completed', (job) => {
-  console.log(`[BullMQ] ✅ Job completado ${job.id}`);
+  console.log(`[BullMQ] Job completado ${job.id}`);
+  void refreshLoteStatusAfterJob(job);
 });
 
 whatsappWorker.on('error', (err) => {

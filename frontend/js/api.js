@@ -5,7 +5,27 @@
 
 const API_BASE = window.__APP_CONFIG__?.apiBase || window.__API_BASE__ || '/api';
 const WHATSAPP_API_BASE = window.__APP_CONFIG__?.whatsappApiBase || window.__WHATSAPP_API_BASE__ || API_BASE;
-const DEBUG_HTTP = Boolean(window.__APP_CONFIG__?.debugApi) || localStorage.getItem('__debug_api__') === '1';
+const DEBUG_HTTP = Boolean(window.__APP_CONFIG__?.debugApi);
+
+const ROLE_PERMISSIONS = {
+  SysAdmin: ['dashboard.ver', 'admin.panel.ver', 'sedes.gestionar', 'usuarios.gestionar', 'colas.ver'],
+  AdminEmpresa: ['dashboard.ver'],
+  EncargadoOficina: [
+    'dashboard.ver',
+    'rutas.ver',
+    'rutas.gestionar',
+    'avisos.ver',
+    'avisos.gestionar',
+    'entregas.ver',
+    'entregas.gestionar',
+    'plantillas.ver',
+    'plantillas.gestionar',
+    'whatsapp.ver',
+    'whatsapp.gestionar',
+    'urbano.rutas.ver',
+    'urbano.rutas.gestionar'
+  ]
+};
 
 const Routes = {
   login: '/login',
@@ -13,6 +33,7 @@ const Routes = {
   admin: '/admin',
   rutas: '/rutas',
   lotes: '/rutas',
+  gestionEntregas: '/gestion-entregas',
   whatsapp: '/whatsapp',
   consultaRutas: '/consulta-rutas',
   produccion: '/consulta-rutas',
@@ -66,16 +87,44 @@ function getUser() {
     const user = raw ? JSON.parse(raw) : null;
     if (user) {
       if (user.es_superadmin) {
-        user.rol = 'Administrador de Sistemas (SysAdmin)';
+        user.rol = 'SysAdmin';
+        user.rol_label = 'Administrador del Sistema';
         user.sede_nombre = 'Administración Central';
+      } else if (user.rol === 'AdminEmpresa') {
+        user.rol_label = 'Administrador General';
+        user.sede_nombre = user.sede_nombre || 'Administracion Central';
       } else {
-        user.rol = 'Encargado de Oficina';
+        user.rol = 'EncargadoOficina';
+        user.rol_label = 'Encargado de Oficina';
       }
+
+      user.permisos = Array.isArray(user.permisos) && user.permisos.length
+        ? user.permisos
+        : getFallbackPermissions(user.rol);
     }
     return user;
   } catch {
     return null;
   }
+}
+
+function getFallbackPermissions(role) {
+  return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.EncargadoOficina;
+}
+
+function getPermissions() {
+  const user = getUser();
+  const fallback = getFallbackPermissions(user?.rol);
+  const stored = Array.isArray(user?.permisos) ? user.permisos : [];
+  return Array.from(new Set([...fallback, ...stored]));
+}
+
+function hasPermission(permission) {
+  return getPermissions().includes(permission);
+}
+
+function hasAnyPermission(permissions = []) {
+  return permissions.some((permission) => hasPermission(permission));
 }
 
 function ensureSuperadminSidebar() {
@@ -187,6 +236,15 @@ const Auth = {
     return handleResponse(res);
   },
 
+  async actualizarPerfil(payload) {
+    const res = await fetch(`${API_BASE}/auth/perfil`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return handleResponse(res);
+  },
+
   logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -204,14 +262,27 @@ const Auth = {
   requireAuth() {
     if (!this.isLoggedIn()) {
       window.location.href = Routes.login;
+      return false;
     }
+    return true;
   },
 
   requireSuperadmin() {
-    this.requireAuth();
-    if (!this.isSuperadmin()) {
+    if (!this.requireAuth()) return false;
+    if (!hasPermission('admin.panel.ver')) {
       window.location.href = Routes.dashboard;
+      return false;
     }
+    return true;
+  },
+
+  requirePermission(permission, redirectTo = Routes.dashboard) {
+    if (!this.requireAuth()) return false;
+    if (!hasPermission(permission)) {
+      window.location.href = redirectTo;
+      return false;
+    }
+    return true;
   }
 };
 
@@ -251,6 +322,22 @@ const Lotes = {
       method: 'PUT',
       headers: authHeaders(),
       body: JSON.stringify({ nombre_lote })
+    });
+    return handleResponse(res);
+  },
+
+  async habilitarEntregas(id) {
+    const res = await fetch(`${API_BASE}/lotes/${id}/entregas`, {
+      method: 'POST',
+      headers: authHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async eliminar(id) {
+    const res = await fetch(`${API_BASE}/lotes/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders()
     });
     return handleResponse(res);
   }
@@ -317,6 +404,76 @@ const Avisos = {
 };
 
 // ------------------------------------------------------------
+// ENTREGAS
+// GET   /entregas
+// PATCH /entregas/:id/recoger
+// PATCH /entregas/:id/pendiente
+// ------------------------------------------------------------
+
+const Entregas = {
+  async resumen() {
+    const res = await fetch(`${API_BASE}/entregas/resumen`, {
+      headers: authHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async buscarClientes(params = {}) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        query.set(key, String(value).trim());
+      }
+    });
+
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    const res = await fetch(`${API_BASE}/entregas/clientes${suffix}`, {
+      headers: authHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async paquetesCliente(clientKey) {
+    const res = await fetch(`${API_BASE}/entregas/clientes/${encodeURIComponent(clientKey)}/paquetes`, {
+      headers: authHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async buscar(params = {}) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        query.set(key, String(value).trim());
+      }
+    });
+
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    const res = await fetch(`${API_BASE}/entregas${suffix}`, {
+      headers: authHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async marcarRecogido(id, observacion) {
+    const res = await fetch(`${API_BASE}/entregas/${id}/recoger`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ observacion })
+    });
+    return handleResponse(res);
+  },
+
+  async marcarPendiente(id) {
+    const res = await fetch(`${API_BASE}/entregas/${id}/pendiente`, {
+      method: 'PATCH',
+      headers: authHeaders()
+    });
+    return handleResponse(res);
+  }
+};
+
+// ------------------------------------------------------------
 // PLANTILLAS
 // GET /plantillas
 // ------------------------------------------------------------
@@ -347,6 +504,15 @@ const Plantillas = {
     return handleResponse(res);
   },
 
+  async establecerDefault(plantilla_id) {
+    const res = await fetch(`${API_BASE}/plantillas/default`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ plantilla_id })
+    });
+    return handleResponse(res);
+  },
+
   async eliminar(id) {
     const res = await fetch(`${API_BASE}/plantillas/${id}`, {
       method: 'DELETE',
@@ -359,6 +525,7 @@ const Plantillas = {
 // ------------------------------------------------------------
 // WHATSAPP SESIONES
 // GET  /whatsapp-sesiones
+// GET  /whatsapp-sesiones/auditoria/evolution
 // GET  /whatsapp-sesiones/:id/status
 // GET  /whatsapp-sesiones/:id/qr
 // POST /whatsapp-sesiones/:id/init
@@ -369,6 +536,12 @@ const Plantillas = {
 const WhatsAppSesiones = {
   async listar() {
     return fetchJson(`${WHATSAPP_API_BASE}/whatsapp-sesiones`, {
+      headers: authHeaders()
+    }, 'worker de WhatsApp');
+  },
+
+  async auditarEvolution() {
+    return fetchJson(`${WHATSAPP_API_BASE}/whatsapp-sesiones/auditoria/evolution`, {
       headers: authHeaders()
     }, 'worker de WhatsApp');
   },
@@ -449,10 +622,18 @@ const WhatsAppEnvio = {
     }, 'worker de WhatsApp');
   },
 
-  async marcarManual(loteId) {
-    return fetchJson(`${WHATSAPP_API_BASE}/whatsapp/lotes/${loteId}/mark-manual`, {
+  async pausarLote(loteId) {
+    return fetchJson(`${WHATSAPP_API_BASE}/whatsapp/lotes/${loteId}/pause`, {
       method: 'POST',
       headers: authHeaders()
+    }, 'worker de WhatsApp');
+  },
+
+  async marcarManual(loteId, payload = {}) {
+    return fetchJson(`${WHATSAPP_API_BASE}/whatsapp/lotes/${loteId}/mark-manual`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload)
     }, 'worker de WhatsApp');
   },
 
@@ -472,28 +653,23 @@ const Produccion = {
     return handleResponse(res);
   },
 
-  async login(username, password) {
-    const res = await fetch(`${API_BASE}/produccion/login`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        ...(username ? { username } : {}),
-        ...(password ? { password } : {})
-      })
-    });
-    return handleResponse(res);
-  },
-
-  async logout() {
-    const res = await fetch(`${API_BASE}/produccion/logout`, {
-      method: 'POST',
+  async consultarRuta(routeId) {
+    const res = await fetch(`${API_BASE}/produccion/rutas/${encodeURIComponent(routeId)}`, {
       headers: authHeaders()
     });
     return handleResponse(res);
   },
 
-  async consultarRuta(routeId) {
-    const res = await fetch(`${API_BASE}/produccion/rutas/${encodeURIComponent(routeId)}`, {
+  async obtenerUltimaConsulta() {
+    const res = await fetch(`${API_BASE}/produccion/cache/ultima`, {
+      headers: authHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async limpiarConsulta() {
+    const res = await fetch(`${API_BASE}/produccion/cache`, {
+      method: 'DELETE',
       headers: authHeaders()
     });
     return handleResponse(res);
@@ -541,6 +717,30 @@ const Admin = {
     return handleResponse(res);
   },
 
+  async listarCredencialesUrbano() {
+    const res = await fetch(`${API_BASE}/admin/urbano-credenciales`, {
+      headers: authHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async guardarCredencialUrbano(sedeId, data) {
+    const res = await fetch(`${API_BASE}/admin/urbano-credenciales/${sedeId}`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify(data)
+    });
+    return handleResponse(res);
+  },
+
+  async eliminarCredencialUrbano(sedeId) {
+    const res = await fetch(`${API_BASE}/admin/urbano-credenciales/${sedeId}`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    return handleResponse(res);
+  },
+
   async listarUsuarios() {
     const res = await fetch(`${API_BASE}/admin/usuarios`, {
       headers: authHeaders()
@@ -575,10 +775,36 @@ const Admin = {
   }
 };
 
+const Zonas = {
+  async listar() {
+    const res = await fetch(`${API_BASE}/zonas`, {
+      headers: authHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  async crear(nombre) {
+    const res = await fetch(`${API_BASE}/zonas`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ nombre })
+    });
+    return handleResponse(res);
+  },
+
+  async eliminar(id) {
+    const res = await fetch(`${API_BASE}/zonas/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    return handleResponse(res);
+  }
+};
+
 const Rutas = Lotes;
 const ConsultaRutas = Produccion;
 
 // ------------------------------------------------------------
 // Exportar globalmente
 // ------------------------------------------------------------
-window.API = { Auth, Lotes, Rutas, Avisos, Plantillas, WhatsAppSesiones, WhatsAppEnvio, Produccion, ConsultaRutas, Admin, Routes, getUser, ensureSuperadminSidebar };
+window.API = { Auth, Lotes, Rutas, Avisos, Entregas, Plantillas, WhatsAppSesiones, WhatsAppEnvio, Zonas, Produccion, ConsultaRutas, Admin, Routes, getUser, getPermissions, hasPermission, hasAnyPermission, ensureSuperadminSidebar };

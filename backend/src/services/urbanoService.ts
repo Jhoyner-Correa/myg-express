@@ -1,7 +1,19 @@
+import {
+  getUrbanoCredentialsForSede,
+  touchUrbanoCredentialLogin
+} from './urbanoCredentialsService';
+
 type UrbanoSession = {
   phpSessionId: string;
   username: string;
   connectedAt: string;
+  sedeId: number | null;
+  source: 'database';
+};
+
+type UrbanoSessionContext = {
+  userId: number;
+  sedeId: number | null;
 };
 
 type UrbanoRouteRecord = {
@@ -12,6 +24,10 @@ type UrbanoRouteRecord = {
   telefono: string;
   contrato: string;
   localidad: string;
+  peso_kg: number | null;
+  tipo_paquete_urbano: string | null;
+  piezas: number | null;
+  contenido_paquete: string | null;
 };
 
 const URBANO_BASE_URL = 'https://app.urbano.com.pe';
@@ -21,7 +37,11 @@ const URBANO_HOME = `${URBANO_BASE_URL}/inicio`;
 const URBANO_ROUTE_DETAILS = `${URBANO_BASE_URL}/gestion/salidaRutas/scm_rutas_detalle_manifiestos/`;
 const URBANO_TRACK_DETAILS = `${URBANO_BASE_URL}/gestion/consultaEspecifica/get_scm_api_track_guias/`;
 
-const urbanoSessions = new Map<number, UrbanoSession>();
+const urbanoSessions = new Map<string, UrbanoSession>();
+
+function getSessionScope(context: UrbanoSessionContext): string {
+  return context.sedeId ? `sede:${context.sedeId}` : `user:${context.userId}`;
+}
 
 function getCookieValues(response: Response): string[] {
   const headers = response.headers as Headers & {
@@ -82,6 +102,32 @@ function buildAjaxHeaders(phpSessionId: string): Record<string, string> {
   };
 }
 
+function parseNullableNumber(value: unknown): number | null {
+  const normalized = String(value ?? '')
+    .replace(',', '.')
+    .replace(/[^\d.]/g, '')
+    .trim();
+
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function parseNullableInteger(value: unknown): number | null {
+  const parsed = parseNullableNumber(value);
+  if (parsed === null) return null;
+  return Math.floor(parsed);
+}
+
+function cleanNullableText(value: unknown, maxLength = 255): string | null {
+  const clean = String(value ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return clean ? clean.slice(0, maxLength) : null;
+}
+
 async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
@@ -104,7 +150,12 @@ async function mapWithConcurrency<T, R>(
   return results.filter((value): value is R => value !== null);
 }
 
-export async function loginToUrbano(userId: number, username: string, password: string) {
+async function loginToUrbanoWithCredentials(
+  context: UrbanoSessionContext,
+  username: string,
+  password: string,
+  source: 'database'
+) {
   const loginPageResponse = await fetch(URBANO_LOGIN_PAGE, {
     method: 'GET',
     redirect: 'manual',
@@ -151,26 +202,45 @@ export async function loginToUrbano(userId: number, username: string, password: 
     throw new Error('No se pudo iniciar sesion en Urbano. Verifica tus credenciales.');
   }
 
-  urbanoSessions.set(userId, {
+  const scope = getSessionScope(context);
+  urbanoSessions.set(scope, {
     phpSessionId,
     username,
-    connectedAt: new Date().toISOString()
+    connectedAt: new Date().toISOString(),
+    sedeId: context.sedeId,
+    source
   });
+
+  await touchUrbanoCredentialLogin(context.sedeId);
 
   return {
     connected: true,
     username,
-    connectedAt: urbanoSessions.get(userId)?.connectedAt || new Date().toISOString()
+    sedeId: context.sedeId,
+    source,
+    connectedAt: urbanoSessions.get(scope)?.connectedAt || new Date().toISOString()
   };
 }
 
-export function getUrbanoStatus(userId: number) {
-  const session = urbanoSessions.get(userId);
+export async function loginToUrbano(context: UrbanoSessionContext) {
+  const credentials = await getUrbanoCredentialsForSede(context.sedeId);
+  return loginToUrbanoWithCredentials(
+    context,
+    credentials.username,
+    credentials.password,
+    credentials.source
+  );
+}
+
+export function getUrbanoStatus(context: UrbanoSessionContext) {
+  const session = urbanoSessions.get(getSessionScope(context));
 
   if (!session) {
     return {
       connected: false,
       username: null,
+      sedeId: context.sedeId,
+      source: null,
       connectedAt: null
     };
   }
@@ -178,22 +248,13 @@ export function getUrbanoStatus(userId: number) {
   return {
     connected: true,
     username: session.username,
+    sedeId: session.sedeId,
+    source: session.source,
     connectedAt: session.connectedAt
   };
 }
 
-export function logoutFromUrbano(userId: number) {
-  urbanoSessions.delete(userId);
-  return { connected: false };
-}
-
-export async function fetchRouteData(userId: number, routeId: string) {
-  const session = urbanoSessions.get(userId);
-
-  if (!session) {
-    throw new Error('Primero debes conectar tu cuenta de Urbano.');
-  }
-
+async function executeFetch(session: UrbanoSession, routeId: string) {
   const manifestUrl = new URL(URBANO_ROUTE_DETAILS);
   manifestUrl.searchParams.set('_dc', String(Date.now()));
   manifestUrl.searchParams.set('vp_rou_id', routeId);
@@ -202,59 +263,88 @@ export async function fetchRouteData(userId: number, routeId: string) {
   manifestUrl.searchParams.set('start', '0');
   manifestUrl.searchParams.set('limit', '1000');
 
-  try {
-    const manifestResponse = await fetch(manifestUrl, {
-      headers: buildAjaxHeaders(session.phpSessionId)
-    });
+  const manifestResponse = await fetch(manifestUrl, {
+    headers: buildAjaxHeaders(session.phpSessionId)
+  });
 
-    const manifestData = await parseJsonResponse(manifestResponse);
-    const guias = Array.isArray(manifestData?.data) ? manifestData.data : [];
+  const manifestData = await parseJsonResponse(manifestResponse);
+  const guias = Array.isArray(manifestData?.data) ? manifestData.data : [];
 
-    const records = await mapWithConcurrency<any, UrbanoRouteRecord>(
-      guias,
-      5,
-      async (guia) => {
-        const guiaValue = guia?.guia || guia?.guia_texto || guia?.tracking || '';
-        if (!guiaValue) return null;
+  const records = await mapWithConcurrency<any, UrbanoRouteRecord>(
+    guias,
+    5,
+    async (guia) => {
+      const guiaValue = guia?.guia || guia?.guia_texto || guia?.tracking || '';
+      if (!guiaValue) return null;
 
-        const trackUrl = new URL(URBANO_TRACK_DETAILS);
-        trackUrl.searchParams.set('_dc', String(Date.now()));
-        trackUrl.searchParams.set('vp_guia', String(guiaValue));
-        trackUrl.searchParams.set('vp_linea', '3');
+      const trackUrl = new URL(URBANO_TRACK_DETAILS);
+      trackUrl.searchParams.set('_dc', String(Date.now()));
+      trackUrl.searchParams.set('vp_guia', String(guiaValue));
+      trackUrl.searchParams.set('vp_linea', '3');
 
-        const trackResponse = await fetch(trackUrl, {
-          headers: buildAjaxHeaders(session.phpSessionId)
-        });
+      const trackResponse = await fetch(trackUrl, {
+        headers: buildAjaxHeaders(session.phpSessionId)
+      });
 
-        const trackData = await parseJsonResponse(trackResponse);
+      const trackData = await parseJsonResponse(trackResponse);
 
-        if (!trackData?.success || !trackData?.total || !Array.isArray(trackData.data) || !trackData.data[0]) {
-          return null;
-        }
-
-        const item = trackData.data[0];
-
-        return {
-          routeId,
-          guia: String(item.guia_texto || ''),
-          rastreo: String(item.rastreo || ''),
-          cliente: String(item.cliente || ''),
-          telefono: String(item.telefonos || ''),
-          contrato: String(item.contrato || ''),
-          localidad: String(item.localidad || '')
-        };
+      if (!trackData?.success || !trackData?.total || !Array.isArray(trackData.data) || !trackData.data[0]) {
+        return null;
       }
-    );
 
-    return {
-      routeId,
-      totalGuias: guias.length,
-      totalRegistros: records.length,
-      records
-    };
+      const item = trackData.data[0];
+
+      return {
+        routeId,
+        guia: String(item.guia_texto || ''),
+        rastreo: String(item.rastreo || ''),
+        cliente: String(item.cliente || ''),
+        telefono: String(item.telefonos || ''),
+        contrato: String(item.contrato || ''),
+        localidad: String(item.localidad || ''),
+        peso_kg: parseNullableNumber(item.peso),
+        tipo_paquete_urbano: cleanNullableText(item.tipo_paquete, 80),
+        piezas: parseNullableInteger(item.piezas),
+        contenido_paquete: cleanNullableText(item.guia_contenido)
+      };
+    }
+  );
+
+  return {
+    routeId,
+    totalGuias: guias.length,
+    totalRegistros: records.length,
+    records
+  };
+}
+
+async function performSilentLogin(context: UrbanoSessionContext): Promise<UrbanoSession> {
+  await loginToUrbano(context);
+  const session = urbanoSessions.get(getSessionScope(context));
+  if (!session) {
+    throw new Error('Fallo el inicio de sesion automatico en Urbano.');
+  }
+  return session;
+}
+
+export async function fetchRouteData(context: UrbanoSessionContext, routeId: string) {
+  const scope = getSessionScope(context);
+  let session = urbanoSessions.get(scope);
+
+  if (!session) {
+    session = await performSilentLogin(context);
+  }
+
+  try {
+    return await executeFetch(session, routeId);
   } catch (error: any) {
-    if (String(error?.message || '').toLowerCase().includes('sesion de urbano vencio')) {
-      urbanoSessions.delete(userId);
+    const errorMsg = String(error?.message || '').toLowerCase();
+    const isSessionExpired = errorMsg.includes('sesion de urbano vencio') || errorMsg.includes('json');
+
+    if (isSessionExpired) {
+      urbanoSessions.delete(scope);
+      session = await performSilentLogin(context);
+      return await executeFetch(session, routeId);
     }
 
     throw error;

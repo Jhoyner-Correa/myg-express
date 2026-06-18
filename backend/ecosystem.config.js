@@ -1,9 +1,11 @@
+const backendCwd = process.env.PM2_BACKEND_CWD || '/var/www/sistema/sistema-mensajeria/backend';
+
 module.exports = {
   apps: [
     {
       name: 'sistema-api',
       script: 'dist/app.js',
-      cwd: '/var/www/sistema/sistema-mensajeria/backend',
+      cwd: backendCwd,
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
@@ -16,7 +18,7 @@ module.exports = {
     {
       name: 'sistema-whatsapp-worker',
       script: 'dist/worker.js',
-      cwd: '/var/www/sistema/sistema-mensajeria/backend',
+      cwd: backendCwd,
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,

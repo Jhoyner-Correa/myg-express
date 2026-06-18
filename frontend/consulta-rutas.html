@@ -6,168 +6,151 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Consulta de rutas — MyG Express</title>
+  <title>Consulta de rutas - MyG Express</title>
   <link rel="icon" type="image/png" href="/img/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/dashboard.css?v=5">
-  <link rel="stylesheet" href="/css/consulta-rutas.css?v=6">
+  <link rel="stylesheet" href="/css/consulta-rutas.css?v=9">
+  <script src="/js/sidebar-preload.js"></script>
+  <link rel="stylesheet" href="/css/sidebar.css?v=38">
+  <link rel="stylesheet" href="/css/shared-ui.css">
 </head>
 <body>
   <div id="sidebar-container"></div>
 
   <div class="main">
     <header class="topbar">
-      <div>
-        <div class="topbar-title">Consulta de rutas</div>
-        <div class="topbar-sub">Busca y consulta guías de Urbano en tiempo real</div>
+      <div class="header-title-container">
+        <div class="header-icon-box">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        </div>
+        <div>
+          <div class="topbar-title">Consulta de rutas</div>
+          <div class="topbar-sub">Busca y consulta guias de Urbano en tiempo real</div>
+        </div>
       </div>
       <div class="topbar-right">
-        <span class="topbar-badge" id="user-rol">—</span>
+        <span class="topbar-date" id="current-date"></span>
+        <div class="user-role-badge">
+          <span class="status-dot"></span>
+          <span id="user-rol-topbar">EncargadoOficina</span>
+        </div>
       </div>
     </header>
 
     <main class="cr-content">
-
-      <!-- ─── PANEL PRINCIPAL ─── -->
       <section class="cr-panel">
-
-        <!-- CONEXIÓN URBANO — banner superior integrado -->
         <div class="cr-connect-banner" id="urbano-connect-card">
           <div class="cr-connect-left">
             <div class="cr-connect-dot" id="cr-session-dot"></div>
             <img src="/img/urbano_sin_fondo.png" alt="Urbano" class="cr-connect-logo">
             <div class="cr-connect-info">
-              <strong id="urbano-card-title">Conecta con Urbano para comenzar</strong>
-              <span id="urbano-card-desc">Inicia sesión en Urbano para habilitar la consulta.</span>
+              <strong id="urbano-card-title">Urbano por sede configurado</strong>
+              <span id="urbano-card-desc">La conexion se iniciara automaticamente al consultar una ruta.</span>
             </div>
           </div>
-          <button class="cr-btn cr-btn-connect" id="btn-connect-urbano" type="button">
-            <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-            Iniciar sesión
-          </button>
         </div>
 
-        <!-- DIVIDER -->
         <div class="cr-panel-divider"></div>
 
-        <!-- BÚSQUEDA PRINCIPAL -->
         <div class="cr-search-zone">
-
-          <!-- Fila A: Número de ruta + botón Consultar -->
           <div class="cr-search-primary">
             <div class="cr-field-group">
               <label class="cr-label" for="input-route-id">
-                <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                Número de ruta
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                Numero de ruta
               </label>
               <div class="cr-input-main-wrap">
-                <input id="input-route-id" type="text" placeholder="Ej. 1044897" disabled class="cr-input-main">
+                <input id="input-route-id" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Ej. 1044897" disabled class="cr-input-main">
               </div>
             </div>
             <button class="cr-btn cr-btn-primary cr-btn-consult" id="btn-consultar-ruta" type="button" disabled>
-              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
               Consultar ruta
             </button>
           </div>
 
-          <!-- Fila B: Filtros secundarios -->
           <div class="cr-search-filters">
-            <!-- Localidad -->
             <div class="cr-field-group">
               <label class="cr-label" for="select-localidad-filter">
-                <svg viewBox="0 0 24 24"><path d="M12 21s7-5.1 7-11a7 7 0 1 0-14 0c0 5.9 7 11 7 11Z"/><circle cx="12" cy="10" r="3"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.1 7-11a7 7 0 1 0-14 0c0 5.9 7 11 7 11Z"/><circle cx="12" cy="10" r="3"/></svg>
                 Localidad
               </label>
               <div class="cr-select-wrap">
                 <select id="select-localidad-filter" disabled>
                   <option value="">Todas las localidades</option>
                 </select>
-                <svg class="cr-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg class="cr-chevron" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
               </div>
             </div>
 
-            <!-- Ordenar por -->
             <div class="cr-field-group">
               <label class="cr-label" for="select-result-sort">
-                <svg viewBox="0 0 24 24"><path d="M8 6v12"/><path d="m5 9 3-3 3 3"/><path d="M16 18V6"/><path d="m13 15 3 3 3-3"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12"/><path d="m5 9 3-3 3 3"/><path d="M16 18V6"/><path d="m13 15 3 3 3-3"/></svg>
                 Ordenar por
               </label>
               <div class="cr-select-wrap">
                 <select id="select-result-sort" disabled>
-                  <option value="default">Más reciente</option>
-                  <option value="guia-asc">Guía A–Z</option>
-                  <option value="cliente-asc">Cliente A–Z</option>
-                  <option value="localidad-asc">Localidad A–Z</option>
+                  <option value="default">Mas reciente</option>
+                  <option value="guia-asc">Guia A-Z</option>
+                  <option value="cliente-asc">Cliente A-Z</option>
+                  <option value="localidad-asc">Localidad A-Z</option>
                 </select>
-                <svg class="cr-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg class="cr-chevron" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
               </div>
             </div>
 
-            <!-- Ruta destino — CUSTOM DROPDOWN -->
             <div class="cr-field-group cr-field-group--wide">
-              <label class="cr-label">
-                <svg viewBox="0 0 24 24"><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
+              <label class="cr-label" id="label-destino-ruta">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
                 Ruta destino (lote)
               </label>
               <div class="cr-dropdown" id="cr-dropdown-destino">
-                <button type="button" class="cr-dropdown-trigger" id="cr-dropdown-trigger" disabled aria-haspopup="listbox" aria-expanded="false">
-                  <svg class="cr-dd-icon-left" viewBox="0 0 24 24"><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
-                  <span class="cr-dd-label" id="cr-dd-label-text">Seleccionar lote destino…</span>
-                  <svg class="cr-dd-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                <button type="button" class="cr-dropdown-trigger" id="cr-dropdown-trigger" disabled aria-haspopup="listbox" aria-expanded="false" aria-controls="cr-dropdown-panel" aria-labelledby="label-destino-ruta cr-dd-label-text">
+                  <svg class="cr-dd-icon-left" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
+                  <span class="cr-dd-label" id="cr-dd-label-text">Seleccionar lote destino</span>
+                  <svg class="cr-dd-chevron" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
 
-                <div class="cr-dropdown-panel" id="cr-dropdown-panel" role="listbox">
-                  <!-- Buscador -->
+                <div class="cr-dropdown-panel" id="cr-dropdown-panel" role="listbox" aria-labelledby="label-destino-ruta">
                   <div class="cr-dd-search">
                     <div class="cr-dd-search-wrap">
-                      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                      <input type="text" class="cr-dd-search-input" id="cr-dd-search-input" placeholder="Buscar lote…" autocomplete="off">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                      <input type="text" class="cr-dd-search-input" id="cr-dd-search-input" placeholder="Buscar lote" autocomplete="off" aria-label="Buscar lote destino">
                     </div>
                   </div>
-                  <!-- Lista -->
                   <div class="cr-dd-list" id="cr-dd-list">
-                    <div class="cr-dd-empty">Cargando rutas…</div>
+                    <div class="cr-dd-empty">Cargando rutas...</div>
                   </div>
                 </div>
               </div>
-              <!-- input oculto para valor seleccionado -->
-              <select id="select-destino-ruta" style="display:none;" aria-hidden="true"></select>
+              <select id="select-destino-ruta" hidden aria-hidden="true" tabindex="-1"></select>
             </div>
 
-            <!-- Acciones -->
             <div class="cr-field-group cr-actions-group">
               <label class="cr-label cr-label--invisible">Acciones</label>
               <div class="cr-actions">
                 <button class="cr-btn cr-btn-ghost cr-btn-icon" id="btn-exportar-ruta" type="button" disabled title="Exportar a Excel">
-                  <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
                   <span>Excel</span>
                 </button>
                 <button class="cr-btn cr-btn-success" id="btn-enviar-a-ruta" type="button" disabled>
-                  <svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg>
                   Enviar al lote
                 </button>
               </div>
             </div>
           </div>
-
-          <!-- Status bar -->
-          <div class="cr-status-bar" id="cr-status-bar" aria-live="polite">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-            <span id="cr-status-text">Inicia sesión en Urbano para consultar rutas.</span>
-          </div>
-
         </div>
       </section>
 
-      <!-- ─── RESULTS SECTION ─── -->
       <section class="cr-results-section">
-        <!-- Header de resultados -->
         <div class="cr-results-header">
           <div class="cr-results-title-wrap">
             <div class="cr-results-icon">
-              <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>
             </div>
             <div>
               <h2>Resultados</h2>
@@ -176,15 +159,14 @@
           </div>
 
           <div class="cr-results-header-right">
-            <!-- Métricas en pills -->
             <div class="cr-metrics" id="cr-metrics-bar">
               <div class="cr-metric">
                 <span>Ruta</span>
-                <strong id="stat-route-id">—</strong>
+                <strong id="stat-route-id">-</strong>
               </div>
               <div class="cr-metric-divider"></div>
               <div class="cr-metric">
-                <span>Guías</span>
+                <span>Guias</span>
                 <strong id="stat-total-guias">0</strong>
               </div>
               <div class="cr-metric-divider"></div>
@@ -198,26 +180,18 @@
                 <strong id="stat-total-localidades">0</strong>
               </div>
             </div>
-
-            <button class="cr-btn cr-btn-outline cr-btn-sm" id="btn-open-results-modal" type="button" disabled>
-              <svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="3"/></svg>
-              Ver todos
-            </button>
           </div>
         </div>
 
-        <!-- Tabla -->
         <div class="cr-table-wrap">
-          <!-- Empty state -->
           <div class="cr-empty" id="results-empty-state">
             <div class="cr-empty-icon">
-              <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>
             </div>
-            <strong>Sin resultados aún</strong>
-            <span>Ingresa un número de ruta y haz clic en <em>Consultar ruta</em>.</span>
+            <strong>Sin resultados aun</strong>
+            <span>Ingresa un numero de ruta y haz clic en <em>Consultar ruta</em>.</span>
           </div>
 
-          <!-- Skeleton loader -->
           <div class="cr-skeleton" id="cr-skeleton" style="display:none;">
             <div class="cr-skeleton-row"><div class="cr-skel cr-skel-sm"></div><div class="cr-skel cr-skel-md"></div><div class="cr-skel cr-skel-lg"></div><div class="cr-skel cr-skel-md"></div><div class="cr-skel cr-skel-sm"></div><div class="cr-skel cr-skel-sm"></div><div class="cr-skel cr-skel-md"></div></div>
             <div class="cr-skeleton-row"><div class="cr-skel cr-skel-sm"></div><div class="cr-skel cr-skel-md"></div><div class="cr-skel cr-skel-lg"></div><div class="cr-skel cr-skel-md"></div><div class="cr-skel cr-skel-sm"></div><div class="cr-skel cr-skel-sm"></div><div class="cr-skel cr-skel-md"></div></div>
@@ -229,11 +203,21 @@
             <thead>
               <tr>
                 <th>Ruta</th>
-                <th>Guía</th>
+                <th>Guia</th>
                 <th>Rastreo</th>
                 <th>Cliente</th>
-                <th>Teléfono</th>
-                <th>Contrato</th>
+                <th>Telefono</th>
+                <th class="cr-th-contrato" id="cr-th-contrato">
+                  <button type="button" class="cr-th-contrato-btn" id="cr-contrato-filter-trigger">
+                    Contrato
+                    <svg class="cr-th-filter-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M7 12h10"/><path d="M10 17h4"/></svg>
+                  </button>
+                  <div class="cr-contrato-dropdown" id="cr-contrato-dropdown">
+                    <button type="button" class="cr-contrato-option" data-value="">Todos</button>
+                    <button type="button" class="cr-contrato-option" data-value="temu">Solo Temu</button>
+                    <button type="button" class="cr-contrato-option" data-value="no-temu">Sin Temu</button>
+                  </div>
+                </th>
                 <th>Localidad</th>
               </tr>
             </thead>
@@ -241,80 +225,18 @@
           </table>
         </div>
 
-        <!-- Footer de tabla -->
         <div class="cr-table-footer" id="cr-table-footer" style="display:none;">
-          <span id="results-range">—</span>
-          <span class="cr-preview-note">Vista previa · máx. 6 filas · usa <strong>Ver todos</strong> para expandir</span>
+          <span id="results-range">-</span>
         </div>
       </section>
-
     </main>
   </div>
-
-  <!-- ─── MODAL: Todos los registros ─── -->
-  <div class="cr-modal-overlay" id="results-modal">
-    <div class="cr-modal" role="dialog" aria-modal="true" aria-labelledby="resultsModalTitle">
-      <div class="cr-modal-header">
-        <div>
-          <h3 id="resultsModalTitle">Registros encontrados — Ruta <span id="modal-route-id">—</span></h3>
-          <p>Registros visibles: <strong id="modal-visible-count">0</strong></p>
-        </div>
-        <button class="cr-modal-close" id="btn-close-results-modal" type="button" aria-label="Cerrar">
-          <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-      <div class="cr-modal-body">
-        <table>
-          <thead>
-            <tr>
-              <th>Ruta</th>
-              <th>Guía</th>
-              <th>Rastreo</th>
-              <th>Cliente</th>
-              <th>Teléfono</th>
-              <th>Contrato</th>
-              <th>Localidad</th>
-            </tr>
-          </thead>
-          <tbody id="tabla-rutas-body">
-            <tr><td colspan="7" class="cr-empty-row">Sin datos.</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="cr-modal-footer">
-        <span id="modal-results-range" class="cr-modal-range">—</span>
-        <button class="cr-btn cr-btn-ghost" id="btn-close-results-modal-footer" type="button">Cerrar</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ─── MODAL: Confirmación envío ─── -->
-  <div class="cr-modal-overlay" id="confirm-send-modal">
-    <div class="cr-modal cr-modal-sm" role="dialog" aria-modal="true">
-      <div class="cr-modal-header">
-        <div>
-          <h3>Confirmar envío al lote</h3>
-          <p id="confirm-send-desc">Vas a enviar los registros al lote seleccionado.</p>
-        </div>
-      </div>
-      <div class="cr-modal-footer cr-modal-footer-confirm">
-        <button class="cr-btn cr-btn-ghost" id="btn-cancel-send" type="button">Cancelar</button>
-        <button class="cr-btn cr-btn-success" id="btn-confirm-send" type="button">
-          <svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg>
-          Confirmar envío
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ─── TOAST ─── -->
-  <div id="toast" class="toast"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="/js/shared-ui.js"></script>
   <script src="/js/runtime-config.js"></script>
-  <script src="/js/api.js"></script>
-  <script src="/components/sidebar.js"></script>
-  <script src="/js/consulta-rutas.js?v=3"></script>
+  <script src="/js/api.js?v=8"></script>
+  <script src="/components/sidebar.js?v=11"></script>
+  <script src="/js/consulta-rutas.js?v=8"></script>
 </body>
 </html>

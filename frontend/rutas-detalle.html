@@ -3,330 +3,330 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <title>Detalle de Rutas - MyG Express</title>
-   <link rel="icon" type="image/png" href="/img/favicon.ico">
-  <link rel="stylesheet" href="/css/rutas-detalle.css"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
+  <title>Detalle de Ruta - MyG Express</title>
+  <link rel="icon" type="image/png" href="/img/favicon.ico">
+  <link rel="stylesheet" href="/css/shared-ui.css?v=7"/>
+  <link rel="stylesheet" href="/css/rutas-detalle.css?v=11"/>
+  <link rel="stylesheet" href="/css/sidebar.css?v=40"/>
+  <script src="/js/sidebar-preload.js"></script>
 </head>
 <body>
   <div id="sidebar-container"></div>
 
   <div class="main">
-    <header class="topbar">
-      <div>
-        <div class="topbar-title" id="topbar-lote-title">Detalle de Ruta</div>
-        <div class="topbar-sub">Monitorea el progreso de los envíos de esta ruta</div>
-      </div>
-      <div class="topbar-right">
-        <span class="topbar-badge" id="user-rol">-</span>
-      </div>
-    </header>
-
     <main class="content">
-      <section class="hero-card">
-        <div class="hero-main">
-          <div class="hero-copy">
-            <div class="hero-title-row">
-              <h1 class="hero-title" id="hero-lote-id">Cargando ruta...</h1>
-              <span class="hero-inline-chip hero-inline-chip-success" id="lote-estado-chip">Activo</span>
-            </div>
-            <div class="hero-meta-strip">
-              <div class="hero-meta-inline">
-                <span class="meta-inline-label">Fecha:</span>
-                <span class="meta-inline-value" id="hero-fecha">-</span>
-              </div>
-              <div class="hero-meta-inline">
-                <span class="meta-inline-label">Sede:</span>
-                <span class="meta-inline-value" id="hero-sede">-</span>
-              </div>
-              <div class="hero-meta-inline">
-                <span class="meta-inline-label">Origen:</span>
-                <span class="meta-inline-value" id="hero-origen">-</span>
-              </div>
-              <div class="hero-meta-inline">
-                <span class="meta-inline-label">Destinatarios:</span>
-                <span class="meta-inline-value" id="stat-total">0</span>
-              </div>
-              <div class="hero-meta-inline hero-meta-inline-wide">
-                <span class="meta-inline-label">Observacion:</span>
-                <span class="meta-inline-value" id="hero-obs">Sin observaciones</span>
-              </div>
-            </div>
+      <section class="pg-hero">
+        <div class="pg-hero-left">
+          <div class="pg-breadcrumb">Detalle de Ruta</div>
+          <div class="pg-title-row">
+            <h1 class="pg-title" id="hero-lote-id">Cargando ruta...</h1>
+            <span class="pg-badge pg-badge-progress" id="lote-estado-chip">En progreso</span>
+            <div id="envio-interrupcion" aria-live="polite"></div>
           </div>
-
-          <div class="hero-side">
-            <div class="hero-chip-group">
-              <span class="hero-inline-chip hero-inline-chip-warn" id="hero-status-pill">Pendiente</span>
-              <span class="hero-inline-chip hero-inline-chip-neutral" id="hero-origin-pill">-</span>
-            </div>
-            <div class="hero-summary-card">
-              <strong id="hero-total-card">0</strong>
-              <span>Destinatarios</span>
-            </div>
-            <div class="hero-progress-panel">
-              <div class="hero-progress-top">
-                <span class="hero-progress-label">Progreso de la ruta</span>
-                <strong id="hero-progress-value">0%</strong>
-              </div>
-              <div class="hero-progress-track">
-                <div class="hero-progress-bar" id="hero-progress-bar" style="width:0%"></div>
-              </div>
-              <div class="hero-progress-note" id="hero-progress-note">Sin actividad registrada</div>
+          <div class="pg-meta-strip">
+            <div class="pg-meta-row">
+              <div class="pg-meta-item">Fecha: <span class="pg-meta-val" id="hero-fecha">-</span></div>
+              <span class="pg-meta-sep">|</span>
+              <div class="pg-meta-item">Sede: <span class="pg-meta-val" id="hero-sede">-</span></div>
+              <span class="pg-meta-sep">|</span>
+              <div class="pg-meta-item">Destinatarios: <span class="pg-meta-val" id="stat-total">0</span></div>
+              <span class="pg-meta-sep">|</span>
+              <div class="pg-meta-item">Observaci&oacute;n: <span class="pg-meta-val" id="hero-obs">Sin observaciones</span></div>
+              <section class="route-progress-card" aria-label="Progreso de la ruta">
+                <div class="route-progress-ring" style="--progress:0" id="hero-progress-ring">
+                  <div class="ring-glow"></div>
+                  <span id="hero-progress-value">0%</span>
+                </div>
+                <div class="route-progress-content">
+                  <div class="route-progress-title">Progreso de la ruta</div>
+                  <div class="route-progress-note" id="hero-progress-note">Sin actividad registrada</div>
+                  <div class="route-progress-track">
+                    <span id="hero-progress-bar"></span>
+                  </div>
+                  <svg class="rpc-idle-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+              </section>
             </div>
           </div>
         </div>
       </section>
-
-      <section class="stats-grid">
-        <article class="stat-card pending">
-          <div class="stat-topline">
-            <div class="stat-value" id="stat-pendientes">0</div>
-            <div class="stat-percent" id="stat-pendientes-pct">0%</div>
-          </div>
-          <div class="stat-label">Pendientes</div>
-          <div class="stat-mini-track"><span class="stat-mini-bar" id="stat-pendientes-bar" style="width:0%"></span></div>
-        </article>
-        <article class="stat-card sent">
-          <div class="stat-topline">
-            <div class="stat-value" id="stat-enviados">0</div>
-            <div class="stat-percent" id="stat-enviados-pct">0%</div>
-          </div>
-          <div class="stat-label">Enviados</div>
-          <div class="stat-mini-track"><span class="stat-mini-bar" id="stat-enviados-bar" style="width:0%"></span></div>
-        </article>
-        <article class="stat-card failed">
-          <div class="stat-topline">
-            <div class="stat-value" id="count-fallido">0</div>
-            <div class="stat-percent" id="stat-fallidos-pct">0%</div>
-          </div>
-          <div class="stat-label">Fallidos</div>
-          <div class="stat-mini-track"><span class="stat-mini-bar" id="stat-fallidos-bar" style="width:0%"></span></div>
-        </article>
-        <article class="stat-card done">
-          <div class="stat-topline">
-            <div class="stat-value" id="count-entregado">0</div>
-            <div class="stat-percent" id="stat-entregados-pct">0%</div>
-          </div>
-          <div class="stat-label">Entregados</div>
-          <div class="stat-mini-track"><span class="stat-mini-bar" id="stat-entregados-bar" style="width:0%"></span></div>
-        </article>
-      </section>
-
       <section class="workspace-grid">
         <div class="workspace-main">
-          <article class="card-block">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">Carga de destinatarios</h2>
-                <p class="card-subtitle">Sube un Excel o CSV con columnas Nombre, Codigo y Telefono para cargar destinatarios en bloque.</p>
+          <section class="new-stats-row">
+            <article class="new-stat-card">
+              <div class="new-stat-icon-wrap" style="background:#fff4e6;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
               </div>
-              <button class="btn-soft" id="btn-limpiar-importacion" type="button" style="display:none;">Limpiar lista</button>
-            </div>
-            <div class="card-body">
-              <div class="import-dropzone" id="import-dropzone">
-                <input type="file" id="input-archivo-lote" accept=".xlsx,.xls,.csv,.txt"/>
-                <div class="import-dropzone-icon">
-                  <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+              <div class="new-stat-body">
+                <div class="new-stat-top">
+                  <span class="new-stat-num" style="color:#f97316;" id="stat-pendientes">0</span>
+                  <span class="new-stat-pct" id="stat-pendientes-pct">0%</span>
                 </div>
-                <div class="import-dropzone-title">Arrastra tu archivo aqui</div>
-                <div class="import-dropzone-subtitle">o haz clic para seleccionar .xlsx, .xls o .csv</div>
-                <div class="import-dropzone-file" id="archivo-lote-nombre">Ningun archivo seleccionado</div>
-                <div class="import-dropzone-hint">
-                  <span>Columnas esperadas:</span>
-                  <div class="import-dropzone-chips">
-                    <span class="import-chip">Nombre</span>
-                    <span class="import-chip">Codigo</span>
-                    <span class="import-chip">Telefono</span>
+                <div class="new-stat-lbl">Pendientes</div>
+                <div class="new-stat-track"><span class="new-stat-bar" style="background:#f97316;" id="stat-pendientes-bar"></span></div>
+              </div>
+            </article>
+            <article class="new-stat-card">
+              <div class="new-stat-icon-wrap" style="background:#eff6ff;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </div>
+              <div class="new-stat-body">
+                <div class="new-stat-top">
+                  <span class="new-stat-num" style="color:#3b82f6;" id="stat-enviados">0</span>
+                  <span class="new-stat-pct" id="stat-enviados-pct">0%</span>
+                </div>
+                <div class="new-stat-lbl">Enviados</div>
+                <div class="new-stat-track"><span class="new-stat-bar" style="background:#3b82f6;" id="stat-enviados-bar"></span></div>
+              </div>
+            </article>
+            <article class="new-stat-card">
+              <div class="new-stat-icon-wrap" style="background:#f0fdf4;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#25d366" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+              </div>
+              <div class="new-stat-body">
+                <div class="new-stat-top">
+                  <span class="new-stat-num" style="color:#1f2937;" id="count-fallido">0</span>
+                  <span class="new-stat-pct" id="stat-fallidos-pct">0%</span>
+                </div>
+                <div class="new-stat-lbl">No tiene WhatsApp</div>
+                <div class="new-stat-track"><span class="new-stat-bar" style="background:#6b7280;" id="stat-fallidos-bar"></span></div>
+              </div>
+            </article>
+          </section>
+          <article class="modal-overlay import-modal" id="tab-content-import" hidden>
+            <div class="modal-box modal-box-import">
+              <div class="modal-header import-modal-header">
+                <div>
+                  <div class="modal-title">Carga de destinatarios</div>
+                  <p class="card-subtitle">Sube un Excel o CSV con columnas Nombre, Código y Teléfono.</p>
+                </div>
+                <button class="modal-close" id="btn-cerrar-importacion" type="button" aria-label="Cerrar">
+                  <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <div class="modal-body import-modal-body">
+                <div class="import-dropzone" id="import-dropzone">
+                  <input type="file" id="input-archivo-lote" accept=".xlsx,.xls,.csv,.txt"/>
+                  <div class="import-dropzone-file" id="archivo-lote-nombre">Ningún archivo seleccionado</div>
+                  <div class="import-dropzone-icon">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M16 16l-4-4-4 4"/>
+                      <path d="M12 12v9"/>
+                      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                    </svg>
+                  </div>
+                  <div class="import-dropzone-title">Arrastra tu archivo aquí</div>
+                  <div class="import-dropzone-subtitle">o haz clic para seleccionar .xlsx, .xls o .csv</div>
+                  <div class="import-dropzone-hint">
+                    <span>Columnas requeridas</span>
+                    <div class="import-dropzone-chips">
+                      <span class="import-chip">Nombre</span>
+                      <span class="import-chip">Código</span>
+                      <span class="import-chip">Teléfono</span>
+                    </div>
                   </div>
                 </div>
+                <div class="import-status" id="import-status"></div>
               </div>
-              <div class="import-status" id="import-status"></div>
             </div>
           </article>
-          <article class="table-card">
+
+          <article class="table-card" id="tab-content-list">
             <div class="card-header table-card-header">
-              <div>
-                <h2 class="card-title">Destinatarios cargados</h2>
-                <p class="card-subtitle">Consulta, filtra y organiza los registros listos para envio.</p>
+              <div class="table-header-left">
+                <svg class="table-header-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <div>
+                  <h2 class="card-title card-title-with-count">
+                    Destinatarios
+                    <span class="title-count-pill" id="destinatarios-total-badge" aria-label="Total de destinatarios">0</span>
+                  </h2>
+                  <p class="card-subtitle">Consulta, filtra y organiza los registros listos para envío.</p>
+                </div>
               </div>
               <div class="toolbar-right">
                 <div class="search-wrap">
-                  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                   <input type="text" id="input-buscar-aviso" placeholder="Buscar destinatario..."/>
                 </div>
-                <button class="btn-soft btn-danger-soft" id="btn-vaciar-lote" type="button">Vaciar lote</button>
-                <button class="btn-primary" id="btn-nuevo-aviso" type="button">Nuevo destinatario</button>
+                <button class="btn-soft" id="btn-filtros" type="button">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                  Filtros
+                </button>
+                <button class="btn-soft" id="btn-vaciar-lote" type="button">Vaciar ruta</button>
+                <button class="btn-soft btn-import-open" id="btn-abrir-importacion" type="button">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  Subir Excel
+                </button>
+                <button class="btn-primary" id="btn-nuevo-aviso" type="button">+ Nuevo</button>
               </div>
+            </div>
+            <div class="filter-panel" id="filter-panel">
+              <span class="filter-label">Estado:</span>
+              <button class="filter-chip active" data-filter="todos">Todos</button>
+              <button class="filter-chip" data-filter="pendiente">Pendiente</button>
+              <button class="filter-chip" data-filter="enviado">Enviado</button>
+              <button class="filter-chip" data-filter="manual">Manual</button>
+              <button class="filter-chip" data-filter="entregado">Entregado</button>
+              <button class="filter-chip" data-filter="fallido">Fallido</button>
+              <button class="filter-chip" data-filter="sin-whatsapp">Sin WhatsApp</button>
             </div>
             <div class="table-scroll">
               <table>
+                <colgroup>
+                  <col style="width:40px">
+                  <col>
+                  <col style="width:105px">
+                  <col style="width:145px">
+                  <col style="width:120px">
+                  <col style="width:130px">
+                  <col style="width:60px">
+                </colgroup>
                 <thead>
-                      <tr>
-                      <th>N°</th>
-                      <th>Nombre</th>
-                      <th>Telefono</th>
-                      <th>Codigo paquete</th>
-                      <th>Estado</th>
-                      <th>Fecha envio</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="tabla-avisos-body">
-                    <tr><td colspan="7" class="empty-row">Cargando registros...</td></tr>
-                  </tbody>
+                  <tr>
+                    <th>N°</th>
+                    <th>Nombre</th>
+                    <th>Teléfono</th>
+                    <th>Código paquete</th>
+                    <th>Estado</th>
+                    <th>Fecha envío</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-avisos-body">
+                  <tr><td colspan="7" class="empty-row">Cargando registros...</td></tr>
+                </tbody>
               </table>
             </div>
             <div class="table-card-footer">
-              <span id="tabla-avisos-meta" style="display:none;"></span>
-              <div class="table-pagination">
-                <button class="btn-page" id="btn-prev-page" type="button">Anterior</button>
-                <span class="page-indicator" id="tabla-page-indicator">Pagina 1 de 1</span>
-                <button class="btn-page" id="btn-next-page" type="button">Siguiente</button>
-              </div>
-              <span>Desliza dentro de la tabla para ver más destinatarios sin mover toda la página.</span>
+              <span id="tabla-avisos-meta" class="tabla-count-label"></span>
+              <button type="button" class="btn-export-avisos" id="btn-exportar-avisos">Exportar</button>
             </div>
           </article>
         </div>
 
         <aside class="workspace-side">
-          <article class="card-block compact-card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">Compositor de envio</h2>
-                <p class="card-subtitle">Selecciona la sesion de salida y revisa la vista previa antes de enviar.</p>
-              </div>
+          <article class="composer-panel">
+            <div class="composer-panel-header">
+              <h2 class="composer-panel-title">Compositor de envío</h2>
+              <p class="composer-panel-sub">Redacta y revisa el mensaje antes de enviarlo.</p>
             </div>
-            <div class="card-body composer-body">
-              <div class="composer-topbar">
-                <div class="composer-session">
-                  <label class="control-label" for="select-sesion">Sesion</label>
-                  <select class="control-select" id="select-sesion">
-                    <option value="">Cargando sesiones...</option>
-                  </select>
-                  <div class="session-summary" id="session-summary">Sin sesion seleccionada</div>
+            <div class="composer-panel-body">
+              <div class="composer-session-card" id="session-field">
+                <div class="session-card-left">
+                  <svg class="session-card-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                  </svg>
+                  <div class="session-card-body" id="session-info-display">
+                    <span class="session-card-label">Sesión</span>
+                    <div class="session-card-value">
+                      <span class="session-indicator" id="session-indicator"></span>
+                      <span id="session-info-text">Conectando...</span>
+                    </div>
+                  </div>
                 </div>
-                <div class="composer-template-picker">
-                  <span class="mini-kicker">Plantilla</span>
-                  <button class="btn-soft template-trigger" id="btn-open-plantillas" type="button">Abrir gestor</button>
-                  <strong id="plantilla-activa-label">Sin plantilla seleccionada</strong>
+                <select id="select-sesion" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;" aria-hidden="true" tabindex="-1">
+                  <option value="">Cargando sesiones...</option>
+                </select>
+              </div>
+
+              <div class="template-block">
+                <div class="template-row">
+                  <span class="template-label">PLANTILLA</span>
+                  <div class="template-chip">
+                    <svg class="template-chip-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="16" y1="13" x2="8" y2="13"/>
+                      <line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                    <span id="plantilla-activa-label" class="template-chip-name">Seleccionar plantilla</span>
+                  </div>
+                  <button class="btn-ver-plantillas" id="btn-open-plantillas" type="button">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="16" y1="13" x2="8" y2="13"/>
+                      <line x1="16" y1="17" x2="8" y2="17"/>
+                      <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                    Ver plantillas
+                  </button>
                 </div>
               </div>
 
+              <div id="envio-resultado" aria-live="polite"></div>
 
-
-              <div class="preview-block">
-                <div class="control-label">Vista previa</div>
-                <div class="phone-stage">
-                  <div class="phone-frame">
-                    <div class="phone-screen">
-                      <div class="phone-notch"></div>
-                      <div class="phone-statusbar">
-                        <span class="sb-time" id="preview-clock">9:41</span>
-                        <div class="sb-icons" aria-hidden="true">
-                          <svg viewBox="0 0 16 12"><rect x="0" y="8" width="3" height="4" rx=".5"/><rect x="4.5" y="5" width="3" height="7" rx=".5"/><rect x="9" y="2" width="3" height="10" rx=".5"/><rect x="13.5" y="0" width="2.5" height="12" rx=".5" opacity=".3"/></svg>
-                          <svg viewBox="0 0 16 12"><path d="M8 10a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0-3.5C9.8 6.5 11.4 7.2 12.6 8.4l1.4-1.4C12.4 5.4 10.3 4.5 8 4.5s-4.4.9-6 2.5L3.4 8.4C4.6 7.2 6.2 6.5 8 6.5zm0-3.5c2.8 0 5.3 1.1 7.1 3L16.5 4C14.3 1.8 11.3.5 8 .5S1.7 1.8-.5 4L1 5.5C2.7 3.6 5.2 2.5 8 2.5z" fill-rule="evenodd"/></svg>
-                          <svg viewBox="0 0 22 12"><rect x="0" y="1" width="18" height="10" rx="2" stroke="rgba(255,255,255,.7)" stroke-width="1" fill="none"/><rect x="1.5" y="2.5" width="13" height="7" rx="1.2" fill="rgba(255,255,255,.9)"/><path d="M19.5 4v4a2 2 0 000-4z" fill="rgba(255,255,255,.6)"/></svg>
-                        </div>
-                      </div>
-                      <div class="wa-header">
-                        <div class="wa-back" aria-hidden="true">
-                          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-                        </div>
-                        <div class="wa-avatar">MG</div>
-                        <div class="wa-info">
-                          <div class="wa-name" id="wa-contact-name">MyG Express</div>
-                          <div class="wa-online" id="wa-contact-status">en línea</div>
-                        </div>
-                        <div class="wa-actions" aria-hidden="true">
-                          <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.55 10.74 19.79 19.79 0 0 1 .48 2.07 2 2 0 0 1 2.48 0h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L6.91 7.91a16 16 0 0 0 6.72 6.72l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.92 16z"/></svg>
-                          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
-                        </div>
-                      </div>
-                      <div class="wa-body" id="wa-body">
-                        <div class="wa-date-chip">HOY</div>
-                        <div class="wa-typing" id="wa-typing">
-                          <div class="wa-dot"></div>
-                          <div class="wa-dot"></div>
-                          <div class="wa-dot"></div>
-                        </div>
-                        <div class="wa-bubble" id="wa-bubble" style="display:none;">
-                          <div id="wa-img-wrap"></div>
-                          <div id="wa-bubble-text"></div>
-                          <div class="wa-btime">
-                            <span id="wa-btime-val">9:41</span>
-                            <svg viewBox="0 0 24 24"><polyline points="1 12 5 16 11 9"/><polyline points="9 12 13 16 19 9"/></svg>
+              <div class="preview-section-label">Vista previa</div>
+              <div class="composer-body">
+                <div class="preview-block">
+                  <div class="phone-stage">
+                    <div class="phone-frame">
+                      <div class="phone-screen">
+                        <div class="phone-notch"></div>
+                        <div class="phone-statusbar">
+                          <span class="sb-time" id="preview-clock">9:41</span>
+                          <div class="sb-icons" aria-hidden="true">
+                            <svg viewBox="0 0 16 12"><rect x="0" y="8" width="3" height="4" rx=".5"/><rect x="4.5" y="5" width="3" height="7" rx=".5"/><rect x="9" y="2" width="3" height="10" rx=".5"/><rect x="13.5" y="0" width="2.5" height="12" rx=".5" opacity=".3"/></svg>
+                            <svg viewBox="0 0 16 12"><path d="M8 10a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0-3.5C9.8 6.5 11.4 7.2 12.6 8.4l1.4-1.4C12.4 5.4 10.3 4.5 8 4.5s-4.4.9-6 2.5L3.4 8.4C4.6 7.2 6.2 6.5 8 6.5zm0-3.5c2.8 0 5.3 1.1 7.1 3L16.5 4C14.3 1.8 11.3.5 8 .5S1.7 1.8-.5 4L1 5.5C2.7 3.6 5.2 2.5 8 2.5z" fill-rule="evenodd"/></svg>
+                            <svg viewBox="0 0 22 12"><rect x="0" y="1" width="18" height="10" rx="2" stroke="rgba(255,255,255,.7)" stroke-width="1" fill="none"/><rect x="1.5" y="2.5" width="13" height="7" rx="1.2" fill="rgba(255,255,255,.9)"/><path d="M19.5 4v4a2 2 0 000-4z" fill="rgba(255,255,255,.6)"/></svg>
                           </div>
                         </div>
-                        <div class="preview-empty-lbl" id="bubble-empty">Selecciona una plantilla</div>
-                      </div>
-                      <div class="wa-footer">
-                        <div class="wa-mic-btn" aria-hidden="true">
-                          <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+                        <div class="wa-header">
+                          <div class="wa-back" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+                          <div class="wa-avatar">MG</div>
+                          <div class="wa-info">
+                            <div class="wa-name" id="wa-contact-name">MyG Express</div>
+                            <div class="wa-online" id="wa-contact-status">en línea</div>
+                          </div>
+                          <div class="wa-actions" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.55 10.74 19.79 19.79 0 0 1 .48 2.07 2 2 0 0 1 2.48 0h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L6.91 7.91a16 16 0 0 0 6.72 6.72l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.92 16z"/></svg>
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                          </div>
                         </div>
-                        <div class="wa-input-fake">Escribe un mensaje...</div>
-                        <div class="wa-send-btn" aria-hidden="true">
-                          <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 19-7z"/></svg>
+                        <div class="wa-body" id="wa-body">
+                          <div class="wa-date-chip">HOY</div>
+                          <div class="wa-typing" id="wa-typing">
+                            <div class="wa-dot"></div>
+                            <div class="wa-dot"></div>
+                            <div class="wa-dot"></div>
+                          </div>
+                          <div class="wa-bubble" id="wa-bubble" style="display:none;">
+                            <div id="wa-img-wrap"></div>
+                            <div id="wa-bubble-text"></div>
+                            <div class="wa-btime">
+                              <span id="wa-btime-val">9:41</span>
+                              <svg viewBox="0 0 24 24"><polyline points="1 12 5 16 11 9"/><polyline points="9 12 13 16 19 9"/></svg>
+                            </div>
+                          </div>
+                          <div class="preview-empty-lbl" id="bubble-empty">Selecciona una plantilla</div>
                         </div>
-                      </div>
-                      <div class="phone-bottombar">
-                        <div class="phone-home-bar"></div>
+                        <div class="wa-footer">
+                          <div class="wa-mic-btn" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+                          </div>
+                          <div class="wa-input-fake">Escribe un mensaje...</div>
+                          <div class="wa-send-btn" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 19-7z"/></svg>
+                          </div>
+                        </div>
+                        <div class="phone-bottombar"><div class="phone-home-bar"></div></div>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div class="preview-phone-shell">
-                  <div class="preview-phone-notch"></div>
-                  <div class="preview-phone-screen">
-                    <div class="preview-phone-statusbar">
-                      <span>9:41</span>
-                      <div class="preview-status-icons">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-                    </div>
-                    <div class="preview-chat-header">
-                      <button class="preview-back-btn" type="button" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-                      </button>
-                      <div class="preview-chat-avatar">MG</div>
-                      <div class="preview-chat-meta">
-                        <strong id="preview-contact-name">Cliente</strong>
-                        <span id="preview-contact-status">en linea</span>
-                      </div>
-                      <div class="preview-chat-actions" aria-hidden="true">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-                    </div>
-                    <div class="preview-bubble-wrap">
-                      <div class="preview-date-chip">Hoy</div>
-                      <div class="preview-bubble" id="preview-bubble">
-                        <div id="preview-empty" class="preview-empty">Selecciona una plantilla para ver la vista previa.</div>
-                        <div id="preview-text" style="display:none;"></div>
-                        <div id="preview-meta" style="display:none;">09:41</div>
-                      </div>
-                    </div>
-                    <div class="preview-composer-bar">
-                      <button class="preview-composer-icon" type="button" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="10" x2="9.01" y2="10"/><line x1="15" y1="10" x2="15.01" y2="10"/></svg>
-                      </button>
-                      <div class="preview-composer-input">Escribe un mensaje</div>
-                      <button class="preview-composer-send" type="button" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4 20-7Z"/></svg>
-                      </button>
-                    </div>
-                    <div id="preview-meta" style="display:none;">MyG Express · ahora</div>
-                  </div>
-                </div>
-              </div>
 
-              <div id="envio-interrupcion" aria-live="polite"></div>
-              <div id="envio-resultado" aria-live="polite"></div>
-              <button id="btn-enviar-lote" class="btn-primary send-btn" type="button">Enviar mensajes</button>
+                <button id="btn-enviar-lote" class="btn-primary send-btn" type="button">Enviar mensajes</button>
+              </div>
             </div>
           </article>
         </aside>
@@ -338,7 +338,7 @@
     <div class="modal-box">
       <div class="modal-header">
         <div class="modal-title">Nuevo destinatario</div>
-        <button class="modal-close" id="btn-cerrar-aviso" type="button">
+        <button class="modal-close" id="btn-cerrar-aviso" type="button" aria-label="Cerrar">
           <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -348,7 +348,7 @@
           <div id="aviso-success"></div>
           <div class="field-row">
             <div class="field">
-              <label for="av-telefono">Telefono *</label>
+              <label for="av-telefono">Teléfono *</label>
               <input type="text" id="av-telefono" placeholder="51987654321" required/>
             </div>
             <div class="field">
@@ -356,12 +356,12 @@
               <input type="text" id="av-nombre" placeholder="Nombre del destinatario"/>
             </div>
           </div>
-            <div class="field-row">
-              <div class="field">
-                <label for="av-codigo">Codigo de paquete</label>
-                <input type="text" id="av-codigo" placeholder="PKG-00123"/>
-              </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="av-codigo">Código de paquete</label>
+              <input type="text" id="av-codigo" placeholder="PKG-00123"/>
             </div>
+          </div>
           <div class="field">
             <label for="av-mensaje">Mensaje personalizado</label>
             <textarea id="av-mensaje" placeholder="Mensaje adicional opcional"></textarea>
@@ -378,11 +378,8 @@
   <div class="modal-overlay" id="modal-plantillas">
     <div class="modal-box modal-box-templates">
       <div class="modal-header">
-        <div>
-          <div class="modal-title">Gestor de plantillas</div>
-          <div class="modal-subtitle">Selecciona la plantilla de la ruta o gestiona tus textos desde aqui.</div>
-        </div>
-        <button class="modal-close" id="btn-cerrar-plantillas" type="button">
+        <div></div>
+        <button class="modal-close" id="btn-cerrar-plantillas" type="button" aria-label="Cerrar">
           <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -408,9 +405,9 @@
       <div class="modal-header">
         <div>
           <div class="modal-title" id="template-editor-title">Nueva plantilla</div>
-          <div class="modal-subtitle">Guarda un texto reutilizable para tus envios por ruta.</div>
+          <div class="modal-subtitle">Guarda un texto reutilizable para tus envíos por ruta.</div>
         </div>
-        <button class="modal-close" id="btn-cerrar-editor-plantilla" type="button">
+        <button class="modal-close" id="btn-cerrar-editor-plantilla" type="button" aria-label="Cerrar">
           <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -420,29 +417,44 @@
             <label for="plantilla-modal-nombre">Nombre de plantilla</label>
             <input type="text" id="plantilla-modal-nombre" placeholder="Ej. Plantilla Satipo 1"/>
           </div>
-
           <div class="field">
             <label for="plantilla-modal-mensaje">Mensaje</label>
-            <textarea id="plantilla-modal-mensaje" placeholder="Hola {nombre}, su paquete con codigo {codigo_paquete} ya llego a MyG Express."></textarea>
+            <textarea id="plantilla-modal-mensaje" placeholder="Hola {nombre}, su paquete con código {codigo_paquete} ya llegó a MyG Express."></textarea>
           </div>
-
           <div class="template-editor-hint">
-            Variables utiles: <code>{nombre}</code>, <code>{codigo_paquete}</code>, <code>{telefono}</code>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span>Variables útiles: <code>{nombre}</code> <code>{codigo_paquete}</code> <code>{telefono}</code></span>
           </div>
-
           <div class="field">
             <label>Imagen adjunta (opcional)</label>
             <div class="template-image-picker">
-              <input type="file" id="plantilla-modal-imagen" accept="image/*"/>
-              <div class="template-image-info" id="plantilla-imagen-info">Sin imagen</div>
-              <button type="button" class="btn-soft btn-xs" id="btn-quitar-imagen-plantilla" style="display:none;">Quitar imagen</button>
+              <label class="upload-zone" for="plantilla-modal-imagen">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span class="upload-placeholder" id="plantilla-imagen-info">Subir imagen</span>
+              </label>
+              <input type="file" id="plantilla-modal-imagen" accept="image/*" hidden/>
             </div>
-            <p class="helper-text compact-helper">JPG, PNG - max. 5 MB. Se guarda con la plantilla.</p>
+            <div class="file-card" id="file-card-preview" style="display:none;">
+              <div class="file-card-thumb">
+                <img id="file-card-img" src="" alt=""/>
+              </div>
+              <div class="file-card-body">
+                <div class="file-card-name" id="file-card-name">sede-satipo.jpg</div>
+                <div class="file-card-meta">
+                  <span id="file-card-dims">1024 × 768 px</span>
+                  <span class="file-card-sep">·</span>
+                  <span id="file-card-size">245 KB</span>
+                </div>
+              </div>
+              <button class="file-card-remove" id="btn-quitar-imagen-plantilla" type="button" title="Quitar imagen">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <p class="helper-text compact-helper">JPG, PNG — max. 5 MB. Se guarda con la plantilla.</p>
           </div>
-
           <div class="template-editor-actions">
             <button class="btn-secondary" id="btn-cancelar-edicion-plantilla" type="button">Cancelar</button>
-            <button class="btn-primary" id="btn-guardar-plantilla-modal" type="submit">Guardar plantilla</button>
+            <button class="btn-primary" id="btn-guardar-plantilla-modal" type="submit">Guardar cambios</button>
           </div>
         </form>
       </div>
@@ -453,57 +465,43 @@
     <div class="modal-box">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Confirmar envio de la ruta</div>
-          <div class="modal-subtitle">Revisa el resumen antes de iniciar el envio por WhatsApp.</div>
+          <div class="modal-title">Confirmar envío de la ruta</div>
+          <div class="modal-subtitle">Revisa el resumen antes de iniciar el envío por WhatsApp.</div>
         </div>
-        <button class="modal-close" id="btn-cerrar-confirmar-envio" type="button">
+        <button class="modal-close" id="btn-cerrar-confirmar-envio" type="button" aria-label="Cerrar">
           <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div class="modal-body">
         <div class="send-confirm-summary">
-          <div class="send-confirm-row">
-            <span>Mensajes pendientes</span>
-            <strong id="confirm-envio-pendientes">0</strong>
-          </div>
-          <div class="send-confirm-row">
-            <span>Sesion seleccionada</span>
-            <strong id="confirm-envio-sesion">-</strong>
-          </div>
-          <div class="send-confirm-row">
-            <span>Plantilla activa</span>
-            <strong id="confirm-envio-plantilla">-</strong>
-          </div>
-          <div class="send-confirm-row">
-            <span>Imagen adjunta</span>
-            <strong id="confirm-envio-imagen">Segun plantilla</strong>
-          </div>
+          <div class="send-confirm-row"><span>Mensajes pendientes</span><strong id="confirm-envio-pendientes">0</strong></div>
+          <div class="send-confirm-row"><span>Sesión seleccionada</span><strong id="confirm-envio-sesion">-</strong></div>
+          <div class="send-confirm-row"><span>Plantilla activa</span><strong id="confirm-envio-plantilla">-</strong></div>
+          <div class="send-confirm-row"><span>Imagen adjunta</span><strong id="confirm-envio-imagen">Según plantilla</strong></div>
         </div>
         <div class="send-confirm-note">
-          El sistema encolara solo los destinatarios que sigan en estado pendiente. Luego el worker de WhatsApp los ira procesando y actualizando dentro de la ruta.
+          El sistema encolará solo los destinatarios que sigan pendientes. Luego el worker de WhatsApp los procesará y actualizará dentro de la ruta.
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" id="btn-cancelar-confirmar-envio" type="button">Cancelar</button>
-        <button class="btn-primary" id="btn-aceptar-confirmar-envio" type="button">Iniciar envio</button>
+        <button class="btn-primary" id="btn-aceptar-confirmar-envio" type="button">Iniciar envío</button>
       </div>
     </div>
   </div>
 
   <div class="particle-layer" id="ptl"></div>
   <div class="confetti-burst" id="confetti-layer"></div>
-  <div class="toast" id="toast"></div>
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="/js/shared-ui.js"></script>
-  <script src="/js/runtime-config.js"></script>
-  <script src="/js/api.js"></script>
-  <script src="/components/sidebar.js"></script>
-  <script src="/js/live-updates.js"></script>
-  <script src="/js/rutas-detalle.table.js"></script>
-  <script src="/js/rutas-detalle.templates.js"></script>
-  <script src="/js/rutas-detalle.whatsapp-ui.js"></script>
-  <script src="/js/rutas-detalle.data.js"></script>
-  <script src="/js/rutas-detalle.js"></script>
+  <script src="/js/shared-ui.js?v=6"></script>
+  <script src="/js/runtime-config.js?v=6"></script>
+  <script src="/js/api.js?v=8"></script>
+  <script src="/components/sidebar.js?v=40"></script>
+  <script src="/js/live-updates.js?v=4"></script>
+  <script src="/js/rutas-detalle.table.js?v=6"></script>
+  <script src="/js/rutas-detalle.templates.js?v=6"></script>
+  <script src="/js/rutas-detalle.whatsapp-ui.js?v=6"></script>
+  <script src="/js/rutas-detalle.data.js?v=6"></script>
+  <script src="/js/rutas-detalle.js?v=6"></script>
 </body>
 </html>

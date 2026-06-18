@@ -1,18 +1,22 @@
 import { Router } from 'express';
 
 import {
-  cerrarUrbano,
-  conectarUrbano,
   consultarRutaUrbano,
-  estadoUrbano
+  estadoUrbano,
+  limpiarConsultaUrbano,
+  obtenerUltimaConsultaUrbano
 } from '../controllers/produccionController';
+import { PERMISSIONS } from '../constants/permissions';
 import { verificarToken } from '../middlewares/authMiddleware';
+import { requirePermission } from '../middlewares/permissionMiddleware';
 
 const router = Router();
 
-router.get('/status', verificarToken, estadoUrbano);
-router.post('/login', verificarToken, conectarUrbano);
-router.post('/logout', verificarToken, cerrarUrbano);
-router.get('/rutas/:routeId', verificarToken, consultarRutaUrbano);
+router.use(verificarToken);
+
+router.get('/status', requirePermission(PERMISSIONS.URBANO_ROUTES_VIEW), estadoUrbano);
+router.get('/cache/ultima', requirePermission(PERMISSIONS.URBANO_ROUTES_VIEW), obtenerUltimaConsultaUrbano);
+router.delete('/cache', requirePermission(PERMISSIONS.URBANO_ROUTES_VIEW), limpiarConsultaUrbano);
+router.get('/rutas/:routeId', requirePermission(PERMISSIONS.URBANO_ROUTES_VIEW), consultarRutaUrbano);
 
 export default router;

@@ -11,6 +11,8 @@
       const status = String(value || 'pendiente').toLowerCase();
       if (status === 'processing' || status === 'procesando' || status === 'sending') return 'enviando';
       if (status === 'enviado' || status === 'entregado' || status === 'sent') return 'enviado';
+      if (status === 'enviado_manual' || status === 'manual') return 'manual';
+      if (status === 'sin_whatsapp' || status === 'no_whatsapp') return 'sin-whatsapp';
       if (status === 'fallido' || status === 'error' || status === 'auth_failure' || status === 'fail' || status === 'cancelado') return 'fallido';
       return 'pendiente';
     }
@@ -19,6 +21,8 @@
       const estado = String(value || 'pendiente').toLowerCase();
       if (estado === 'auth_failure') return 'Error';
       if (estado === 'processing') return 'Procesando';
+      if (estado === 'sin_whatsapp' || estado === 'no_whatsapp') return 'Sin WhatsApp';
+      if (estado === 'enviado_manual') return 'Manual';
       return capitalize(estado);
     }
 
@@ -33,16 +37,25 @@
 
       tbody.innerHTML = lista.map((aviso, index) => {
         const estadoVisual = normalizeAvisoVisualStatus(aviso.estado_aviso);
+
+        let indicatorHtml = `<span class="dot dot-${estadoVisual}" id="dot-${aviso.id}"></span>`;
+        if (estadoVisual === 'enviado') {
+          indicatorHtml = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><polyline points="20 6 9 17 4 12"/></svg>`;
+        }
+        if (estadoVisual === 'manual') {
+          indicatorHtml = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+        }
+
         return `
           <tr data-id="${aviso.id}" id="row-${aviso.id}">
-            <td><span class="aviso-id">${(state.currentPage - 1) * state.pageSize + index + 1}</span></td>
+            <td><span class="aviso-id">${index + 1}</span></td>
             <td class="aviso-nombre">${escapeHtml(aviso.nombre || '-')}</td>
             <td><span class="telefono-badge">${escapeHtml(aviso.telefono || '-')}</span></td>
             <td>${escapeHtml(aviso.codigo_paquete || '-')}</td>
             <td>
               <div style="position:relative;">
                 <span class="estado-badge estado-${estadoVisual}" id="badge-${aviso.id}">
-                  <span class="dot dot-${estadoVisual}" id="dot-${aviso.id}"></span>
+                  ${indicatorHtml}
                   ${formatEstadoLabel(aviso.estado_aviso)}
                 </span>
                 <div class="row-prog-wrap" id="prog-${aviso.id}"><div class="row-prog-fill" id="pfill-${aviso.id}"></div></div>
@@ -51,8 +64,8 @@
             <td>${aviso.fecha_envio ? formatFechaHora(aviso.fecha_envio) : '<span class="sin-envio">-</span>'}</td>
             <td>
               <div class="row-actions">
-                <button class="btn-row-delete" type="button" data-action="delete-aviso" data-id="${aviso.id}" title="Eliminar destinatario">
-                  <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                <button class="btn-row-delete" type="button" data-action="delete-aviso" data-id="${aviso.id}" title="Eliminar">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                 </button>
               </div>
             </td>
@@ -62,13 +75,31 @@
     }
 
     function getFilteredAvisos() {
-      const query = String(state.searchQuery || '').trim().toLowerCase();
-      if (!query) return [...state.avisos];
+      let result = [...state.avisos];
 
-      return state.avisos.filter((item) =>
-        [item.nombre, item.telefono, item.codigo_paquete]
-          .some((value) => String(value || '').toLowerCase().includes(query))
-      );
+      const statusFilter = state.statusFilter || 'todos';
+      if (statusFilter !== 'todos') {
+        result = result.filter((item) => {
+          const visual = normalizeAvisoVisualStatus(item.estado_aviso);
+          if (statusFilter === 'sin-whatsapp') return visual === 'sin-whatsapp';
+          if (statusFilter === 'fallido') return visual === 'fallido';
+          if (statusFilter === 'pendiente') return visual === 'pendiente';
+          if (statusFilter === 'enviado') return visual === 'enviado';
+          if (statusFilter === 'manual') return visual === 'manual';
+          if (statusFilter === 'entregado') return visual === 'entregado';
+          return true;
+        });
+      }
+
+      const query = String(state.searchQuery || '').trim().toLowerCase();
+      if (query) {
+        result = result.filter((item) =>
+          [item.nombre, item.telefono, item.codigo_paquete]
+            .some((value) => String(value || '').toLowerCase().includes(query))
+        );
+      }
+
+      return result;
     }
 
     function buildAvisosSignature(avisos) {
@@ -85,47 +116,36 @@
     }
 
     function buildVisibleRowsSignature(rows) {
-      return `${state.currentPage}:${rows.map((item) => [
+      return rows.map((item) => [
         item.id,
         item.estado_aviso,
         item.fecha_envio,
         item.nombre,
         item.telefono,
         item.codigo_paquete
-      ].join('|')).join('||')}`;
+      ].join('|')).join('||');
     }
 
-    function updatePaginationMeta(total, visibleCount, totalPages) {
+    function updatePaginationMeta(totalAll, visibleCount) {
       const meta = document.getElementById('tabla-avisos-meta');
-      const indicator = document.getElementById('tabla-page-indicator');
-      const prev = document.getElementById('btn-prev-page');
-      const next = document.getElementById('btn-next-page');
 
       if (meta) {
-        if (!total) {
+        if (!totalAll) {
           meta.textContent = 'Sin destinatarios para mostrar';
         } else {
-          const from = (state.currentPage - 1) * state.pageSize + 1;
-          const to = from + visibleCount - 1;
-          meta.textContent = `Mostrando ${from}-${to} de ${total} destinatarios`;
+          const hasSearch = String(state.searchQuery || '').trim().length > 0;
+          const hasFilter = state.statusFilter && state.statusFilter !== 'todos';
+          const filtered = hasSearch || hasFilter;
+          meta.textContent = filtered
+            ? `Mostrando ${visibleCount} de ${totalAll} destinatarios`
+            : `Mostrando ${visibleCount} destinatarios`;
         }
       }
-
-      if (indicator) indicator.textContent = `Pagina ${state.currentPage} de ${totalPages}`;
-      if (prev) prev.disabled = state.currentPage <= 1;
-      if (next) next.disabled = state.currentPage >= totalPages;
     }
 
-    function updateAvisosView({ resetPage = false, forceRender = false } = {}) {
-      if (resetPage) state.currentPage = 1;
-
+    function updateAvisosView({ forceRender = false } = {}) {
       const filteredAvisos = getFilteredAvisos();
-      const total = filteredAvisos.length;
-      const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
-      state.currentPage = Math.min(Math.max(1, state.currentPage), totalPages);
-
-      const start = (state.currentPage - 1) * state.pageSize;
-      const visibleRows = filteredAvisos.slice(start, start + state.pageSize);
+      const visibleRows = filteredAvisos;
       const visibleSignature = buildVisibleRowsSignature(visibleRows);
 
       if (forceRender || visibleSignature !== state.lastVisibleRowsSignature) {
@@ -133,7 +153,7 @@
         state.lastVisibleRowsSignature = visibleSignature;
       }
 
-      updatePaginationMeta(total, visibleRows.length, totalPages);
+      updatePaginationMeta(state.avisos.length, visibleRows.length);
     }
 
     function renderEnvioSummaryCount(id, value) {
@@ -156,8 +176,9 @@
     function updateCounters() {
       const total = state.avisos.length;
       const enviados = state.avisos.filter((item) => item.estado_aviso === 'enviado').length;
+      const manuales = state.avisos.filter((item) => item.estado_aviso === 'enviado_manual').length;
       const pendientes = state.avisos.filter((item) => item.estado_aviso === 'pendiente').length;
-      const fallidos = state.avisos.filter((item) => ['fallido', 'cancelado'].includes(String(item.estado_aviso || '').toLowerCase())).length;
+      const fallidos = state.avisos.filter((item) => ['fallido', 'cancelado', 'sin_whatsapp', 'no_whatsapp'].includes(String(item.estado_aviso || '').toLowerCase())).length;
       const entregados = state.avisos.filter((item) => item.estado_aviso === 'entregado').length;
 
       const pct = (value) => (total ? Math.round((value / total) * 100) : 0);
@@ -165,7 +186,7 @@
       const enviadosPct = pct(enviados);
       const fallidosPct = pct(fallidos);
       const entregadosPct = pct(entregados);
-      const progreso = total ? Math.round(((enviados + entregados) / total) * 100) : 0;
+      const progreso = total ? Math.round(((enviados + manuales + entregados) / total) * 100) : 0;
 
       const bumpElement = (id, value) => {
         const el = document.getElementById(id);
@@ -184,6 +205,7 @@
       };
 
       bumpElement('stat-total', total);
+      bumpElement('destinatarios-total-badge', total);
       bumpElement('hero-total-card', total);
       bumpElement('stat-enviados', enviados);
       bumpElement('stat-pendientes', pendientes);
@@ -195,7 +217,9 @@
       SharedUI.setText('stat-fallidos-pct', `${fallidosPct}%`);
       SharedUI.setText('stat-entregados-pct', `${entregadosPct}%`);
       SharedUI.setText('hero-progress-value', `${progreso}%`);
-      SharedUI.setText('hero-progress-note', total ? `${enviados + entregados} de ${total} destinatarios procesados` : 'Sin actividad registrada');
+      SharedUI.setText('hero-progress-note', total ? `${enviados + manuales + entregados} de ${total} destinatarios procesados` : 'Sin actividad registrada');
+      const $pc = document.querySelector('.route-progress-card');
+      if ($pc) $pc.classList.toggle('is-active', total > 0);
 
       const setWidth = (id, value) => {
         const el = document.getElementById(id);
@@ -207,6 +231,9 @@
       setWidth('stat-fallidos-bar', fallidosPct);
       setWidth('stat-entregados-bar', entregadosPct);
       setWidth('hero-progress-bar', progreso);
+
+      const progressRing = document.getElementById('hero-progress-ring');
+      if (progressRing) progressRing.style.setProperty('--progress', String(progreso));
     }
 
     function bindBusqueda() {
@@ -226,23 +253,6 @@
       });
     }
 
-    function bindPaginacion() {
-      document.getElementById('btn-prev-page')?.addEventListener('click', () => {
-        if (state.currentPage <= 1) return;
-        pauseAutoRefresh();
-        state.currentPage -= 1;
-        updateAvisosView();
-      });
-
-      document.getElementById('btn-next-page')?.addEventListener('click', () => {
-        const totalPages = Math.max(1, Math.ceil(getFilteredAvisos().length / state.pageSize));
-        if (state.currentPage >= totalPages) return;
-        pauseAutoRefresh();
-        state.currentPage += 1;
-        updateAvisosView();
-      });
-    }
-
     function bindRowActions() {
       document.getElementById('tabla-avisos-body')?.addEventListener('click', async (event) => {
         const target = event.target.closest('[data-action="delete-aviso"]');
@@ -251,10 +261,72 @@
       });
     }
 
+    function bindFiltros() {
+      const toggleBtn = document.getElementById('btn-filtros');
+      const panel = document.getElementById('filter-panel');
+      if (!toggleBtn || !panel) return;
+
+      toggleBtn.addEventListener('click', () => {
+        panel.classList.toggle('open');
+      });
+
+      panel.addEventListener('click', (event) => {
+        const chip = event.target.closest('.filter-chip');
+        if (!chip) return;
+
+        const filter = chip.dataset.filter;
+        state.statusFilter = filter;
+
+        panel.querySelectorAll('.filter-chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+
+        updateAvisosView({ forceRender: true });
+      });
+    }
+
+    function exportAvisos() {
+      const data = getFilteredAvisos();
+      if (!data.length) {
+        SharedUI.showToast('No hay destinatarios para exportar.', 'info', { title: 'Sin datos' });
+        return;
+      }
+      if (!window.XLSX) {
+        SharedUI.showToast('No se cargo el modulo de exportacion XLSX.', 'error', { title: 'Error' });
+        return;
+      }
+      const rows = data.map((item, i) => ({
+        '#': i + 1,
+        Nombre: item.nombre || '',
+        Telefono: item.telefono || '',
+        'Codigo paquete': item.codigo_paquete || '',
+        Estado: formatEstadoLabel(item.estado_aviso),
+        'Fecha envio': item.fecha_envio ? formatFechaHora(item.fecha_envio) : ''
+      }));
+      const ws = window.XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 5 },
+        { wch: 30 },
+        { wch: 15 },
+        { wch: 18 },
+        { wch: 14 },
+        { wch: 18 }
+      ];
+      const wb = window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(wb, ws, 'Destinatarios');
+      const name = document.getElementById('hero-lote-id')?.textContent?.trim() || 'ruta';
+      window.XLSX.writeFile(wb, `destinatarios_${name}.xlsx`);
+      SharedUI.showToast(`${data.length} destinatarios exportados.`, 'success', { title: 'Exportado' });
+    }
+
+    function bindExport() {
+      document.getElementById('btn-exportar-avisos')?.addEventListener('click', exportAvisos);
+    }
+
     return {
       bindBusqueda,
-      bindPaginacion,
       bindRowActions,
+      bindFiltros,
+      bindExport,
       updateAvisosView,
       updateCounters,
       buildAvisosSignature,

@@ -2,7 +2,7 @@ import { Client, LocalAuth, MessageMedia } from 'whatsapp-web.js';
 import { readdir, readFile, rm } from 'fs/promises';
 import path from 'path';
 import { pool } from '../../../config/database';
-import { IWhatsAppProvider } from './IWhatsAppProvider';
+import { IWhatsAppProvider, WhatsAppProviderInstance } from './IWhatsAppProvider';
 import sessionManager from '../session/sessionManager';
 import qrManager from '../session/qrManager';
 
@@ -634,6 +634,20 @@ export class WhatsAppWebProvider implements IWhatsAppProvider {
   async removeSessionData(sessionKey: string): Promise<void> {
     await this.runLifecycleExclusive(sessionKey, async () => {
       await this.resetSessionLocally(sessionKey, true);
+    });
+  }
+
+  async listProviderInstances(): Promise<WhatsAppProviderInstance[]> {
+    return Array.from(this.clients.keys()).map((sessionKey) => {
+      const status = sessionManager.getStatus(sessionKey) || 'disconnected';
+      return {
+        name: sessionKey,
+        connectionStatus: status,
+        connected: status === 'connected',
+        ownerJid: null,
+        profileName: null,
+        updatedAt: null
+      };
     });
   }
 

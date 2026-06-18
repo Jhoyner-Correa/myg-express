@@ -15,7 +15,7 @@ function buildSessionKey(sedeId: number | string, deviceName: string): string {
   return `sede-${sedeId}-${slug}-${Date.now()}`;
 }
 
-async function obtenerSesionPorId(id: string, sedeId: number | undefined) {
+async function obtenerSesionPorId(id: string, sedeId: number | null | undefined) {
   const [rows]: any = await pool.query(
     `SELECT id, sede_id, nombre_dispositivo, numero_whatsapp, session_key, estado, activo, ultima_conexion, created_at
      FROM whatsapp_sesiones
@@ -27,7 +27,7 @@ async function obtenerSesionPorId(id: string, sedeId: number | undefined) {
   return rows[0] || null;
 }
 
-async function obtenerSesionPorSede(sedeId: number | undefined) {
+async function obtenerSesionPorSede(sedeId: number | null | undefined) {
   const [rows]: any = await pool.query(
     `SELECT id, sede_id, nombre_dispositivo, numero_whatsapp, session_key, estado, activo, ultima_conexion, created_at
      FROM whatsapp_sesiones
@@ -41,6 +41,222 @@ async function obtenerSesionPorSede(sedeId: number | undefined) {
 }
 
 // Función eliminada ya que usamos BullMQ
+
+type EvolutionConnectionStatus =
+  | 'connected'
+  | 'initializing'
+  | 'disconnected'
+  | null;
+
+function envNumber(name: string, fallback: number): number {
+  const parsed = Number(process.env[name]);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function envBoolean(name: string, fallback: boolean): boolean {
+  const value = String(process.env[name] || '').trim().toLowerCase();
+  if (!value) return fallback;
+  return ['1', 'true', 'yes', 'si'].includes(value);
+}
+
+function toTime(value: unknown): number {
+  if (!value) return 0;
+  const time = value instanceof Date ? value.getTime() : new Date(String(value)).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function wasRecentlyConnected(session: any, graceMs: number): boolean {
+  const lastConnection = toTime(session?.ultima_conexion);
+  return lastConnection > 0 && Date.now() - lastConnection <= graceMs;
+}
+
+function mapEvolutionConnectionState(state: unknown): EvolutionConnectionStatus {
+  const normalized = String(state || '').trim().toLowerCase();
+
+  if (normalized === 'open' || normalized === 'connected') return 'connected';
+  if (normalized === 'connecting') return 'initializing';
+  if (normalized === 'close' || normalized === 'disconnected') return 'disconnected';
+
+  return null;
+}
+
+async function syncWhatsappSessionStatus(sessionKey: string, estado: string, updateLastConnection = false) {
+  const query = updateLastConnection
+    ? `UPDATE whatsapp_sesiones
+       SET estado = ?, ultima_conexion = NOW()
+       WHERE session_key = ?
+         AND (estado <> ? OR estado IS NULL OR ultima_conexion IS NULL)`
+    : `UPDATE whatsapp_sesiones
+       SET estado = ?
+       WHERE session_key = ?
+         AND (estado <> ? OR estado IS NULL)`;
+
+  await pool.query(query, [estado, sessionKey, estado]);
+}
+
+function logEvolutionWebhook(message: string) {
+  if (envBoolean('EVOLUTION_WEBHOOK_DEBUG', false)) {
+    console.log(message);
+  }
+}
+
+function inferSedeIdFromSessionKey(sessionKey: string): number | null {
+  const match = String(sessionKey || '').match(/^sede-(\d+)-/i);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeProviderStatus(status: unknown): string {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'open' || normalized === 'connected') return 'connected';
+  if (normalized === 'connecting') return 'initializing';
+  if (normalized === 'close' || normalized === 'disconnected') return 'disconnected';
+  return normalized || 'unknown';
+}
+
+function normalizeWhatsappNumber(value: unknown): string | null {
+  const digits = String(value || '').replace(/@.+$/i, '').replace(/[^\d]/g, '').trim();
+  return digits || null;
+}
+
+function groupDuplicateConnectedOwners(instances: any[]) {
+  const groups = new Map<string, any[]>();
+
+  for (const instance of instances) {
+    const owner = String(instance.ownerJid || '').trim();
+    if (!owner || !instance.connected) continue;
+    const list = groups.get(owner) || [];
+    list.push(instance);
+    groups.set(owner, list);
+  }
+
+  return Array.from(groups.entries())
+    .filter(([, list]) => list.length > 1)
+    .map(([ownerJid, list]) => ({
+      ownerJid,
+      count: list.length,
+      instances: list.map((item) => ({
+        name: item.name,
+        connectionStatus: item.connectionStatus,
+        sede_id_inferida: inferSedeIdFromSessionKey(item.name)
+      }))
+    }));
+}
+
+export const auditarSesionesEvolution = async (req: AuthRequest, res: Response) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+
+    const isSystemAudit = Boolean(req.user?.es_superadmin);
+    const sedeId = req.user?.sede_id;
+
+    if (!isSystemAudit && !sedeId) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Sede no encontrada en el token'
+      });
+    }
+
+    const [dbRows]: any = isSystemAudit
+      ? await pool.query(
+          `SELECT id, sede_id, nombre_dispositivo, numero_whatsapp, session_key, estado, activo, ultima_conexion, created_at
+           FROM whatsapp_sesiones
+           ORDER BY sede_id ASC, created_at DESC, id DESC`
+        )
+      : await pool.query(
+          `SELECT id, sede_id, nombre_dispositivo, numero_whatsapp, session_key, estado, activo, ultima_conexion, created_at
+           FROM whatsapp_sesiones
+           WHERE sede_id = ?
+           ORDER BY created_at DESC, id DESC`,
+          [sedeId]
+        );
+
+    const dbSessions = await Promise.all(
+      (dbRows || []).map(async (row: any) => {
+        const estado_real = await whatsappService.resolveStatus(row.session_key, row.estado);
+        return {
+          id: row.id,
+          sede_id: row.sede_id,
+          nombre_dispositivo: row.nombre_dispositivo,
+          numero_whatsapp: row.numero_whatsapp,
+          session_key: row.session_key,
+          estado_bd: row.estado,
+          estado_real,
+          connected: estado_real === 'connected',
+          activo: Number(row.activo || 0) === 1,
+          ultima_conexion: row.ultima_conexion,
+          created_at: row.created_at
+        };
+      })
+    );
+
+    const dbKeys = new Set(dbSessions.map((row) => String(row.session_key)));
+    const providerInstancesRaw = await whatsappService.listProviderInstances();
+    const providerInstances = providerInstancesRaw
+      .map((instance) => ({
+        ...instance,
+        estado_normalizado: normalizeProviderStatus(instance.connectionStatus),
+        sede_id_inferida: inferSedeIdFromSessionKey(instance.name)
+      }))
+      .filter((instance) => {
+        if (isSystemAudit) return true;
+        return instance.sede_id_inferida === sedeId || dbKeys.has(instance.name);
+      });
+
+    const providerKeys = new Set(providerInstances.map((item) => item.name));
+    const providerByName = new Map(providerInstances.map((item) => [item.name, item]));
+
+    const orphanProviderInstances = providerInstances.filter((item) => !dbKeys.has(item.name));
+    const missingProviderInstances = dbSessions.filter((item) => !providerKeys.has(item.session_key));
+    const statusMismatches = dbSessions
+      .map((item) => {
+        const provider = providerByName.get(item.session_key);
+        if (!provider) return null;
+        const providerStatus = provider.estado_normalizado;
+        return providerStatus !== item.estado_real
+          ? {
+              session_key: item.session_key,
+              sede_id: item.sede_id,
+              estado_bd: item.estado_bd,
+              estado_real: item.estado_real,
+              estado_evolution: providerStatus
+            }
+          : null;
+      })
+      .filter(Boolean);
+
+    return res.json({
+      ok: true,
+      scope: isSystemAudit ? 'system' : 'sede',
+      sede_id: isSystemAudit ? null : sedeId,
+      summary: {
+        bd_total: dbSessions.length,
+        bd_connected: dbSessions.filter((item) => item.connected).length,
+        evolution_total: providerInstances.length,
+        evolution_connected: providerInstances.filter((item) => item.connected).length,
+        orphan_evolution: orphanProviderInstances.length,
+        missing_in_evolution: missingProviderInstances.length,
+        status_mismatches: statusMismatches.length,
+        duplicate_connected_numbers: groupDuplicateConnectedOwners(providerInstances).length
+      },
+      database_sessions: dbSessions,
+      evolution_instances: providerInstances,
+      reconciliation: {
+        orphan_provider_instances: orphanProviderInstances,
+        missing_provider_instances: missingProviderInstances,
+        status_mismatches: statusMismatches,
+        duplicate_connected_numbers: groupDuplicateConnectedOwners(providerInstances)
+      }
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      ok: false,
+      message: 'Error al auditar sesiones de WhatsApp contra Evolution',
+      error: error.message
+    });
+  }
+};
 
 export const listarSesionesWhatsApp = async (req: AuthRequest, res: Response) => {
   try {
@@ -357,11 +573,8 @@ export const eliminarSesionWhatsApp = async (req: AuthRequest, res: Response) =>
       });
     }
 
-    try {
-      await whatsappService.removeSessionData(sesion.session_key);
-    } catch (err) {
-      console.warn(`No se pudieron borrar todos los archivos de sesión ${sesion.session_key}. Serán limpiados después.`);
-    }
+    await whatsappService.removeSessionData(sesion.session_key);
+
     // Ya no borramos de whatsapp_jobs
     await pool.query(
       `DELETE FROM whatsapp_sesiones
@@ -384,9 +597,9 @@ export const eliminarSesionWhatsApp = async (req: AuthRequest, res: Response) =>
 
 export const recibirWebhookEvolution = async (req: Request, res: Response) => {
   try {
-    console.log('[Evolution Webhook] Headers:', req.headers);
-    console.log('[Evolution Webhook] Body:', req.body);
     const { event, instance, data, apikey } = req.body || {};
+    const state = String(data?.state || data?.status || '').trim().toLowerCase();
+    const statusReason = data?.statusReason ?? null;
 
     // 1. Validar la clave API por seguridad
     const configApiKey = (process.env.EVOLUTION_API_APIKEY || '').trim();
@@ -399,36 +612,94 @@ export const recibirWebhookEvolution = async (req: Request, res: Response) => {
       return res.status(401).json({ ok: false, message: 'Unauthorized' });
     }
 
-    console.log(`[Evolution Webhook] Recibido evento: "${event}" para la instancia: "${instance}"`);
+    logEvolutionWebhook(
+      `[Evolution Webhook] event=${event || '-'} instance=${instance || '-'} state=${state || '-'} reason=${statusReason ?? '-'}`
+    );
 
     // 2. Procesar el estado de la conexión
     if (event === 'connection.update') {
-      const state = String(data?.state || data?.status || '').toLowerCase();
-      
-      // Mapear estados de Evolution API / Baileys a nuestro sistema
-      let estadoInterno = 'disconnected';
-      let updateLastConnection = false;
-
-      if (state === 'open' || state === 'connected') {
-        estadoInterno = 'connected';
-        updateLastConnection = true;
-      } else if (state === 'connecting') {
-        estadoInterno = 'initializing';
-      } else if (state === 'close' || state === 'disconnected') {
-        estadoInterno = 'disconnected';
+      if (!instance) {
+        return res.status(400).json({ ok: false, message: 'Missing instance' });
       }
 
-      console.log(`[Evolution Webhook] Mapeando estado "${state}" a "${estadoInterno}" para sessionKey "${instance}"`);
+      const mappedStatus = mapEvolutionConnectionState(state);
+      if (!mappedStatus) {
+        logEvolutionWebhook(`[Evolution Webhook] Estado no reconocido "${state}". Se confirma sin cambiar BD.`);
+        return res.json({ ok: true });
+      }
+      const connectedNumber = normalizeWhatsappNumber(data?.wuid || data?.ownerJid || req.body?.sender);
+      const [sessionRows]: any = await pool.query(
+        `SELECT id, estado, ultima_conexion, numero_whatsapp
+         FROM whatsapp_sesiones
+         WHERE session_key = ?
+         LIMIT 1`,
+        [instance]
+      );
 
-      const query = updateLastConnection
-        ? `UPDATE whatsapp_sesiones
-           SET estado = ?, ultima_conexion = NOW()
-           WHERE session_key = ?`
-        : `UPDATE whatsapp_sesiones
-           SET estado = ?
-           WHERE session_key = ?`;
+      const session = sessionRows[0];
+      if (!session) {
+        console.warn(`[Evolution Webhook] Instancia "${instance}" no existe en whatsapp_sesiones. Se omite.`);
+        return res.json({ ok: true });
+      }
 
-      await pool.query(query, [estadoInterno, instance]);
+      const currentStatus = String(session.estado || 'disconnected').toLowerCase();
+      const closeGraceMs = envNumber('EVOLUTION_WEBHOOK_CLOSE_GRACE_MS', 8000);
+      const connectingGraceMs = envNumber('EVOLUTION_WEBHOOK_CONNECTING_GRACE_MS', 12000);
+      const confirmClose = envBoolean('EVOLUTION_WEBHOOK_CONFIRM_CLOSE', true);
+
+      if (mappedStatus === 'connected') {
+        await syncWhatsappSessionStatus(instance, 'connected', true);
+        if (connectedNumber && connectedNumber !== session.numero_whatsapp) {
+          await pool.query(
+            `UPDATE whatsapp_sesiones
+             SET numero_whatsapp = ?
+             WHERE id = ?`,
+            [connectedNumber, session.id]
+          );
+        }
+        logEvolutionWebhook(`[Evolution Webhook] "${instance}" confirmado como connected.`);
+        return res.json({ ok: true });
+      }
+
+      if (mappedStatus === 'initializing') {
+        if (currentStatus === 'connected' || wasRecentlyConnected(session, connectingGraceMs)) {
+          logEvolutionWebhook(`[Evolution Webhook] Ignorando "connecting" transitorio para "${instance}".`);
+          return res.json({ ok: true });
+        }
+
+        await syncWhatsappSessionStatus(instance, 'initializing');
+        logEvolutionWebhook(`[Evolution Webhook] "${instance}" actualizado a initializing.`);
+        return res.json({ ok: true });
+      }
+
+      if (mappedStatus === 'disconnected') {
+        if (
+          ['connected', 'initializing'].includes(currentStatus)
+          && wasRecentlyConnected(session, closeGraceMs)
+        ) {
+          logEvolutionWebhook(`[Evolution Webhook] Ignorando cierre transitorio reason=${statusReason ?? '-'} para "${instance}".`);
+          return res.json({ ok: true });
+        }
+
+        if (confirmClose) {
+          const confirmedStatus = await whatsappService.resolveStatus(instance, currentStatus);
+
+          if (confirmedStatus === 'connected') {
+            await syncWhatsappSessionStatus(instance, 'connected', true);
+            logEvolutionWebhook(`[Evolution Webhook] Cierre descartado: Evolution confirma "${instance}" conectado.`);
+            return res.json({ ok: true });
+          }
+
+          if (confirmedStatus && confirmedStatus !== 'disconnected') {
+            await syncWhatsappSessionStatus(instance, confirmedStatus);
+            logEvolutionWebhook(`[Evolution Webhook] Cierre confirmado como "${confirmedStatus}" para "${instance}".`);
+            return res.json({ ok: true });
+          }
+        }
+
+        await syncWhatsappSessionStatus(instance, 'disconnected');
+        logEvolutionWebhook(`[Evolution Webhook] "${instance}" actualizado a disconnected.`);
+      }
     }
 
     return res.json({ ok: true });

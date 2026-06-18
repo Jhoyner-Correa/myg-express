@@ -2,6 +2,15 @@ import bcrypt from 'bcrypt';
 import { Response } from 'express';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../config/database';
+import { encryptUrbanoPassword } from '../services/urbanoCredentialsService';
+import {
+  AppRole,
+  getRoleLabel,
+  isManagedUserRole,
+  normalizeRole,
+  roleRequiresSede,
+  ROLES
+} from '../constants/roles';
 import { AuthRequest } from '../middlewares/authMiddleware';
 
 type DashboardRow = RowDataPacket & {
@@ -27,18 +36,51 @@ type SedeRow = RowDataPacket & {
 
 type UsuarioRow = RowDataPacket & {
   id: number;
-  sede_id: number;
+  sede_id: number | null;
   nombre: string;
   usuario: string;
   rol: string;
   es_superadmin: number;
   estado: 'activo' | 'inactivo';
-  sede_nombre: string;
+  sede_nombre: string | null;
   created_at: string;
+};
+
+type UrbanoCredentialRow = RowDataPacket & {
+  id: number;
+  sede_id: number;
+  sede_nombre: string;
+  username: string;
+  estado: 'activo' | 'inactivo';
+  last_login_at: string | null;
+  updated_at: string;
 };
 
 function validarTexto(value: unknown): string {
   return String(value || '').trim();
+}
+
+function obtenerRolGestionable(value: unknown): AppRole {
+  const role = normalizeRole(value);
+  return isManagedUserRole(role) ? role : ROLES.ENCARGADO_OFICINA;
+}
+
+async function assertSedeExiste(sedeId: number): Promise<boolean> {
+  const [[sede]] = await pool.query<RowDataPacket[]>(
+    'SELECT id FROM sedes WHERE id = ? LIMIT 1',
+    [sedeId]
+  );
+  return Boolean(sede);
+}
+
+function normalizarUsuarioParaRespuesta(user: UsuarioRow) {
+  const rol = normalizeRole(user.rol, Boolean(user.es_superadmin));
+  return {
+    ...user,
+    rol,
+    rol_label: getRoleLabel(rol),
+    sede_nombre: user.sede_nombre || 'Administracion Central'
+  };
 }
 
 export async function obtenerResumenAdmin(_req: AuthRequest, res: Response): Promise<void> {
@@ -47,7 +89,7 @@ export async function obtenerResumenAdmin(_req: AuthRequest, res: Response): Pro
       `SELECT
          (SELECT COUNT(*) FROM sedes) AS total_sedes,
          (SELECT COUNT(*) FROM sedes WHERE estado = 'activo') AS sedes_activas,
-         (SELECT COUNT(*) FROM usuarios) AS total_usuarios,
+         (SELECT COUNT(*) FROM usuarios WHERE es_superadmin = 0) AS total_usuarios,
          (SELECT COUNT(*) FROM lotes_carga WHERE fecha_eliminacion IS NULL) AS total_lotes,
          (SELECT COUNT(*) FROM lotes_carga WHERE estado IN ('pendiente', 'procesando') AND fecha_eliminacion IS NULL) AS lotes_activos,
          (SELECT COUNT(*) FROM avisos_diarios) AS total_destinatarios`
@@ -65,7 +107,7 @@ export async function obtenerResumenAdmin(_req: AuthRequest, res: Response): Pro
          COALESCE(l.cnt, 0) AS total_lotes,
          COALESCE(a.cnt, 0) AS destinatarios
        FROM sedes s
-       LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM usuarios GROUP BY sede_id) u ON u.sede_id = s.id
+       LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM usuarios WHERE es_superadmin = 0 GROUP BY sede_id) u ON u.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM whatsapp_sesiones GROUP BY sede_id) ws ON ws.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM lotes_carga WHERE fecha_eliminacion IS NULL GROUP BY sede_id) l ON l.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM avisos_diarios GROUP BY sede_id) a ON a.sede_id = s.id
@@ -99,7 +141,7 @@ export async function listarSedesAdmin(_req: AuthRequest, res: Response): Promis
          COALESCE(l.cnt, 0) AS total_lotes,
          COALESCE(a.cnt, 0) AS destinatarios
        FROM sedes s
-       LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM usuarios GROUP BY sede_id) u ON u.sede_id = s.id
+       LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM usuarios WHERE es_superadmin = 0 GROUP BY sede_id) u ON u.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM whatsapp_sesiones GROUP BY sede_id) ws ON ws.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM lotes_carga WHERE fecha_eliminacion IS NULL GROUP BY sede_id) l ON l.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM avisos_diarios GROUP BY sede_id) a ON a.sede_id = s.id
@@ -135,7 +177,7 @@ export async function crearSedeAdmin(req: AuthRequest, res: Response): Promise<v
       mensaje: 'Sede creada correctamente',
       id: result.insertId
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error al crear sede:', error);
     res.status(500).json({ ok: false, mensaje: 'No se pudo crear la sede' });
   }
@@ -189,7 +231,7 @@ export async function eliminarSedeAdmin(req: AuthRequest, res: Response): Promis
     if (uso.usuarios > 0 || uso.lotes > 0 || uso.sesiones > 0 || uso.logs > 0) {
       res.status(400).json({
         ok: false,
-        mensaje: 'No se puede eliminar la sede porque ya tiene usuarios, lotes, sesiones o logs asociados en el historial.'
+        mensaje: 'No se puede eliminar la sede porque ya tiene usuarios, rutas, sesiones o logs asociados.'
       });
       return;
     }
@@ -219,14 +261,15 @@ export async function listarUsuariosAdmin(_req: AuthRequest, res: Response): Pro
          u.rol,
          u.es_superadmin,
          u.estado,
-         COALESCE(s.nombre, 'Administración Central') AS sede_nombre,
+         COALESCE(s.nombre, 'Administracion Central') AS sede_nombre,
          u.created_at
        FROM usuarios u
        LEFT JOIN sedes s ON s.id = u.sede_id
+       WHERE u.es_superadmin = 0
        ORDER BY u.created_at DESC, u.id DESC`
     );
 
-    res.json({ ok: true, data: rows });
+    res.json({ ok: true, data: rows.map(normalizarUsuarioParaRespuesta) });
   } catch (error) {
     console.error('Error al listar usuarios:', error);
     res.status(500).json({ ok: false, mensaje: 'No se pudieron cargar los usuarios' });
@@ -235,27 +278,30 @@ export async function listarUsuariosAdmin(_req: AuthRequest, res: Response): Pro
 
 export async function crearUsuarioAdmin(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const sede_id = Number(req.body.sede_id);
+    const rol = obtenerRolGestionable(req.body.rol);
+    const sede_id = roleRequiresSede(rol) ? Number(req.body.sede_id) : null;
     const nombre = validarTexto(req.body.nombre);
     const usuario = validarTexto(req.body.usuario);
     const password = validarTexto(req.body.password);
     const estado = validarTexto(req.body.estado) || 'activo';
     const es_superadmin = 0;
-    const rol = 'Encargado de Oficina';
 
-    if (!sede_id || !nombre || !usuario || !password) {
-      res.status(400).json({ ok: false, mensaje: 'Sede, nombre, usuario y contraseña son obligatorios' });
+    if (!nombre || !usuario || !password) {
+      res.status(400).json({ ok: false, mensaje: 'Nombre, usuario y password son obligatorios' });
       return;
     }
 
-    const [[sede]] = await pool.query<RowDataPacket[]>(
-      'SELECT id FROM sedes WHERE id = ? LIMIT 1',
-      [sede_id]
-    );
+    if (roleRequiresSede(rol)) {
+      if (!sede_id) {
+        res.status(400).json({ ok: false, mensaje: 'La sede es obligatoria para Encargado de Oficina' });
+        return;
+      }
 
-    if (!sede) {
-      res.status(404).json({ ok: false, mensaje: 'La sede seleccionada no existe' });
-      return;
+      const sedeExiste = await assertSedeExiste(sede_id);
+      if (!sedeExiste) {
+        res.status(404).json({ ok: false, mensaje: 'La sede seleccionada no existe' });
+        return;
+      }
     }
 
     const hash = await bcrypt.hash(password, 10);
@@ -273,10 +319,9 @@ export async function crearUsuarioAdmin(req: AuthRequest, res: Response): Promis
     });
   } catch (error: any) {
     console.error('Error al crear usuario:', error);
-    const mensaje =
-      error?.code === 'ER_DUP_ENTRY'
-        ? 'El nombre de usuario ya existe'
-        : 'No se pudo crear el usuario';
+    const mensaje = error?.code === 'ER_DUP_ENTRY'
+      ? 'El nombre de usuario ya existe'
+      : 'No se pudo crear el usuario';
     res.status(500).json({ ok: false, mensaje });
   }
 }
@@ -284,35 +329,54 @@ export async function crearUsuarioAdmin(req: AuthRequest, res: Response): Promis
 export async function actualizarUsuarioAdmin(req: AuthRequest, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const sede_id = Number(req.body.sede_id);
     const nombre = validarTexto(req.body.nombre);
     const usuario = validarTexto(req.body.usuario);
     const password = validarTexto(req.body.password);
     const estado = validarTexto(req.body.estado) || 'activo';
 
     const [[existingUser]] = await pool.query<RowDataPacket[]>(
-      'SELECT es_superadmin FROM usuarios WHERE id = ? LIMIT 1',
+      'SELECT id, rol, es_superadmin FROM usuarios WHERE id = ? LIMIT 1',
       [id]
     );
+
     if (!existingUser) {
       res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
       return;
     }
-    const es_superadmin = existingUser.es_superadmin ? 1 : 0;
-    const rol = es_superadmin ? 'Administrador de Sistemas (SysAdmin)' : 'Encargado de Oficina';
-    const final_sede_id = es_superadmin ? null : Number(req.body.sede_id);
 
-    if (!es_superadmin && !final_sede_id) {
-      res.status(400).json({ ok: false, mensaje: 'La sede es obligatoria' });
+    if (existingUser.es_superadmin) {
+      res.status(400).json({
+        ok: false,
+        mensaje: 'Accion no permitida para este usuario'
+      });
       return;
     }
+
+    const es_superadmin = existingUser.es_superadmin ? 1 : 0;
+    const rol = es_superadmin ? ROLES.SYSADMIN : obtenerRolGestionable(req.body.rol || existingUser.rol);
+    const final_sede_id = roleRequiresSede(rol) ? Number(req.body.sede_id) : null;
+    const final_estado = es_superadmin ? 'activo' : estado;
+
     if (!nombre || !usuario) {
       res.status(400).json({ ok: false, mensaje: 'Nombre y usuario son obligatorios' });
       return;
     }
 
+    if (roleRequiresSede(rol)) {
+      if (!final_sede_id) {
+        res.status(400).json({ ok: false, mensaje: 'La sede es obligatoria para Encargado de Oficina' });
+        return;
+      }
+
+      const sedeExiste = await assertSedeExiste(final_sede_id);
+      if (!sedeExiste) {
+        res.status(404).json({ ok: false, mensaje: 'La sede seleccionada no existe' });
+        return;
+      }
+    }
+
     let sql = `UPDATE usuarios SET sede_id = ?, nombre = ?, usuario = ?, rol = ?, es_superadmin = ?, estado = ?`;
-    const params: Array<string | number | null> = [final_sede_id, nombre, usuario, rol, es_superadmin, estado];
+    const params: Array<string | number | null> = [final_sede_id, nombre, usuario, rol, es_superadmin, final_estado];
 
     if (password) {
       const hash = await bcrypt.hash(password, 10);
@@ -333,10 +397,9 @@ export async function actualizarUsuarioAdmin(req: AuthRequest, res: Response): P
     res.json({ ok: true, mensaje: 'Usuario actualizado correctamente' });
   } catch (error: any) {
     console.error('Error al actualizar usuario:', error);
-    const mensaje =
-      error?.code === 'ER_DUP_ENTRY'
-        ? 'El nombre de usuario ya existe'
-        : 'No se pudo actualizar el usuario';
+    const mensaje = error?.code === 'ER_DUP_ENTRY'
+      ? 'El nombre de usuario ya existe'
+      : 'No se pudo actualizar el usuario';
     res.status(500).json({ ok: false, mensaje });
   }
 }
@@ -347,6 +410,21 @@ export async function eliminarUsuarioAdmin(req: AuthRequest, res: Response): Pro
 
     if (String(req.user?.id) === String(id)) {
       res.status(400).json({ ok: false, mensaje: 'No puedes eliminar tu propio usuario administrador' });
+      return;
+    }
+
+    const [[targetUser]] = await pool.query<RowDataPacket[]>(
+      'SELECT es_superadmin FROM usuarios WHERE id = ? LIMIT 1',
+      [id]
+    );
+
+    if (!targetUser) {
+      res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+      return;
+    }
+
+    if (targetUser.es_superadmin) {
+      res.status(400).json({ ok: false, mensaje: 'No se puede eliminar el SysAdmin del sistema' });
       return;
     }
 
@@ -361,5 +439,136 @@ export async function eliminarUsuarioAdmin(req: AuthRequest, res: Response): Pro
   } catch (error) {
     console.error('Error al eliminar usuario:', error);
     res.status(500).json({ ok: false, mensaje: 'No se pudo eliminar el usuario' });
+  }
+}
+
+export async function listarCredencialesUrbanoAdmin(_req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const [rows] = await pool.query<UrbanoCredentialRow[]>(
+      `SELECT
+         c.id,
+         c.sede_id,
+         s.nombre AS sede_nombre,
+         c.username,
+         c.estado,
+         c.last_login_at,
+         c.updated_at
+       FROM urbano_credenciales_sede c
+       INNER JOIN sedes s ON s.id = c.sede_id
+       ORDER BY s.nombre ASC`
+    );
+
+    res.json({ ok: true, data: rows });
+  } catch (error: any) {
+    if (error?.code === 'ER_NO_SUCH_TABLE') {
+      res.json({ ok: true, data: [] });
+      return;
+    }
+
+    console.error('Error al listar credenciales Urbano:', error);
+    res.status(500).json({ ok: false, mensaje: 'No se pudieron cargar las credenciales Urbano' });
+  }
+}
+
+export async function guardarCredencialUrbanoAdmin(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const sedeId = Number(req.params.sedeId);
+    const username = validarTexto(req.body.username);
+    const password = String(req.body.password || '');
+    const estado = validarTexto(req.body.estado) === 'inactivo' ? 'inactivo' : 'activo';
+
+    if (!Number.isInteger(sedeId) || sedeId <= 0) {
+      res.status(400).json({ ok: false, mensaje: 'Sede invalida' });
+      return;
+    }
+
+    if (!username) {
+      res.status(400).json({ ok: false, mensaje: 'El usuario Urbano es obligatorio' });
+      return;
+    }
+
+    const sedeExiste = await assertSedeExiste(sedeId);
+    if (!sedeExiste) {
+      res.status(404).json({ ok: false, mensaje: 'La sede seleccionada no existe' });
+      return;
+    }
+
+    const [[existing]] = await pool.query<RowDataPacket[]>(
+      'SELECT id FROM urbano_credenciales_sede WHERE sede_id = ? LIMIT 1',
+      [sedeId]
+    );
+
+    if (!existing && !password.trim()) {
+      res.status(400).json({
+        ok: false,
+        mensaje: 'La contrasena Urbano es obligatoria al configurar una sede por primera vez'
+      });
+      return;
+    }
+
+    if (password.trim()) {
+      const encrypted = encryptUrbanoPassword(password);
+      await pool.query(
+        `INSERT INTO urbano_credenciales_sede
+           (sede_id, username, password_cipher, password_iv, password_auth_tag, estado)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           username = VALUES(username),
+           password_cipher = VALUES(password_cipher),
+           password_iv = VALUES(password_iv),
+           password_auth_tag = VALUES(password_auth_tag),
+           estado = VALUES(estado),
+           updated_at = CURRENT_TIMESTAMP`,
+        [
+          sedeId,
+          username,
+          encrypted.cipherText,
+          encrypted.iv,
+          encrypted.authTag,
+          estado
+        ]
+      );
+    } else {
+      await pool.query(
+        `UPDATE urbano_credenciales_sede
+         SET username = ?, estado = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE sede_id = ?`,
+        [username, estado, sedeId]
+      );
+    }
+
+    res.json({ ok: true, mensaje: 'Credenciales Urbano guardadas correctamente' });
+  } catch (error: any) {
+    console.error('Error al guardar credenciales Urbano:', error);
+    const mensaje = error?.code === 'ER_NO_SUCH_TABLE'
+      ? 'Ejecuta primero la migracion urbano_credenciales_sede'
+      : error?.message || 'No se pudieron guardar las credenciales Urbano';
+    res.status(500).json({ ok: false, mensaje });
+  }
+}
+
+export async function eliminarCredencialUrbanoAdmin(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const sedeId = Number(req.params.sedeId);
+
+    if (!Number.isInteger(sedeId) || sedeId <= 0) {
+      res.status(400).json({ ok: false, mensaje: 'Sede invalida' });
+      return;
+    }
+
+    const [result] = await pool.query<ResultSetHeader>(
+      'DELETE FROM urbano_credenciales_sede WHERE sede_id = ?',
+      [sedeId]
+    );
+
+    if (!result.affectedRows) {
+      res.status(404).json({ ok: false, mensaje: 'Credencial Urbano no encontrada' });
+      return;
+    }
+
+    res.json({ ok: true, mensaje: 'Credencial Urbano eliminada correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar credenciales Urbano:', error);
+    res.status(500).json({ ok: false, mensaje: 'No se pudo eliminar la credencial Urbano' });
   }
 }
