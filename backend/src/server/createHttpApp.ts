@@ -6,9 +6,11 @@ import morgan from 'morgan';
 
 export function createHttpApp() {
   const app = express();
-  app.set('trust proxy', true);
 
   const isProduction = process.env.NODE_ENV === 'production';
+  const trustProxyHops = Number(process.env.APP_TRUST_PROXY_HOPS ?? (isProduction ? 1 : 0));
+  app.set('trust proxy', Number.isFinite(trustProxyHops) && trustProxyHops > 0 ? trustProxyHops : false);
+
   const parseList = (value: string | undefined, fallback: string[]) => {
     const items = String(value || '')
       .split(',')
