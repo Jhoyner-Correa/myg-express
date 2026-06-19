@@ -34,5 +34,36 @@ git pull origin main
 
 
 
----- PARA GIT SUBIR ACTUALIZAR ARCHIVO ----
+---- PARA  SUBIR a GIT ACTUALIZAR ARCHIVO ----
 
+cd C:\Users\JHOYNER\Downloads\sistema-mensajeria
+
+git status
+git add .
+git commit -m "Describe brevemente el cambio"
+git push origin main
+
+
+--- TIENES QUE HACERLO DESDE LA MISMA CARPETA DONDE ESAN LOS ARCHIVOS---
+
+-- SI SOLO QUIERES SUBIR ARCHIVOS quieres subir  específico ----
+
+git add frontend/js/archivo.js
+git commit -m "Corregir archivo especifico"
+git push origin main
+
+-- EL PROCESO PROFESIONAL SERIA --
+
+1. Editas en tu PC.
+2. Pruebas en local.
+3. git status
+4. git add .
+5. git commit -m "mensaje claro"
+6. git push origin main
+7. En VPS: git pull origin main
+8. En VPS: npm run build + pm2 reload si tocaste backend.
+
+
+---- OJO QUE TAMBIEN SE PUEDE HACER DESDE VISUAL SIEMPRE Y CUANDO LO GUARDAS EN LA REPO LOCAL Y TAMBIEN EL LA REPO DE GITHUB SIEMPRE TIENES QUE HACER -- Push / Sync Changes.---------
+
+--EL Push ES SIEMPRE VA SUBIR ALA REPO DE GITHUB  --
