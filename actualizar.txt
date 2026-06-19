@@ -2,9 +2,11 @@
 
 cd /var/www/myg-express
 git pull origin main
+
 cd backend
 npm ci
 npm run build
+
 PM2_BACKEND_CWD=/var/www/myg-express/backend pm2 reload ecosystem.config.js --update-env
 pm2 save
 
@@ -15,6 +17,9 @@ pm2 list
 curl -I https://myg-express.com
 pm2 logs sistema-api --lines 50 --nostream | grep -iE "error|failed|exception"
 pm2 logs sistema-whatsapp-worker --lines 50 --nostream | grep -iE "error|fallo|failed|Connection Closed"
+
+** ojo en el backend hay que ser mas delicados ** 
+
 
 
 *******si solo es frontend****

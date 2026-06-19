@@ -366,7 +366,7 @@ async function loadRouteDestinations() {
         ).join('');
     }
 
-    if (labelEl) { labelEl.textContent = 'Seleccionar lote destinoâ€¦'; labelEl.classList.remove('placeholder'); }
+    if (labelEl) { labelEl.textContent = 'Seleccionar ruta destino'; labelEl.classList.remove('placeholder'); }
     renderDropdownList('');
   } catch {
     if (labelEl) { labelEl.textContent = 'Error al cargar lotes'; labelEl.classList.add('placeholder'); }
