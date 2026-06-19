@@ -3,6 +3,7 @@ import { pool } from '../config/database';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { encolarLote, waQueue } from '../queues/whatsapp.queue';
 import whatsappService from '../services/whatsapp/whatsappService';
+import { toWhatsappUserMessage } from '../utils/whatsappErrorMessages';
 
 
 // Helper function removed because Worker handles variable replacement
@@ -73,7 +74,7 @@ async function getLoteQueueControl(loteId: number, sedeId: number) {
     processingJobs: processingCount,
     pausedJobs,
     hasInterruptedFlow,
-    lastError: stats?.last_error || null,
+    lastError: toWhatsappUserMessage(stats?.last_error),
     isProcessing,
     isPaused,
     canResume: isPaused && (pendingJobs > 0 || failedCount > 0),

@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { pool } from '../config/database';
 import { AuthRequest } from '../middlewares/authMiddleware';
+import { toWhatsappUserMessage } from '../utils/whatsappErrorMessages';
 
 function normalizeRouteBaseName(value: unknown) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -190,7 +191,7 @@ export const obtenerLotePorId = async (req: AuthRequest, res: Response) => {
       processingJobs: processingCount,
       pausedJobs,
       hasInterruptedFlow,
-      lastError: stats.last_error,
+      lastError: toWhatsappUserMessage(stats.last_error),
       isProcessing,
       isPaused,
       canResume: isPaused && (pendingJobs > 0 || failedCount > 0),
