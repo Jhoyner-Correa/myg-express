@@ -267,23 +267,6 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
     console.log(`[BullMQ] Procesando job ${job.id} -> lote ${loteId}, orden ${orden || '-'}, aviso ${avisoId}, telefono ${telefono}`);
 
-    const [updateResult]: any = await pool.query(
-      `UPDATE avisos_diarios
-       SET estado_aviso = 'en_cola',
-           intentos = COALESCE(intentos, 0) + 1,
-           id_trabajo_cola = ?
-       WHERE id = ?
-         AND estado_aviso IN ('pendiente', 'fallido')`,
-      [job.id, avisoId]
-    );
-
-    if (updateResult.affectedRows === 0) {
-      const [rows]: any = await pool.query('SELECT estado_aviso FROM avisos_diarios WHERE id = ?', [avisoId]);
-      const estado = rows[0]?.estado_aviso || 'no_existe';
-      console.warn(`[BullMQ] Aviso ${avisoId} omitido. Estado actual: ${estado}.`);
-      return { success: false, skipped: true, estado };
-    }
-
     try {
       const [sesiones]: any = await pool.query(
         `SELECT session_key, activo FROM whatsapp_sesiones WHERE id = ?`,
@@ -366,6 +349,23 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
       await waitForSessionPace(sessionKey, avisoId);
       await waitForAdaptiveSafety(Number(sesionId), avisoId);
+
+      const [updateResult]: any = await pool.query(
+        `UPDATE avisos_diarios
+         SET estado_aviso = 'en_cola',
+             intentos = COALESCE(intentos, 0) + 1,
+             id_trabajo_cola = ?
+         WHERE id = ?
+           AND estado_aviso IN ('pendiente', 'fallido')`,
+        [job.id, avisoId]
+      );
+
+      if (updateResult.affectedRows === 0) {
+        const [rows]: any = await pool.query('SELECT estado_aviso FROM avisos_diarios WHERE id = ?', [avisoId]);
+        const estado = rows[0]?.estado_aviso || 'no_existe';
+        console.warn(`[BullMQ] Aviso ${avisoId} omitido antes del envio. Estado actual: ${estado}.`);
+        return { success: false, skipped: true, estado };
+      }
 
       let result: any;
       try {
