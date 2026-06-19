@@ -195,6 +195,92 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
     return fileBase64;
   }
 
+  private buildInstancePayload(sessionKey: string): Record<string, any> {
+    return {
+      instanceName: sessionKey,
+      token: this.apiKey,
+      qrcode: true,
+      integration: 'WHATSAPP-BAILEYS',
+      webhook: this.webhookUrl ? {
+        enabled: true,
+        url: this.webhookUrl,
+        byEvents: true,
+        events: ['CONNECTION_UPDATE']
+      } : undefined
+    };
+  }
+
+  private async createInstance(sessionKey: string): Promise<any> {
+    console.log(`[Evolution API] Creando nueva instancia "${sessionKey}"...`);
+    const createRes = await this.safeFetch(`${this.apiUrl}/instance/create`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(this.buildInstancePayload(sessionKey))
+    });
+
+    if (!createRes.ok) {
+      const errText = await createRes.text();
+      throw new Error(`Error de creacion de instancia (${createRes.status}): ${errText}`);
+    }
+
+    const contentType = createRes.headers.get('content-type') || '';
+    const data = contentType.includes('application/json') ? await createRes.json() : null;
+    console.log(`[Evolution API] Instancia "${sessionKey}" creada correctamente.`);
+    return data;
+  }
+
+  private async deleteInstanceIfExists(sessionKey: string): Promise<void> {
+    const res = await this.safeFetch(`${this.apiUrl}/instance/delete/${sessionKey}`, {
+      method: 'DELETE',
+      headers: this.getHeaders()
+    });
+
+    if (res.ok || res.status === 404) {
+      return;
+    }
+
+    const errText = await res.text();
+    throw new Error(`No se pudo limpiar instancia (${res.status}): ${errText}`);
+  }
+
+  private isCountOnlyQrResponse(data: any): boolean {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+    const keys = Object.keys(data);
+    return keys.length === 1 && keys[0] === 'count';
+  }
+
+  private async recoverQrFromStuckInstance(sessionKey: string): Promise<string | null> {
+    console.warn(`[Evolution API] La instancia "${sessionKey}" no entrego QR. Se recreara de forma segura en Evolution.`);
+
+    try {
+      await this.deleteInstanceIfExists(sessionKey);
+      const createData = await this.createInstance(sessionKey);
+      const createQr = this.findQrPayload(createData);
+      if (createQr) return createQr;
+
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const connectRes = await this.safeFetch(`${this.apiUrl}/instance/connect/${sessionKey}`, {
+        method: 'GET',
+        headers: this.getHeaders()
+      });
+
+      if (!connectRes.ok) {
+        console.warn(`[Evolution API] No se pudo obtener QR luego de recrear "${sessionKey}". Estado HTTP: ${connectRes.status}`);
+        return null;
+      }
+
+      const connectData: any = await connectRes.json();
+      const connectQr = this.findQrPayload(connectData);
+      if (!connectQr) {
+        console.warn(`[Evolution API] QR aun no disponible luego de recrear "${sessionKey}". Campos: ${this.summarizeObjectShape(connectData)}`);
+      }
+      return connectQr;
+    } catch (error: any) {
+      console.error(`[Evolution API] No se pudo recuperar QR para "${sessionKey}":`, error.message);
+      return null;
+    }
+  }
+
   /**
    * Inicializa la instancia en Evolution API si no existe.
    */
@@ -347,6 +433,14 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
 
       const data: any = await res.json();
       const base64 = this.findQrPayload(data);
+      if (!base64 && this.isCountOnlyQrResponse(data)) {
+        const recoveredQr = await this.recoverQrFromStuckInstance(sessionKey);
+        this.qrCache.set(sessionKey, {
+          qr: recoveredQr,
+          expiresAt: Date.now() + (recoveredQr ? this.qrCacheMs : 8000)
+        });
+        return recoveredQr;
+      }
       if (!base64) {
         console.warn(`[Evolution API] Respuesta QR sin payload legible para "${sessionKey}". Campos: ${this.summarizeObjectShape(data)}`);
       }
