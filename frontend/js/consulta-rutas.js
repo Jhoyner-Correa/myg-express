@@ -360,7 +360,7 @@ async function loadRouteDestinations() {
 
     const hiddenSelect = byId('select-destino-ruta');
     if (hiddenSelect) {
-      hiddenSelect.innerHTML = `<option value="">â€”</option>` +
+      hiddenSelect.innerHTML = `<option value="">”</option>` +
         RouteLookupState.destinations.map(r =>
           `<option value="${r.id}">${escHtml(r.nombre_lote || `Ruta ${r.id}`)}</option>`
         ).join('');
