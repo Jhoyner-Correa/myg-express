@@ -1,0 +1,38 @@
+********para poder actualizar el ssitema un archivo en vps codigo*****
+
+cd /var/www/myg-express
+git pull origin main
+cd backend
+npm ci
+npm run build
+PM2_BACKEND_CWD=/var/www/myg-express/backend pm2 reload ecosystem.config.js --update-env
+pm2 save
+
+
+*****despues verificar si hay errores********
+
+pm2 list
+curl -I https://myg-express.com
+pm2 logs sistema-api --lines 50 --nostream | grep -iE "error|failed|exception"
+pm2 logs sistema-whatsapp-worker --lines 50 --nostream | grep -iE "error|fallo|failed|Connection Closed"
+
+
+*******si solo es frontend****
+
+
+cd /var/www/myg-express
+git pull origin main
+PM2_BACKEND_CWD=/var/www/myg-express/backend pm2 reload /var/www/myg-express/backend/ecosystem.config.js --update-env
+pm2 save
+
+****la regla de subida al vps siempre sera esta******
+
+cd /var/www/myg-express
+git pull origin main
+
+
+
+
+
+---- PARA GIT SUBIR ACTUALIZAR ARCHIVO ----
+

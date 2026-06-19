@@ -97,3 +97,6 @@ Para ejecutar el servidor backend en desarrollo:
 
 Credenciales de administrador iniciales configuradas en base de datos.
 URL de acceso local: http://localhost:3000/login
+
+****comando para monitorir el envio en el vps*********
+pm2 logs sistema-whatsapp-worker --lines 80  
