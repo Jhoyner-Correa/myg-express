@@ -626,6 +626,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    const compactQr = qr.replace(/\s+/g, '');
+    if (/^(iVBORw0KGgo|\/9j\/|R0lGOD|UklGR)/.test(compactQr)) {
+      display.innerHTML = `<img src="data:image/png;base64,${escapeAttr(compactQr)}" class="wa-qr-img" alt="QR WhatsApp">`;
+      return;
+    }
+
+    if (typeof window.QRCode === 'function') {
+      display.innerHTML = '<div class="wa-qr-generated" aria-label="QR WhatsApp"></div>';
+      const target = display.querySelector('.wa-qr-generated');
+      try {
+        new window.QRCode(target, {
+          text: qr,
+          width: 224,
+          height: 224,
+          colorDark: '#06140f',
+          colorLight: '#ffffff',
+          correctLevel: window.QRCode.CorrectLevel.H
+        });
+        return;
+      } catch (error) {
+        console.warn('No se pudo renderizar QR textual:', error);
+      }
+    }
+
       display.innerHTML = `
       <div class="wa-qr-aviso">
         El código QR se recibió en formato de texto.

@@ -55,6 +55,75 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
     }
   }
 
+  private findQrPayload(data: any): string | null {
+    const candidates = [
+      data?.base64,
+      data?.code,
+      data?.pairingCode,
+      data?.qr,
+      data?.qr?.base64,
+      data?.qr?.code,
+      data?.qr?.pairingCode,
+      data?.qrcode,
+      data?.qrcode?.base64,
+      data?.qrcode?.code,
+      data?.qrcode?.pairingCode,
+      data?.instance?.qrcode,
+      data?.instance?.qrcode?.base64,
+      data?.instance?.qrcode?.code,
+      data?.instance?.qr,
+      data?.instance?.qr?.base64,
+      data?.instance?.qr?.code
+    ];
+
+    for (const candidate of candidates) {
+      const value = this.normalizeQrCandidate(candidate);
+      if (value) return value;
+    }
+
+    return this.findQrPayloadDeep(data);
+  }
+
+  private normalizeQrCandidate(candidate: any): string | null {
+    if (typeof candidate !== 'string') return null;
+    const value = candidate.trim();
+    if (!value) return null;
+    return value;
+  }
+
+  private findQrPayloadDeep(value: any, depth = 0): string | null {
+    if (!value || typeof value !== 'object' || depth > 4) return null;
+
+    const qrKeys = new Set(['base64', 'code', 'pairingCode', 'qrcode', 'qr']);
+    for (const [key, child] of Object.entries(value)) {
+      if (qrKeys.has(key)) {
+        const direct = this.normalizeQrCandidate(child);
+        if (direct) return direct;
+      }
+
+      if (child && typeof child === 'object') {
+        const nested = this.findQrPayloadDeep(child, depth + 1);
+        if (nested) return nested;
+      }
+    }
+
+    return null;
+  }
+
+  private summarizeObjectShape(value: any): string {
+    if (!value || typeof value !== 'object') return typeof value;
+    return Object.keys(value)
+      .slice(0, 12)
+      .map((key) => {
+        const child = value[key];
+        if (child && typeof child === 'object' && !Array.isArray(child)) {
+          return `${key}{${Object.keys(child).slice(0, 8).join(',')}}`;
+        }
+        return key;
+      })
+      .join(', ');
+  }
+
   private mapState(state: string | null | undefined): string {
     const s = String(state || '').toLowerCase();
     if (s === 'open' || s === 'connected') return 'connected';
@@ -277,7 +346,10 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
       }
 
       const data: any = await res.json();
-      const base64 = data?.base64 || data?.qrcode?.base64 || null;
+      const base64 = this.findQrPayload(data);
+      if (!base64) {
+        console.warn(`[Evolution API] Respuesta QR sin payload legible para "${sessionKey}". Campos: ${this.summarizeObjectShape(data)}`);
+      }
       this.qrCache.set(sessionKey, {
         qr: base64,
         expiresAt: Date.now() + (base64 ? this.qrCacheMs : 8000)
