@@ -50,8 +50,8 @@ export const crearLote = async (req: AuthRequest, res: Response) => {
     const routeName = buildRouteName(nextRouteNumber, nombreBase);
 
     const [result]: any = await pool.query(
-      `INSERT INTO lotes_carga (sede_id, id_usuario_creador, fecha, zona, nombre_lote)
-       VALUES (?, ?, CURDATE(), ?, ?)`,
+      `INSERT INTO lotes_carga (sede_id, id_usuario_creador, fecha, zona, nombre_lote, estado)
+       VALUES (?, ?, CURDATE(), ?, ?, 'pendiente')`,
       [sede_id, usuario_id, nombreBase, routeName]
     );
 
@@ -88,7 +88,7 @@ export const listarLotes = async (req: AuthRequest, res: Response) => {
         l.zona,
         l.nombre_lote,
         (SELECT COUNT(*) FROM avisos_diarios a WHERE a.lote_id = l.id) AS total_registros,
-        l.estado,
+        CASE WHEN l.estado = 'borrador' THEN 'pendiente' ELSE l.estado END AS estado,
         l.entregas_habilitado,
         l.fecha_habilitado_entregas,
         l.created_at
@@ -127,7 +127,7 @@ export const obtenerLotePorId = async (req: AuthRequest, res: Response) => {
         l.zona,
         l.nombre_lote,
         (SELECT COUNT(*) FROM avisos_diarios a WHERE a.lote_id = l.id) AS total_registros,
-        l.estado,
+        CASE WHEN l.estado = 'borrador' THEN 'pendiente' ELSE l.estado END AS estado,
         l.entregas_habilitado,
         l.fecha_habilitado_entregas,
         l.created_at

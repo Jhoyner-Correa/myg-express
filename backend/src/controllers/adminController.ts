@@ -91,7 +91,7 @@ export async function obtenerResumenAdmin(_req: AuthRequest, res: Response): Pro
          (SELECT COUNT(*) FROM sedes WHERE estado = 'activo') AS sedes_activas,
          (SELECT COUNT(*) FROM usuarios WHERE es_superadmin = 0) AS total_usuarios,
          (SELECT COUNT(*) FROM lotes_carga WHERE fecha_eliminacion IS NULL) AS total_lotes,
-         (SELECT COUNT(*) FROM lotes_carga WHERE estado IN ('pendiente', 'procesando') AND fecha_eliminacion IS NULL) AS lotes_activos,
+         (SELECT COUNT(*) FROM lotes_carga WHERE estado IN ('borrador', 'pendiente', 'procesando') AND fecha_eliminacion IS NULL) AS lotes_activos,
          (SELECT COUNT(*) FROM avisos_diarios) AS total_destinatarios`
     );
 

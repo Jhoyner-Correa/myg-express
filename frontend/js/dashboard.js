@@ -108,7 +108,7 @@ function getDashboardChartData(lotes) {
   lotes.forEach((lote) => {
     const estado = String(lote.estado || '').toLowerCase();
     if (estado === 'completado') completados += 1;
-    else if (estado === 'pendiente') pendientes += 1;
+    else if (estado === 'pendiente' || estado === 'borrador') pendientes += 1;
     else if (estado === 'procesando') procesando += 1;
     else if (estado === 'cancelado') cancelados += 1;
   });
@@ -267,7 +267,7 @@ function renderStats(lotes) {
   const totalLotes = lotes.length;
   const lotesHoy = lotes.filter((lote) => lote.fecha?.slice(0, 10) === hoy).length;
   const totalPaquetes = lotes.reduce((acc, lote) => acc + (lote.total_registros || 0), 0);
-  const activos = lotes.filter((lote) => ['pendiente', 'procesando'].includes(String(lote.estado || '').toLowerCase())).length;
+  const activos = lotes.filter((lote) => ['borrador', 'pendiente', 'procesando'].includes(String(lote.estado || '').toLowerCase())).length;
 
   SharedUI.setText('stat-total-lotes', totalLotes);
   SharedUI.setText('stat-lotes-hoy', lotesHoy);
@@ -288,7 +288,8 @@ function renderUltimosLotes(lotes) {
   tbody.innerHTML = recientes.map((lote, index) => {
     const visualId = index + 1;
     const estado = String(lote.estado || '').toLowerCase();
-    const estadoClase = ['completado', 'procesando', 'pendiente', 'cancelado'].includes(estado) ? estado : 'pendiente';
+    const estadoNormalizado = estado === 'borrador' ? 'pendiente' : estado;
+    const estadoClase = ['completado', 'procesando', 'pendiente', 'cancelado'].includes(estadoNormalizado) ? estadoNormalizado : 'pendiente';
     const progreso = estado === 'completado'
       ? 100
       : estado === 'procesando'
@@ -304,7 +305,7 @@ function renderUltimosLotes(lotes) {
         <td><span class="badge-origen">${SharedUI.escapeHtml(lote.origen || '-')}</span></td>
         <td>${formatFecha(lote.fecha)}</td>
         <td><span class="paquetes-count">${lote.total_registros || 0}</span></td>
-        <td><span class="estado-badge estado-${estadoClase}">${SharedUI.escapeHtml(lote.estado || '-')}</span></td>
+        <td><span class="estado-badge estado-${estadoClase}">${SharedUI.escapeHtml(formatEstadoRuta(estado))}</span></td>
         <td>
           <div class="progreso-wrap">
             <div class="progreso-text">${progreso}%</div>
@@ -327,6 +328,16 @@ function formatFecha(fecha) {
   if (!fecha) return '-';
   const date = new Date(fecha);
   return date.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatEstadoRuta(estado) {
+  const value = String(estado || '').toLowerCase();
+  if (value === 'borrador' || value === 'pendiente') return 'Pendiente';
+  if (value === 'procesando') return 'Procesando';
+  if (value === 'completado') return 'Completado';
+  if (value === 'cancelado') return 'Cancelado';
+  if (value === 'pausado') return 'Pausado';
+  return estado || '-';
 }
 
 function obtenerRangoSemana() {

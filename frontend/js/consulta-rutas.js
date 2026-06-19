@@ -195,10 +195,10 @@ function renderDropdownList(query = '') {
       const paquetes = r.total_avisos != null ? Number(r.total_avisos) : (r.total_registros != null ? Number(r.total_registros) : 0);
       const estadoClean = String(r.estado || 'pendiente').toLowerCase();
       
-      let estadoLabel = 'Borrador';
+      let estadoLabel = 'Pendiente';
       let statusDotColor = '#94a3b8'; // default slate grey
       if (estadoClean === 'pendiente' || estadoClean === 'borrador') {
-        estadoLabel = 'Borrador';
+        estadoLabel = 'Pendiente';
         statusDotColor = '#f59e0b'; // amber
       } else if (estadoClean === 'procesando') {
         estadoLabel = 'Procesando';
