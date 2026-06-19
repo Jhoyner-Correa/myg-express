@@ -249,10 +249,32 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
     return keys.length === 1 && keys[0] === 'count';
   }
 
+  private async getRawConnectionState(sessionKey: string): Promise<string | null> {
+    const res = await this.safeFetch(`${this.apiUrl}/instance/connectionState/${sessionKey}`, {
+      method: 'GET',
+      headers: this.getHeaders()
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data: any = await res.json();
+    const state = data?.instance?.state || data?.instance?.status || data?.state || data?.status;
+    return state ? String(state).trim() : null;
+  }
+
   private async recoverQrFromStuckInstance(sessionKey: string): Promise<string | null> {
-    console.warn(`[Evolution API] La instancia "${sessionKey}" no entrego QR. Se recreara de forma segura en Evolution.`);
+    console.warn(`[Evolution API] La instancia "${sessionKey}" no entrego QR. Se revisara el estado antes de recrearla.`);
 
     try {
+      const currentState = await this.getRawConnectionState(sessionKey);
+      if (this.isConnectedState(currentState)) {
+        console.warn(`[Evolution API] La instancia "${sessionKey}" ya esta conectada (${currentState}). No se recreara.`);
+        return null;
+      }
+
+      console.warn(`[Evolution API] Instancia "${sessionKey}" sin QR y estado "${currentState || 'desconocido'}". Se recreara para liberar el QR.`);
       await this.deleteInstanceIfExists(sessionKey);
       const createData = await this.createInstance(sessionKey);
       const createQr = this.findQrPayload(createData);
