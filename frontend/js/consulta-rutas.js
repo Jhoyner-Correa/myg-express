@@ -173,7 +173,7 @@ function renderDropdownList(query = '') {
   const blankHTML = !q ? `
     <div class="cr-dd-option placeholder-opt" data-value="" role="option">
       <svg style="width:12px;height:12px;stroke:#9aada3;fill:none;stroke-width:2;flex-shrink:0" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      <span class="cr-dd-name">Sin selecciÃ³n</span>
+      <span class="cr-dd-name">Sin selección</span>
     </div>` : '';
 
   const groupsHTML = sortedGroups.map(([origen, rutas]) => {
@@ -254,7 +254,7 @@ function selectDestination(value) {
 
   if (!value) {
     if (labelEl) {
-      labelEl.innerHTML = 'Seleccionar lote destinoâ€¦';
+      labelEl.innerHTML = 'Seleccionar ruta a destino¦';
       labelEl.classList.add('placeholder');
     }
   } else {
@@ -612,8 +612,8 @@ async function sendVisibleRecordsToRoute() {
   const count = RouteLookupState.filteredRecords.length;
 
   const confirmed = await SharedUI.confirm({
-    title: 'Confirmar envio al lote',
-    message: `Se importaran ${count} registros al lote "${destinationName}".`,
+    title: 'Confirmar envio a la ruta',
+    message: `Se importaran ${count} registros a la ruta "${destinationName}".`,
     confirmText: 'Importar registros',
     type: 'success'
   });
@@ -644,11 +644,11 @@ async function sendVisibleRecordsToRoute() {
       lote_id: Number(RouteLookupState.selectedRouteId),
       avisos
     });
-    SharedUI.showToast('Registros importados al lote correctamente.', 'success', { title: 'Importacion completada' });
+    SharedUI.showToast('Registros importados a la ruta correctamente.', 'success', { title: 'Importacion completada' });
   } catch (error) {
-    SharedUI.showToast(getErrorMessage(error, 'No se pudo importar al lote.'), 'error', { title: 'Error de importacion' });
+    SharedUI.showToast(getErrorMessage(error, 'No se pudo importar a la ruta.'), 'error', { title: 'Error de importacion' });
   } finally {
-    SharedUI.setButtonLoading('btn-enviar-a-ruta', false, 'Enviar al lote');
+    SharedUI.setButtonLoading('btn-enviar-a-ruta', false, 'Enviar a ruta');
   }
 }
 
