@@ -6,6 +6,7 @@ import whatsappService from '../whatsapp/whatsappService';
 
 type CleanupStats = {
   jobsRemoved: number;
+  orphanAvisosRemoved: number;
   logsRemoved: number;
   sessionsRemoved: number;
   mediaFilesRemoved: number;
@@ -23,6 +24,7 @@ class DatabaseCleanupService {
   private running = false;
   private lastSnapshot: CleanupSnapshot = {
     jobsRemoved: 0,
+    orphanAvisosRemoved: 0,
     logsRemoved: 0,
     sessionsRemoved: 0,
     mediaFilesRemoved: 0,
@@ -72,6 +74,7 @@ class DatabaseCleanupService {
     if (this.running) {
       return {
         jobsRemoved: 0,
+        orphanAvisosRemoved: 0,
         logsRemoved: 0,
         sessionsRemoved: 0,
         mediaFilesRemoved: 0,
@@ -85,19 +88,21 @@ class DatabaseCleanupService {
 
     try {
       const jobsRemoved = await this.cleanupOldJobs();
+      const orphanAvisosRemoved = await this.cleanupOrphanAvisos();
       const logsRemoved = await this.cleanupOldLogs();
       const sessionsRemoved = await this.cleanupOldInactiveSessions();
       const mediaFilesRemoved = await this.cleanupUnusedMediaFiles();
       const authDirsRemoved = await whatsappService.cleanupStaleAuthData(this.sessionsRetentionDays);
 
-      if (jobsRemoved || logsRemoved || sessionsRemoved || mediaFilesRemoved || authDirsRemoved) {
+      if (jobsRemoved || orphanAvisosRemoved || logsRemoved || sessionsRemoved || mediaFilesRemoved || authDirsRemoved) {
         console.log(
-          `[cleanup] jobs=${jobsRemoved} logs=${logsRemoved} sesiones=${sessionsRemoved} media=${mediaFilesRemoved} auth=${authDirsRemoved}`
+          `[cleanup] jobs=${jobsRemoved} avisos_huerfanos=${orphanAvisosRemoved} logs=${logsRemoved} sesiones=${sessionsRemoved} media=${mediaFilesRemoved} auth=${authDirsRemoved}`
         );
       }
 
       this.lastSnapshot = {
         jobsRemoved,
+        orphanAvisosRemoved,
         logsRemoved,
         sessionsRemoved,
         mediaFilesRemoved,
@@ -107,7 +112,7 @@ class DatabaseCleanupService {
         lastError: null
       };
 
-      return { jobsRemoved, logsRemoved, sessionsRemoved, mediaFilesRemoved, authDirsRemoved };
+      return { jobsRemoved, orphanAvisosRemoved, logsRemoved, sessionsRemoved, mediaFilesRemoved, authDirsRemoved };
     } catch (error) {
       console.error('Error en limpieza automatica de base de datos:', error);
       this.lastSnapshot = {
@@ -118,6 +123,7 @@ class DatabaseCleanupService {
       };
       return {
         jobsRemoved: 0,
+        orphanAvisosRemoved: 0,
         logsRemoved: 0,
         sessionsRemoved: 0,
         mediaFilesRemoved: 0,
@@ -131,6 +137,27 @@ class DatabaseCleanupService {
   private async cleanupOldJobs(): Promise<number> {
     // La tabla whatsapp_jobs fue reemplazada por Redis/BullMQ, que maneja su propia retención.
     return 0;
+  }
+
+  private async cleanupOrphanAvisos(): Promise<number> {
+    await pool.query(
+      `UPDATE mensajes_log ml
+       LEFT JOIN avisos_diarios a ON a.id = ml.aviso_id
+       LEFT JOIN lotes_carga l ON l.id = ml.lote_id
+       SET ml.aviso_id = CASE WHEN ml.aviso_id IS NOT NULL AND a.id IS NULL THEN NULL ELSE ml.aviso_id END,
+           ml.lote_id = CASE WHEN ml.lote_id IS NOT NULL AND l.id IS NULL THEN NULL ELSE ml.lote_id END
+       WHERE (ml.aviso_id IS NOT NULL AND a.id IS NULL)
+          OR (ml.lote_id IS NOT NULL AND l.id IS NULL)`
+    );
+
+    const [result]: any = await pool.query(
+      `DELETE a
+       FROM avisos_diarios a
+       LEFT JOIN lotes_carga l ON l.id = a.lote_id AND l.sede_id = a.sede_id
+       WHERE l.id IS NULL`
+    );
+
+    return Number(result?.affectedRows || 0);
   }
 
   private async cleanupOldLogs(): Promise<number> {

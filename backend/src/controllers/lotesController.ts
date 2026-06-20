@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { pool } from '../config/database';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { toWhatsappUserMessage } from '../utils/whatsappErrorMessages';
+import { waQueue } from '../queues/whatsapp.queue';
 
 function normalizeRouteBaseName(value: unknown) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -15,6 +16,25 @@ function isValidRouteBaseName(value: string) {
 
 function buildRouteName(routeNumber: number, baseName: string) {
   return String(baseName || '').trim();
+}
+
+async function removeQueuedWhatsappJobsForRoute(loteId: number): Promise<number> {
+  try {
+    const jobs = await waQueue.getJobs(['waiting', 'delayed', 'paused']);
+    let removed = 0;
+
+    for (const job of jobs) {
+      if (Number(job.data?.loteId) === loteId) {
+        await job.remove();
+        removed++;
+      }
+    }
+
+    return removed;
+  } catch (error: any) {
+    console.warn(`[lotes] No se pudieron limpiar jobs pendientes del lote ${loteId}:`, error.message);
+    return 0;
+  }
 }
 
 // Crear ruta
@@ -88,7 +108,7 @@ export const listarLotes = async (req: AuthRequest, res: Response) => {
         l.fecha,
         l.zona,
         l.nombre_lote,
-        (SELECT COUNT(*) FROM avisos_diarios a WHERE a.lote_id = l.id) AS total_registros,
+        (SELECT COUNT(*) FROM avisos_diarios a WHERE a.lote_id = l.id AND a.sede_id = l.sede_id) AS total_registros,
         CASE WHEN l.estado = 'borrador' THEN 'pendiente' ELSE l.estado END AS estado,
         l.entregas_habilitado,
         l.fecha_habilitado_entregas,
@@ -127,7 +147,7 @@ export const obtenerLotePorId = async (req: AuthRequest, res: Response) => {
         l.fecha,
         l.zona,
         l.nombre_lote,
-        (SELECT COUNT(*) FROM avisos_diarios a WHERE a.lote_id = l.id) AS total_registros,
+        (SELECT COUNT(*) FROM avisos_diarios a WHERE a.lote_id = l.id AND a.sede_id = l.sede_id) AS total_registros,
         CASE WHEN l.estado = 'borrador' THEN 'pendiente' ELSE l.estado END AS estado,
         l.entregas_habilitado,
         l.fecha_habilitado_entregas,
@@ -154,8 +174,8 @@ export const obtenerLotePorId = async (req: AuthRequest, res: Response) => {
         SUM(CASE WHEN estado_aviso = 'fallido' THEN 1 ELSE 0 END) as failed,
         MAX(CASE WHEN estado_aviso IN ('pendiente', 'en_cola', 'fallido') THEN SUBSTRING(error_detalle, 1, 160) ELSE NULL END) as last_error
        FROM avisos_diarios
-       WHERE lote_id = ?`,
-      [id]
+       WHERE lote_id = ? AND sede_id = ?`,
+      [id, sede_id]
     );
 
     const stats = statsRows[0] || { total: 0, pending: 0, en_cola: 0, failed: 0, last_error: null };
@@ -365,45 +385,88 @@ export const habilitarEntregasLote = async (req: AuthRequest, res: Response) => 
   }
 };
 
-// Eliminar ruta permanentemente (Hard Delete)
+// Eliminar ruta permanentemente con sus destinatarios.
 export const eliminarLote = async (req: AuthRequest, res: Response) => {
+  const connection = await pool.getConnection();
+
   try {
     const { id } = req.params;
     const sede_id = req.user?.sede_id;
+    const loteId = Number(id);
 
-    if (!id) {
+    if (!Number.isInteger(loteId) || loteId <= 0) {
       return res.status(400).json({
         ok: false,
-        message: 'ID de ruta no proporcionado.'
+        message: 'ID de ruta invalido.'
       });
     }
 
-    const [rows]: any = await pool.query(
-      `SELECT id FROM lotes_carga WHERE id = ? AND sede_id = ? LIMIT 1`,
-      [id, sede_id]
+    await connection.beginTransaction();
+
+    const [rows]: any = await connection.query(
+      `SELECT id, estado
+       FROM lotes_carga
+       WHERE id = ? AND sede_id = ? AND fecha_eliminacion IS NULL
+       LIMIT 1
+       FOR UPDATE`,
+      [loteId, sede_id]
     );
 
     if (!rows.length) {
+      await connection.rollback();
       return res.status(404).json({
         ok: false,
         message: 'Ruta no encontrada.'
       });
     }
 
-    await pool.query(
-      `DELETE FROM lotes_carga WHERE id = ? AND sede_id = ?`,
-      [id, sede_id]
+    const jobsEliminados = await removeQueuedWhatsappJobsForRoute(loteId);
+
+    // Conservamos la auditoria de envios, pero la desacoplamos antes de borrar
+    // destinatarios/ruta para que no queden referencias rotas si la BD no tiene FK.
+    await connection.query(
+      `UPDATE mensajes_log
+       SET aviso_id = NULL,
+           lote_id = NULL
+       WHERE lote_id = ? AND sede_id = ?`,
+      [loteId, sede_id]
     );
+
+    const [avisosResult]: any = await connection.query(
+      `DELETE FROM avisos_diarios WHERE lote_id = ? AND sede_id = ?`,
+      [loteId, sede_id]
+    );
+
+    const [loteResult]: any = await connection.query(
+      `DELETE FROM lotes_carga WHERE id = ? AND sede_id = ?`,
+      [loteId, sede_id]
+    );
+
+    await connection.commit();
+
+    if (!loteResult.affectedRows) {
+      return res.status(404).json({
+        ok: false,
+        message: 'Ruta no encontrada.'
+      });
+    }
 
     return res.json({
       ok: true,
-      message: 'Ruta eliminada permanentemente.'
+      message: 'Ruta eliminada correctamente.',
+      eliminados: {
+        destinatarios: Number(avisosResult?.affectedRows || 0),
+        jobs_pendientes: jobsEliminados
+      }
     });
   } catch (error: any) {
+    await connection.rollback();
     return res.status(500).json({
       ok: false,
       message: 'Error al eliminar la ruta permanentemente.',
       error: error.message
     });
+  } finally {
+    connection.release();
   }
 };

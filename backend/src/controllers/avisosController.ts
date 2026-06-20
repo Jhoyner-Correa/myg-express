@@ -62,7 +62,7 @@ export const crearAviso = async (req: AuthRequest, res: Response) => {
     const [loteRows]: any = await pool.query(
       `SELECT id
        FROM lotes_carga
-       WHERE id = ? AND sede_id = ?
+       WHERE id = ? AND sede_id = ? AND fecha_eliminacion IS NULL
        LIMIT 1`,
       [lote_id, sede_id]
     );
@@ -231,7 +231,7 @@ export const importarAvisos = async (req: AuthRequest, res: Response) => {
     const [loteRows]: any = await connection.query(
       `SELECT id
        FROM lotes_carga
-       WHERE id = ? AND sede_id = ?
+       WHERE id = ? AND sede_id = ? AND fecha_eliminacion IS NULL
        LIMIT 1`,
       [lote_id, sede_id]
     );

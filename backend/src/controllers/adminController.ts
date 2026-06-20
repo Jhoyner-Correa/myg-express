@@ -92,7 +92,10 @@ export async function obtenerResumenAdmin(_req: AuthRequest, res: Response): Pro
          (SELECT COUNT(*) FROM usuarios WHERE es_superadmin = 0) AS total_usuarios,
          (SELECT COUNT(*) FROM lotes_carga WHERE fecha_eliminacion IS NULL) AS total_lotes,
          (SELECT COUNT(*) FROM lotes_carga WHERE estado IN ('borrador', 'pendiente', 'procesando') AND fecha_eliminacion IS NULL) AS lotes_activos,
-         (SELECT COUNT(*) FROM avisos_diarios) AS total_destinatarios`
+         (SELECT COUNT(*)
+            FROM avisos_diarios a
+            INNER JOIN lotes_carga l ON l.id = a.lote_id AND l.sede_id = a.sede_id
+           WHERE l.fecha_eliminacion IS NULL) AS total_destinatarios`
     );
 
     const [sedes] = await pool.query<SedeRow[]>(
@@ -110,7 +113,13 @@ export async function obtenerResumenAdmin(_req: AuthRequest, res: Response): Pro
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM usuarios WHERE es_superadmin = 0 GROUP BY sede_id) u ON u.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM whatsapp_sesiones GROUP BY sede_id) ws ON ws.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM lotes_carga WHERE fecha_eliminacion IS NULL GROUP BY sede_id) l ON l.sede_id = s.id
-       LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM avisos_diarios GROUP BY sede_id) a ON a.sede_id = s.id
+       LEFT JOIN (
+         SELECT a.sede_id, COUNT(*) as cnt
+         FROM avisos_diarios a
+         INNER JOIN lotes_carga l ON l.id = a.lote_id AND l.sede_id = a.sede_id
+         WHERE l.fecha_eliminacion IS NULL
+         GROUP BY a.sede_id
+       ) a ON a.sede_id = s.id
        ORDER BY s.nombre ASC`
     );
 
@@ -144,7 +153,13 @@ export async function listarSedesAdmin(_req: AuthRequest, res: Response): Promis
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM usuarios WHERE es_superadmin = 0 GROUP BY sede_id) u ON u.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM whatsapp_sesiones GROUP BY sede_id) ws ON ws.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM lotes_carga WHERE fecha_eliminacion IS NULL GROUP BY sede_id) l ON l.sede_id = s.id
-       LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM avisos_diarios GROUP BY sede_id) a ON a.sede_id = s.id
+       LEFT JOIN (
+         SELECT a.sede_id, COUNT(*) as cnt
+         FROM avisos_diarios a
+         INNER JOIN lotes_carga l ON l.id = a.lote_id AND l.sede_id = a.sede_id
+         WHERE l.fecha_eliminacion IS NULL
+         GROUP BY a.sede_id
+       ) a ON a.sede_id = s.id
        ORDER BY s.nombre ASC`
     );
 
