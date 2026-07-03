@@ -109,7 +109,8 @@ export function createHttpApp() {
         callback(null, true);
         return;
       }
-      callback(new Error('Origen no permitido por CORS'));
+      console.warn(`[CORS] Origen rechazado: "${origin}". Orígenes permitidos:`, corsOrigins);
+      callback(new Error(`Origen no permitido por CORS: ${origin}`));
     }
   }));
   app.use(morgan('dev'));
