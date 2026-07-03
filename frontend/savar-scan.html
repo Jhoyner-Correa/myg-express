@@ -530,9 +530,14 @@
             Rutas / Sectores Detectados:
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <button type="button" id="btn-zone-select-all" style="background: none; border: none; font-size: 0.72rem; font-weight: 600; color: var(--ss-primary); cursor: pointer; padding: 0;">Marcar todos</button>
-            <span style="color: var(--ss-border); font-size: 0.75rem;">|</span>
-            <button type="button" id="btn-zone-select-none" style="background: none; border: none; font-size: 0.72rem; font-weight: 600; color: #ef4444; cursor: pointer; padding: 0;">Desmarcar todos</button>
+            <button type="button" id="btn-zone-select-all" class="zone-quick-btn select-all-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Marcar todos
+            </button>
+            <button type="button" id="btn-zone-select-none" class="zone-quick-btn select-none-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              Desmarcar todos
+            </button>
           </div>
         </div>
 
@@ -541,7 +546,7 @@
           <input type="text" id="import-zone-search" class="filter-input" style="width: 100%; padding: 10px 14px; font-size: 0.82rem; border-radius: 10px; background: var(--ss-bg);" placeholder="Buscar zonas por provincia o distrito..." />
         </div>
 
-        <div class="filters-scroll-box" id="import-filters-list" style="max-height: 220px; overflow-y: auto; border: 1px solid var(--ss-border); border-radius: 10px; padding: 10px; background: var(--ss-bg); display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 4px;">
+        <div class="filters-scroll-box" id="import-filters-list" style="max-height: 220px; overflow-y: auto; border: 1px solid var(--ss-border); border-radius: 10px; padding: 10px; background: var(--ss-bg); margin-bottom: 4px;">
           <!-- Generado dinámicamente -->
         </div>
       </div>
@@ -558,7 +563,7 @@
 
   <!-- MODAL: VER FALTANTES -->
   <div class="modal-overlay" id="modal-faltantes">
-    <div class="modal-box" style="max-width: 650px;">
+    <div class="modal-box" style="max-width: 850px;">
       <div class="modal-header">
         <h3 class="modal-title">Paquetes Faltantes del Lote</h3>
         <button class="modal-close btn-close-modal" type="button" aria-label="Cerrar">
@@ -579,7 +584,7 @@
                 <th>Código</th>
                 <th>Consignado</th>
                 <th>Dirección</th>
-                <th>Distrito</th>
+                <th style="white-space: nowrap; width: 140px;">Distrito</th>
               </tr>
             </thead>
             <tbody id="faltantes-table-body">
@@ -591,9 +596,6 @@
             </tbody>
           </table>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn-close-modal">Cerrar</button>
       </div>
     </div>
   </div>

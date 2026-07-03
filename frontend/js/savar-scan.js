@@ -526,7 +526,7 @@
         <td class="code-font">${item.codigo_paquete}</td>
         <td>${item.consignado}</td>
         <td>${item.direccion || '—'}</td>
-        <td>${item.distrito || '—'}</td>
+        <td style="white-space: nowrap;">${item.distrito || '—'}</td>
       </tr>
     `).join('');
   }
@@ -1115,25 +1115,53 @@
       // Guardar filas en variable de memoria
       tempParsedRows = mappedRows;
 
-      // Agrupar por provincia y distrito
-      const groups = {};
+      // Agrupar por provincia y distrito (Estructura de árbol)
+      const tree = {};
       mappedRows.forEach(item => {
         const prov = String(item.provincia || 'SIN PROVINCIA').trim().toUpperCase();
         const dist = String(item.distrito || 'SIN DISTRITO').trim().toUpperCase();
-        const key = `${prov} - ${dist}`;
-        groups[key] = (groups[key] || 0) + 1;
+        if (!tree[prov]) {
+          tree[prov] = {
+            total: 0,
+            districts: {}
+          };
+        }
+        tree[prov].total++;
+        tree[prov].districts[dist] = (tree[prov].districts[dist] || 0) + 1;
       });
 
-      // Renderizar listado de checkboxes en el modal de filtrado
-      Elements.importFiltersList.innerHTML = Object.entries(groups).map(([key, count]) => {
+      // Renderizar listado de provincias y distritos en el modal de filtrado
+      Elements.importFiltersList.innerHTML = Object.entries(tree).map(([prov, data]) => {
+        const districtsHtml = Object.entries(data.districts).map(([dist, count]) => {
+          const zoneKey = `${prov} - ${dist}`;
+          return `
+            <label class="district-check-item">
+              <div style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" checked value="${zoneKey}" class="filter-zone-checkbox" data-province="${prov}" style="width: 14px; height: 14px; accent-color: var(--ss-primary); cursor: pointer;" />
+                <span class="district-name" style="font-size: 0.78rem; font-weight: 600; color: var(--ss-text);">${dist}</span>
+              </div>
+              <span style="font-size: 0.7rem; color: var(--ss-text-muted); font-weight: 500;">${count} pqtes</span>
+            </label>
+          `;
+        }).join('');
+
         return `
-          <label class="filter-check-item">
-            <div style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-              <input type="checkbox" checked value="${key}" class="filter-zone-checkbox" style="width: 16px; height: 16px; accent-color: var(--ss-primary); cursor: pointer;" />
-              <span style="font-size: 0.8rem; font-weight: 600; color: var(--ss-text);">${key}</span>
+          <div class="province-group-card">
+            <!-- Cabecera de Provincia -->
+            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed var(--ss-border); padding-bottom: 8px; margin-bottom: 4px;">
+              <label class="province-checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #0f172a; font-size: 0.85rem; cursor: pointer;">
+                <input type="checkbox" class="province-checkbox" data-province="${prov}" checked style="width: 16px; height: 16px; accent-color: var(--ss-primary); cursor: pointer;" />
+                ${prov}
+              </label>
+              <span style="font-size: 0.72rem; font-weight: 700; background: var(--ss-primary-soft); color: var(--ss-primary); padding: 2px 8px; border-radius: 4px;">
+                ${data.total} pqtes
+              </span>
             </div>
-            <span style="font-size: 0.72rem; font-weight: 700; background: var(--ss-bg); padding: 2px 8px; border-radius: 4px; color: var(--ss-text-muted);">${count} pqtes</span>
-          </label>
+            <!-- Sub-grilla de Distritos -->
+            <div class="province-districts-grid" style="display: flex; flex-direction: column; gap: 6px; padding-left: 2px;">
+              ${districtsHtml}
+            </div>
+          </div>
         `;
       }).join('');
 
@@ -1154,16 +1182,46 @@
       // Actualizar contador inicial del botón
       actualizarContadorImportacion();
 
-      // Enlazar evento change a los checkboxes para recalcular
-      const checkboxes = Elements.importFiltersList.querySelectorAll('.filter-zone-checkbox');
-      checkboxes.forEach(cb => {
-        cb.addEventListener('change', actualizarContadorImportacion);
-      });
+      // Enlazar eventos bidireccionales de checkboxes
+      bindCheckboxEvents();
 
     } catch (err) {
       console.error('Import error:', err);
       SharedUI.showToast(err.message || 'Error al procesar el archivo Excel.', 'error', { title: 'Error de Importación' });
     }
+  }
+
+  // Enlazar eventos de checkboxes de provincias y distritos
+  function bindCheckboxEvents() {
+    const provinceCbs = Elements.importFiltersList.querySelectorAll('.province-checkbox');
+    const districtCbs = Elements.importFiltersList.querySelectorAll('.filter-zone-checkbox');
+
+    // Sincronizar provincia -> distritos
+    provinceCbs.forEach(provCb => {
+      provCb.addEventListener('change', () => {
+        const prov = provCb.dataset.province;
+        const linkedDistricts = Elements.importFiltersList.querySelectorAll(`.filter-zone-checkbox[data-province="${prov}"]`);
+        linkedDistricts.forEach(dCb => {
+          dCb.checked = provCb.checked;
+        });
+        actualizarContadorImportacion();
+      });
+    });
+
+    // Sincronizar distrito -> provincia
+    districtCbs.forEach(distCb => {
+      distCb.addEventListener('change', () => {
+        const prov = distCb.dataset.province;
+        const provCb = Elements.importFiltersList.querySelector(`.province-checkbox[data-province="${prov}"]`);
+        const linkedDistricts = Array.from(Elements.importFiltersList.querySelectorAll(`.filter-zone-checkbox[data-province="${prov}"]`));
+        
+        if (provCb) {
+          const allChecked = linkedDistricts.every(d => d.checked);
+          provCb.checked = allChecked;
+        }
+        actualizarContadorImportacion();
+      });
+    });
   }
 
   // Recalcular contador del botón de importación
@@ -1287,7 +1345,7 @@
       }
     });
 
-    // Nuevos botones de la sección de filtros de importación
+    // Botones de control de modales
     Elements.btnImportCancelFile.addEventListener('click', () => {
       State.filtrarZonasModal.close();
       resetImportModal();
@@ -1300,8 +1358,9 @@
       subirDatosFiltrados();
     });
 
+    // Botones de selección rápida de filtros
     Elements.btnZoneSelectAll.addEventListener('click', () => {
-      const checkboxes = Elements.importFiltersList.querySelectorAll('.filter-zone-checkbox');
+      const checkboxes = Elements.importFiltersList.querySelectorAll('.filter-zone-checkbox, .province-checkbox');
       checkboxes.forEach(cb => {
         cb.checked = true;
       });
@@ -1309,22 +1368,36 @@
     });
 
     Elements.btnZoneSelectNone.addEventListener('click', () => {
-      const checkboxes = Elements.importFiltersList.querySelectorAll('.filter-zone-checkbox');
+      const checkboxes = Elements.importFiltersList.querySelectorAll('.filter-zone-checkbox, .province-checkbox');
       checkboxes.forEach(cb => {
         cb.checked = false;
       });
       actualizarContadorImportacion();
     });
 
+    // Buscador interactivo de zonas
     Elements.importZoneSearch.addEventListener('input', (e) => {
       const term = String(e.target.value).toLowerCase().trim();
-      const items = Elements.importFiltersList.querySelectorAll('.filter-check-item');
-      items.forEach(item => {
-        const text = item.textContent.toLowerCase();
-        if (text.includes(term)) {
-          item.style.display = 'flex';
+      const groups = Elements.importFiltersList.querySelectorAll('.province-group-card');
+      groups.forEach(group => {
+        const provName = group.querySelector('.province-checkbox-label').textContent.toLowerCase();
+        const districts = group.querySelectorAll('.district-check-item');
+        let anyVisible = false;
+
+        districts.forEach(dist => {
+          const distName = dist.querySelector('.district-name').textContent.toLowerCase();
+          if (provName.includes(term) || distName.includes(term)) {
+            dist.style.display = 'flex';
+            anyVisible = true;
+          } else {
+            dist.style.display = 'none';
+          }
+        });
+
+        if (anyVisible) {
+          group.style.display = 'flex';
         } else {
-          item.style.display = 'none';
+          group.style.display = 'none';
         }
       });
     });

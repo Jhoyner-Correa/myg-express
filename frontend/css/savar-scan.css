@@ -603,15 +603,53 @@
   max-height: none !important;
 }
 
-/* ── FILTER CHECK ITEM ── */
-.filter-check-item {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 12px; background: #fff; border: 1px solid var(--ss-border);
-  border-radius: 8px; cursor: pointer; transition: all 0.15s ease;
+/* ── PROVINCE GROUP CARD ── */
+.province-group-card {
+  background: #fff;
+  border: 1px solid var(--ss-border);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
 }
-.filter-check-item:hover {
-  border-color: var(--ss-primary-light);
+.district-check-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; background: var(--ss-bg); border: 1px solid #f1f5f9;
+  border-radius: 6px; cursor: pointer; transition: all 0.15s ease;
+}
+.district-check-item:hover {
   background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+#import-filters-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+/* ── QUICK SELECTION BUTTONS ── */
+.zone-quick-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 6px; font-size: 0.72rem;
+  font-weight: 600; cursor: pointer; transition: all 0.15s ease;
+  font-family: 'Inter', sans-serif;
+  border: 1px solid transparent;
+}
+.zone-quick-btn svg { display: block; flex-shrink: 0; }
+.zone-quick-btn.select-all-btn {
+  background: #eff6ff; border-color: #bfdbfe; color: #2563eb;
+}
+.zone-quick-btn.select-all-btn:hover {
+  background: #dbeafe; border-color: #93c5fd; color: #1d4ed8;
+}
+.zone-quick-btn.select-none-btn {
+  background: #fef2f2; border-color: #fecaca; color: #dc2626;
+}
+.zone-quick-btn.select-none-btn:hover {
+  background: #fee2e2; border-color: #fca5a5; color: #b91c1c;
 }
 
 /* ── RESPONSIVE ── */
@@ -623,10 +661,4 @@
   .ss-progress-top { flex-direction: column; align-items: stretch; }
   .ss-progress-top-left { flex-direction: column; align-items: stretch; }
   .ss-lote-select { min-width: unset; width: 100%; }
-}
-
-@media (max-width: 480px) {
-  #import-filters-list {
-    grid-template-columns: 1fr !important;
-  }
 }
