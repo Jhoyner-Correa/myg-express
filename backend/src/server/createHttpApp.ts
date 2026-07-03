@@ -105,7 +105,7 @@ export function createHttpApp() {
   }));
   app.use(cors({
     origin(origin, callback) {
-      if (!origin || corsOrigins.includes(origin)) {
+      if (!origin || corsOrigins.includes(origin) || corsOrigins.includes('*')) {
         callback(null, true);
         return;
       }
