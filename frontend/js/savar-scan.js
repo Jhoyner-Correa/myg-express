@@ -1597,13 +1597,64 @@
     // Exportación consolidados mensuales de facturación
     Elements.btnExportConsolidado.addEventListener('click', exportarConsolidadoMensual);
 
-    // Entrada del lector USB / Input de escaneo
+    // Entrada del lector USB / Input de escaneo inteligente
+    let lastKeyTime = 0;
+    let strokeIntervals = [];
+    let scanTimeout = null;
+
     Elements.scanInput.addEventListener('keydown', function (e) {
+      const now = Date.now();
+      
+      // Si presiona Enter manualmente o enviado por la lectora, procesamos de inmediato
       if (e.key === 'Enter') {
         e.preventDefault();
+        if (scanTimeout) clearTimeout(scanTimeout);
+        strokeIntervals = [];
         const code = Elements.scanInput.value.trim();
         if (code) {
           handleScan(code);
+        }
+        return;
+      }
+
+      if (lastKeyTime > 0) {
+        const diff = now - lastKeyTime;
+        strokeIntervals.push(diff);
+        if (strokeIntervals.length > 5) {
+          strokeIntervals.shift();
+        }
+      }
+      lastKeyTime = now;
+    });
+
+    Elements.scanInput.addEventListener('input', function (e) {
+      if (scanTimeout) clearTimeout(scanTimeout);
+
+      const code = Elements.scanInput.value.trim();
+      if (!code) return;
+
+      // 1. Si cumple con el formato estándar (ej: empieza con SE y tiene 13 caracteres)
+      // se procesa instantáneamente sin demoras
+      const isStandardFormat = /^SE\d{11}$/i.test(code);
+      if (isStandardFormat || code.length === 13) {
+        if (scanTimeout) clearTimeout(scanTimeout);
+        strokeIntervals = [];
+        handleScan(code);
+        return;
+      }
+
+      // 2. Si es escaneado muy rápido (promedio de teclas < 45ms), esperamos a que termine
+      // de escribir (150ms desde la última tecla) para procesarlo de forma automática
+      if (strokeIntervals.length >= 3) {
+        const avg = strokeIntervals.reduce((a, b) => a + b, 0) / strokeIntervals.length;
+        if (avg < 45) { // Firma de lectora de código de barras
+          scanTimeout = setTimeout(() => {
+            const finalCode = Elements.scanInput.value.trim();
+            if (finalCode) {
+              handleScan(finalCode);
+            }
+            strokeIntervals = [];
+          }, 150);
         }
       }
     });
