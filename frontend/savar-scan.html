@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>SAVAR SCAN &mdash; MyG Express</title>
+  <link rel="icon" type="image/png" href="img/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=2">
+  <link rel="stylesheet" href="/css/shared-ui.css">
+  <script src="js/sidebar-preload.js"></script>
+  <link rel="stylesheet" href="/css/sidebar.css?v=38">
+  <link rel="stylesheet" href="css/savar-scan.css?v=8">
+  <style>
+    /* Alineación de Topbar y Sidebar con el diseño global */
+    .topbar {
+      display: flex !important;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .user-profile-badge {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .user-profile-info {
+      text-align: right;
+    }
+    .user-profile-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text-primary);
+    }
+    .user-profile-sede {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    .user-profile-avatar {
+      width: 40px;
+      height: 40px;
+      background: var(--primary-light);
+      border: 1px solid var(--primary-border);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+    }
+    .user-profile-avatar svg {
+      width: 20px;
+      height: 20px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar inyectado dinámicamente -->
+  <div id="sidebar-container"></div>
+
+  <div class="main">
+    <!-- Cabecera Superior con Acciones Integradas -->
+    <header class="topbar">
+      <div>
+        <div class="topbar-title" style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.4rem; font-weight: 800; letter-spacing: -0.02em;">SAVAR SCAN</div>
+        <div class="topbar-sub" style="font-size: 0.82rem; color: var(--text-secondary);">Modulo de escaneo y registro de paquetes</div>
+      </div>
+      <div class="topbar-right" style="display: flex; align-items: center; gap: 24px;">
+
+        <!-- Perfil del Operador -->
+        <div class="user-profile-badge">
+          <div class="user-profile-info">
+            <div class="user-profile-name" id="topbar-name">Cargando...</div>
+            <div class="user-profile-sede" id="user-rol">Operador</div>
+          </div>
+          <div class="user-profile-avatar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="content page-body scan-page-body">
+      <div class="scan-wrapper">
+        
+        <!-- Fila Superior: Progreso de Lote + Acciones Rápidas -->
+        <div class="ss-top-grid">
+          
+          <!-- Panel de Progreso del Lote Activo -->
+          <section class="ss-card" id="lote-progress-section" style="margin-bottom: 0;">
+            <div class="ss-progress-top">
+              <div class="ss-progress-top-left">
+                <span class="ss-card-title" style="display: inline-flex; align-items: center; gap: 8px;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;">
+                    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                  </svg>
+                  Lote Activo: <span id="lote-activo-label" style="color: #2563eb; font-weight: 800; font-size: 1.05rem; border-bottom: 1.5px solid #2563eb; padding-bottom: 1px; margin-left: 4px;">Ninguno</span>
+                </span>
+              </div>
+              <button id="btn-ver-faltantes" class="ss-btn ss-btn-secondary" style="width: auto; padding: 6px 14px; font-size: 0.8rem;" disabled type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 4px; vertical-align: middle;">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span style="vertical-align: middle;">Ver faltantes</span>
+              </button>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="ss-stats-grid">
+              <div class="ss-stat stat-total">
+                <div class="ss-stat-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                  </svg>
+                </div>
+                <div class="ss-stat-info">
+                  <div class="ss-stat-label">Total Lote</div>
+                  <div class="ss-stat-value" id="lote-total-count">0</div>
+                </div>
+              </div>
+              <div class="ss-stat stat-recibidos">
+                <div class="ss-stat-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                </div>
+                <div class="ss-stat-info">
+                  <div class="ss-stat-label">Recibidos</div>
+                  <div class="ss-stat-value" id="lote-recibidos-count">0</div>
+                </div>
+              </div>
+              <div class="ss-stat stat-faltantes">
+                <div class="ss-stat-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                  </svg>
+                </div>
+                <div class="ss-stat-info">
+                  <div class="ss-stat-label">Faltantes</div>
+                  <div class="ss-stat-value" id="lote-faltantes-count">0</div>
+                </div>
+              </div>
+              <div class="ss-stat stat-incidencias">
+                <div class="ss-stat-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </div>
+                <div class="ss-stat-info">
+                  <div class="ss-stat-label">Incidencias</div>
+                  <div class="ss-stat-value" id="lote-incidencias-count">0</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Thinner Progress Bar -->
+            <div class="ss-progress-wrap" style="margin-top: 14px;">
+              <div class="ss-progress-info" style="margin-bottom: 6px; margin-top: 0;">
+                <span style="font-size: 0.78rem; font-weight: 600; color: #64748b;">Progreso de recepción</span>
+                <span id="lote-progress-pct" style="font-size: 0.85rem; font-weight: 700; color: #0f172a;">0%</span>
+              </div>
+              <div class="ss-progress-bar-bg" style="height: 5px; background: #e2e8f0; border: none; border-radius: 999px;">
+                <div id="lote-progress-bar" class="ss-progress-bar-fill" style="width: 0%; height: 5px; border-radius: 999px; background: #2563eb;"></div>
+              </div>
+            </div>
+
+            <!-- Banner Carga Completa -->
+            <div id="lote-complete-banner" class="ss-complete-banner" style="margin-top: 12px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span>CARGA COMPLETADA AL 100% &mdash; TODOS LOS PAQUETES RECIBIDOS</span>
+            </div>
+          </section>
+
+          <!-- Panel de Acciones Rápidas -->
+          <section class="ss-card" id="quick-actions-section" style="margin-bottom: 0;">
+            <div class="ss-card-header" style="margin-bottom: 16px; border-bottom: none; padding-bottom: 0;">
+              <div class="ss-card-title" style="font-size: 0.95rem; font-weight: 700; color: #0f172a;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: #1e3a8a;">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+                Acciones Rápidas
+              </div>
+            </div>
+
+            <div class="ss-actions-grid" style="display: flex; flex-direction: column; gap: 10px;">
+              <button id="btn-open-import" class="ss-btn ss-btn-primary" style="background: #1e3a8a; color: #ffffff; font-weight: 600; padding: 10px 16px; border-radius: 8px; border: none; font-size: 0.82rem;" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                </svg>
+                Importar Catálogo (Excel)
+              </button>
+              
+              <button id="btn-export-scans" class="ss-btn ss-btn-secondary" style="background: #ffffff; border: 1.5px solid #e2e8f0; color: #0f172a; font-weight: 600; padding: 10px 16px; border-radius: 8px; font-size: 0.82rem;" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                </svg>
+                Exportar Escaneados
+              </button>
+              
+              <button id="btn-reset-scans" class="ss-btn ss-btn-secondary" style="background: #ffffff; border: 1.5px solid #e2e8f0; color: #0f172a; font-weight: 600; padding: 10px 16px; border-radius: 8px; font-size: 0.82rem;" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 4 23 10 17 10"/>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+                Reiniciar Lote
+              </button>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Columna Izquierda: Escáner + Ficha (Apilados) -->
+        <div class="ss-ops-column">
+          
+          <!-- Caja de Escaneo Gigante -->
+          <section class="ss-card ss-scan-card" style="padding: 24px;">
+            <div class="ss-scan-label" style="margin-bottom: 16px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 5v14M21 5v14M7 5v14M17 5v14M11 5v14M14 5v14" />
+              </svg>
+              Caja de Escaneo
+            </div>
+            
+            <div class="ss-scan-input-wrap">
+              <input type="text" id="scan-input" class="ss-scan-input" placeholder="ESCANEAR CÓDIGO DE BARRAS..." autocomplete="off" autofocus />
+              <svg class="ss-scan-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 5v14M21 5v14M7 5v14M17 5v14M11 5v14M14 5v14" />
+              </svg>
+            </div>
+            
+            <!-- Panel de Alertas Visu-Color -->
+            <div id="scan-status-card" class="ss-status-card state-neutral" style="margin-top: 18px;">
+              <div class="ss-status-indicator">
+                <span class="ss-status-dot"></span>
+                <div id="status-badge-title" class="ss-status-title">ESPERANDO</div>
+              </div>
+              <div id="status-badge-subtitle" class="ss-status-subtitle">Escanee un código de barras para comenzar</div>
+            </div>
+          </section>
+
+          <!-- Ficha del Paquete Escaneado -->
+          <section class="ss-card ss-package-card">
+            <div class="ss-card-header" style="margin-bottom: 14px; padding-bottom: 10px;">
+              <div class="ss-card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>
+                </svg>
+                Información del Paquete
+              </div>
+            </div>
+
+            <div class="ss-info-container">
+              <div class="ss-info-grid">
+                <div class="ss-info-item">
+                  <div class="ss-info-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Código
+                  </div>
+                  <div id="info-codigo" class="ss-info-value">—</div>
+                </div>
+                <div class="ss-info-item">
+                  <div class="ss-info-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    Teléfono
+                  </div>
+                  <div id="info-telefono" class="ss-info-value">—</div>
+                </div>
+              </div>
+
+              <div class="ss-info-item">
+                <div class="ss-info-label">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  Consignado / Cliente
+                </div>
+                <div id="info-consignado" class="ss-info-value">—</div>
+              </div>
+
+              <div class="ss-info-item">
+                <div class="ss-info-label">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  Dirección de Entrega
+                </div>
+                <div id="info-direccion" class="ss-info-value">—</div>
+              </div>
+
+              <div class="ss-info-grid">
+                <div class="ss-info-item">
+                  <div class="ss-info-label">Dpto / Prov</div>
+                  <div class="ss-info-value">
+                    <span id="info-departamento">—</span> / <span id="info-provincia">—</span>
+                  </div>
+                </div>
+                <div class="ss-info-item">
+                  <div class="ss-info-label">Distrito</div>
+                  <div class="ss-info-value" id="info-distrito">—</div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Columna Derecha: Panel de Pestañas (Historial de Escaneos y Reporte Lotes) -->
+        <div class="ss-reports-column">
+          <section class="ss-card" style="padding: 24px;">
+            <div class="scan-tabs">
+              <button class="scan-tab-btn active" data-tab="tab-escaneo" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 5v14M21 5v14M7 5v14M17 5v14M11 5v14M14 5v14" />
+                </svg>
+                Escaneo de la Sesión
+              </button>
+              <button class="scan-tab-btn" data-tab="tab-reportes" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+                Historial de Cargas y Reportes
+              </button>
+            </div>
+
+            <!-- Pestaña 1: Escaneo Actual -->
+            <div id="tab-escaneo" class="tab-content active">
+              <div class="ss-history" style="height: 100%;">
+                <div class="ss-history-header" style="margin-bottom: 12px;">
+                  <h3 class="ss-card-title" style="margin: 0; font-size: 1.05rem;">Registros de la Sesión Actual</h3>
+                  <div class="ss-history-count">
+                    Sesión: <span id="total-scanned-count">0</span> leídos
+                  </div>
+                </div>
+                <div class="ss-table-wrap" style="flex: 1;">
+                  <table class="ss-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Código</th>
+                        <th>Consignado</th>
+                        <th>Dirección</th>
+                        <th>Distrito</th>
+                        <th>Estado</th>
+                        <th>Hora</th>
+                      </tr>
+                    </thead>
+                    <tbody id="scan-history-body">
+                      <tr>
+                        <td colspan="7" class="empty-row" style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">
+                          No se han registrado escaneos en esta sesión.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pestaña 2: Reporte de Cargas del Mes -->
+            <div id="tab-reportes" class="tab-content">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input type="text" id="filter-reportes-lotes" class="filter-input" style="width: 220px; padding: 8px 12px;" placeholder="Buscar lote..." />
+                  <select id="filter-reportes-mes" class="filter-input" style="padding: 8px 12px; font-weight: 600;">
+                    <option value="">Todos los meses</option>
+                  </select>
+                </div>
+                
+                <button id="btn-export-consolidado" class="ss-btn ss-btn-primary" style="width: auto; padding: 10px 18px; border-radius: var(--ss-radius-sm);" type="button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; margin-right: 8px; vertical-align: middle; display: inline-block;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                  </svg>
+                  <span style="vertical-align: middle;">Exportar Consolidado Mensual</span>
+                </button>
+              </div>
+
+              <div class="ss-table-wrap ss-report-table-wrap">
+                <table class="ss-table">
+                  <thead>
+                    <tr>
+                      <th>Lote / Carga</th>
+                      <th>Fecha Carga</th>
+                      <th style="text-align: center;">Total</th>
+                      <th style="text-align: center;">Llegaron</th>
+                      <th style="text-align: center;">Faltan</th>
+                      <th>Efectividad / Progreso</th>
+                      <th style="text-align: center; width: 120px;">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="reportes-lotes-body">
+                    <tr>
+                      <td colspan="7" class="empty-row" style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">
+                        No hay cargas registradas en la base de datos.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL: IMPORTAR EXCEL -->
+  <div class="modal-overlay" id="modal-importar">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 38px; height: 38px; border-radius: 10px; background: var(--ss-accent-soft); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--ss-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="modal-title" style="margin: 0; line-height: 1.3;">Importar Catálogo</h3>
+            <div style="font-size: 0.75rem; color: var(--ss-text-muted); font-weight: 400; letter-spacing: 0.01em;">Cargue un lote de paquetes desde Excel</div>
+          </div>
+        </div>
+        <button class="modal-close btn-close-modal" type="button" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 20px;">
+          <label for="input-lote-nombre" style="display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.8rem; color: var(--ss-text); margin-bottom: 8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; color: var(--ss-accent);">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <line x1="3" y1="9" x2="21" y2="9"/>
+              <line x1="9" y1="21" x2="9" y2="9"/>
+            </svg>
+            Nombre del Lote
+          </label>
+          <div style="position: relative;">
+            <input type="text" id="input-lote-nombre" class="filter-input" style="width: 100%; border-radius: 10px; padding: 12px 14px; font-size: 0.9rem; font-weight: 500; background: var(--ss-bg); transition: all 0.2s;" placeholder="Ej. SAVAR - Carga 02/07" />
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.8rem; color: var(--ss-text); margin-bottom: 10px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; color: var(--ss-accent);">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            Archivo Excel
+          </div>
+          <div id="import-dropzone" class="import-dropzone" style="border-radius: 12px; border-width: 2px; position: relative;">
+            <svg class="import-dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            </svg>
+            <div style="font-weight: 700; font-size: 0.95rem; color: var(--ss-primary); letter-spacing: -0.01em;">Arrastra tu archivo Excel aquí</div>
+            <div style="font-size: 0.78rem; color: var(--ss-text-muted); margin-top: 2px;">o haz clic para seleccionar un archivo</div>
+            <div style="margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 12px;">
+              <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.65rem; font-weight: 500; color: var(--ss-text-muted); background: var(--ss-surface); padding: 3px 10px; border-radius: 4px; border: 1px solid var(--ss-border);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 11px; height: 11px;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                .XLSX
+              </span>
+              <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.65rem; font-weight: 500; color: var(--ss-text-muted); background: var(--ss-surface); padding: 3px 10px; border-radius: 4px; border: 1px solid var(--ss-border);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 11px; height: 11px;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                .XLS
+              </span>
+              <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.65rem; font-weight: 500; color: var(--ss-text-muted); background: var(--ss-surface); padding: 3px 10px; border-radius: 4px; border: 1px solid var(--ss-border);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 11px; height: 11px;"><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                .CSV
+              </span>
+            </div>
+            <input type="file" id="file-input-excel" accept=".xlsx,.xls,.csv" style="display: none;" />
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- MODAL: FILTRAR ZONAS ANTES DE IMPORTAR -->
+  <div class="modal-overlay" id="modal-filtrar-zonas">
+    <div class="modal-box" style="max-width: 650px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 38px; height: 38px; border-radius: 10px; background: var(--ss-primary-soft); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--ss-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="modal-title" style="margin: 0; line-height: 1.3;">Zonas a Importar</h3>
+            <div style="font-size: 0.75rem; color: var(--ss-text-muted); font-weight: 400; letter-spacing: 0.01em;">Seleccione qué rutas desea registrar en este lote</div>
+          </div>
+        </div>
+        <button class="modal-close btn-close-modal" type="button" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" style="padding-top: 15px;">
+        <div id="filter-modal-file-info" style="background: #f8fafc; border: 1px solid var(--ss-border); border-radius: 10px; padding: 10px 14px; font-size: 0.8rem; color: var(--ss-text); display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div>Archivo: <strong id="filter-modal-filename">—</strong></div>
+          <div style="font-weight: 600; color: var(--ss-primary);" id="filter-modal-total-count">0 paquetes en total</div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+          <div style="font-size: 0.76rem; font-weight: 700; color: var(--ss-text-muted); text-transform: uppercase; letter-spacing: 0.04em;">
+            Rutas / Sectores Detectados:
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" id="btn-zone-select-all" style="background: none; border: none; font-size: 0.72rem; font-weight: 600; color: var(--ss-primary); cursor: pointer; padding: 0;">Marcar todos</button>
+            <span style="color: var(--ss-border); font-size: 0.75rem;">|</span>
+            <button type="button" id="btn-zone-select-none" style="background: none; border: none; font-size: 0.72rem; font-weight: 600; color: #ef4444; cursor: pointer; padding: 0;">Desmarcar todos</button>
+          </div>
+        </div>
+
+        <!-- Buscador rápido de zonas -->
+        <div style="margin-bottom: 12px;">
+          <input type="text" id="import-zone-search" class="filter-input" style="width: 100%; padding: 10px 14px; font-size: 0.82rem; border-radius: 10px; background: var(--ss-bg);" placeholder="Buscar zonas por provincia o distrito..." />
+        </div>
+
+        <div class="filters-scroll-box" id="import-filters-list" style="max-height: 220px; overflow-y: auto; border: 1px solid var(--ss-border); border-radius: 10px; padding: 10px; background: var(--ss-bg); display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 4px;">
+          <!-- Generado dinámicamente -->
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 14px 20px; background: #f8fafc; border-top: 1px solid var(--ss-border); display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
+        <button type="button" id="btn-import-cancel-file" class="ss-btn ss-btn-secondary" style="padding: 9px 16px; border-radius: 8px;">
+          Atrás / Cambiar archivo
+        </button>
+        <button type="button" id="btn-import-submit-filtered" class="ss-btn ss-btn-primary" style="padding: 9px 24px; border-radius: 8px; font-weight: 600;">
+          Importar seleccionados (0)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: VER FALTANTES -->
+  <div class="modal-overlay" id="modal-faltantes">
+    <div class="modal-box" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Paquetes Faltantes del Lote</h3>
+        <button class="modal-close btn-close-modal" type="button" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+          <input type="text" id="filter-faltantes" class="filter-input" style="flex: 1; border-radius: var(--ss-radius-sm);" placeholder="Buscar en faltantes por código, consignado..." />
+        </div>
+        <div style="max-height: 350px; overflow-y: auto; border: 1.5px solid var(--ss-neutral-border); border-radius: var(--ss-radius-sm);">
+          <table class="ss-table" style="font-size: 0.85rem;">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Consignado</th>
+                <th>Dirección</th>
+                <th>Distrito</th>
+              </tr>
+            </thead>
+            <tbody id="faltantes-table-body">
+              <tr>
+                <td colspan="4" class="empty-row" style="text-align:center;color:var(--text-muted);font-style:italic;padding:20px;">
+                  No hay paquetes cargados.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-close-modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dependencias JavaScript compartidas -->
+  <script src="js/shared-ui.js?v=1"></script>
+  <script src="js/runtime-config.js?v=4"></script>
+  <script src="js/api.js?v=6"></script>
+  <script src="components/sidebar.js?v=11"></script>
+  
+  <!-- SheetJS para procesar Excel en el cliente -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  
+  <!-- Código específico de Savar Scan -->
+  <script src="js/savar-scan.js?v=7"></script>
+</body>
+</html>

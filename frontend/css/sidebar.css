@@ -43,8 +43,8 @@
 
   /* Text colours */
   --sb-text-hi: #eef8f3;
-  --sb-text-md: rgba(214, 243, 228, 0.70);
-  --sb-text-lo: rgba(180, 225, 203, 0.42);
+  --sb-text-md: rgba(214, 243, 228, 0.78);
+  --sb-text-lo: rgba(180, 225, 203, 0.55);
 
   /* Surfaces */
   --sb-border:       rgba(255, 255, 255, 0.07);
@@ -573,7 +573,7 @@ html.sidebar-collapsed-preload #sidebar-container {
   display: block;
   margin-top: 3px;
   overflow: hidden;
-  color: #7cf6ad;
+  color: #6bda9a;
   font-family: var(--sb-font);
   font-size: 11.4px;
   font-weight: 300;

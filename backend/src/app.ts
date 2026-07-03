@@ -14,6 +14,7 @@ import produccionRoutes from './routes/produccionRoutes';
 import whatsappRoutes from './routes/whatsappRoutes';
 import whatsappSesionesRoutes from './routes/whatsappSesionesRoutes';
 import zonasRoutes from './routes/zonasRoutes';
+import savarScanRoutes from './routes/savarScanRoutes';
 import { createHttpApp } from './server/createHttpApp';
 import { verificarToken } from './middlewares/authMiddleware';
 import { PERMISSIONS } from './constants/permissions';
@@ -80,6 +81,7 @@ app.use('/api/produccion', produccionRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/whatsapp-sesiones', whatsappSesionesRoutes);
 app.use('/api/zonas', zonasRoutes);
+app.use('/api/savar-scan', savarScanRoutes);
 
 app.get('/api', (_req, res) => {
   res.json({
@@ -115,6 +117,7 @@ app.get('/panel de control', (_req, res) => {
 app.get('/admin', sendFrontendFile('admin.html'));
 app.get('/whatsapp', sendFrontendFile('whatsapp.html'));
 app.get('/gestion-entregas', sendFrontendFile('gestion-entregas.html'));
+app.get('/savar-scan', sendFrontendFile('savar-scan.html'));
 app.get('/consulta-rutas', sendFrontendFile('consulta-rutas.html'));
 app.get('/etiquetas', sendFrontendFile('etiquetas.html'));
 app.get('/rutas', sendFrontendFile('rutas.html'));
