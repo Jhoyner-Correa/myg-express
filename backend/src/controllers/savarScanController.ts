@@ -18,7 +18,7 @@ function requireSede(req: AuthRequest, res: Response): number | null {
 export const procesarEscaneo = async (req: AuthRequest, res: Response) => {
   try {
     const { codigo, lote_activo } = req.body;
-    const cleanCodigo = String(codigo || '').trim();
+    const cleanCodigo = String(codigo || '').replace(/[\r\n\t]/g, '').trim();
     const cleanLoteActivo = String(lote_activo || '').trim();
     
     if (!cleanCodigo) {
@@ -39,10 +39,10 @@ export const procesarEscaneo = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Buscar paquete en la base de datos
+    // Buscar paquete en la base de datos (limpiando espacios y soportando mayúsculas)
     const [rows]: any = await pool.query(
-      'SELECT * FROM paquetes WHERE codigo_paquete = ? LIMIT 1',
-      [cleanCodigo]
+      'SELECT * FROM paquetes WHERE TRIM(codigo_paquete) = ? OR TRIM(codigo_paquete) = ? LIMIT 1',
+      [cleanCodigo, cleanCodigo.toUpperCase()]
     );
 
     if (rows.length === 0) {
