@@ -1633,30 +1633,24 @@
       const code = Elements.scanInput.value.trim();
       if (!code) return;
 
-      // 1. Si cumple con el formato estándar (ej: empieza con SE y tiene 13 caracteres)
-      // se procesa instantáneamente sin demoras
-      const isStandardFormat = /^SE\d{11}$/i.test(code);
-      if (isStandardFormat || code.length === 13) {
-        if (scanTimeout) clearTimeout(scanTimeout);
-        strokeIntervals = [];
-        handleScan(code);
-        return;
-      }
-
-      // 2. Si es escaneado muy rápido (promedio de teclas < 45ms), esperamos a que termine
-      // de escribir (150ms desde la última tecla) para procesarlo de forma automática
-      if (strokeIntervals.length >= 3) {
+      // Determinar si viene de una lectora de código de barras (tipeo muy rápido) o tipeo manual
+      let delay = 450; // Tiempo de espera por defecto (para tipeo manual)
+      if (strokeIntervals.length >= 2) {
         const avg = strokeIntervals.reduce((a, b) => a + b, 0) / strokeIntervals.length;
-        if (avg < 45) { // Firma de lectora de código de barras
-          scanTimeout = setTimeout(() => {
-            const finalCode = Elements.scanInput.value.trim();
-            if (finalCode) {
-              handleScan(finalCode);
-            }
-            strokeIntervals = [];
-          }, 150);
+        if (avg < 50) { 
+          // Firma de lectora de código de barras rápida: esperar 200ms tras el último carácter
+          delay = 200;
         }
       }
+
+      // Esperar a que el usuario o la lectora termine de ingresar el código completo
+      scanTimeout = setTimeout(() => {
+        const finalCode = Elements.scanInput.value.trim();
+        if (finalCode) {
+          handleScan(finalCode);
+        }
+        strokeIntervals = [];
+      }, delay);
     });
 
     // Cargar lotes del sistema
