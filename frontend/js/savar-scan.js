@@ -1597,60 +1597,16 @@
     // Exportación consolidados mensuales de facturación
     Elements.btnExportConsolidado.addEventListener('click', exportarConsolidadoMensual);
 
-    // Entrada del lector USB / Input de escaneo inteligente
-    let lastKeyTime = 0;
-    let strokeIntervals = [];
-    let scanTimeout = null;
-
+    // Entrada del lector USB / Input de escaneo
     Elements.scanInput.addEventListener('keydown', function (e) {
-      const now = Date.now();
-      
-      // Si presiona Enter manualmente o enviado por la lectora, procesamos de inmediato
+      // Al presionar Enter (manualmente o enviado automáticamente por la pistola lectora)
       if (e.key === 'Enter') {
         e.preventDefault();
-        if (scanTimeout) clearTimeout(scanTimeout);
-        strokeIntervals = [];
         const code = Elements.scanInput.value.trim();
         if (code) {
           handleScan(code);
         }
-        return;
       }
-
-      if (lastKeyTime > 0) {
-        const diff = now - lastKeyTime;
-        strokeIntervals.push(diff);
-        if (strokeIntervals.length > 5) {
-          strokeIntervals.shift();
-        }
-      }
-      lastKeyTime = now;
-    });
-
-    Elements.scanInput.addEventListener('input', function (e) {
-      if (scanTimeout) clearTimeout(scanTimeout);
-
-      const code = Elements.scanInput.value.trim();
-      if (!code) return;
-
-      // Determinar si viene de una lectora de código de barras (tipeo muy rápido) o tipeo manual
-      let delay = 450; // Tiempo de espera por defecto (para tipeo manual)
-      if (strokeIntervals.length >= 2) {
-        const avg = strokeIntervals.reduce((a, b) => a + b, 0) / strokeIntervals.length;
-        if (avg < 50) { 
-          // Firma de lectora de código de barras rápida: esperar 200ms tras el último carácter
-          delay = 200;
-        }
-      }
-
-      // Esperar a que el usuario o la lectora termine de ingresar el código completo
-      scanTimeout = setTimeout(() => {
-        const finalCode = Elements.scanInput.value.trim();
-        if (finalCode) {
-          handleScan(finalCode);
-        }
-        strokeIntervals = [];
-      }, delay);
     });
 
     // Cargar lotes del sistema
