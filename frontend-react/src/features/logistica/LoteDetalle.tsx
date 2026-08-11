@@ -13,12 +13,10 @@ import { getApiErrorMessage } from '../../core/api/errors';
 import { routeDetailService } from './route-detail/route-detail.service';
 import { RecipientsTable } from './route-detail/components/RecipientsTable';
 import { RouteDetailStats } from './route-detail/components/RouteDetailStats';
+import { RouteDetailHeader } from './route-detail/components/RouteDetailHeader';
 import {
   calculateRouteStats,
-  formatDateOnly,
   formatDateTime,
-  getBadgeClass,
-  getBadgeLabel,
   readQueueControl,
 } from './route-detail/domain';
 import type {
@@ -557,68 +555,15 @@ export const LoteDetalle: React.FC = () => {
   return (
     <div className="main rutas-page" id="main-content">
       <main className="content">
-        
-        {/* HERO SECTION DE LA RUTA */}
-        <section className="pg-hero">
-          <div className="pg-hero-left">
-            <div className="pg-breadcrumb">Detalle de Ruta</div>
-            <div className="pg-title-row">
-              <h1 className="pg-title">{route?.nombre_lote || `Ruta ${route?.id || ''}`}</h1>
-              <span className={`pg-badge pg-badge-${getBadgeClass(route?.estado || 'pendiente')}`} id="lote-estado-chip">
-                {getBadgeLabel(route?.estado || 'pendiente')}
-              </span>
-              
-              {/* Trigger del panel de control de envío */}
-              {(queueControl?.isProcessing || queueControl?.isPaused || queueControl?.hasInterruptedFlow) && (
-                <div id="envio-interrupcion" style={{ display: 'inline-flex', marginLeft: '8px' }}>
-                  <button 
-                    type="button" 
-                    className={`envio-control-trigger ${queueControl.isProcessing ? 'is-processing' : 'is-paused'}`} 
-                    id="btn-open-envio-control"
-                    onClick={() => setShowControlModal(true)}
-                  >
-                    <span className="envio-control-trigger-dot" aria-hidden="true"></span>
-                    <span>
-                      <strong>{queueControl.isProcessing ? 'Envío en curso' : 'Ruta pausada'}</strong>
-                      <small>{queueControl.isProcessing ? 'Gestionar' : 'Revisar decisión'}</small>
-                    </span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="pg-meta-strip">
-              <div className="pg-meta-row">
-                <div className="pg-meta-item">Fecha: <span className="pg-meta-val">{route?.fecha ? formatDateOnly(route.fecha) : '-'}</span></div>
-                <span className="pg-meta-sep">|</span>
-                <div className="pg-meta-item">Sede: <span className="pg-meta-val">{route?.sede_nombre || '-'}</span></div>
-                <span className="pg-meta-sep">|</span>
-                <div className="pg-meta-item">Destinatarios: <span className="pg-meta-val">{stats.total}</span></div>
-                <span className="pg-meta-sep">|</span>
-                <div className="pg-meta-item">Observación: <span className="pg-meta-val">{route?.observacion || 'Sin observaciones'}</span></div>
-                
-                <section className={`route-progress-card ${queueControl?.isProcessing ? 'is-active' : ''}`} aria-label="Progreso de la ruta">
-                  <div className="route-progress-ring" style={{ '--progress': stats.procesadosPct } as React.CSSProperties}>
-                    <div className="ring-glow"></div>
-                    <span id="hero-progress-value" style={{ zIndex: 2, fontWeight: 700 }}>{stats.procesadosPct}%</span>
-                  </div>
-                  <div className="route-progress-content">
-                    <div className="route-progress-title">Progreso de la ruta</div>
-                    <div className="route-progress-note">
-                      {stats.total === 0 ? 'Sin actividad registrada' : `${stats.procesados} de ${stats.total} destinatarios procesados`}
-                    </div>
-                    <div className="route-progress-track">
-                      <span style={{ width: `${stats.procesadosPct}%` }}></span>
-                    </div>
-                    <svg className="rpc-idle-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <circle cx="12" cy="12" r="10"/>
-                      <polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                  </div>
-                </section>
-              </div>
-            </div>
-          </div>
-        </section>
+        <RouteDetailHeader
+          route={route}
+          total={stats.total}
+          processed={stats.procesados}
+          percentage={stats.procesadosPct}
+          queue={queueControl}
+          onOpenQueue={() => setShowControlModal(true)}
+        />
+
 
         {/* WORKSPACE GRID */}
         <section className="workspace-grid">
