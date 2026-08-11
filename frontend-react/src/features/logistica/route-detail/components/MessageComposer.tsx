@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import { FileText, MessageCircle, Mic, MoreVertical, Phone, Send } from 'lucide-react';
+import { Button } from '../../../../components/ui/Button/Button';
 import type { QueueControl, SessionItem, TemplateItem } from '../types';
+import styles from './MessageComposer.module.css';
 
-type Props = {
+interface MessageComposerProps {
   session: SessionItem | null;
   template: TemplateItem | null;
   contactName: string;
@@ -17,22 +19,139 @@ type Props = {
   onOpenTemplates: () => void;
   onOpenControl: () => void;
   onConfirmSend: () => void;
-};
+}
 
-export function MessageComposer(props: Props) {
-  const sessionState = props.session?.estado_real === 'connected' ? 'is-active' : props.session?.estado_real === 'auth_failure' ? 'is-error' : 'is-inactive';
-  return <aside className="workspace-side"><article className="composer-panel">
-    <header className="composer-panel-header"><h2 className="composer-panel-title">Compositor de envío</h2><p className="composer-panel-sub">Redacta y revisa el mensaje antes de enviarlo.</p></header>
-    <div className="composer-panel-body">
-      <div className="composer-session-card"><div className="session-card-left"><MessageCircle className="session-card-icon" size={18} /><div className="session-card-body"><span className="session-card-label">Sesión</span><div className="session-card-value"><span className={`session-indicator ${props.session ? sessionState : ''}`} /><span>{props.session ? `${props.session.nombre_dispositivo || props.session.nombre}${props.session.numero_whatsapp ? ` · ${props.session.numero_whatsapp}` : ''}` : 'Sin sesión disponible'}</span></div></div></div></div>
-      <div className="template-block"><div className="template-row"><span className="template-label">Plantilla</span><button className="template-chip" type="button" onClick={props.onOpenTemplates}><FileText className="template-chip-icon" size={16} /><span className="template-chip-name">{props.template?.nombre || 'Seleccionar plantilla'}</span></button><button className="btn-ver-plantillas" onClick={props.onOpenTemplates} type="button">Ver plantillas</button></div></div>
-      <div className="preview-section-label">Vista previa</div><div className="composer-body"><div className="preview-block"><div className="phone-stage"><div className="phone-frame"><div className="phone-screen">
-        <div className="phone-notch" /><div className="phone-statusbar"><span className="sb-time">{props.time}</span></div>
-        <div className="wa-header"><div className="wa-avatar">MG</div><div className="wa-info"><div className="wa-name">{props.contactName}</div><div className="wa-online">{props.hasSession ? 'En sesión elegida' : 'Sin sesión seleccionada'}</div></div><div className="wa-actions" aria-hidden="true"><Phone /><MoreVertical /></div></div>
-        <div className="wa-body"><div className="wa-date-chip">HOY</div>{props.message ? <div className="wa-bubble">{props.imageUrl && (props.imageError ? <div className="wa-image-missing">Imagen no disponible</div> : <img src={props.imageUrl} className="wa-bubble-img" alt="Adjunto de la plantilla" loading="lazy" onError={props.onImageError} />)}<div>{props.message}</div><div className="wa-btime"><span>{props.time}</span></div></div> : <div className="preview-empty-lbl">Selecciona una plantilla</div>}</div>
-        <div className="wa-footer"><Mic aria-hidden="true" /><div className="wa-input-fake">Escribe un mensaje...</div><Send aria-hidden="true" /></div>
-      </div><div className="phone-bottombar"><div className="phone-home-bar" /></div></div></div></div>
-      {props.queue?.isProcessing ? <button className="send-btn is-processing" disabled>Envío en curso</button> : props.queue?.isPaused || props.queue?.hasInterruptedFlow ? <button className="send-btn is-paused" onClick={props.onOpenControl}>Retomar envío</button> : <button className="send-btn normal" onClick={props.onConfirmSend} disabled={props.sending}>Enviar mensajes</button>}
-    </div></div>
-  </article></aside>;
+export function MessageComposer({
+  session,
+  template,
+  contactName,
+  time,
+  message,
+  imageUrl,
+  imageError,
+  hasSession,
+  queue,
+  sending,
+  onImageError,
+  onOpenTemplates,
+  onOpenControl,
+  onConfirmSend,
+}: MessageComposerProps) {
+  const sessionTone = session?.estado_real === 'connected'
+    ? styles.online
+    : session?.estado_real === 'auth_failure'
+      ? styles.error
+      : styles.offline;
+  const interrupted = Boolean(queue?.isPaused || queue?.hasInterruptedFlow);
+
+  return (
+    <aside className={styles.sidebar}>
+      <article className={styles.panel}>
+        <header className={styles.header}>
+          <div>
+            <h2>Compositor de envío</h2>
+            <p>Revisa el mensaje antes de iniciar la cola.</p>
+          </div>
+          <MessageCircle size={18} aria-hidden="true" />
+        </header>
+
+        <div className={styles.body}>
+          <div className={styles.sessionCard}>
+            <span className={`${styles.sessionDot} ${sessionTone}`} aria-hidden="true" />
+            <div>
+              <span>Sesión de WhatsApp</span>
+              <strong>
+                {session
+                  ? `${session.nombre_dispositivo || session.nombre}${session.numero_whatsapp ? ` · ${session.numero_whatsapp}` : ''}`
+                  : 'Sin sesión disponible'}
+              </strong>
+            </div>
+          </div>
+
+          <div className={styles.templateRow}>
+            <div>
+              <span>Plantilla activa</span>
+              <strong>
+                <FileText size={14} aria-hidden="true" />
+                {template?.nombre || 'Sin seleccionar'}
+              </strong>
+            </div>
+            <Button variant="secondary" size="sm" onClick={onOpenTemplates}>
+              Cambiar
+            </Button>
+          </div>
+
+          <span className={styles.previewLabel}>Vista previa</span>
+
+          <div className={styles.phoneStage}>
+            <div className={styles.phone}>
+              <div className={styles.notch} aria-hidden="true" />
+              <div className={styles.statusBar}>{time}</div>
+
+              <div className={styles.whatsappHeader}>
+                <span className={styles.avatar}>MG</span>
+                <div className={styles.contact}>
+                  <strong>{contactName}</strong>
+                  <span>{hasSession ? 'Sesión seleccionada' : 'Sin sesión seleccionada'}</span>
+                </div>
+                <span className={styles.whatsappActions} aria-hidden="true">
+                  <Phone size={14} />
+                  <MoreVertical size={15} />
+                </span>
+              </div>
+
+              <div className={styles.chat}>
+                <span className={styles.day}>HOY</span>
+                {message ? (
+                  <div className={styles.bubble}>
+                    {imageUrl && (
+                      imageError ? (
+                        <div className={styles.imageMissing}>Imagen no disponible</div>
+                      ) : (
+                        <img
+                          src={imageUrl}
+                          className={styles.attachment}
+                          alt="Adjunto de la plantilla"
+                          loading="lazy"
+                          onError={onImageError}
+                        />
+                      )
+                    )}
+                    {message}
+                    <span className={styles.messageTime}>{time}</span>
+                  </div>
+                ) : (
+                  <span className={styles.empty}>Selecciona una plantilla</span>
+                )}
+              </div>
+
+              <div className={styles.whatsappFooter}>
+                <Mic size={15} aria-hidden="true" />
+                <span>Escribe un mensaje...</span>
+                <Send size={15} aria-hidden="true" />
+              </div>
+            </div>
+          </div>
+
+          {queue?.isProcessing ? (
+            <Button className={styles.sendButton} disabled>
+              Envío en curso
+            </Button>
+          ) : interrupted ? (
+            <Button className={styles.sendButton} variant="secondary" onClick={onOpenControl}>
+              Retomar envío
+            </Button>
+          ) : (
+            <Button
+              className={styles.sendButton}
+              loading={sending}
+              onClick={onConfirmSend}
+            >
+              Enviar mensajes
+            </Button>
+          )}
+        </div>
+      </article>
+    </aside>
+  );
 }

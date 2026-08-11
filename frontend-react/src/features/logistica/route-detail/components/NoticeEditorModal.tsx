@@ -3,14 +3,115 @@ import { Button } from '../../../../components/ui/Button/Button';
 import { Modal } from '../../../../components/ui/Modal/Modal';
 import styles from './NoticeEditorModal.module.css';
 
-type Props = { open: boolean; name: string; phone: string; code: string; message: string; onName: (v:string)=>void; onPhone:(v:string)=>void; onCode:(v:string)=>void; onMessage:(v:string)=>void; onClose:()=>void; onSubmit:(e:FormEvent)=>void };
-export function NoticeEditorModal(p: Props) {
-  return <Modal open={p.open} title="Nuevo destinatario" description="Agrega manualmente un paquete a esta ruta." onClose={p.onClose} footer={<><Button variant="secondary" type="button" onClick={p.onClose}>Cancelar</Button><Button type="submit" form="notice-editor-form">Guardar</Button></>}>
-    <form id="notice-editor-form" onSubmit={p.onSubmit}>
-      <div className={styles.grid}><Field label="Teléfono" required value={p.phone} onChange={p.onPhone} placeholder="51987654321" /><Field label="Nombre" required value={p.name} onChange={p.onName} placeholder="Nombre del cliente" /></div>
-      <Field label="Código de paquete" required value={p.code} onChange={p.onCode} placeholder="PKG-00123" />
-      <label className={styles.field}>Mensaje personalizado (opcional)<textarea value={p.message} onChange={e=>p.onMessage(e.target.value)} placeholder="Mensaje adicional" /></label>
-    </form>
-  </Modal>;
+interface NoticeEditorModalProps {
+  open: boolean;
+  name: string;
+  phone: string;
+  code: string;
+  message: string;
+  onName: (value: string) => void;
+  onPhone: (value: string) => void;
+  onCode: (value: string) => void;
+  onMessage: (value: string) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent) => void;
 }
-function Field({label,value,onChange,placeholder,required}:{label:string;value:string;onChange:(v:string)=>void;placeholder:string;required?:boolean}) { return <label className={styles.field}>{label}{required && ' *'}<input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} required={required} /></label>; }
+
+interface FieldProps {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  type?: 'text' | 'tel';
+}
+
+function Field({
+  label,
+  value,
+  placeholder,
+  onChange,
+  required = false,
+  type = 'text',
+}: FieldProps) {
+  return (
+    <label className={styles.field}>
+      <span>{label}{required && ' *'}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        required={required}
+      />
+    </label>
+  );
+}
+
+export function NoticeEditorModal({
+  open,
+  name,
+  phone,
+  code,
+  message,
+  onName,
+  onPhone,
+  onCode,
+  onMessage,
+  onClose,
+  onSubmit,
+}: NoticeEditorModalProps) {
+  return (
+    <Modal
+      open={open}
+      title="Nuevo destinatario"
+      description="Agrega manualmente un paquete a esta ruta."
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" type="button" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" form="notice-editor-form">
+            Guardar
+          </Button>
+        </>
+      }
+    >
+      <form id="notice-editor-form" onSubmit={onSubmit}>
+        <div className={styles.grid}>
+          <Field
+            label="Teléfono"
+            type="tel"
+            required
+            value={phone}
+            onChange={onPhone}
+            placeholder="51987654321"
+          />
+          <Field
+            label="Nombre"
+            required
+            value={name}
+            onChange={onName}
+            placeholder="Nombre del cliente"
+          />
+        </div>
+        <Field
+          label="Código de paquete"
+          required
+          value={code}
+          onChange={onCode}
+          placeholder="PKG-00123"
+        />
+        <label className={styles.field}>
+          <span>Mensaje personalizado (opcional)</span>
+          <textarea
+            value={message}
+            onChange={(event) => onMessage(event.target.value)}
+            placeholder="Mensaje adicional"
+          />
+        </label>
+      </form>
+    </Modal>
+  );
+}

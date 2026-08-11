@@ -1,13 +1,7 @@
-// ============================================================
-// frontend-react/src/features/logistica/LoteDetalle.tsx
-// Módulo de Detalle de Ruta (Importación Excel, Envíos y Colas)
-// Replicación exacta del diseño original de rutas-detalle.html
-// ============================================================
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import '../../css/rutas-detalle.css';
 import { useParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import { PageLoader } from '../../components/ui/PageLoader/PageLoader';
 import { showToast, showConfirm } from '../../core/utils/toast';
 import { getApiErrorMessage } from '../../core/api/errors';
 import { routeDetailService } from './route-detail/route-detail.service';
@@ -16,6 +10,10 @@ import { RouteDetailStats } from './route-detail/components/RouteDetailStats';
 import { RouteDetailHeader } from './route-detail/components/RouteDetailHeader';
 import { MessageComposer } from './route-detail/components/MessageComposer';
 import { NoticeEditorModal } from './route-detail/components/NoticeEditorModal';
+import { ImportNoticesModal } from './route-detail/components/ImportNoticesModal';
+import { SendControlModals } from './route-detail/components/SendControlModals';
+import { TemplateModals } from './route-detail/components/TemplateModals';
+import styles from './LoteDetalle.module.css';
 import {
   calculateRouteStats,
   formatDateTime,
@@ -64,7 +62,6 @@ export const LoteDetalle: React.FC = () => {
   const [editingTemplate, setEditingTemplate] = useState<TemplateItem | null>(null);
   const [templateFormName, setTemplateFormName] = useState('');
   const [templateFormBody, setTemplateFormBody] = useState('');
-  const [templateFormImage, setTemplateFormImage] = useState<File | null>(null);
   const [templateFormImageName, setTemplateFormImageName] = useState('');
   const [templateFormImageBase64, setTemplateFormImageBase64] = useState<string | null>(null);
   const [templateImageBorrar, setTemplateImageBorrar] = useState(false);
@@ -129,11 +126,11 @@ export const LoteDetalle: React.FC = () => {
     if (!text) return null;
     const lines = text.replace(/\r\n/g, '\n').split('\n');
     return (
-      <div className="wa-msg-preview wa-msg-plain">
+      <div className={styles.previewMessage}>
         {lines.map((line, idx) => {
           const parts = line.split(/\*(.*?)\*/g);
           return (
-            <div key={idx} className="wa-msg-line">
+            <div key={idx} className={styles.messageLine}>
               {parts.map((part, pIdx) => {
                 return pIdx % 2 === 1 ? <strong key={pIdx}>{part}</strong> : part;
               })}
@@ -308,8 +305,10 @@ export const LoteDetalle: React.FC = () => {
       const result = await routeDetailService.controlQueue(rutaId, action, Number(selectedSessionId) || undefined);
       showToast(result.message || 'Acción ejecutada con éxito', 'success', { title: 'Cola actualizada' });
       await loadRouteDetails();
+      return true;
     } catch (e: unknown) {
       showToast(getApiErrorMessage(e, 'Error al ejecutar control de cola'), 'error', { title: 'Error de control' });
+      return false;
     } finally {
       setSendingAction(false);
     }
@@ -467,7 +466,6 @@ export const LoteDetalle: React.FC = () => {
       setShowTemplateEditorModal(false);
       setTemplateFormName('');
       setTemplateFormBody('');
-      setTemplateFormImage(null);
       setTemplateFormImageName('');
       setTemplateFormImageBase64(null);
       setTemplateImageBorrar(false);
@@ -547,16 +545,12 @@ export const LoteDetalle: React.FC = () => {
   }, [notices, searchQuery, filterStatus]);
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
-        <span className="spinner" style={{ width: '40px', height: '40px' }}></span>
-      </div>
-    );
+    return <PageLoader compact label="Cargando detalle de la ruta" />;
   }
 
   return (
-    <div className="main rutas-page" id="main-content">
-      <main className="content">
+    <div className={`main ${styles.page}`} id="main-content">
+      <main className={styles.content}>
         <RouteDetailHeader
           route={route}
           total={stats.total}
@@ -565,13 +559,8 @@ export const LoteDetalle: React.FC = () => {
           queue={queueControl}
           onOpenQueue={() => setShowControlModal(true)}
         />
-
-
-        {/* WORKSPACE GRID */}
-        <section className="workspace-grid">
-          
-          {/* LADO PRINCIPAL: DESTINATARIOS */}
-          <div className="workspace-main">
+        <section className={styles.workspace}>
+          <div className={styles.workspaceMain}>
             <RouteDetailStats stats={stats} />
             <RecipientsTable
               notices={notices}
@@ -607,73 +596,16 @@ export const LoteDetalle: React.FC = () => {
           />
         </section>
       </main>
-
-      {/* MODAL: SUBIR EXCEL */}
-      {showImportModal && (
-        <div className="modal-overlay open">
-          <div className="modal-box modal-box-import" style={{ maxWidth: '440px' }}>
-            <div className="modal-header">
-              <div>
-                <h2 className="modal-title">Carga de destinatarios</h2>
-                <p className="card-subtitle">Sube un Excel con columnas Nombre, Código y Teléfono.</p>
-              </div>
-              <button className="modal-close" onClick={() => setShowImportModal(false)}>
-                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div className="modal-body">
-              <div 
-                className="import-dropzone" 
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const file = e.dataTransfer.files?.[0];
-                  if (file) {
-                    setImportFileName(file.name);
-                    handleFileUpload(file);
-                  }
-                }}
-              >
-                <input 
-                  type="file" 
-                  accept=".xlsx,.xls,.csv" 
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setImportFileName(file.name);
-                      handleFileUpload(file);
-                    }
-                  }}
-                />
-                <div className="import-dropzone-file">{importFileName}</div>
-                <div className="import-dropzone-icon">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M16 16l-4-4-4 4"/>
-                    <path d="M12 12v9"/>
-                    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
-                  </svg>
-                </div>
-                <div className="import-dropzone-title">Arrastra tu archivo aquí</div>
-                <div className="import-dropzone-subtitle">o haz clic para seleccionar .xlsx, .xls o .csv</div>
-                <div className="import-dropzone-hint">
-                  <span>Columnas requeridas</span>
-                  <div className="import-dropzone-chips">
-                    <span className="import-chip">Nombre</span>
-                    <span className="import-chip">Código</span>
-                    <span className="import-chip">Teléfono</span>
-                  </div>
-                </div>
-              </div>
-              {importStatus.type !== 'idle' && (
-                <div style={{ marginTop: '12px', fontSize: '0.8rem', color: importStatus.type === 'error' ? '#ef4444' : '#1d7d48', textAlign: 'center', fontWeight: 600 }}>
-                  {importStatus.type === 'loading' && <span className="spinner" style={{ marginRight: '6px', width: '12px', height: '12px' }}></span>}
-                  {importStatus.msg}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <ImportNoticesModal
+        open={showImportModal}
+        fileName={importFileName}
+        status={importStatus}
+        onFile={(file) => {
+          setImportFileName(file.name);
+          void handleFileUpload(file);
+        }}
+        onClose={() => setShowImportModal(false)}
+      />
       <NoticeEditorModal
         open={showCreateModal}
         name={newNoticeName}
@@ -689,381 +621,79 @@ export const LoteDetalle: React.FC = () => {
       />
 
 
-      {/* MODAL: GALERÍA DE PLANTILLAS */}
-      {showTemplatesModal && (
-        <div className="modal-overlay open" id="modal-plantillas">
-          <div className="modal-box modal-box-templates">
-            <div className="modal-header">
-              <div></div>
-              <button className="modal-close" onClick={() => setShowTemplatesModal(false)} type="button" aria-label="Cerrar">
-                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div className="modal-body templates-modal-body">
-              <div className="templates-panel-header manager-toolbar">
-                <div>
-                  <div className="manager-title">Plantillas disponibles</div>
-                  <div className="manager-subtitle">Elige una para esta ruta o abre una plantilla para editarla.</div>
-                </div>
-                <button 
-                  className="btn-soft" 
-                  id="btn-nueva-plantilla"
-                  type="button"
-                  onClick={() => {
-                    setEditingTemplate(null);
-                    setTemplateFormName('');
-                    setTemplateFormBody('');
-                    setTemplateFormImage(null);
-                    setTemplateFormImageName('');
-                    setTemplateFormImageBase64(null);
-                    setTemplateImageBorrar(false);
-                    setShowTemplatesModal(false);
-                    setShowTemplateEditorModal(true);
-                  }}
-                >
-                  Nueva plantilla
-                </button>
-              </div>
+      <TemplateModals
+        galleryOpen={showTemplatesModal}
+        editorOpen={showTemplateEditorModal}
+        templates={templates}
+        selectedId={selectedTemplateId}
+        editing={editingTemplate}
+        name={templateFormName}
+        body={templateFormBody}
+        imageName={templateFormImageName}
+        imagePreview={
+          templateFormImageBase64 ||
+          (editingTemplate?.adjunto_url
+            ? resolveTemplateImageUrl(editingTemplate.adjunto_url)
+            : '')
+        }
+        onCloseGallery={() => setShowTemplatesModal(false)}
+        onBack={() => {
+          setShowTemplateEditorModal(false);
+          setShowTemplatesModal(true);
+        }}
+        onNew={() => {
+          setEditingTemplate(null);
+          setTemplateFormName('');
+          setTemplateFormBody('');
+          setTemplateFormImageName('');
+          setTemplateFormImageBase64(null);
+          setTemplateImageBorrar(false);
+          setShowTemplatesModal(false);
+          setShowTemplateEditorModal(true);
+        }}
+        onSelect={(template) => {
+          void seleccionarPlantillaComoDefault(String(template.id));
+          setShowTemplatesModal(false);
+        }}
+        onEdit={(template) => {
+          setEditingTemplate(template);
+          setTemplateFormName(template.nombre);
+          setTemplateFormBody(template.cuerpo);
+          setTemplateFormImageName(template.adjunto_url ? 'Imagen actual' : '');
+          setTemplateFormImageBase64(null);
+          setTemplateImageBorrar(false);
+          setShowTemplatesModal(false);
+          setShowTemplateEditorModal(true);
+        }}
+        onDelete={(id) => void handleDeleteTemplate(id)}
+        onName={setTemplateFormName}
+        onBody={setTemplateFormBody}
+        onImage={(file, base64) => {
+          setTemplateFormImageName(file.name);
+          setTemplateFormImageBase64(base64);
+          setTemplateImageBorrar(false);
+        }}
+        onRemoveImage={() => {
+          setTemplateFormImageName('');
+          setTemplateFormImageBase64(null);
+          setTemplateImageBorrar(true);
+        }}
+        onSave={handleSaveTemplate}
+      />
+      <SendControlModals
+        confirmOpen={showConfirmSendModal}
+        controlOpen={showControlModal}
+        queue={queueControl}
+        pending={stats.pendientes}
+        session={activeSession}
+        template={activeTemplate}
+        loading={sendingAction}
+        onCloseConfirm={() => setShowConfirmSendModal(false)}
+        onCloseControl={() => setShowControlModal(false)}
+        onStart={() => void handleStartSending()}
+        onAction={handleQueueControl}
+      />
 
-              <div className="templates-gallery" id="templates-list">
-                {templates.length > 0 ? (
-                  templates.map((tpl) => (
-                    <div 
-                      key={tpl.id} 
-                      className={`template-item ${selectedTemplateId === String(tpl.id) ? 'active' : ''}`}
-                      onClick={() => {
-                        seleccionarPlantillaComoDefault(String(tpl.id));
-                        setShowTemplatesModal(false);
-                      }}
-                    >
-                      <div className="template-item-header">
-                        <svg className="template-item-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                          <polyline points="14 2 14 8 20 8"/>
-                          <line x1="16" y1="13" x2="8" y2="13"/>
-                          <line x1="16" y1="17" x2="8" y2="17"/>
-                        </svg>
-                        <span className="template-item-name">{tpl.nombre}</span>
-                        {tpl.adjunto_url && (
-                          <span className="template-image-badge">
-                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                            Imagen
-                          </span>
-                        )}
-                      </div>
-                      <div className="template-body">
-                        {tpl.cuerpo}
-                      </div>
-                      <div className="template-card-footer">
-                        <div>
-                          {selectedTemplateId === String(tpl.id) ? (
-                            <span className="template-current">En uso en esta ruta</span>
-                          ) : (
-                            <span className="template-card-meta">Disponible</span>
-                          )}
-                        </div>
-                        <div className="template-item-actions">
-                          <button 
-                            className="template-action-btn edit" 
-                            type="button" 
-                            title="Editar plantilla"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingTemplate(tpl);
-                              setTemplateFormName(tpl.nombre);
-                              setTemplateFormBody(tpl.cuerpo);
-                              setTemplateFormImage(null);
-                              setTemplateFormImageName(tpl.adjunto_url ? 'Imagen actual' : '');
-                              setTemplateFormImageBase64(null);
-                              setTemplateImageBorrar(false);
-                              setShowTemplatesModal(false);
-                              setShowTemplateEditorModal(true);
-                            }}
-                          >
-                            <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-                          </button>
-                          <button 
-                            className="template-action-btn delete" 
-                            type="button" 
-                            title="Eliminar plantilla"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteTemplate(tpl.id);
-                            }}
-                          >
-                            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="empty-row" style={{ gridColumn: '1 / -1', width: '100%' }}>
-                    No hay plantillas disponibles.
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShowTemplatesModal(false)} type="button">Cerrar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: EDITOR DE PLANTILLA */}
-      {showTemplateEditorModal && (
-        <div className="modal-overlay open" id="modal-plantilla-editor">
-          <div className="modal-box modal-box-editor">
-            <div className="modal-header">
-              <div>
-                <h2 className="modal-title">{editingTemplate ? 'Editar plantilla' : 'Nueva plantilla'}</h2>
-                <p className="modal-subtitle">Guarda un texto reutilizable para tus envíos por ruta.</p>
-              </div>
-              <button className="modal-close" onClick={() => { setShowTemplateEditorModal(false); setShowTemplatesModal(true); }} type="button" aria-label="Cerrar">
-                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <form onSubmit={handleSaveTemplate} className="template-editor-form">
-              <div className="modal-body">
-                <div className="field">
-                  <label htmlFor="plantilla-modal-nombre">Nombre de plantilla</label>
-                  <input 
-                    type="text" 
-                    id="plantilla-modal-nombre"
-                    placeholder="Ej. Plantilla Satipo" 
-                    value={templateFormName} 
-                    onChange={(e) => setTemplateFormName(e.target.value)} 
-                    required 
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="plantilla-modal-cuerpo">Mensaje</label>
-                  <textarea 
-                    id="plantilla-modal-cuerpo"
-                    placeholder="Hola {nombre}, su paquete llegó a MyG Express." 
-                    value={templateFormBody} 
-                    onChange={(e) => setTemplateFormBody(e.target.value)} 
-                    required
-                  ></textarea>
-                  <div className="template-editor-hint">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                    <div>
-                      <strong>Variables dinámicas:</strong> puedes usar <code>{`{nombre}`}</code>, <code>{`{codigo_paquete}`}</code> y <code>{`{telefono}`}</code> para personalizar el mensaje.
-                    </div>
-                  </div>
-                </div>
-                <div className="field">
-                  <label>Imagen adjunta (opcional)</label>
-                  {!templateFormImageName ? (
-                    <div className="template-image-picker">
-                      <label className="upload-zone" htmlFor="plantilla-modal-imagen" style={{ cursor: 'pointer' }}>
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        <span className="upload-placeholder">Subir imagen</span>
-                      </label>
-                      <input 
-                        type="file" 
-                        id="plantilla-modal-imagen" 
-                        accept="image/*" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setTemplateFormImage(file);
-                            setTemplateFormImageName(file.name);
-                            setTemplateImageBorrar(false);
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setTemplateFormImageBase64(reader.result as string);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                        hidden 
-                      />
-                    </div>
-                  ) : (
-                    <div className="file-card">
-                      <div className="file-card-thumb">
-                        {templateFormImage ? (
-                          <img src={URL.createObjectURL(templateFormImage)} alt="Preview" />
-                        ) : editingTemplate?.adjunto_url ? (
-                          <img src={resolveTemplateImageUrl(editingTemplate.adjunto_url)} alt="Current" />
-                        ) : null}
-                      </div>
-                      <div className="file-card-body">
-                        <div className="file-card-name">{templateFormImageName}</div>
-                        <div className="file-card-meta">
-                          <span>{templateFormImage ? `${Math.round(templateFormImage.size / 1024)} KB` : 'Imagen de plantilla'}</span>
-                          <span className="file-card-sep">·</span>
-                          <span>Listo</span>
-                        </div>
-                      </div>
-                      <button 
-                        className="file-card-remove" 
-                        type="button" 
-                        title="Quitar imagen"
-                        onClick={() => {
-                          setTemplateFormImage(null);
-                          setTemplateFormImageName('');
-                          setTemplateFormImageBase64(null);
-                          setTemplateImageBorrar(true);
-                        }}
-                      >
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    </div>
-                  )}
-                  <p className="helper-text compact-helper" style={{ marginTop: '8px' }}>JPG, PNG — max. 5 MB. Se guarda con la plantilla.</p>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button className="btn-secondary" type="button" onClick={() => { setShowTemplateEditorModal(false); setShowTemplatesModal(true); }}>Atrás</button>
-                <button className="btn-primary" type="submit">Guardar</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: CONFIRMAR ENVÍO MASIVO */}
-      {showConfirmSendModal && (
-        <div className="modal-overlay open" id="modal-confirmar-envio">
-          <div className="modal-box">
-            <div className="modal-header">
-              <div>
-                <h2 className="modal-title">Confirmar envío de la ruta</h2>
-                <p className="modal-subtitle">Revisa el resumen antes de iniciar el envío por WhatsApp.</p>
-              </div>
-              <button className="modal-close" onClick={() => setShowConfirmSendModal(false)}>
-                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="send-confirm-summary">
-                <div className="send-confirm-row"><span>Mensajes pendientes</span><strong>{stats.pendientes}</strong></div>
-                <div className="send-confirm-row"><span>Sesión seleccionada</span><strong>{activeSession ? activeSession.nombre : '-'}</strong></div>
-                <div className="send-confirm-row"><span>Plantilla activa</span><strong>{activeTemplate ? activeTemplate.nombre : '-'}</strong></div>
-                <div className="send-confirm-row"><span>Imagen adjunta</span><strong>{activeTemplate?.adjunto_url ? 'Según plantilla' : 'No contiene'}</strong></div>
-              </div>
-              <div className="send-confirm-note">
-                El sistema encolará solo los destinatarios que sigan pendientes. Luego el worker de WhatsApp los procesará y actualizará dentro de la ruta.
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShowConfirmSendModal(false)}>Cancelar</button>
-              <button className="btn-primary btn-confirm-send" onClick={handleStartSending}>Iniciar envío</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* MODAL: CONTROL DE ENVÍO */}
-      {showControlModal && queueControl && (
-        <div className="envio-control-modal is-open" id="envio-control-modal" role="dialog" aria-modal="true" aria-labelledby="envio-control-title">
-          <div className="envio-control-dialog">
-            <button type="button" className="envio-control-close" aria-label="Cerrar panel" onClick={() => setShowControlModal(false)}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-            </button>
-            <div className="envio-control-head">
-              <span className={`envio-control-icon ${queueControl.isProcessing ? 'is-processing' : 'is-paused'}`} aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M12 8v5"></path><path d="M12 16h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg>
-              </span>
-              <div>
-                <p className="envio-control-kicker">{queueControl.isProcessing ? 'Envío activo' : 'Decisión requerida'}</p>
-                <h2 id="envio-control-title">{queueControl.isProcessing ? 'Control de envío' : 'Ruta pausada'}</h2>
-                <p>
-                  {queueControl.isProcessing
-                    ? 'La ruta está enviando mensajes. Si detectas un problema, puedes pausar el envío y retomarlo después.'
-                    : 'Esta ruta requiere una decisión antes de continuar. No se reenviará nada automáticamente.'}
-                </p>
-              </div>
-            </div>
-            <div className="envio-control-note">
-              {queueControl.lastError || (queueControl.isProcessing
-                ? 'El envío está activo. Puedes pausarlo si necesitas detener los pendientes sin perderlos.'
-                : 'La ruta quedó pausada para evitar reenvíos automáticos. Decide cómo continuar con los mensajes pendientes.')}
-            </div>
-            <div className="envio-control-stats">
-              {queueControl.isProcessing ? (
-                <>
-                  <span><strong>{Number(queueControl.queuedCount || queueControl.processingJobs || 0)}</strong> en cola</span>
-                  <span><strong>{stats.pendientes}</strong> pendientes en tabla</span>
-                  <span><strong>{activeSession?.estado_real === 'connected' ? 'Lista' : 'Sin conexión'}</strong> sesión</span>
-                </>
-              ) : (
-                <>
-                  <span><strong>{Number(queueControl.pausedJobs || 0)}</strong> en pausa</span>
-                  <span><strong>{stats.pendientes}</strong> pendientes en tabla</span>
-                  <span><strong>{activeSession?.estado_real === 'connected' ? 'Lista' : 'Pendiente'}</strong> sesión</span>
-                </>
-              )}
-            </div>
-            <div className="envio-control-actions">
-              {queueControl.isProcessing ? (
-                <>
-                  <button 
-                    type="button" 
-                    className="btn-primary" 
-                    onClick={async () => {
-                      await handleQueueControl('pausar');
-                      setShowControlModal(false);
-                    }}
-                    disabled={sendingAction}
-                  >
-                    Pausar envío
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn-soft btn-danger-soft" 
-                    onClick={async () => {
-                      await handleQueueControl('cancelar');
-                      setShowControlModal(false);
-                    }}
-                    disabled={sendingAction}
-                  >
-                    Cancelar pendientes
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button 
-                    type="button" 
-                    className="btn-primary" 
-                    onClick={async () => {
-                      await handleQueueControl('reanudar');
-                      setShowControlModal(false);
-                    }}
-                    disabled={sendingAction || activeSession?.estado_real !== 'connected'}
-                  >
-                    Retomar envío
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn-soft" 
-                    onClick={async () => {
-                      await handleQueueControl('manual');
-                      setShowControlModal(false);
-                    }}
-                    disabled={sendingAction}
-                  >
-                    Registrar cierre manual
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn-soft btn-danger-soft" 
-                    onClick={async () => {
-                      await handleQueueControl('cancelar');
-                      setShowControlModal(false);
-                    }}
-                    disabled={sendingAction}
-                  >
-                    Cancelar pendientes
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

@@ -1,0 +1,15 @@
+.dropzone { position: relative; display: grid; place-items: center; gap: 8px; min-height: 230px; padding: var(--space-6); border: 1.5px dashed var(--border-strong); border-radius: var(--radius-md); background: var(--surface-subtle); text-align: center; transition: border-color var(--transition-fast), background var(--transition-fast); }
+.dropzone:hover { border-color: var(--color-brand-400); background: var(--color-brand-50); }
+.dropzone input { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; opacity: 0; }
+.icon { color: var(--color-brand-600); }
+.title { color: var(--text-primary); font-weight: 800; }
+.subtitle, .file { color: var(--text-secondary); font-size: var(--font-size-sm); }
+.file { max-width: 100%; overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.chips span { padding: 3px 8px; border-radius: 999px; background: var(--color-neutral-0); color: var(--text-secondary); font-size: var(--font-size-xs); font-weight: 700; }
+.status { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: var(--space-3); padding: 10px; border-radius: var(--radius-sm); font-size: var(--font-size-sm); font-weight: 700; }
+.loading { background: var(--color-info-soft); color: var(--color-info); }
+.success { background: var(--color-success-soft); color: var(--color-success); }
+.error { background: var(--color-danger-soft); color: var(--color-danger); }
+.spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

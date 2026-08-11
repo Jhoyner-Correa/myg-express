@@ -3,7 +3,8 @@
 // Contenedor principal con el Sidebar y maquetación original
 // ============================================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Menu, X } from 'lucide-react';
 import '../css/sidebar.css';
 import { useAuth } from '../core/auth/authState';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
@@ -17,6 +18,11 @@ export const Layout: React.FC = () => {
 
   // Estado para expandir/colapsar el menú de "WhatsApp Masivo"
   const [massSendOpen, setMassSendOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const getRoleLabel = () => {
     if (!user) return 'OPERADOR DEL SISTEMA';
@@ -63,8 +69,30 @@ export const Layout: React.FC = () => {
 
   return (
     <div className="app-wrapper">
+      <button
+        className={`mobile-menu-button ${mobileMenuOpen ? 'active' : ''}`}
+        type="button"
+        aria-label={mobileMenuOpen ? 'Cerrar menú principal' : 'Abrir menú principal'}
+        aria-expanded={mobileMenuOpen}
+        aria-controls="app-sidebar"
+        onClick={() => setMobileMenuOpen((open) => !open)}
+      >
+        {mobileMenuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+      </button>
+      <button
+        className={`sidebar-overlay ${mobileMenuOpen ? 'active' : ''}`}
+        type="button"
+        aria-label="Cerrar menú principal"
+        tabIndex={mobileMenuOpen ? 0 : -1}
+        onClick={() => setMobileMenuOpen(false)}
+      />
       {/* SIDEBAR ORIGINAL */}
-      <aside className="sidebar" id="app-sidebar" data-collapsed="false" data-sidebar-ready="true">
+      <aside
+        className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}
+        id="app-sidebar"
+        data-collapsed="false"
+        data-sidebar-ready="true"
+      >
         <div className="sidebar__scroll">
           <div className="sidebar__header">
             <a 
