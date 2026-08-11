@@ -1,6 +1,6 @@
 import { Job, Worker } from 'bullmq';
-import { redisConnection } from '../config/redis.config';
-import { pool } from '../config/database';
+import { redisConnection } from '../core/config/redis.config';
+import { pool } from '../core/database/database';
 import { QUEUE_NAME, waQueue, WhatsappJobData } from '../queues/whatsapp.queue';
 import whatsappService from '../services/whatsapp/whatsappService';
 import whatsappMediaStorage from '../services/whatsapp/media/whatsappMediaStorage';
@@ -242,7 +242,11 @@ async function guardarLogEnvio(params: {
     await pool.query(
       `INSERT INTO mensajes_log
        (sede_id, lote_id, aviso_id, whatsapp_sesion_id, telefono, nombre_destinatario, estado_envio, whatsapp_message_id, error_detalle, fecha_envio)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE
+         whatsapp_message_id = VALUES(whatsapp_message_id),
+         error_detalle = VALUES(error_detalle),
+         fecha_envio = VALUES(fecha_envio)`,
       [
         params.sedeId,
         lotes.length ? params.loteId : null,
@@ -293,7 +297,8 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       }
 
       const [avisos]: any = await pool.query(
-        `SELECT nombre, telefono, codigo_paquete, id_plantilla, mensaje_personalizado
+        `SELECT nombre, telefono, codigo_paquete, id_plantilla, mensaje_personalizado,
+                estado_aviso, id_trabajo_cola
          FROM avisos_diarios
          WHERE id = ? AND lote_id = ? AND sede_id = ?
          LIMIT 1`,
@@ -305,6 +310,21 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       }
 
       const aviso = avisos[0];
+      if (aviso.estado_aviso !== 'en_cola' || String(aviso.id_trabajo_cola) !== String(job.id)) {
+        console.warn(`[BullMQ] Job ${job.id} omitido: ya no es propietario del aviso ${avisoId}.`);
+        return { success: false, skipped: true, estado: aviso.estado_aviso };
+      }
+
+      const [claimResult]: any = await pool.query(
+        `UPDATE avisos_diarios
+         SET intentos = COALESCE(intentos, 0) + 1
+         WHERE id = ? AND lote_id = ? AND sede_id = ?
+           AND estado_aviso = 'en_cola' AND id_trabajo_cola = ?`,
+        [avisoId, loteId, sedeId, job.id]
+      );
+      if (claimResult.affectedRows === 0) {
+        return { success: false, skipped: true, estado: 'dispatch_replaced' };
+      }
       const actualNombre = aviso.nombre ?? nombre;
       const actualTelefono = aviso.telefono ?? telefono;
       const actualCodigo = aviso.codigo_paquete ?? codigo;
@@ -349,23 +369,6 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
       await waitForSessionPace(sessionKey, avisoId);
       await waitForAdaptiveSafety(Number(sesionId), avisoId);
-
-      const [updateResult]: any = await pool.query(
-        `UPDATE avisos_diarios
-         SET estado_aviso = 'en_cola',
-             intentos = COALESCE(intentos, 0) + 1,
-             id_trabajo_cola = ?
-         WHERE id = ?
-           AND estado_aviso IN ('pendiente', 'fallido')`,
-        [job.id, avisoId]
-      );
-
-      if (updateResult.affectedRows === 0) {
-        const [rows]: any = await pool.query('SELECT estado_aviso FROM avisos_diarios WHERE id = ?', [avisoId]);
-        const estado = rows[0]?.estado_aviso || 'no_existe';
-        console.warn(`[BullMQ] Aviso ${avisoId} omitido antes del envio. Estado actual: ${estado}.`);
-        return { success: false, skipped: true, estado };
-      }
 
       let result: any;
       try {
@@ -421,15 +424,16 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       const esUltimoIntento = job.attemptsMade >= (job.opts?.attempts ?? 1) - 1;
       const estadoFinal = esUltimoIntento
         ? (esSinWhatsapp ? 'sin_whatsapp' : 'fallido')
-        : 'pendiente';
+        : 'en_cola';
 
       console.error(`[BullMQ] Fallo en aviso ${avisoId} (intento ${job.attemptsMade + 1}): ${errorMessage}`);
 
       await pool.query(
         `UPDATE avisos_diarios
-         SET estado_aviso = ?, error_detalle = ?
-         WHERE id = ?`,
-        [estadoFinal, errorMessage, avisoId]
+         SET estado_aviso = ?, error_detalle = ?,
+             id_trabajo_cola = CASE WHEN ? THEN NULL ELSE id_trabajo_cola END
+         WHERE id = ? AND id_trabajo_cola = ?`,
+        [estadoFinal, errorMessage, esUltimoIntento ? 1 : 0, avisoId, job.id]
       );
 
       if (esUltimoIntento) {

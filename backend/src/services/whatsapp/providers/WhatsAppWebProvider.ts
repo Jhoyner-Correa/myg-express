@@ -1,7 +1,7 @@
 import { Client, LocalAuth, MessageMedia } from 'whatsapp-web.js';
 import { readdir, readFile, rm } from 'fs/promises';
 import path from 'path';
-import { pool } from '../../../config/database';
+import { pool } from '../../../core/database/database';
 import { IWhatsAppProvider, WhatsAppProviderInstance } from './IWhatsAppProvider';
 import sessionManager from '../session/sessionManager';
 import qrManager from '../session/qrManager';

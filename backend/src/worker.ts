@@ -1,13 +1,13 @@
 import dotenv from 'dotenv';
 import { NextFunction, Request, Response } from 'express';
 
-import { pool } from './config/database';
-import { PERMISSIONS } from './constants/permissions';
-import { verificarToken } from './middlewares/authMiddleware';
-import { requirePermission } from './middlewares/permissionMiddleware';
-import whatsappRoutes from './routes/whatsappRoutes';
-import whatsappSesionesRoutes from './routes/whatsappSesionesRoutes';
-import { createHttpApp } from './server/createHttpApp';
+import { pool } from './core/database/database';
+import { PERMISSIONS } from './core/constants/permissions';
+import { verificarToken } from './core/middlewares/authMiddleware';
+import { requirePermission } from './core/middlewares/permissionMiddleware';
+import whatsappRoutes from './modules/logistica/routes/whatsappRoutes';
+import whatsappSesionesRoutes from './modules/logistica/routes/whatsappSesionesRoutes';
+import { createHttpApp } from './core/server/createHttpApp';
 import databaseCleanupService from './services/maintenance/databaseCleanupService';
 import whatsappService from './services/whatsapp/whatsappService';
 import { waQueue } from './queues/whatsapp.queue';

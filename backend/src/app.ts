@@ -4,21 +4,23 @@ import fs from 'fs';
 import { NextFunction, Request, Response } from 'express';
 import express from 'express';
 
-import adminRoutes from './routes/adminRoutes';
-import authRoutes from './routes/authRoutes';
-import avisosRoutes from './routes/avisosRoutes';
-import entregasRoutes from './routes/entregasRoutes';
-import lotesRoutes from './routes/lotesRoutes';
-import plantillasRoutes from './routes/plantillasRoutes';
-import produccionRoutes from './routes/produccionRoutes';
-import whatsappRoutes from './routes/whatsappRoutes';
-import whatsappSesionesRoutes from './routes/whatsappSesionesRoutes';
-import zonasRoutes from './routes/zonasRoutes';
-import savarScanRoutes from './routes/savarScanRoutes';
-import { createHttpApp } from './server/createHttpApp';
-import { verificarToken } from './middlewares/authMiddleware';
-import { PERMISSIONS } from './constants/permissions';
-import { requirePermission } from './middlewares/permissionMiddleware';
+import adminRoutes from './modules/administrativo/routes/adminRoutes';
+import authRoutes from './modules/auth/auth.routes';
+import avisosRoutes from './modules/logistica/routes/avisosRoutes';
+import entregasRoutes from './modules/logistica/routes/entregasRoutes';
+import lotesRoutes from './modules/logistica/routes/lotesRoutes';
+import plantillasRoutes from './modules/logistica/routes/plantillasRoutes';
+import produccionRoutes from './modules/logistica/routes/produccionRoutes';
+import whatsappRoutes from './modules/logistica/routes/whatsappRoutes';
+import whatsappSesionesRoutes from './modules/logistica/routes/whatsappSesionesRoutes';
+import zonasRoutes from './modules/logistica/routes/zonasRoutes';
+import savarScanRoutes from './modules/logistica/routes/savarScanRoutes';
+import rrhhRoutes from './modules/rrhh/rrhh.routes';
+import gpsRoutes from './modules/gps/gps.routes';
+import { createHttpApp } from './core/server/createHttpApp';
+import { verificarToken } from './core/middlewares/authMiddleware';
+import { PERMISSIONS } from './core/constants/permissions';
+import { requirePermission } from './core/middlewares/permissionMiddleware';
 
 // BullMQ
 import { createBullBoard } from '@bull-board/api';
@@ -31,34 +33,7 @@ dotenv.config();
 const app = createHttpApp();
 const PORT = Number(process.env.PORT || 3000);
 const HOST = '0.0.0.0';
-const frontendDir = path.resolve(__dirname, '../../frontend');
-
-const earlyRouteGuardScript = `<script src="/js/route-guard.js"></script>`;
-
-function sendFrontendFile(fileName: string) {
-  return (_req: Request, res: Response) => {
-    const filePath = path.join(frontendDir, fileName);
-    fs.readFile(filePath, 'utf8', (err, html) => {
-      if (err) {
-        return res.status(500).send('Error loading page');
-      }
-
-      const sidebarPath = path.join(frontendDir, 'components/sidebar.html');
-      fs.readFile(sidebarPath, 'utf8', (errSidebar, sidebarHtml) => {
-        if (errSidebar) {
-          return res.send(html);
-        }
-        
-        // Inject sidebar and an early guard to prevent route/sidebar flashes during refresh.
-        const guardedHtml = html.includes('</head>')
-          ? html.replace('</head>', `${earlyRouteGuardScript}\n</head>`)
-          : html;
-        const combinedHtml = guardedHtml.replace('<div id="sidebar-container"></div>', '<div id="sidebar-container">' + sidebarHtml + '</div>');
-        res.send(combinedHtml);
-      });
-    });
-  };
-}
+const frontendDir = path.resolve(__dirname, '../../frontend-react/dist');
 
 // Configurar Bull Board
 const serverAdapter = new ExpressAdapter();
@@ -82,6 +57,8 @@ app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/whatsapp-sesiones', whatsappSesionesRoutes);
 app.use('/api/zonas', zonasRoutes);
 app.use('/api/savar-scan', savarScanRoutes);
+app.use('/api/rrhh', rrhhRoutes);
+app.use('/api/gps', gpsRoutes);
 
 app.get('/api', (_req, res) => {
   res.json({
@@ -102,34 +79,8 @@ app.get('/api/health', (_req, res) => {
 app.use('/storage', express.static(path.resolve(process.cwd(), 'storage')));
 app.use(express.static(frontendDir));
 
-app.get('/', (_req, res) => {
-  res.redirect('/login');
-});
-
-app.get('/login', sendFrontendFile('login.html'));
-app.get('/dashboard', (_req, res) => {
-  res.redirect('/panel-de-control');
-});
-app.get('/panel-de-control', sendFrontendFile('dashboard.html'));
-app.get('/panel de control', (_req, res) => {
-  res.redirect('/panel-de-control');
-});
-app.get('/admin', sendFrontendFile('admin.html'));
-app.get('/whatsapp', sendFrontendFile('whatsapp.html'));
-app.get('/gestion-entregas', sendFrontendFile('gestion-entregas.html'));
-app.get('/savar-scan', sendFrontendFile('savar-scan.html'));
-app.get('/consulta-rutas', sendFrontendFile('consulta-rutas.html'));
-app.get('/etiquetas', sendFrontendFile('etiquetas.html'));
-app.get('/rutas', sendFrontendFile('rutas.html'));
-app.get('/rutas/:ref', sendFrontendFile('rutas-detalle.html'));
-app.get('/produccion', (_req, res) => {
-  res.redirect('/consulta-rutas');
-});
-app.get('/lotes', (_req, res) => {
-  res.redirect('/rutas');
-});
-app.get('/lotes/:ref', (req, res) => {
-  res.redirect(`/rutas/${encodeURIComponent(req.params.ref)}`);
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(frontendDir, 'index.html'));
 });
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

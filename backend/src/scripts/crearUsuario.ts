@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import { pool } from '../config/database';
+import { pool } from '../core/database/database';
 
 function getRequiredEnv(name: string): string {
   const value = String(process.env[name] || '').trim();

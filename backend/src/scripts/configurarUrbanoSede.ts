@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { RowDataPacket } from 'mysql2';
 
-import { pool } from '../config/database';
+import { pool } from '../core/database/database';
 import { encryptUrbanoPassword } from '../services/urbanoCredentialsService';
 
 type SedeRow = RowDataPacket & {

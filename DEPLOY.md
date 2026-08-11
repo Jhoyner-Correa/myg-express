@@ -19,6 +19,8 @@ Copia `backend/.env.example` a `backend/.env` y configura:
 ```env
 PORT=3000
 WHATSAPP_WORKER_PORT=3001
+APP_TIME_ZONE=America/Lima
+DB_TIMEZONE=-05:00
 
 DB_HOST=127.0.0.1
 DB_PORT=3306
@@ -37,11 +39,15 @@ EVOLUTION_API_APIKEY=tu_clave_api_global_de_evolution
 EVOLUTION_API_WEBHOOK_URL=http://host.docker.internal:3000/api/whatsapp/webhook
 ```
 
+`APP_TIME_ZONE` define el calendario empresarial y `DB_TIMEZONE` fija cada sesion MySQL/MariaDB. Mantener ambos valores evita diferencias de cinco horas entre `DATETIME`, `TIMESTAMP`, asistencia y reportes diarios. En PM2 y Docker tambien se configura `TZ=America/Lima`.
+
 Si ejecutas API y worker dentro de Docker pero MariaDB esta en Windows/XAMPP o en el host, usa:
 
 ```env
 DB_HOST=host.docker.internal
 ```
+
+Compose usa por defecto `DOCKER_DB_HOST=host.docker.internal` y `DOCKER_EVOLUTION_API_URL=http://host.docker.internal:8080`; puedes sobrescribirlos si MariaDB o Evolution viven en otra maquina.
 
 ## Desarrollo local recomendado
 
@@ -72,8 +78,12 @@ La API queda en `http://localhost:3000` y el worker en `http://localhost:3001`.
 Configura `backend/.env` con credenciales reales y luego:
 
 ```bash
+cd /var/www/myg-express
+cd backend && npm ci && npm run db:preflight && cd ..
 docker compose up -d --build
 ```
+
+La imagen usa construccion multi-stage: compila React/Vite, compila TypeScript y copia solamente los artefactos y dependencias de produccion a la imagen final.
 
 Ver estado:
 
@@ -102,13 +112,26 @@ docker run -d --name myg-redis \
   redis:7-alpine redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
 ```
 
-Compila backend:
+Compila frontend y backend:
 
 ```bash
+cd /var/www/myg-express/frontend-react
+npm ci
+npm run build
+
 cd /var/www/myg-express/backend
 npm ci
 npm run build
+npm run db:preflight
 ```
+
+Antes del primer despliegue de esta version, y siempre despues de un backup verificado, aplica una sola vez la migracion idempotente de integridad:
+
+```bash
+npm run db:migrate:integrity
+```
+
+El comando ejecuta primero el preflight y se detiene si encuentra datos huerfanos o duplicados.
 
 Arranca API y worker separados:
 
@@ -154,6 +177,8 @@ server {
 - `WHATSAPP_WORKER_CONCURRENCY=1` para respetar orden y reducir bloqueos.
 - `EVOLUTION_API_WEBHOOK_URL` apuntando a la URL publica correcta de tu API.
 - Backups de MariaDB activos.
+- `npm run db:preflight` sin hallazgos antes de migrar.
+- Frontend y backend compilando sin errores.
 - Redis no expuesto publicamente a internet.
 
 ## HTTPS

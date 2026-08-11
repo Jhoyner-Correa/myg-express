@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { businessDate } from '../../../core/utils/time';
 
 /**
  * PersistedMedia
@@ -131,7 +132,7 @@ class WhatsAppMediaStorage {
     const ext          = parsedName.ext || this.extensionFromMimeType(mimeType);
     const finalFilename = `${parsedName.name || 'archivo'}${ext}`;
 
-    const bucket    = subfolder || new Date().toISOString().slice(0, 10);
+    const bucket    = subfolder || businessDate();
     const directory = path.join(this.baseDir, bucket);
     const absPath   = path.join(directory, `${randomUUID()}-${finalFilename}`);
 

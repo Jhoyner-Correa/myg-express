@@ -32,6 +32,11 @@ services:
       - backend/.env
     environment:
       NODE_ENV: production
+      TZ: America/Lima
+      APP_TIME_ZONE: America/Lima
+      DB_TIMEZONE: "-05:00"
+      DB_HOST: ${DOCKER_DB_HOST:-host.docker.internal}
+      EVOLUTION_API_URL: ${DOCKER_EVOLUTION_API_URL:-http://host.docker.internal:8080}
       REDIS_HOST: redis-myg
       REDIS_PORT: 6379
       REDIS_CONNECTION_NAME: myg-express-api
@@ -44,6 +49,12 @@ services:
     depends_on:
       redis-myg:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   worker-whatsapp:
     build:
@@ -56,6 +67,11 @@ services:
       - backend/.env
     environment:
       NODE_ENV: production
+      TZ: America/Lima
+      APP_TIME_ZONE: America/Lima
+      DB_TIMEZONE: "-05:00"
+      DB_HOST: ${DOCKER_DB_HOST:-host.docker.internal}
+      EVOLUTION_API_URL: ${DOCKER_EVOLUTION_API_URL:-http://host.docker.internal:8080}
       REDIS_HOST: redis-myg
       REDIS_PORT: 6379
       REDIS_CONNECTION_NAME: myg-express-worker
@@ -70,7 +86,13 @@ services:
       redis-myg:
         condition: service_healthy
       api:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
 volumes:
   redis-myg-data:

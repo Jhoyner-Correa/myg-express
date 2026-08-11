@@ -1,4 +1,4 @@
-import { pool } from '../../config/database';
+import { pool } from '../../core/database/database';
 import { readdir, rm, stat } from 'fs/promises';
 import path from 'path';
 import whatsappMediaStorage from '../whatsapp/media/whatsappMediaStorage';

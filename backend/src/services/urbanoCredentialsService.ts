@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { RowDataPacket } from 'mysql2';
 
-import { pool } from '../config/database';
+import { pool } from '../core/database/database';
 
 export type UrbanoCredentials = {
   source: 'database';

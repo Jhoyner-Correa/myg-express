@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq';
-import { redisConnection } from '../config/redis.config';
+import { redisConnection } from '../core/config/redis.config';
 
 export interface WhatsappJobData {
   avisoId: number;
@@ -12,6 +12,17 @@ export interface WhatsappJobData {
   plantillaId: number;
   orden: number;
 }
+
+type DispatchableAviso = {
+  id: number;
+  lote_id?: number;
+  sede_id: number;
+  telefono: string;
+  nombre: string | null;
+  codigo_paquete: string | null;
+  id_plantilla: number;
+  id_trabajo_cola: string;
+};
 
 export const QUEUE_NAME = 'whatsapp-mensajes';
 
@@ -54,11 +65,9 @@ function calculateSafeDelay(index: number): number {
  */
 export async function encolarLote(
   loteId: number,
-  avisos: any[],
+  avisos: DispatchableAviso[],
   sesionId: number
 ) {
-  const dispatchId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
   const jobs = avisos.map((aviso, index) => ({
     name: 'enviar-mensaje',
     data: {
@@ -74,7 +83,7 @@ export async function encolarLote(
     },
     opts: {
       delay: calculateSafeDelay(index),
-      jobId: `lote-${loteId}-aviso-${aviso.id}-${dispatchId}`
+      jobId: aviso.id_trabajo_cola
     }
   }));
 

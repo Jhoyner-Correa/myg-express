@@ -1,4 +1,4 @@
-import { pool } from '../config/database';
+import { pool } from '../core/database/database';
 
 async function crearPaquetesTables() {
   try {

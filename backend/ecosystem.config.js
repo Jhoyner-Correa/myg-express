@@ -12,6 +12,9 @@ module.exports = {
       max_memory_restart: '350M',
       env: {
         NODE_ENV: 'production',
+        TZ: 'America/Lima',
+        APP_TIME_ZONE: 'America/Lima',
+        DB_TIMEZONE: '-05:00',
         PORT: 3000
       }
     },
@@ -25,6 +28,9 @@ module.exports = {
       max_memory_restart: '1400M',
       env: {
         NODE_ENV: 'production',
+        TZ: 'America/Lima',
+        APP_TIME_ZONE: 'America/Lima',
+        DB_TIMEZONE: '-05:00',
         WHATSAPP_WORKER_PORT: 3001
       }
     }

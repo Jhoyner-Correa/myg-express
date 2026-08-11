@@ -53,7 +53,7 @@ git push origin main
 
 -- SI SOLO QUIERES SUBIR ARCHIVOS quieres subir  específico ----
 
-git add frontend/js/archivo.js
+git add frontend-react/src/archivo.tsx
 git commit -m "Corregir archivo especifico"
 git push origin main
 
