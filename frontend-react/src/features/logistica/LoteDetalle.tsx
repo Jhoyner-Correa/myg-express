@@ -14,6 +14,7 @@ import { routeDetailService } from './route-detail/route-detail.service';
 import { RecipientsTable } from './route-detail/components/RecipientsTable';
 import { RouteDetailStats } from './route-detail/components/RouteDetailStats';
 import { RouteDetailHeader } from './route-detail/components/RouteDetailHeader';
+import { MessageComposer } from './route-detail/components/MessageComposer';
 import {
   calculateRouteStats,
   formatDateTime,
@@ -587,164 +588,22 @@ export const LoteDetalle: React.FC = () => {
               onExport={handleExportAvisos}
             />
           </div>
-
-          {/* LADO LATERAL: COMPOSITOR */}
-          <aside className="workspace-side">
-            <article className="composer-panel">
-              <div className="composer-panel-header">
-                <h2 className="composer-panel-title">Compositor de envío</h2>
-                <p className="composer-panel-sub">Redacta y revisa el mensaje antes de enviarlo.</p>
-              </div>
-              <div className="composer-panel-body">
-                
-                {/* Selector de Sesiones */}
-                <div className="composer-session-card" id="session-field" style={{ position: 'relative' }}>
-                  <div className="session-card-left" style={{ width: '100%' }}>
-                    <svg className="session-card-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                    <div className="session-card-body" style={{ flex: 1, minWidth: 0 }}>
-                      <span className="session-card-label">Sesión</span>
-                      <div className="session-card-value" style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
-                        <span className={`session-indicator ${activeSession ? (activeSession.estado_real === 'connected' ? 'is-active' : activeSession.estado_real === 'auth_failure' ? 'is-error' : 'is-inactive') : ''}`}></span>
-                        <span id="session-info-text" style={{ fontSize: '13px', fontWeight: 500, color: '#334155' }}>
-                          {activeSession 
-                            ? `${activeSession.nombre_dispositivo || activeSession.nombre}${activeSession.numero_whatsapp ? ' · ' + activeSession.numero_whatsapp : ''}`
-                            : 'Sin sesión disponible'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Selector de Plantillas */}
-                <div className="template-block">
-                  <div className="template-row">
-                    <span className="template-label">PLANTILLA</span>
-                    <div className="template-chip">
-                      <svg className="template-chip-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                      </svg>
-                      <span className="template-chip-name" style={{ cursor: 'pointer' }} onClick={() => setShowTemplatesModal(true)}>
-                        {activeTemplate ? activeTemplate.nombre : 'Seleccionar plantilla'}
-                      </span>
-                    </div>
-                    <button className="btn-ver-plantillas" onClick={() => setShowTemplatesModal(true)} type="button">
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                        <polyline points="10 9 9 9 8 9"/>
-                      </svg>
-                      Ver plantillas
-                    </button>
-                  </div>
-                </div>
-
-                {/* Vista Previa de WhatsApp (Mockup Teléfono iOS) */}
-                <div className="preview-section-label">Vista previa</div>
-                <div className="composer-body">
-                  <div className="preview-block">
-                    <div className="phone-stage">
-                      <div className="phone-frame">
-                        <div className="phone-screen">
-                          <div className="phone-notch"></div>
-                          <div className="phone-statusbar">
-                            <span className="sb-time">{mockTime}</span>
-                            <div className="sb-icons" aria-hidden="true">
-                              <svg viewBox="0 0 16 12"><rect x="0" y="8" width="3" height="4" rx=".5"/><rect x="4.5" y="5" width="3" height="7" rx=".5"/><rect x="9" y="2" width="3" height="10" rx=".5"/><rect x="13.5" y="0" width="2.5" height="12" rx=".5" opacity=".3"/></svg>
-                              <svg viewBox="0 0 16 12"><path d="M8 10a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0-3.5C9.8 6.5 11.4 7.2 12.6 8.4l1.4-1.4C12.4 5.4 10.3 4.5 8 4.5s-4.4.9-6 2.5L3.4 8.4C4.6 7.2 6.2 6.5 8 6.5zm0-3.5c2.8 0 5.3 1.1 7.1 3L16.5 4C14.3 1.8 11.3.5 8 .5S1.7 1.8-.5 4L1 5.5C2.7 3.6 5.2 2.5 8 2.5z" fillRule="evenodd"/></svg>
-                              <svg viewBox="0 0 22 12"><rect x="0" y="1" width="18" height="10" rx="2" stroke="rgba(255,255,255,.7)" strokeWidth="1" fill="none"/><rect x="1.5" y="2.5" width="13" height="7" rx="1.2" fill="rgba(255,255,255,.9)"/><path d="M19.5 4v4a2 2 0 000-4z" fill="rgba(255,255,255,.6)"/></svg>
-                            </div>
-                          </div>
-                          <div className="wa-header">
-                            <div className="wa-back" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
-                            <div className="wa-avatar">MG</div>
-                            <div className="wa-info">
-                              <div className="wa-name" id="wa-contact-name">{sampleContact.nombre}</div>
-                              <div className="wa-online" id="wa-contact-status">
-                                {selectedSessionId ? 'En sesión elegida' : 'Sin sesión seleccionada'}
-                              </div>
-                            </div>
-                            <div className="wa-actions" aria-hidden="true">
-                              <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.55 10.74 19.79 19.79 0 0 1 .48 2.07 2 2 0 0 1 2.48 0h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L6.91 7.91a16 16 0 0 0 6.72 6.72l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.92 16z"/></svg>
-                              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
-                            </div>
-                          </div>
-                          <div className="wa-body">
-                            <div className="wa-date-chip">HOY</div>
-                            {messagePreview ? (
-                              <div className="wa-bubble" id="wa-bubble">
-                                {activeTemplate?.adjunto_url && (
-                                  previewImageError ? (
-                                    <div className="wa-image-missing">Imagen no disponible</div>
-                                  ) : (
-                                    <img 
-                                      src={resolveTemplateImageUrl(activeTemplate.adjunto_url)} 
-                                      className="wa-bubble-img" 
-                                      alt="Imagen de plantilla" 
-                                      loading="lazy"
-                                      onError={() => setPreviewImageError(true)}
-                                    />
-                                  )
-                                )}
-                                <div id="wa-bubble-text">
-                                  {formatPreviewMessage(messagePreview)}
-                                </div>
-                                <div className="wa-btime">
-                                  <span id="wa-btime-val">{mockTime}</span>
-                                  <svg viewBox="0 0 24 24" style={{ width: '12px', height: '12px', marginLeft: '3px', verticalAlign: 'middle' }}><polyline points="1 12 5 16 11 9"/><polyline points="9 12 13 16 19 9"/></svg>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="preview-empty-lbl">Selecciona una plantilla</div>
-                            )}
-                          </div>
-                          <div className="wa-footer">
-                            <div className="wa-mic-btn" aria-hidden="true">
-                              <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-                            </div>
-                            <div className="wa-input-fake">Escribe un mensaje...</div>
-                            <div className="wa-send-btn" aria-hidden="true">
-                              <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 19-7z"/></svg>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="phone-bottombar"><div className="phone-home-bar"></div></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Estado de envío o botón de envío */}
-                  {queueControl?.isProcessing ? (
-                    <button 
-                      className="send-btn is-processing" 
-                      disabled={true}
-                    >
-                      Envío en curso
-                    </button>
-                  ) : (queueControl?.isPaused || queueControl?.hasInterruptedFlow) ? (
-                    <button 
-                      className="send-btn is-paused" 
-                      onClick={() => setShowControlModal(true)}
-                    >
-                      Retomar envío
-                    </button>
-                  ) : (
-                    <button 
-                      className="send-btn normal" 
-                      onClick={() => setShowConfirmSendModal(true)} 
-                      disabled={sendingAction}
-                    >
-                      Enviar mensajes
-                    </button>
-                  )}
-                </div>
-              </div>
-            </article>
-          </aside>
+          <MessageComposer
+            session={activeSession}
+            template={activeTemplate}
+            contactName={sampleContact.nombre}
+            time={mockTime}
+            message={messagePreview ? formatPreviewMessage(messagePreview) : null}
+            imageUrl={resolveTemplateImageUrl(activeTemplate?.adjunto_url)}
+            imageError={previewImageError}
+            hasSession={Boolean(selectedSessionId)}
+            queue={queueControl}
+            sending={sendingAction}
+            onImageError={() => setPreviewImageError(true)}
+            onOpenTemplates={() => setShowTemplatesModal(true)}
+            onOpenControl={() => setShowControlModal(true)}
+            onConfirmSend={() => setShowConfirmSendModal(true)}
+          />
         </section>
       </main>
 
