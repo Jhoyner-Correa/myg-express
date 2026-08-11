@@ -1,0 +1,53 @@
+.loading { min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); color: var(--text-muted); font-size: 0.75rem; }
+.loading > span { width: 28px; height: 28px; border: 3px solid var(--color-brand-100); border-top-color: var(--color-brand-600); border-radius: 50%; animation: spin 700ms linear infinite; }
+.report { display: flex; flex-direction: column; gap: var(--space-4); }
+.summary { padding: var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-subtle); }
+.summaryHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); color: var(--text-secondary); font-size: 0.75rem; }
+.summaryHeader strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.progress { height: 7px; overflow: hidden; border-radius: 999px; background: var(--color-neutral-200); }
+.progress > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--color-brand-500), var(--color-brand-400)); transition: width 300ms ease; }
+.statusList { display: flex; flex-direction: column; gap: 7px; }
+.statusRow {
+  --status-color: var(--color-warning);
+  --status-soft: var(--color-warning-soft);
+  width: 100%;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 32px 16px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 7px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-secondary);
+  text-align: left;
+}
+button.statusRow:hover { border-color: var(--status-color); background: var(--status-soft); }
+.success { --status-color: var(--color-success); --status-soft: var(--color-success-soft); }
+.info { --status-color: #0f766e; --status-soft: #f0fdfa; }
+.violet { --status-color: #7c3aed; --status-soft: #f5f3ff; }
+.danger { --status-color: var(--color-danger); --status-soft: var(--color-danger-soft); }
+.statusIcon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: var(--status-soft); color: var(--status-color); }
+.statusIcon svg { width: 14px; height: 14px; }
+.statusIcon > span { width: 7px; height: 7px; border-radius: 50%; background: var(--status-color); }
+.statusCopy { min-width: 0; display: flex; flex-direction: column; gap: 5px; color: var(--text-primary); font-size: 0.75rem; font-weight: 700; }
+.bar { height: 4px; overflow: hidden; border-radius: 999px; background: var(--color-neutral-100); }
+.bar > span { display: block; height: 100%; border-radius: inherit; background: var(--status-color); }
+.statusRow > strong { color: var(--text-primary); font-size: 0.875rem; font-variant-numeric: tabular-nums; text-align: right; }
+.statusRow > svg { width: 14px; height: 14px; transition: transform var(--transition-fast); }
+.statusRow > svg.expanded { transform: rotate(180deg); }
+.detail { margin: -2px 0 4px 38px; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-subtle); }
+.detail > header { display: flex; align-items: center; gap: var(--space-2); padding: 8px 10px; border-bottom: 1px solid var(--border-default); color: var(--text-secondary); font-size: 0.6875rem; }
+.detail > header span { padding: 1px 6px; border-radius: 999px; background: var(--color-neutral-200); font-weight: 800; }
+.detailRows { max-height: 190px; overflow-y: auto; }
+.contact { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 7px 10px; border-bottom: 1px solid var(--border-default); }
+.contact:last-child { border-bottom: 0; }
+.contact > span { min-width: 0; display: flex; flex-direction: column; }
+.contact strong { overflow: hidden; color: var(--text-primary); font-size: 0.6875rem; text-overflow: ellipsis; white-space: nowrap; }
+.contact small { overflow: hidden; color: var(--text-muted); font-size: 0.625rem; text-overflow: ellipsis; white-space: nowrap; }
+.contact button { width: 28px; height: 28px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid var(--border-default); border-radius: var(--radius-xs); background: #fff; color: var(--text-muted); }
+.contact button:hover { border-color: var(--color-brand-400); color: var(--color-brand-700); }
+.contact button svg { width: 13px; height: 13px; }
+.error { min-height: 150px; display: grid; place-items: center; color: var(--color-danger); font-size: 0.75rem; }
+@keyframes spin { to { transform: rotate(360deg); } }

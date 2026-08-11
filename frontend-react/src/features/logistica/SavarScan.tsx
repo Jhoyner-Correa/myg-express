@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import '../../css/savar-scan.css';
 import { useAuth } from '../../core/auth/authState';
 import apiClient from '../../core/api/apiClient';
 import * as XLSX from 'xlsx';
@@ -305,7 +306,7 @@ export const SavarScan: React.FC = () => {
             if (!l.fecha_creacion) return false;
             return new Date(l.fecha_creacion).toLocaleDateString('es-PE') === hoyLocal;
           });
-          setActiveLoteName(loteHoy ? loteHoy.nombre : list[0].nombre);
+          setActiveLoteName(loteHoy?.nombre ?? list[0]?.nombre ?? '');
         }
       }
     } catch { /* silent */ }
@@ -468,7 +469,9 @@ export const SavarScan: React.FC = () => {
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
+      if (!sheetName) throw new Error('El archivo Excel no contiene hojas.');
       const sheet = workbook.Sheets[sheetName];
+      if (!sheet) throw new Error('No se pudo leer la primera hoja del Excel.');
       const rawRows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
       if (rawRows.length === 0) {
@@ -636,8 +639,8 @@ export const SavarScan: React.FC = () => {
       }
     });
     return Array.from(months).sort((a, b) => {
-      const [m1, y1] = a.split('/').map(Number);
-      const [m2, y2] = b.split('/').map(Number);
+      const [m1 = 0, y1 = 0] = a.split('/').map(Number);
+      const [m2 = 0, y2 = 0] = b.split('/').map(Number);
       return y2 - y1 || m2 - m1;
     });
   }, [lotes]);

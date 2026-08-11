@@ -4,6 +4,7 @@
 // ============================================================
 
 import React, { useState } from 'react';
+import '../css/sidebar.css';
 import { useAuth } from '../core/auth/authState';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { sidebarMenuConfig } from '../config/menuConfig';

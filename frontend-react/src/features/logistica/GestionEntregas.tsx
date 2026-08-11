@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import '../../css/gestion-entregas.css';
 import { useAuth } from '../../core/auth/authState';
 import apiClient from '../../core/api/apiClient';
 import { showToast, showConfirm } from '../../core/utils/toast';

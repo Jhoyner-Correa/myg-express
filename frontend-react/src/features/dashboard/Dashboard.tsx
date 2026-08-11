@@ -1,4 +1,5 @@
 import React from 'react';
+import '../../css/dashboard.css';
 
 export const Dashboard: React.FC = () => {
   return (

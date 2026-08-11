@@ -5,9 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
-    // Las pantallas se cargan por ruta. Logistica incluye ApexCharts y queda
-    // deliberadamente debajo de este presupuesto por chunk asincrono.
-    chunkSizeWarningLimit: 850,
+    chunkSizeWarningLimit: 500,
   },
   server: {
     proxy: {

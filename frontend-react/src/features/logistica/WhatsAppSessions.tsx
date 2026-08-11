@@ -5,6 +5,7 @@
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
+import '../../css/whatsapp.css';
 import apiClient from '../../core/api/apiClient';
 import { showToast, showConfirm } from '../../core/utils/toast';
 import { useAuth } from '../../core/auth/authState';

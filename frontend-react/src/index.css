@@ -1,16 +1,9 @@
-/* ============================================================
-   frontend-react/src/index.css
-   Carga unificada de todos los estilos originales del sistema
-   ============================================================ */
+@import './styles/tokens.css';
 
+/* Legacy styles are retained temporarily and removed screen by screen. */
 @import './css/style.css';
 @import './css/shared-ui.css';
-@import './css/sidebar.css';
-@import './css/dashboard.css';
-@import './css/rutas.css';
-@import './css/rutas-detalle.css';
-@import './css/whatsapp.css';
-@import './css/consulta-rutas.css';
-@import './css/gestion-entregas.css';
-@import './css/savar-scan.css';
-@import './css/admin.css';
+
+/* The global contract always wins over legacy page-level resets. */
+@import './styles/reset.css';
+@import './styles/globals.css';

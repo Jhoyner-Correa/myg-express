@@ -1,0 +1,29 @@
+.form { display: flex; flex-direction: column; gap: var(--space-3); }
+.field { display: flex; flex-direction: column; gap: 7px; }
+.field > span { color: var(--text-primary); font-size: 0.75rem; font-weight: 800; }
+.field select,
+.zoneInput input {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  outline: none;
+}
+.field select { padding: 0 11px; }
+.zoneInput input { padding: 0 11px; }
+.field select:focus,
+.zoneInput input:focus { border-color: var(--color-brand-400); background: #fff; box-shadow: var(--focus-ring); }
+.field small { color: var(--text-muted); font-size: 0.6875rem; line-height: 1.45; }
+.manageToggle { align-self: flex-start; padding: 3px 0; border: 0; background: transparent; color: var(--color-brand-700); font-size: 0.75rem; font-weight: 800; }
+.manageToggle:hover { text-decoration: underline; }
+.zoneManager { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-subtle); }
+.zoneInput { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); }
+.zoneList { max-height: 190px; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; }
+.zone { min-height: 36px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 0 8px 0 11px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: #fff; color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; }
+.zone button { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: var(--radius-xs); background: transparent; color: var(--text-muted); }
+.zone button:hover { background: var(--color-danger-soft); color: var(--color-danger); }
+.zone button svg { width: 14px; height: 14px; }
+.empty { padding: var(--space-3); color: var(--text-muted); font-size: 0.75rem; text-align: center; }

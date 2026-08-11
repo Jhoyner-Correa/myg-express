@@ -5,6 +5,7 @@
 // ============================================================
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import '../../css/rutas-detalle.css';
 import { useParams } from 'react-router-dom';
 import apiClient from '../../core/api/apiClient';
 import * as XLSX from 'xlsx';
@@ -121,11 +122,12 @@ export const LoteDetalle: React.FC = () => {
   };
 
   const sampleContact = useMemo(() => {
-    if (notices.length > 0) {
+    const firstNotice = notices[0];
+    if (firstNotice) {
       return {
-        nombre: notices[0].nombre || 'MyG Express',
-        codigo_paquete: notices[0].codigo_paquete || '',
-        telefono: notices[0].telefono || ''
+        nombre: firstNotice.nombre || 'MyG Express',
+        codigo_paquete: firstNotice.codigo_paquete || '',
+        telefono: firstNotice.telefono || ''
       };
     }
     return {
@@ -200,7 +202,7 @@ export const LoteDetalle: React.FC = () => {
         const defId = templatesRes.data.default_plantilla_id || templatesRes.data.defaultPlantillaId;
         if (defId) {
           setSelectedTemplateId(String(defId));
-        } else if (list.length > 0) {
+        } else if (list[0]) {
           setSelectedTemplateId(String(list[0].id));
         }
       }
@@ -603,7 +605,9 @@ export const LoteDetalle: React.FC = () => {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: 'array' });
           const sheetName = workbook.SheetNames[0];
+          if (!sheetName) throw new Error('El archivo Excel no contiene hojas.');
           const sheet = workbook.Sheets[sheetName];
+          if (!sheet) throw new Error('No se pudo leer la primera hoja del Excel.');
           const jsonRows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
           if (!jsonRows.length) {

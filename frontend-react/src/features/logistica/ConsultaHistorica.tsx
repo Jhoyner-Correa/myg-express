@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import '../../css/consulta-rutas.css';
 import apiClient from '../../core/api/apiClient';
 import * as XLSX from 'xlsx';
 import { showToast, showConfirm } from '../../core/utils/toast';

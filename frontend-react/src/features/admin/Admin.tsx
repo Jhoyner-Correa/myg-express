@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import '../../css/admin.css';
 import apiClient from '../../core/api/apiClient';
 import { useAuth } from '../../core/auth/authState';
 import { showToast, showConfirm } from '../../core/utils/toast';
@@ -224,7 +225,7 @@ export const Admin: React.FC = () => {
   };
 
   // ── User CRUD ──
-  const resetUf = () => { setUf({ nombre: '', usuario: '', password: '', rol: 'EncargadoOficina', sedeId: '', estado: 'activo', permisos: [...ROLE_DEFAULT_PERMISSIONS['EncargadoOficina']] }); setEditingUser(null); };
+  const resetUf = () => { setUf({ nombre: '', usuario: '', password: '', rol: 'EncargadoOficina', sedeId: '', estado: 'activo', permisos: [...(ROLE_DEFAULT_PERMISSIONS['EncargadoOficina'] ?? [])] }); setEditingUser(null); };
   const openNewUser = () => { resetUf(); setShowUserModal(true); };
   const openEditUser = (u: UserItem) => {
     if (u.es_superadmin || u.rol === 'SysAdmin') {
