@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './core/auth/AuthContext';
 import { useAuth } from './core/auth/authState';
 import { Layout } from './components/Layout';
+import { PageLoader } from './components/ui/PageLoader/PageLoader';
 import './App.css';
 
 const Login = lazy(() => import('./features/auth/Login').then((m) => ({ default: m.Login })));
@@ -23,18 +24,12 @@ const Rrhh = lazy(() => import('./features/rrhh/Rrhh').then((m) => ({ default: m
 const Gps = lazy(() => import('./features/gps/Gps').then((m) => ({ default: m.Gps })));
 const Admin = lazy(() => import('./features/admin/Admin').then((m) => ({ default: m.Admin })));
 
-const PageFallback = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-primary)' }}>
-    <span className="spinner" style={{ width: '40px', height: '40px' }}></span>
-  </div>
-);
-
 // Guardián de Rutas Protegidas
 const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: string }> = ({ children, permission }) => {
   const { isAuthenticated, loading, user } = useAuth();
 
   if (loading) {
-    return <PageFallback />;
+    return <PageLoader label="Validando sesión" />;
   }
 
   if (!isAuthenticated) {
@@ -51,7 +46,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: string 
 export const AppContent: React.FC = () => {
   return (
     <BrowserRouter>
-      <Suspense fallback={<PageFallback />}>
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         {/* Ruta Pública de Login */}
         <Route path="/login" element={<Login />} />

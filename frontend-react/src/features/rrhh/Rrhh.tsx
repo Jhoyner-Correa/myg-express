@@ -1,119 +1,68 @@
-// ============================================================
-// frontend-react/src/features/rrhh/Rrhh.tsx
-// Vista del Módulo Recursos Humanos (RRHH)
-// ============================================================
+import { UserPlus, Users } from 'lucide-react';
+import { Button } from '../../components/ui/Button/Button';
+import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
+import { PageLoader } from '../../components/ui/PageLoader/PageLoader';
+import { getApiErrorMessage } from '../../core/api/errors';
+import { useAuth } from '../../core/auth/authState';
+import { useEmployees } from './useEmployees';
+import styles from './Rrhh.module.css';
 
-import React, { useState, useEffect } from 'react';
-import apiClient from '../../core/api/apiClient';
-
-export const Rrhh: React.FC = () => {
-  const [empleados, setEmpleados] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    // Intentar listar empleados de la sede 1 por defecto para demostración
-    const fetchEmpleados = async () => {
-      setLoading(true);
-      try {
-        const response = await apiClient.get('/rrhh/empleados/sede/1');
-        if (response.data && response.data.ok) {
-          setEmpleados(response.data.data);
-        }
-      } catch (error) {
-        console.error('Error al listar empleados:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchEmpleados();
-  }, []);
+export function Rrhh() {
+  const { user } = useAuth();
+  const branchId = user?.sede_id ?? null;
+  const { employees, loading, error, reload } = useEmployees(branchId);
 
   return (
-    <div className="glass-panel" style={{ padding: '32px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div>
-          <h2 style={{ color: '#fff' }}>Módulo de Recursos Humanos (RRHH)</h2>
-          <p style={{ color: 'var(--text-secondary)' }}>Gestiona la asistencia y el personal activo de la empresa.</p>
-        </div>
-        <button className="btn-primary">Registrar Nuevo Empleado</button>
-      </div>
+    <main className={styles.page} id="main-content">
+      <PageHeader
+        icon={<Users />}
+        title="Recursos Humanos"
+        subtitle="Personal, asistencia y operación por sede"
+        metadata={user?.sede_nombre ?? 'Sede no asignada'}
+      />
+      <section className={styles.content}>
+        <article className={styles.card}>
+          <header className={styles.toolbar}>
+            <div>
+              <h2>Personal activo</h2>
+              <p>{employees.length} {employees.length === 1 ? 'colaborador registrado' : 'colaboradores registrados'}</p>
+            </div>
+            <Button type="button" icon={<UserPlus size={16} />} disabled>
+              Registrar empleado
+            </Button>
+          </header>
 
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
-          <span className="spinner"></span>
-        </div>
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.tableRowHeader}>
-                <th style={styles.th}>Código</th>
-                <th style={styles.th}>Nombres y Apellidos</th>
-                <th style={styles.th}>Documento (DNI)</th>
-                <th style={styles.th}>Cargo</th>
-                <th style={styles.th}>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {empleados.length > 0 ? (
-                empleados.map((emp) => (
-                  <tr key={emp.id} style={styles.tr}>
-                    <td style={styles.td}>{emp.codigoEmpleado}</td>
-                    <td style={styles.td}>{emp.nombres} {emp.apellidos}</td>
-                    <td style={styles.td}>{emp.dni}</td>
-                    <td style={styles.td}>{emp.cargoNombre || 'Empleado'}</td>
-                    <td style={styles.td}>
-                      <span style={{
-                        ...styles.badge,
-                        backgroundColor: emp.estado === 'ACTIVO' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                        color: emp.estado === 'ACTIVO' ? 'var(--color-success)' : 'var(--color-error)'
-                      }}>{emp.estado}</span>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} style={{ ...styles.td, textAlign: 'center', color: 'var(--text-muted)' }}>
-                    No se encontraron empleados registrados.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+          {loading ? (
+            <PageLoader compact label="Cargando personal" />
+          ) : error ? (
+            <div className={`${styles.state} ${styles.error}`} role="alert">
+              <div>
+                <p>{getApiErrorMessage(error, 'No se pudo cargar el personal.')}</p>
+                <Button type="button" variant="secondary" onClick={() => void reload()}>Reintentar</Button>
+              </div>
+            </div>
+          ) : branchId === null ? (
+            <div className={styles.state}>Asigna una sede al usuario para consultar su personal.</div>
+          ) : (
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead><tr><th>Código</th><th>Nombres y apellidos</th><th>Documento</th><th>Cargo</th><th>Estado</th></tr></thead>
+                <tbody>
+                  {employees.length > 0 ? employees.map(employee => (
+                    <tr key={employee.id}>
+                      <td className={styles.code}>{employee.codigoEmpleado}</td>
+                      <td className={styles.employee}>{employee.nombres} {employee.apellidos}</td>
+                      <td>{employee.dni}</td>
+                      <td>{employee.cargoNombre || 'Empleado'}</td>
+                      <td><span className={`${styles.badge} ${employee.estado === 'ACTIVO' ? styles.active : styles.inactive}`}>{employee.estado}</span></td>
+                    </tr>
+                  )) : <tr><td colSpan={5}><div className={styles.state}>No hay empleados registrados en esta sede.</div></td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
+      </section>
+    </main>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    textAlign: 'left',
-  },
-  tableRowHeader: {
-    borderBottom: '2px solid var(--glass-border)',
-  },
-  th: {
-    padding: '16px',
-    color: 'var(--text-secondary)',
-    fontWeight: 600,
-    fontSize: '0.85rem',
-    textTransform: 'uppercase',
-  },
-  tr: {
-    borderBottom: '1px solid var(--glass-border)',
-  },
-  td: {
-    padding: '16px',
-    fontSize: '0.9rem',
-    color: 'var(--text-primary)',
-  },
-  badge: {
-    padding: '4px 10px',
-    borderRadius: '6px',
-    fontSize: '0.75rem',
-    fontWeight: 600,
-  }
-};
+}

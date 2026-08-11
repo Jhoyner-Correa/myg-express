@@ -5,8 +5,9 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../core/auth/authState';
-import apiClient from '../../core/api/apiClient';
+import { getApiErrorMessage } from '../../core/api/errors';
 import { useNavigate } from 'react-router-dom';
+import { authService } from './auth.service';
 import '../../css/login.css';
 
 export const Login: React.FC = () => {
@@ -26,41 +27,18 @@ export const Login: React.FC = () => {
     setLoadingForm(true);
 
     try {
-      const response = await apiClient.post('/auth/login', {
-        usuario,
-        password,
-      });
-
-      if (response.data && response.data.ok) {
-        const { token, user: userDetails } = response.data;
-        login(token, {
-          id: userDetails.id,
-          nombre: userDetails.nombre,
-          usuario: userDetails.usuario,
-          rol: userDetails.rol,
-          es_superadmin: Boolean(userDetails.es_superadmin),
-          sede_id: userDetails.sede_id,
-          sede_nombre: userDetails.sede_nombre,
-          permisos: userDetails.permisos,
-        });
-        navigate('/dashboard');
-      } else {
-        setError(response.data.message || 'Error al iniciar sesión');
-      }
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message ||
-          err.response?.data?.error ||
-          err.message ||
-          'No se pudo conectar con el servidor de autenticación'
-      );
+      const session = await authService.login(usuario, password);
+      login(session.token, session.user);
+      navigate('/dashboard');
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'No se pudo conectar con el servidor de autenticación'));
     } finally {
       setLoadingForm(false);
     }
   };
 
   return (
-    <div className="login-container" style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+    <div className="login-container">
       {/* LEFT PANEL (Visual Logística de la Selva Central) */}
       <div className="left-panel">
         <div className="left-top-content">

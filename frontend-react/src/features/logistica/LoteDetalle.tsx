@@ -7,46 +7,29 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import '../../css/rutas-detalle.css';
 import { useParams } from 'react-router-dom';
-import apiClient from '../../core/api/apiClient';
 import * as XLSX from 'xlsx';
 import { showToast, showConfirm } from '../../core/utils/toast';
-
-type NoticeItem = {
-  id: number;
-  nombre: string;
-  telefono: string;
-  codigo_paquete: string;
-  estado_aviso: string;
-  fecha_envio?: string;
-  created_at: string;
-};
-
-type RouteDetail = {
-  id: number;
-  sede_id: number;
-  nombre_lote: string;
-  origen: string;
-  sede_nombre: string;
-  fecha: string;
-  estado: string;
-  observacion: string;
-  control_envio?: string;
-};
-
-type TemplateItem = {
-  id: number;
-  nombre: string;
-  cuerpo: string;
-  adjunto_url?: string;
-};
-
-type SessionItem = {
-  id: number;
-  nombre: string;
-  estado_real: string;
-  nombre_dispositivo?: string;
-  numero_whatsapp?: string;
-};
+import { getApiErrorMessage } from '../../core/api/errors';
+import { routeDetailService } from './route-detail/route-detail.service';
+import {
+  calculateRouteStats,
+  formatDateOnly,
+  formatDateTime,
+  formatEstadoLabel,
+  getBadgeClass,
+  getBadgeLabel,
+  normalizeAvisoVisualStatus,
+  readQueueControl,
+} from './route-detail/domain';
+import type {
+  ImportedNotice,
+  NoticeItem,
+  RawTemplateItem,
+  RouteDetail,
+  SessionItem,
+  TemplateInput,
+  TemplateItem,
+} from './route-detail/types';
 
 export const LoteDetalle: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -98,8 +81,8 @@ export const LoteDetalle: React.FC = () => {
   const [sendingAction, setSendingAction] = useState(false);
   const [previewImageError, setPreviewImageError] = useState(false);
 
-  const formatTemplatesList = useCallback((rawList: any[]): TemplateItem[] => {
-    return (rawList || []).map((tpl: any) => ({
+  const formatTemplatesList = useCallback((rawList: RawTemplateItem[]): TemplateItem[] => {
+    return rawList.map((tpl) => ({
       id: tpl.id,
       nombre: tpl.nombre,
       cuerpo: tpl.mensaje || tpl.contenido || '',
@@ -164,50 +147,30 @@ export const LoteDetalle: React.FC = () => {
   // Cargar datos del lote
   const loadRouteDetails = useCallback(async () => {
     try {
-      // 1. Cargar primero la información básica de la ruta
-      const routeRes = await apiClient.get(`/lotes/${rutaId}`);
-      if (!routeRes.data?.ok) {
-        throw new Error(routeRes.data?.message || 'No se pudo obtener la información de la ruta.');
-      }
-
-      const routeData = routeRes.data.data;
+      const routeData = await routeDetailService.getRoute(rutaId);
       setRoute(routeData);
       const routeSedeId = routeData?.sede_id;
 
-      // 2. Cargar avisos, sesiones de WhatsApp y plantillas de la sede en paralelo
-      const queryParams = routeSedeId ? { params: { sede_id: routeSedeId } } : {};
-      
-      const [noticesRes, sessionsRes, templatesRes] = await Promise.all([
-        apiClient.get(`/avisos/lote/${rutaId}`),
-        apiClient.get('/whatsapp-sesiones', queryParams),
-        apiClient.get('/plantillas', queryParams)
+      const [noticeItems, sessionItems, templateResult] = await Promise.all([
+        routeDetailService.listNotices(rutaId),
+        routeDetailService.listSessions(routeSedeId),
+        routeDetailService.listTemplates(routeSedeId),
       ]);
 
-      if (noticesRes.data?.ok) {
-        setNotices(noticesRes.data.data || []);
-      }
-      
-      if (sessionsRes.data?.ok) {
-        const ses = sessionsRes.data.data || [];
-        setSessions(ses);
-        const active = ses.find((s: any) => s.estado_real === 'connected');
-        if (active) setSelectedSessionId(String(active.id));
-        else if (ses.length > 0) setSelectedSessionId(String(ses[0].id));
-      }
+      setNotices(noticeItems);
+      setSessions(sessionItems);
+      const activeSession = sessionItems.find((session) => session.estado_real === 'connected') ?? sessionItems[0];
+      if (activeSession) setSelectedSessionId(String(activeSession.id));
 
-      if (templatesRes.data?.ok) {
-        const rawList = templatesRes.data.datos || templatesRes.data.data || [];
-        const list = formatTemplatesList(rawList);
-        setTemplates(list);
-        const defId = templatesRes.data.default_plantilla_id || templatesRes.data.defaultPlantillaId;
-        if (defId) {
-          setSelectedTemplateId(String(defId));
-        } else if (list[0]) {
-          setSelectedTemplateId(String(list[0].id));
-        }
+      const list = formatTemplatesList(templateResult.items);
+      setTemplates(list);
+      const initialTemplateId = templateResult.defaultId ?? list[0]?.id;
+      if (initialTemplateId) {
+        setSelectedTemplateId(String(initialTemplateId));
       }
     } catch (e) {
       console.error('Error al cargar detalle de lote:', e);
+      showToast(getApiErrorMessage(e, 'No se pudo cargar el detalle de la ruta.'), 'error', { title: 'Error de carga' });
     } finally {
       setLoading(false);
     }
@@ -237,15 +200,12 @@ export const LoteDetalle: React.FC = () => {
 
       if (hasPendingOrProcessing) {
         try {
-          const noticesRes = await apiClient.get(`/avisos/lote/${rutaId}`);
-          if (noticesRes.data?.ok) {
-            setNotices(noticesRes.data.data || []);
-          }
-          // También refrescar la información básica del lote para control de envío
-          const routeRes = await apiClient.get(`/lotes/${rutaId}`);
-          if (routeRes.data?.ok) {
-            setRoute(routeRes.data.data);
-          }
+          const [noticeItems, routeData] = await Promise.all([
+            routeDetailService.listNotices(rutaId),
+            routeDetailService.getRoute(rutaId),
+          ]);
+          setNotices(noticeItems);
+          setRoute(routeData);
         } catch (err) {
           console.error('Error in background notices polling:', err);
         }
@@ -258,11 +218,7 @@ export const LoteDetalle: React.FC = () => {
 
       try {
         const routeSedeId = route?.sede_id;
-        const queryParams = routeSedeId ? { params: { sede_id: routeSedeId } } : {};
-        const sessionsRes = await apiClient.get('/whatsapp-sesiones', queryParams);
-        if (sessionsRes.data?.ok) {
-          setSessions(sessionsRes.data.data || []);
-        }
+        setSessions(await routeDetailService.listSessions(routeSedeId));
       } catch (err) {
         console.error('Error in background sessions polling:', err);
       }
@@ -273,80 +229,6 @@ export const LoteDetalle: React.FC = () => {
       clearInterval(sessionsInterval);
     };
   }, [rutaId, notices, route?.sede_id]);
-
-  // Formateo de fecha y hora
-  const formatDateOnly = (value: string) => {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return value;
-    return date.toLocaleDateString('es-PE', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
-
-  const formatDateTime = (value: string) => {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return value;
-    const day = date.getDate().toString().padStart(2, '0');
-    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    const month = months[date.getMonth()];
-    let hours = date.getHours();
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const ampm = hours >= 12 ? 'p. m.' : 'a. m.';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    const strTime = `${hours}:${minutes} ${ampm}`;
-    return `${day}-${month}, ${strTime}`;
-  };
-
-  // Normalizar y formatear estados de avisos
-  const normalizeAvisoVisualStatus = (value: string) => {
-    const status = String(value || 'pendiente').toLowerCase();
-    if (status === 'processing' || status === 'procesando' || status === 'sending') return 'enviando';
-    if (status === 'enviado' || status === 'entregado' || status === 'sent') return 'enviado';
-    if (status === 'enviado_manual' || status === 'manual') return 'manual';
-    if (status === 'sin_whatsapp' || status === 'no_whatsapp') return 'sin-whatsapp';
-    if (status === 'fallido' || status === 'error' || status === 'auth_failure' || status === 'fail' || status === 'cancelado') return 'fallido';
-    return 'pendiente';
-  };
-
-  const formatEstadoLabel = (value: string) => {
-    const estado = String(value || 'pendiente').toLowerCase();
-    if (estado === 'auth_failure') return 'Error';
-    if (estado === 'processing') return 'Procesando';
-    if (estado === 'sin_whatsapp' || estado === 'no_whatsapp') return 'Sin WhatsApp';
-    if (estado === 'enviado_manual') return 'Manual';
-    return estado.charAt(0).toUpperCase() + estado.slice(1);
-  };
-
-  // Ayudantes para la badge de la cabecera de la ruta
-  const getBadgeClass = (status: string) => {
-    const s = String(status || 'pendiente').toLowerCase();
-    const map: Record<string, string> = {
-      enviado: 'completado',
-      entregado: 'completado',
-      activo: 'activo',
-      completado: 'completado',
-      progreso: 'progress',
-      pausado: 'pausado',
-      pendiente: 'pendiente',
-      fallido: 'cancelado',
-      cancelado: 'cancelado',
-      error: 'cancelado',
-      sin_whatsapp: 'pendiente'
-    };
-    return map[s] || 'progress';
-  };
-
-  const getBadgeLabel = (status: string) => {
-    const s = String(status || 'pendiente').toLowerCase();
-    if (s === 'sin_whatsapp' || s === 'no_whatsapp') return 'Pendiente';
-    if (s === 'enviado_manual') return 'Manual';
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  };
 
   const getPaginationMetaText = () => {
     const totalAll = notices.length;
@@ -367,11 +249,7 @@ export const LoteDetalle: React.FC = () => {
     const prevSelected = selectedTemplateId;
     setSelectedTemplateId(plantillaId);
     try {
-      const payload: any = { plantilla_id: Number(plantillaId) };
-      if (route?.sede_id) {
-        payload.sede_id = route.sede_id;
-      }
-      await apiClient.put('/plantillas/default', payload);
+      await routeDetailService.setDefaultTemplate(Number(plantillaId), route?.sede_id);
     } catch (e) {
       console.error('Error al establecer plantilla default:', e);
       setSelectedTemplateId(prevSelected);
@@ -379,65 +257,10 @@ export const LoteDetalle: React.FC = () => {
   };
 
   // Controles de cola de envíos
-  const queueControl = useMemo(() => {
-    if (!route?.control_envio) return null;
-    if (typeof route.control_envio === 'object') {
-      return route.control_envio;
-    }
-    try {
-      return JSON.parse(route.control_envio);
-    } catch {
-      return null;
-    }
-  }, [route]);
+  const queueControl = useMemo(() => readQueueControl(route), [route]);
 
   // Estadísticas del Lote
-  const stats = useMemo(() => {
-    const total = notices.length;
-    if (total === 0) {
-      return { 
-        total: 0, 
-        pendientes: 0, 
-        enviados: 0, 
-        fallidos: 0, 
-        pendientesPct: 0, 
-        enviadosPct: 0, 
-        fallidosPct: 0,
-        procesados: 0,
-        procesadosPct: 0
-      };
-    }
-    
-    const pendientes = notices.filter(n => {
-      const vs = normalizeAvisoVisualStatus(n.estado_aviso);
-      return vs === 'pendiente' || vs === 'enviando';
-    }).length;
-
-    const enviados = notices.filter(n => {
-      const vs = normalizeAvisoVisualStatus(n.estado_aviso);
-      return vs === 'enviado' || vs === 'manual';
-    }).length;
-
-    const fallidos = notices.filter(n => {
-      const vs = normalizeAvisoVisualStatus(n.estado_aviso);
-      return vs === 'sin-whatsapp' || vs === 'fallido';
-    }).length;
-
-    const procesados = enviados;
-    const procesadosPct = Math.round((procesados / total) * 100);
-
-    return {
-      total,
-      pendientes,
-      enviados,
-      fallidos,
-      pendientesPct: Math.round((pendientes / total) * 100),
-      enviadosPct: Math.round((enviados / total) * 100),
-      fallidosPct: Math.round((fallidos / total) * 100),
-      procesados,
-      procesadosPct
-    };
-  }, [notices]);
+  const stats = useMemo(() => calculateRouteStats(notices), [notices]);
 
   // Previsualización de mensaje en el mockup de WhatsApp
   const messagePreview = useMemo(() => {
@@ -478,17 +301,15 @@ export const LoteDetalle: React.FC = () => {
     setSendingAction(true);
     setShowConfirmSendModal(false);
     try {
-      const response = await apiClient.post('/whatsapp/enviar-lote', {
-        lote_id: rutaId,
-        whatsapp_sesion_id: Number(selectedSessionId),
-        plantilla_id: Number(selectedTemplateId),
-        mensaje_personalizado: customMessage
+      await routeDetailService.sendRoute({
+        routeId: rutaId,
+        sessionId: Number(selectedSessionId),
+        templateId: Number(selectedTemplateId),
+        customMessage,
       });
-      if (response.data?.ok) {
-        loadRouteDetails();
-      }
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Error al encolar los envíos.', 'error', { title: 'Error de envío' });
+      await loadRouteDetails();
+    } catch (e: unknown) {
+      showToast(getApiErrorMessage(e, 'Error al encolar los envíos.'), 'error', { title: 'Error de envío' });
     } finally {
       setSendingAction(false);
     }
@@ -498,27 +319,11 @@ export const LoteDetalle: React.FC = () => {
   const handleQueueControl = async (action: 'pausar' | 'reanudar' | 'manual' | 'cancelar') => {
     setSendingAction(true);
     try {
-      let endpoint = '';
-      let payload = {};
-      
-      if (action === 'pausar') {
-        endpoint = `/whatsapp/lotes/${rutaId}/pause`;
-      } else if (action === 'reanudar') {
-        endpoint = `/whatsapp/lotes/${rutaId}/resume`;
-        payload = { whatsapp_sesion_id: Number(selectedSessionId) };
-      } else if (action === 'manual') {
-        endpoint = `/whatsapp/lotes/${rutaId}/mark-manual`;
-      } else if (action === 'cancelar') {
-        endpoint = `/whatsapp/lotes/${rutaId}/cancel-pending`;
-      }
-
-      const response = await apiClient.post(endpoint, payload);
-      if (response.data?.ok) {
-        showToast(response.data?.message || 'Acción ejecutada con éxito', 'success', { title: 'Cola actualizada' });
-        loadRouteDetails();
-      }
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Error al ejecutar control de cola', 'error', { title: 'Error de control' });
+      const result = await routeDetailService.controlQueue(rutaId, action, Number(selectedSessionId) || undefined);
+      showToast(result.message || 'Acción ejecutada con éxito', 'success', { title: 'Cola actualizada' });
+      await loadRouteDetails();
+    } catch (e: unknown) {
+      showToast(getApiErrorMessage(e, 'Error al ejecutar control de cola'), 'error', { title: 'Error de control' });
     } finally {
       setSendingAction(false);
     }
@@ -530,25 +335,23 @@ export const LoteDetalle: React.FC = () => {
     if (!newNoticeName || !newNoticePhone || !newNoticeCode) return;
 
     try {
-      const response = await apiClient.post('/avisos', {
-        lote_id: rutaId,
-        nombre: newNoticeName,
-        telefono: newNoticePhone,
-        codigo_paquete: newNoticeCode,
-        mensaje_personalizado: newNoticeCustomMessage,
-        empresa_origen: route?.origen || 'MyG Express'
+      await routeDetailService.createNotice({
+        routeId: rutaId,
+        name: newNoticeName,
+        phone: newNoticePhone,
+        packageCode: newNoticeCode,
+        customMessage: newNoticeCustomMessage,
+        origin: route?.origen || 'MyG Express',
       });
-      if (response.data?.ok) {
-        setShowCreateModal(false);
-        setNewNoticeName('');
-        setNewNoticePhone('');
-        setNewNoticeCode('');
-        setNewNoticeCustomMessage('');
-        showToast('Destinatario agregado correctamente.', 'success', { title: 'Destinatario creado' });
-        loadRouteDetails();
-      }
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Error al crear destinatario', 'error', { title: 'Error al agregar' });
+      setShowCreateModal(false);
+      setNewNoticeName('');
+      setNewNoticePhone('');
+      setNewNoticeCode('');
+      setNewNoticeCustomMessage('');
+      showToast('Destinatario agregado correctamente.', 'success', { title: 'Destinatario creado' });
+      await loadRouteDetails();
+    } catch (e: unknown) {
+      showToast(getApiErrorMessage(e, 'Error al crear destinatario'), 'error', { title: 'Error al agregar' });
     }
   };
 
@@ -563,13 +366,11 @@ export const LoteDetalle: React.FC = () => {
     });
     if (!confirmed) return;
     try {
-      const response = await apiClient.delete(`/avisos/${noticeId}`);
-      if (response.data?.ok) {
-        showToast('Destinatario eliminado correctamente.', 'success', { title: 'Eliminado' });
-        loadRouteDetails();
-      }
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'No se pudo eliminar el destinatario.', 'error', { title: 'Error' });
+      await routeDetailService.deleteNotice(noticeId);
+      showToast('Destinatario eliminado correctamente.', 'success', { title: 'Eliminado' });
+      await loadRouteDetails();
+    } catch (e: unknown) {
+      showToast(getApiErrorMessage(e, 'No se pudo eliminar el destinatario.'), 'error', { title: 'Error' });
     }
   };
 
@@ -584,13 +385,11 @@ export const LoteDetalle: React.FC = () => {
     });
     if (!confirmed) return;
     try {
-      const response = await apiClient.delete(`/avisos/lote/${rutaId}`);
-      if (response.data?.ok) {
-        showToast('Ruta vaciada correctamente.', 'success', { title: 'Lote vaciado' });
-        loadRouteDetails();
-      }
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Error al vaciar la ruta.', 'error', { title: 'Error' });
+      await routeDetailService.clearNotices(rutaId);
+      showToast('Ruta vaciada correctamente.', 'success', { title: 'Lote vaciado' });
+      await loadRouteDetails();
+    } catch (e: unknown) {
+      showToast(getApiErrorMessage(e, 'Error al vaciar la ruta.'), 'error', { title: 'Error' });
     }
   };
 
@@ -608,14 +407,14 @@ export const LoteDetalle: React.FC = () => {
           if (!sheetName) throw new Error('El archivo Excel no contiene hojas.');
           const sheet = workbook.Sheets[sheetName];
           if (!sheet) throw new Error('No se pudo leer la primera hoja del Excel.');
-          const jsonRows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+          const jsonRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
 
           if (!jsonRows.length) {
             setImportStatus({ type: 'error', msg: 'El Excel está vacío o no contiene filas.' });
             return;
           }
 
-          const normalizedRows = jsonRows.map((row) => {
+          const normalizedRows: ImportedNotice[] = jsonRows.map((row) => {
             const getCol = (aliases: string[]) => {
               const key = Object.keys(row).find(k => 
                 aliases.some(alias => k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(alias))
@@ -636,29 +435,23 @@ export const LoteDetalle: React.FC = () => {
             return;
           }
 
-          const response = await apiClient.post('/avisos/importar', {
-            lote_id: rutaId,
-            avisos: normalizedRows
+          const imported = await routeDetailService.importNotices(rutaId, normalizedRows);
+          setImportStatus({
+            type: 'success',
+            msg: `${imported} destinatarios importados correctamente.`,
           });
-
-          if (response.data?.ok) {
-            setImportStatus({ 
-              type: 'success', 
-              msg: `${response.data.importados || normalizedRows.length} destinatarios importados correctamente.` 
-            });
-            loadRouteDetails();
-            setTimeout(() => {
-              setShowImportModal(false);
-              setImportStatus({ type: 'idle', msg: '' });
-            }, 2000);
-          }
-        } catch (err: any) {
-          setImportStatus({ type: 'error', msg: err.message || 'Error al procesar el archivo Excel.' });
+          await loadRouteDetails();
+          setTimeout(() => {
+            setShowImportModal(false);
+            setImportStatus({ type: 'idle', msg: '' });
+          }, 2000);
+        } catch (err: unknown) {
+          setImportStatus({ type: 'error', msg: getApiErrorMessage(err, 'Error al procesar el archivo Excel.') });
         }
       };
       reader.readAsArrayBuffer(file);
-    } catch (err: any) {
-      setImportStatus({ type: 'error', msg: err.message || 'Error al abrir el archivo.' });
+    } catch (err: unknown) {
+      setImportStatus({ type: 'error', msg: getApiErrorMessage(err, 'Error al abrir el archivo.') });
     }
   };
 
@@ -668,7 +461,7 @@ export const LoteDetalle: React.FC = () => {
     if (!templateFormName || !templateFormBody) return;
 
     try {
-      const payload: any = {
+      const payload: TemplateInput = {
         nombre: templateFormName,
         mensaje: templateFormBody
       };
@@ -684,37 +477,21 @@ export const LoteDetalle: React.FC = () => {
         payload.sede_id = route.sede_id;
       }
 
-      let res;
-      if (editingTemplate) {
-        res = await apiClient.put(`/plantillas/${editingTemplate.id}`, payload);
-      } else {
-        res = await apiClient.post('/plantillas', payload);
-      }
+      await routeDetailService.saveTemplate(editingTemplate?.id ?? null, payload);
+      setShowTemplateEditorModal(false);
+      setTemplateFormName('');
+      setTemplateFormBody('');
+      setTemplateFormImage(null);
+      setTemplateFormImageName('');
+      setTemplateFormImageBase64(null);
+      setTemplateImageBorrar(false);
+      setEditingTemplate(null);
+      showToast('Plantilla guardada correctamente.', 'success', { title: 'Plantilla guardada' });
 
-      if (res.data?.ok) {
-        setShowTemplateEditorModal(false);
-        setTemplateFormName('');
-        setTemplateFormBody('');
-        setTemplateFormImage(null);
-        setTemplateFormImageName('');
-        setTemplateFormImageBase64(null);
-        setTemplateImageBorrar(false);
-        setEditingTemplate(null);
-        showToast('Plantilla guardada correctamente.', 'success', { title: 'Plantilla guardada' });
-        
-        // Recargar plantillas
-        const templatesParams: any = {};
-        if (route?.sede_id) {
-          templatesParams.sede_id = route.sede_id;
-        }
-        const templatesRes = await apiClient.get('/plantillas', { params: templatesParams });
-        if (templatesRes.data?.ok) {
-          const rawList = templatesRes.data.datos || templatesRes.data.data || [];
-          setTemplates(formatTemplatesList(rawList));
-        }
-      }
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Error al guardar la plantilla', 'error', { title: 'Error' });
+      const templateResult = await routeDetailService.listTemplates(route?.sede_id);
+      setTemplates(formatTemplatesList(templateResult.items));
+    } catch (e: unknown) {
+      showToast(getApiErrorMessage(e, 'Error al guardar la plantilla'), 'error', { title: 'Error' });
     }
   };
 
@@ -729,23 +506,12 @@ export const LoteDetalle: React.FC = () => {
     });
     if (!confirmed) return;
     try {
-      const res = await apiClient.delete(`/plantillas/${id}`, {
-        params: route?.sede_id ? { sede_id: route.sede_id } : {}
-      });
-      if (res.data?.ok) {
-        showToast('Plantilla eliminada correctamente.', 'success', { title: 'Eliminado' });
-        const templatesParams: any = {};
-        if (route?.sede_id) {
-          templatesParams.sede_id = route.sede_id;
-        }
-        const templatesRes = await apiClient.get('/plantillas', { params: templatesParams });
-        if (templatesRes.data?.ok) {
-          const rawList = templatesRes.data.datos || templatesRes.data.data || [];
-          setTemplates(formatTemplatesList(rawList));
-        }
-      }
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Error al eliminar plantilla', 'error', { title: 'Error' });
+      await routeDetailService.deleteTemplate(id, route?.sede_id);
+      showToast('Plantilla eliminada correctamente.', 'success', { title: 'Eliminado' });
+      const templateResult = await routeDetailService.listTemplates(route?.sede_id);
+      setTemplates(formatTemplatesList(templateResult.items));
+    } catch (e: unknown) {
+      showToast(getApiErrorMessage(e, 'Error al eliminar plantilla'), 'error', { title: 'Error' });
     }
   };
 

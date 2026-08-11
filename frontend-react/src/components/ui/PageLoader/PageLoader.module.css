@@ -1,0 +1,27 @@
+.loader {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: var(--surface-app);
+}
+
+.compact {
+  min-height: 320px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-neutral-200);
+  border-top-color: var(--color-brand-500);
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 1.5s; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

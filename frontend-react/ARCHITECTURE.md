@@ -51,6 +51,27 @@ features/logistica/routes/
 
 Los estilos heredados ya no forman parte del CSS inicial: cada pantalla los importa dentro de su propio chunk de ruta mientras se completa su migración.
 
+### Estado de la migración
+
+- Rutas: componentes, estilos, datos y pruebas migrados.
+- Detalle de ruta: contratos, dominio y servicio HTTP migrados; división visual y CSS pendientes.
+- RR. HH.: base tipada por sede, hook cancelable y CSS Module preparados para el desarrollo funcional.
+- Aplicación: fallback accesible compartido y carga diferida por ruta.
+- WhatsApp, Savar, Entregas, Consulta y Administración: pendientes de migración interna.
+
+## Definición de terminado
+
+Una pantalla solo se considera migrada cuando cumple todos estos puntos:
+
+1. La página actúa como orquestador y no contiene acceso HTTP directo.
+2. Los datos externos tienen contratos explícitos y no dependen de `any`.
+3. La carga inicial puede cancelarse al abandonar la pantalla.
+4. Componentes, hooks, dominio y servicios tienen responsabilidades separadas.
+5. Los estilos están encapsulados y no modifican elementos globales.
+6. Existen estados accesibles de carga, vacío, error y éxito.
+7. La lógica crítica cuenta con pruebas automatizadas.
+8. Lint, pruebas, build y auditoría de dependencias terminan correctamente.
+
 ## Controles obligatorios
 
 Antes de integrar cambios:
