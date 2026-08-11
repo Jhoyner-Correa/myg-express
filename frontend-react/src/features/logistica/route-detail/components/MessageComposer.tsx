@@ -1,5 +1,16 @@
 import type { ReactNode } from 'react';
-import { FileText, MessageCircle, Mic, MoreVertical, Phone, Send } from 'lucide-react';
+import {
+  BatteryMedium,
+  ChevronLeft,
+  FileText,
+  MessageCircle,
+  Mic,
+  MoreVertical,
+  Phone,
+  Send,
+  Signal,
+  Wifi,
+} from 'lucide-react';
 import { Button } from '../../../../components/ui/Button/Button';
 import type { QueueControl, SessionItem, TemplateItem } from '../types';
 import styles from './MessageComposer.module.css';
@@ -86,9 +97,17 @@ export function MessageComposer({
           <div className={styles.phoneStage}>
             <div className={styles.phone}>
               <div className={styles.notch} aria-hidden="true" />
-              <div className={styles.statusBar}>{time}</div>
+              <div className={styles.statusBar}>
+                <span>{time}</span>
+                <span className={styles.deviceStatus} aria-hidden="true">
+                  <Signal />
+                  <Wifi />
+                  <BatteryMedium />
+                </span>
+              </div>
 
               <div className={styles.whatsappHeader}>
+                <ChevronLeft className={styles.backIcon} size={14} aria-hidden="true" />
                 <span className={styles.avatar}>MG</span>
                 <div className={styles.contact}>
                   <strong>{contactName}</strong>
@@ -128,7 +147,10 @@ export function MessageComposer({
               <div className={styles.whatsappFooter}>
                 <Mic size={15} aria-hidden="true" />
                 <span>Escribe un mensaje...</span>
-                <Send size={15} aria-hidden="true" />
+                <Send className={styles.sendIcon} size={15} aria-hidden="true" />
+              </div>
+              <div className={styles.homeArea} aria-hidden="true">
+                <span />
               </div>
             </div>
           </div>
