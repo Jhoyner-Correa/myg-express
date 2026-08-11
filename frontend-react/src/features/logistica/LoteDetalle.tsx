@@ -15,6 +15,7 @@ import { RecipientsTable } from './route-detail/components/RecipientsTable';
 import { RouteDetailStats } from './route-detail/components/RouteDetailStats';
 import { RouteDetailHeader } from './route-detail/components/RouteDetailHeader';
 import { MessageComposer } from './route-detail/components/MessageComposer';
+import { NoticeEditorModal } from './route-detail/components/NoticeEditorModal';
 import {
   calculateRouteStats,
   formatDateTime,
@@ -673,69 +674,20 @@ export const LoteDetalle: React.FC = () => {
           </div>
         </div>
       )}
+      <NoticeEditorModal
+        open={showCreateModal}
+        name={newNoticeName}
+        phone={newNoticePhone}
+        code={newNoticeCode}
+        message={newNoticeCustomMessage}
+        onName={setNewNoticeName}
+        onPhone={setNewNoticePhone}
+        onCode={setNewNoticeCode}
+        onMessage={setNewNoticeCustomMessage}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateNotice}
+      />
 
-      {/* MODAL: REGISTRO MANUAL */}
-      {showCreateModal && (
-        <div className="modal-overlay open" id="modal-aviso">
-          <div className="modal-box">
-            <div className="modal-header">
-              <h2 className="modal-title">Nuevo destinatario</h2>
-              <button className="modal-close" onClick={() => setShowCreateModal(false)}>
-                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <form onSubmit={handleCreateNotice}>
-              <div className="modal-body">
-                <div className="field-row" style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-                  <div className="field" style={{ flex: 1 }}>
-                    <label>Teléfono *</label>
-                    <input 
-                      type="text" 
-                      placeholder="51987654321" 
-                      value={newNoticePhone} 
-                      onChange={(e) => setNewNoticePhone(e.target.value)} 
-                      required 
-                    />
-                  </div>
-                  <div className="field" style={{ flex: 1 }}>
-                    <label>Nombre</label>
-                    <input 
-                      type="text" 
-                      placeholder="Nombre cliente" 
-                      value={newNoticeName} 
-                      onChange={(e) => setNewNoticeName(e.target.value)} 
-                      required 
-                    />
-                  </div>
-                </div>
-                <div className="field" style={{ marginBottom: '12px' }}>
-                  <label>Código de paquete</label>
-                  <input 
-                    type="text" 
-                    placeholder="PKG-00123" 
-                    value={newNoticeCode} 
-                    onChange={(e) => setNewNoticeCode(e.target.value)} 
-                    required 
-                  />
-                </div>
-                <div className="field">
-                  <label>Mensaje personalizado (opcional)</label>
-                  <textarea 
-                    placeholder="Mensaje adicional" 
-                    value={newNoticeCustomMessage} 
-                    onChange={(e) => setNewNoticeCustomMessage(e.target.value)}
-                    style={{ minHeight: '60px', width: '100%', border: '1px solid #ccc', borderRadius: '6px', padding: '8px' }}
-                  ></textarea>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button className="btn-secondary" type="button" onClick={() => setShowCreateModal(false)}>Cancelar</button>
-                <button className="btn-primary" type="submit">Guardar</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* MODAL: GALERÍA DE PLANTILLAS */}
       {showTemplatesModal && (

@@ -1,0 +1,7 @@
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.field { display: grid; gap: 6px; margin-bottom: var(--space-3); }
+.field label { color: var(--text-secondary); font-size: var(--font-size-xs); font-weight: 700; }
+.field input, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-card); color: var(--text-primary); font: inherit; }
+.field textarea { min-height: 80px; resize: vertical; }
+.field input:focus, .field textarea:focus { border-color: var(--color-brand-500); box-shadow: var(--focus-ring); outline: 0; }
+@media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
