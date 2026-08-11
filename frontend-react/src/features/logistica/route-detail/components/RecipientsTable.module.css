@@ -1,6 +1,7 @@
 .card {
   display: flex;
-  min-height: 520px;
+  height: clamp(560px, calc(100vh - 310px), 690px);
+  min-height: 560px;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border-default);
@@ -65,7 +66,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .search {
@@ -170,14 +171,8 @@
 .name { color: var(--text-primary) !important; font-weight: 700; }
 
 .rowNumber {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--color-brand-50);
-  color: var(--color-brand-700);
-  font-size: 0.65rem;
+  color: var(--color-neutral-400);
+  font-size: 0.7rem;
   font-weight: 800;
 }
 
@@ -192,9 +187,8 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: var(--status-soft);
+  padding: 0;
+  background: transparent;
   color: var(--status-color);
   font-size: 0.64rem;
   font-weight: 750;
@@ -246,15 +240,16 @@
   font-size: 0.67rem;
 }
 
-@media (max-width: 1180px) {
+@container (max-width: 860px) {
   .header { align-items: flex-start; flex-direction: column; }
   .toolbar { justify-content: flex-start; width: 100%; }
   .search { flex: 1 1 200px; }
 }
 
-@media (max-width: 640px) {
+@container (max-width: 620px) {
   .card { min-height: 460px; }
   .header { padding: var(--space-3); }
+  .toolbar { flex-wrap: wrap; }
   .toolbar > button { flex: 1; }
   .search { width: 100%; flex-basis: 100%; }
 }

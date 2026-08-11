@@ -1,12 +1,11 @@
 import {
-  Check,
   Download,
   Filter,
   Pencil,
   Search,
   Trash2,
   Upload,
-  UserPlus,
+  Plus,
   Users,
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button/Button';
@@ -116,7 +115,7 @@ export function RecipientsTable({
           <Button variant="secondary" size="sm" icon={<Upload size={14} />} onClick={onImport}>
             Subir Excel
           </Button>
-          <Button size="sm" icon={<UserPlus size={14} />} onClick={onCreate}>
+          <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={onCreate}>
             Nuevo
           </Button>
         </div>
@@ -165,9 +164,7 @@ export function RecipientsTable({
                     <td>{notice.codigo_paquete || '-'}</td>
                     <td>
                       <span className={`${styles.status} ${statusStyles[visual]}`}>
-                        {visual === 'enviado' ? (
-                          <Check size={12} aria-hidden="true" />
-                        ) : visual === 'manual' ? (
+                        {visual === 'manual' ? (
                           <Pencil size={12} aria-hidden="true" />
                         ) : (
                           <span className={styles.statusDot} aria-hidden="true" />
@@ -202,7 +199,7 @@ export function RecipientsTable({
 
       <footer className={styles.footer}>
         <span>{resultText}</span>
-        <Button variant="ghost" size="sm" icon={<Download size={14} />} onClick={onExport}>
+        <Button variant="secondary" size="sm" icon={<Download size={14} />} onClick={onExport}>
           Exportar
         </Button>
       </footer>

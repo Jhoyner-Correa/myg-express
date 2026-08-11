@@ -551,16 +551,16 @@ export const LoteDetalle: React.FC = () => {
   return (
     <div className={`main ${styles.page}`} id="main-content">
       <main className={styles.content}>
-        <RouteDetailHeader
-          route={route}
-          total={stats.total}
-          processed={stats.procesados}
-          percentage={stats.procesadosPct}
-          queue={queueControl}
-          onOpenQueue={() => setShowControlModal(true)}
-        />
         <section className={styles.workspace}>
           <div className={styles.workspaceMain}>
+            <RouteDetailHeader
+              route={route}
+              total={stats.total}
+              processed={stats.procesados}
+              percentage={stats.procesadosPct}
+              queue={queueControl}
+              onOpenQueue={() => setShowControlModal(true)}
+            />
             <RouteDetailStats stats={stats} />
             <RecipientsTable
               notices={notices}

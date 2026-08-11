@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { Activity, CalendarDays, MapPin, Users } from 'lucide-react';
+import { Activity, CalendarDays, Check, MapPin, Users } from 'lucide-react';
 import { formatDateOnly, getBadgeClass, getBadgeLabel } from '../domain';
 import type { QueueControl, RouteDetail } from '../types';
 import styles from './RouteDetailHeader.module.css';
@@ -48,7 +48,11 @@ export function RouteDetailHeader({
             {route?.nombre_lote || `Ruta ${route?.id || ''}`}
           </h1>
           <span className={`${styles.badge} ${badgeTone}`}>
-            <span className={styles.badgeDot} aria-hidden="true" />
+            {badge === 'completado' ? (
+              <Check size={14} strokeWidth={2.5} aria-hidden="true" />
+            ) : (
+              <span className={styles.badgeDot} aria-hidden="true" />
+            )}
             {getBadgeLabel(route?.estado || 'pendiente')}
           </span>
         </div>

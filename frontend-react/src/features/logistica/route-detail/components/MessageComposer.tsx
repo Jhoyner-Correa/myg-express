@@ -50,7 +50,7 @@ export function MessageComposer({
         <header className={styles.header}>
           <div>
             <h2>Compositor de envío</h2>
-            <p>Revisa el mensaje antes de iniciar la cola.</p>
+            <p>Redacta y revisa el mensaje antes de enviarlo.</p>
           </div>
           <MessageCircle size={18} aria-hidden="true" />
         </header>
@@ -59,7 +59,7 @@ export function MessageComposer({
           <div className={styles.sessionCard}>
             <span className={`${styles.sessionDot} ${sessionTone}`} aria-hidden="true" />
             <div>
-              <span>Sesión de WhatsApp</span>
+              <span>Sesión</span>
               <strong>
                 {session
                   ? `${session.nombre_dispositivo || session.nombre}${session.numero_whatsapp ? ` · ${session.numero_whatsapp}` : ''}`
@@ -77,7 +77,7 @@ export function MessageComposer({
               </strong>
             </div>
             <Button variant="secondary" size="sm" onClick={onOpenTemplates}>
-              Cambiar
+              Ver plantillas
             </Button>
           </div>
 

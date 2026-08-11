@@ -21,7 +21,7 @@ export function RouteDetailStats({ stats }: { stats: RouteStats }) {
       icon: Send,
     },
     {
-      label: 'Sin WhatsApp',
+      label: 'No tiene WhatsApp',
       value: stats.fallidos,
       percentage: stats.fallidosPct,
       tone: styles.failed,
