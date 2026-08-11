@@ -111,7 +111,7 @@ export function MessageComposer({
                 <span className={styles.avatar}>MG</span>
                 <div className={styles.contact}>
                   <strong>{contactName}</strong>
-                  <span>{hasSession ? 'Sesión seleccionada' : 'Sin sesión seleccionada'}</span>
+                  <span>{hasSession ? 'En sesión elegida' : 'Sin sesión seleccionada'}</span>
                 </div>
                 <span className={styles.whatsappActions} aria-hidden="true">
                   <Phone size={14} />
@@ -136,7 +136,7 @@ export function MessageComposer({
                         />
                       )
                     )}
-                    {message}
+                    <div className={styles.messageContent}>{message}</div>
                     <span className={styles.messageTime}>{time}</span>
                   </div>
                 ) : (
