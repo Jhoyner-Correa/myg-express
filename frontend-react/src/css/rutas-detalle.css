@@ -4667,3 +4667,12 @@ body {
   min-height: 100vh;
   overflow: visible !important;
 }
+.rd-stat-pending .new-stat-icon-wrap { background: var(--color-warning-soft); color: var(--color-warning); }
+.rd-stat-pending .new-stat-num { color: var(--color-warning); }
+.rd-stat-pending .new-stat-bar { background: var(--color-warning); }
+.rd-stat-sent .new-stat-icon-wrap { background: var(--color-info-soft); color: var(--color-info); }
+.rd-stat-sent .new-stat-num { color: var(--color-info); }
+.rd-stat-sent .new-stat-bar { background: var(--color-info); }
+.rd-stat-failed .new-stat-icon-wrap { background: var(--color-neutral-100); color: var(--color-neutral-600); }
+.rd-stat-failed .new-stat-num { color: var(--text-primary); }
+.rd-stat-failed .new-stat-bar { background: var(--color-neutral-500); }

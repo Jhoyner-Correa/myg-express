@@ -11,14 +11,14 @@ import * as XLSX from 'xlsx';
 import { showToast, showConfirm } from '../../core/utils/toast';
 import { getApiErrorMessage } from '../../core/api/errors';
 import { routeDetailService } from './route-detail/route-detail.service';
+import { RecipientsTable } from './route-detail/components/RecipientsTable';
+import { RouteDetailStats } from './route-detail/components/RouteDetailStats';
 import {
   calculateRouteStats,
   formatDateOnly,
   formatDateTime,
-  formatEstadoLabel,
   getBadgeClass,
   getBadgeLabel,
-  normalizeAvisoVisualStatus,
   readQueueControl,
 } from './route-detail/domain';
 import type {
@@ -229,20 +229,6 @@ export const LoteDetalle: React.FC = () => {
       clearInterval(sessionsInterval);
     };
   }, [rutaId, notices, route?.sede_id]);
-
-  const getPaginationMetaText = () => {
-    const totalAll = notices.length;
-    const visibleCount = filteredNotices.length;
-    if (totalAll === 0) {
-      return 'Sin destinatarios para mostrar';
-    }
-    const hasSearch = String(searchQuery || '').trim().length > 0;
-    const hasFilter = filterStatus !== 'todos';
-    const isFiltered = hasSearch || hasFilter;
-    return isFiltered
-      ? `Mostrando ${visibleCount} de ${totalAll} destinatarios`
-      : `Mostrando ${visibleCount} destinatarios`;
-  };
 
   const seleccionarPlantillaComoDefault = async (plantillaId: string) => {
     if (!plantillaId || selectedTemplateId === plantillaId) return;
@@ -639,213 +625,22 @@ export const LoteDetalle: React.FC = () => {
           
           {/* LADO PRINCIPAL: DESTINATARIOS */}
           <div className="workspace-main">
-            
-            {/* CARDS DE KPIs */}
-            <section className="new-stats-row">
-              <article className="new-stat-card">
-                <div className="new-stat-icon-wrap" style={{ background: '#fff4e6' }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                </div>
-                <div className="new-stat-body">
-                  <div className="new-stat-top">
-                    <span className="new-stat-num" style={{ color: '#f97316' }}>{stats.pendientes}</span>
-                    <span className="new-stat-pct">{stats.pendientesPct}%</span>
-                  </div>
-                  <div className="new-stat-lbl">Pendientes</div>
-                  <div className="new-stat-track">
-                    <span className="new-stat-bar" style={{ background: '#f97316', width: `${stats.pendientesPct}%` }}></span>
-                  </div>
-                </div>
-              </article>
-
-              <article className="new-stat-card">
-                <div className="new-stat-icon-wrap" style={{ background: '#eff6ff' }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                </div>
-                <div className="new-stat-body">
-                  <div className="new-stat-top">
-                    <span className="new-stat-num" style={{ color: '#3b82f6' }}>{stats.enviados}</span>
-                    <span className="new-stat-pct">{stats.enviadosPct}%</span>
-                  </div>
-                  <div className="new-stat-lbl">Enviados</div>
-                  <div className="new-stat-track">
-                    <span className="new-stat-bar" style={{ background: '#3b82f6', width: `${stats.enviadosPct}%` }}></span>
-                  </div>
-                </div>
-              </article>
-
-              <article className="new-stat-card">
-                <div className="new-stat-icon-wrap" style={{ background: '#f0fdf4' }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#25d366" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                </div>
-                <div className="new-stat-body">
-                  <div className="new-stat-top">
-                    <span className="new-stat-num" style={{ color: '#1f2937' }}>{stats.fallidos}</span>
-                    <span className="new-stat-pct">{stats.fallidosPct}%</span>
-                  </div>
-                  <div className="new-stat-lbl">No tiene WhatsApp</div>
-                  <div className="new-stat-track">
-                    <span className="new-stat-bar" style={{ background: '#6b7280', width: `${stats.fallidosPct}%` }}></span>
-                  </div>
-                </div>
-              </article>
-            </section>
-
-            {/* TABLA PRINCIPAL DE REGISTROS */}
-            <article className="table-card" id="tab-content-list">
-              <div className="card-header table-card-header">
-                <div className="table-header-left">
-                  <svg className="table-header-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  <div>
-                    <h2 className="card-title card-title-with-count">
-                      Destinatarios
-                      <span className="title-count-pill" id="destinatarios-total-badge" aria-label="Total de destinatarios">{notices.length}</span>
-                    </h2>
-                    <p className="card-subtitle">Consulta, filtra y organiza los registros listos para envío.</p>
-                  </div>
-                </div>
-                <div className="toolbar-right">
-                  <div className="search-wrap">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    <input 
-                      type="text" 
-                      id="input-buscar-aviso"
-                      placeholder="Buscar destinatario..." 
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <button className="btn-soft" onClick={() => setShowFilterPanel(!showFilterPanel)} type="button">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                    Filtros
-                  </button>
-                  <button className="btn-soft" onClick={handleClearRoute} type="button">Vaciar ruta</button>
-                  <button className="btn-soft btn-import-open" onClick={() => setShowImportModal(true)} type="button">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="17 8 12 3 7 8"/>
-                      <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                    Subir Excel
-                  </button>
-                  <button className="btn-primary" id="btn-nuevo-aviso" onClick={() => setShowCreateModal(true)} type="button">+ Nuevo</button>
-                </div>
-              </div>
-
-              {/* Panel de filtros por chips */}
-              {showFilterPanel && (
-                <div className="filter-panel open">
-                  <span className="filter-label">Estado:</span>
-                  {[
-                    { key: 'todos', label: 'Todos' },
-                    { key: 'pendiente', label: 'Pendiente' },
-                    { key: 'enviado', label: 'Enviado' },
-                    { key: 'manual', label: 'Manual' },
-                    { key: 'entregado', label: 'Entregado' },
-                    { key: 'fallido', label: 'Fallido' },
-                    { key: 'sin-whatsapp', label: 'Sin WhatsApp' }
-                  ].map((st) => (
-                    <button 
-                      key={st.key}
-                      className={`filter-chip ${filterStatus === st.key ? 'active' : ''}`}
-                      onClick={() => setFilterStatus(st.key)}
-                      type="button"
-                    >
-                      {st.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="table-scroll">
-                <table>
-                  <colgroup>
-                    <col style={{ width: '40px' }} />
-                    <col />
-                    <col style={{ width: '105px' }} />
-                    <col style={{ width: '145px' }} />
-                    <col style={{ width: '120px' }} />
-                    <col style={{ width: '130px' }} />
-                    <col style={{ width: '60px' }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th>NRO.</th>
-                      <th>Nombre</th>
-                      <th>Teléfono</th>
-                      <th>Código paquete</th>
-                      <th>Estado</th>
-                      <th>Fecha envío</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredNotices.length > 0 ? (
-                      filteredNotices.map((notice, idx) => {
-                        const visualStatus = normalizeAvisoVisualStatus(notice.estado_aviso);
-                        return (
-                          <tr key={notice.id}>
-                            <td><span className="aviso-id">{idx + 1}</span></td>
-                            <td className="aviso-nombre">{notice.nombre || '-'}</td>
-                            <td><span className="telefono-badge">{notice.telefono || '-'}</span></td>
-                            <td>{notice.codigo_paquete || '-'}</td>
-                            <td>
-                              <div style={{ position: 'relative' }}>
-                                <span className={`estado-badge estado-${visualStatus}`}>
-                                  {visualStatus === 'enviado' && (
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><polyline points="20 6 9 17 4 12"/></svg>
-                                  )}
-                                  {visualStatus === 'manual' && (
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                                  )}
-                                  {visualStatus === 'pendiente' && (
-                                    <span className="dot dot-pendiente"></span>
-                                  )}
-                                  {visualStatus === 'sin-whatsapp' && (
-                                    <span className="dot dot-sin-whatsapp"></span>
-                                  )}
-                                  {visualStatus === 'fallido' && (
-                                    <span className="dot dot-fallido"></span>
-                                  )}
-                                  {formatEstadoLabel(notice.estado_aviso)}
-                                </span>
-                                <div className="row-prog-wrap">
-                                  <div className="row-prog-fill" style={{ width: visualStatus === 'enviando' ? '60%' : '0%' }}></div>
-                                </div>
-                              </div>
-                            </td>
-                            <td>{notice.fecha_envio ? formatDateTime(notice.fecha_envio) : <span className="sin-envio">-</span>}</td>
-                            <td>
-                              <div className="row-actions">
-                                <button 
-                                  className="btn-row-delete" 
-                                  onClick={() => handleDeleteNotice(notice.id)}
-                                  title="Eliminar"
-                                >
-                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={7} className="empty-row">
-                          No hay destinatarios registrados en esta ruta.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <div className="table-card-footer">
-                <span className="tabla-count-label" id="tabla-avisos-meta">
-                  {getPaginationMetaText()}
-                </span>
-                <button type="button" className="btn-export-avisos" onClick={handleExportAvisos}>Exportar</button>
-              </div>
-            </article>
+            <RouteDetailStats stats={stats} />
+            <RecipientsTable
+              notices={notices}
+              filteredNotices={filteredNotices}
+              search={searchQuery}
+              status={filterStatus}
+              showFilters={showFilterPanel}
+              onSearchChange={setSearchQuery}
+              onStatusChange={setFilterStatus}
+              onToggleFilters={() => setShowFilterPanel(value => !value)}
+              onClear={() => void handleClearRoute()}
+              onImport={() => setShowImportModal(true)}
+              onCreate={() => setShowCreateModal(true)}
+              onDelete={noticeId => void handleDeleteNotice(noticeId)}
+              onExport={handleExportAvisos}
+            />
           </div>
 
           {/* LADO LATERAL: COMPOSITOR */}
