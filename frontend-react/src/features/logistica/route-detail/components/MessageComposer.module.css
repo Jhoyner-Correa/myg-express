@@ -10,6 +10,8 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--surface-card);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
   box-shadow: var(--shadow-sm);
 }
 
@@ -26,14 +28,16 @@
 .header h2 {
   margin: 0;
   color: var(--text-primary);
-  font-size: 0.86rem;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 
 .header p {
   margin: 2px 0 0;
   color: var(--text-muted);
-  font-size: 0.67rem;
+  font-size: 11px;
+  font-weight: 400;
 }
 
 .body {
@@ -84,9 +88,9 @@
 .sessionCard span:not(.sessionDot),
 .templateRow > div > span {
   color: var(--text-muted);
-  font-size: 0.61rem;
-  font-weight: 750;
-  letter-spacing: 0.055em;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -96,9 +100,9 @@
   align-items: center;
   gap: 5px;
   overflow: hidden;
-  color: var(--text-secondary);
-  font-size: 0.7rem;
-  font-weight: 750;
+  color: var(--color-neutral-700);
+  font-size: 11.5px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -107,8 +111,8 @@
 
 .previewLabel {
   color: var(--text-muted);
-  font-size: 0.62rem;
-  font-weight: 800;
+  font-size: 9.5px;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -133,6 +137,8 @@
   border: 12px solid #242627;
   border-radius: 39px;
   background: #efeae2;
+  color: #202c33;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   box-shadow:
     0 18px 35px rgb(15 23 42 / 0.2),
     0 0 0 1px #0f1112,
@@ -171,8 +177,8 @@
   padding: 3px 12px 0;
   background: #08756a;
   color: #ffffff;
-  font-size: 0.5rem;
-  font-weight: 800;
+  font-size: 8px;
+  font-weight: 600;
 }
 
 .deviceStatus {
@@ -208,8 +214,8 @@
   border-radius: 50%;
   background: #38a169;
   color: white;
-  font-size: 0.58rem;
-  font-weight: 800;
+  font-size: 9px;
+  font-weight: 700;
 }
 
 .contact {
@@ -220,13 +226,14 @@
 
 .contact strong {
   overflow: hidden;
-  font-size: 0.68rem;
+  font-size: 10.5px;
+  font-weight: 600;
   color: #ffffff;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.contact span { color: rgb(255 255 255 / 0.72); font-size: 0.53rem; }
+.contact span { color: rgb(255 255 255 / 0.72); font-size: 8px; font-weight: 400; }
 
 .whatsappActions {
   display: flex;
@@ -256,9 +263,9 @@
   padding: 3px 8px;
   border-radius: 999px;
   background: rgb(255 255 255 / 0.82);
-  color: #64748b;
-  font-size: 0.48rem;
-  font-weight: 750;
+  color: #667781;
+  font-size: 8px;
+  font-weight: 600;
   transform: translateX(-50%);
 }
 
@@ -283,7 +290,13 @@
 
 .messageContent {
   padding: 8px 10px 0;
+  color: #202c33;
+  font-size: 10.5px;
+  font-weight: 400;
+  line-height: 1.48;
 }
+
+.messageContent strong { color: #101820; font-weight: 600; }
 
 .imageMissing {
   display: grid;
@@ -301,7 +314,8 @@
   right: 9px;
   bottom: 4px;
   color: #738078;
-  font-size: 0.46rem;
+  font-size: 7px;
+  font-weight: 400;
 }
 
 .empty {
@@ -329,7 +343,8 @@
   border-radius: 999px;
   background: #f7f8fa;
   color: #94a3b8;
-  font-size: 0.52rem;
+  font-size: 8.5px;
+  font-weight: 400;
 }
 
 .sendIcon {

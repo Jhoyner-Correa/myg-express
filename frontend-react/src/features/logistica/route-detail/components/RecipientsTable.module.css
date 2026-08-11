@@ -41,8 +41,9 @@
   align-items: center;
   gap: var(--space-2);
   margin: 0;
-  font-size: 0.86rem;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .heading h2 span {
@@ -51,14 +52,16 @@
   border: 1px solid var(--border-default);
   border-radius: 999px;
   color: var(--text-secondary);
-  font-size: 0.65rem;
+  font-size: 10px;
+  font-weight: 600;
   text-align: center;
 }
 
 .heading p {
   margin: 2px 0 0;
   color: var(--text-muted);
-  font-size: 0.67rem;
+  font-size: 11px;
+  font-weight: 400;
 }
 
 .toolbar {
@@ -94,7 +97,7 @@
   outline: 0;
   background: transparent;
   color: var(--text-primary);
-  font-size: 0.72rem;
+  font-size: 11.5px;
 }
 
 .filters {
@@ -140,7 +143,7 @@
 .tableScroll table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.71rem;
+  font-size: 11.5px;
 }
 
 .tableScroll th {
@@ -151,8 +154,8 @@
   border-bottom: 1px solid var(--border-default);
   background: var(--surface-subtle);
   color: var(--text-muted);
-  font-size: 0.62rem;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 700;
   letter-spacing: 0.055em;
   text-align: left;
   text-transform: uppercase;
@@ -168,7 +171,7 @@
 }
 
 .tableScroll tbody tr:hover { background: var(--surface-subtle); }
-.name { color: var(--text-primary) !important; font-weight: 700; }
+.name { color: var(--text-primary) !important; font-weight: 600; }
 
 .rowNumber {
   color: var(--color-neutral-400);
@@ -190,8 +193,8 @@
   padding: 0;
   background: transparent;
   color: var(--status-color);
-  font-size: 0.64rem;
-  font-weight: 750;
+  font-size: 10.5px;
+  font-weight: 600;
 }
 
 .pending { --status-color: var(--color-warning); --status-soft: var(--color-warning-soft); }
