@@ -26,6 +26,7 @@
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   min-width: 0;
+  min-height: 0;
   gap: var(--space-4);
   align-self: stretch;
   container-type: inline-size;
@@ -47,6 +48,12 @@
 
 .messageLine {
   min-height: 0.75rem;
+}
+
+@media (min-width: 1201px) {
+  .workspaceMain {
+    height: calc(100dvh - 52px);
+  }
 }
 
 @media (max-width: 1200px) {

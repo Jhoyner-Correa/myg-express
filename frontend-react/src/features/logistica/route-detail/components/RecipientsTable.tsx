@@ -138,7 +138,12 @@ export function RecipientsTable({
         </div>
       )}
 
-      <div className={styles.tableScroll}>
+      <div
+        className={styles.tableScroll}
+        role="region"
+        aria-label="Listado de destinatarios"
+        tabIndex={0}
+      >
         <table>
           <thead>
             <tr>
