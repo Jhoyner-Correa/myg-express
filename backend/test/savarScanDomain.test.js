@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const {
   cleanSavarText,
   MAX_SAVAR_IMPORT_ROWS,
-  parseSavarImportRows
+  parseSavarImportRows,
+  savarSedeScope
 } = require('../dist/modules/logistica/domain/savarScanDomain');
 
 test('limpia y limita texto recibido por SAVAR SCAN', () => {
@@ -45,4 +46,10 @@ test('omite filas inválidas y deduplica códigos dentro del mismo archivo', () 
 test('rechaza estructuras que no sean arreglos', () => {
   assert.deepEqual(parseSavarImportRows({ codigo: 'A' }), { rows: [], duplicates: 0, invalid: 0 });
   assert.equal(MAX_SAVAR_IMPORT_ROWS, 10000);
+});
+
+test('construye un alcance SQL obligatorio y parametrizado por sede', () => {
+  assert.deepEqual(savarSedeScope('p', 2), { where: 'p.sede_id = ?', params: [2] });
+  assert.throws(() => savarSedeScope('p; DROP TABLE paquetes', 2), /Alias SQL inválido/);
+  assert.throws(() => savarSedeScope('p', 0), /Sede inválida/);
 });

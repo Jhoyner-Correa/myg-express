@@ -133,6 +133,18 @@ npm run db:migrate:integrity
 
 El comando ejecuta primero el preflight y se detiene si encuentra datos huerfanos o duplicados.
 
+Para versiones que incorporan el aislamiento de SAVAR SCAN por sede, ejecuta primero
+`backend/migrations/003_savar_sede_preflight.sql` desde phpMyAdmin. Si
+`lotes_que_requieren_decision` devuelve `0`, aplica la migracion idempotente:
+
+```bash
+npm run db:migrate:savar-sede
+```
+
+El comando conserva los paquetes existentes, asigna su sede cuando puede inferirla sin
+ambiguedad y crea la clave foranea e indices multi-sede. Si detecta un lote operado por
+varias sedes, se detiene sin decidir ni eliminar datos.
+
 Arranca API y worker separados:
 
 ```bash
@@ -178,6 +190,7 @@ server {
 - `EVOLUTION_API_WEBHOOK_URL` apuntando a la URL publica correcta de tu API.
 - Backups de MariaDB activos.
 - `npm run db:preflight` sin hallazgos antes de migrar.
+- Preflight SAVAR sin lotes ambiguos y `npm run db:migrate:savar-sede` aplicado.
 - Frontend y backend compilando sin errores.
 - Redis no expuesto publicamente a internet.
 

@@ -16,6 +16,17 @@ export type SavarImportResult = {
   invalid: number;
 };
 
+export type SavarSedeScope = {
+  where: string;
+  params: number[];
+};
+
+export function savarSedeScope(alias: string, sedeId: number): SavarSedeScope {
+  if (!/^[a-z][a-z0-9_]*$/i.test(alias)) throw new Error('Alias SQL inválido para el alcance SAVAR.');
+  if (!Number.isInteger(sedeId) || sedeId <= 0) throw new Error('Sede inválida para el alcance SAVAR.');
+  return { where: `${alias}.sede_id = ?`, params: [sedeId] };
+}
+
 export function cleanSavarText(value: unknown, maxLength: number): string {
   return String(value ?? '').trim().slice(0, maxLength);
 }

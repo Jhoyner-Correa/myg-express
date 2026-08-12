@@ -9,6 +9,7 @@ async function crearPaquetesTables() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS \`paquetes\` (
         \`id\` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        \`sede_id\` INT(10) UNSIGNED NOT NULL,
         \`codigo_paquete\` VARCHAR(100) NOT NULL,
         \`consignado\` VARCHAR(255) NOT NULL,
         \`direccion\` VARCHAR(255) NOT NULL,
@@ -24,10 +25,12 @@ async function crearPaquetesTables() {
         \`created_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
         \`updated_at\` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP() ON UPDATE CURRENT_TIMESTAMP(),
         PRIMARY KEY (\`id\`),
-        UNIQUE KEY \`uq_codigo_paquete\` (\`codigo_paquete\`),
+        UNIQUE KEY \`uq_paquetes_sede_codigo\` (\`sede_id\`, \`codigo_paquete\`),
         KEY \`idx_paquetes_estado\` (\`estado\`),
-        KEY \`idx_paquetes_lote\` (\`lote_importacion\`, \`estado\`),
+        KEY \`idx_paquetes_sede_lote_estado\` (\`sede_id\`, \`lote_importacion\`, \`estado\`),
+        KEY \`idx_paquetes_sede_updated\` (\`sede_id\`, \`updated_at\`),
         KEY \`idx_paquetes_escaneo\` (\`sede_id_escaneo\`, \`fecha_escaneo\`),
+        CONSTRAINT \`fk_paquetes_sede\` FOREIGN KEY (\`sede_id\`) REFERENCES \`sedes\` (\`id\`) ON DELETE RESTRICT ON UPDATE CASCADE,
         CONSTRAINT \`fk_paquetes_usuario\` FOREIGN KEY (\`usuario_id_escaneo\`) REFERENCES \`usuarios\` (\`id\`) ON DELETE SET NULL ON UPDATE CASCADE,
         CONSTRAINT \`fk_paquetes_sede_escaneo\` FOREIGN KEY (\`sede_id_escaneo\`) REFERENCES \`sedes\` (\`id\`) ON DELETE SET NULL ON UPDATE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
