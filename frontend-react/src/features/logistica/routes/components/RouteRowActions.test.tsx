@@ -24,14 +24,17 @@ function renderActions(overrides: Partial<ComponentProps<typeof RouteRowActions>
     onViewDetail: vi.fn(),
   };
 
-  render(
-    <RouteRowActions
-      route={route}
-      canEdit
-      {...callbacks}
-      {...overrides}
-    />,
-  );
+  const props: ComponentProps<typeof RouteRowActions> = {
+    route,
+    canReport: true,
+    canEdit: true,
+    canEnableDeliveries: true,
+    canDelete: true,
+    ...callbacks,
+    ...overrides,
+  };
+
+  render(<RouteRowActions {...props} />);
 
   return callbacks;
 }
@@ -72,5 +75,14 @@ describe('RouteRowActions', () => {
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+  });
+
+  it('oculta acciones restringidas y conserva el acceso al detalle', () => {
+    renderActions({ canReport: false, canEdit: false, canEnableDeliveries: false, canDelete: false });
+
+    expect(screen.queryByRole('button', { name: /ver reporte/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /más opciones/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ver detalle/i })).toBeInTheDocument();
   });
 });

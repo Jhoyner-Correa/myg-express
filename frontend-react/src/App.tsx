@@ -7,8 +7,10 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './core/auth/AuthContext';
 import { useAuth } from './core/auth/authState';
+import { userHasPermission } from './core/auth/permissions';
 import { Layout } from './components/Layout';
 import { PageLoader } from './components/ui/PageLoader/PageLoader';
+import { NotificationHost } from './components/ui/Notifications/NotificationHost';
 import './App.css';
 
 const Login = lazy(() => import('./features/auth/Login').then((m) => ({ default: m.Login })));
@@ -36,7 +38,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: string 
     return <Navigate to="/login" replace />;
   }
 
-  if (permission && !user?.es_superadmin && !user?.permisos?.includes(permission)) {
+  if (permission && !userHasPermission(user, permission)) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -84,6 +86,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppContent />
+      <NotificationHost />
     </AuthProvider>
   );
 }

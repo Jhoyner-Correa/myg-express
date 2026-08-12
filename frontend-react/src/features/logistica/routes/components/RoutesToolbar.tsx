@@ -14,6 +14,7 @@ type RoutesToolbarProps = {
   onDateFilterChange: (value: RouteDateFilter) => void;
   onStatusFilterChange: (value: RouteStatusFilter) => void;
   onCreate: () => void;
+  canCreate?: boolean;
 };
 
 export function RoutesToolbar({
@@ -24,6 +25,7 @@ export function RoutesToolbar({
   onDateFilterChange,
   onStatusFilterChange,
   onCreate,
+  canCreate = true,
 }: RoutesToolbarProps) {
   return (
     <section className={styles.toolbar} aria-label="Filtros de rutas">
@@ -66,7 +68,11 @@ export function RoutesToolbar({
         </SelectField>
       </div>
 
-      <Button className={styles.createButton} size="sm" icon={<Plus aria-hidden="true" />} onClick={onCreate}>Nueva ruta</Button>
+      {canCreate && (
+        <Button className={styles.createButton} size="sm" icon={<Plus aria-hidden="true" />} onClick={onCreate}>
+          Nueva ruta
+        </Button>
+      )}
     </section>
   );
 }

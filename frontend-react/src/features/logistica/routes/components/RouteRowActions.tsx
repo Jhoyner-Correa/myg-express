@@ -6,7 +6,10 @@ import styles from './RouteRowActions.module.css';
 
 type RouteRowActionsProps = {
   route: RouteItem;
+  canReport: boolean;
   canEdit: boolean;
+  canEnableDeliveries: boolean;
+  canDelete: boolean;
   onReport: () => void;
   onEdit: () => void;
   onEnableDeliveries: () => void;
@@ -18,7 +21,10 @@ type MenuPosition = { top: number; left: number };
 
 export function RouteRowActions({
   route,
+  canReport,
   canEdit,
+  canEnableDeliveries,
+  canDelete,
   onReport,
   onEdit,
   onEnableDeliveries,
@@ -30,6 +36,7 @@ export function RouteRowActions({
   const menuRef = useRef<HTMLDivElement>(null);
   const deliveriesEnabled = route.entregas_habilitado === 1;
   const deliveriesDisabled = deliveriesEnabled || route.total_registros <= 0;
+  const hasMenuActions = canEnableDeliveries || canDelete;
 
   useEffect(() => {
     if (!menuPosition) return;
@@ -83,35 +90,43 @@ export function RouteRowActions({
 
   return (
     <div className={styles.actions}>
-      <button className={`${styles.iconButton} ${styles.reportButton}`} type="button" onClick={onReport} title="Ver reporte" aria-label={`Ver reporte de MYG-${route.id}`}>
-        <BarChart3 aria-hidden="true" />
-      </button>
+      {canReport && (
+        <button className={`${styles.iconButton} ${styles.reportButton}`} type="button" onClick={onReport} title="Ver reporte" aria-label={`Ver reporte de MYG-${route.id}`}>
+          <BarChart3 aria-hidden="true" />
+        </button>
+      )}
       {canEdit && (
         <button className={`${styles.iconButton} ${styles.editButton}`} type="button" onClick={onEdit} title="Editar ruta" aria-label={`Editar MYG-${route.id}`}>
           <Edit3 aria-hidden="true" />
         </button>
       )}
-      <button ref={triggerRef} className={`${styles.iconButton} ${styles.menuButton}`} type="button" onClick={toggleMenu} aria-haspopup="menu" aria-expanded={Boolean(menuPosition)} aria-label={`Más opciones para MYG-${route.id}`}>
-        <MoreVertical aria-hidden="true" />
-      </button>
+      {hasMenuActions && (
+        <button ref={triggerRef} className={`${styles.iconButton} ${styles.menuButton}`} type="button" onClick={toggleMenu} aria-haspopup="menu" aria-expanded={Boolean(menuPosition)} aria-label={`Más opciones para MYG-${route.id}`}>
+          <MoreVertical aria-hidden="true" />
+        </button>
+      )}
       <button className={styles.detail} type="button" onClick={onViewDetail}>
         Ver detalle<ChevronRight aria-hidden="true" />
       </button>
 
-      {menuPosition && createPortal(
+      {menuPosition && hasMenuActions && createPortal(
         <div ref={menuRef} className={styles.menu} role="menu" style={menuPosition}>
-          <button
-            type="button"
-            role="menuitem"
-            disabled={deliveriesDisabled}
-            onClick={() => execute(onEnableDeliveries)}
-          >
-            <FileCheck2 aria-hidden="true" />
-            {deliveriesEnabled ? 'Ya está en entregas' : route.total_registros <= 0 ? 'Sin paquetes para entregas' : 'Enviar a entregas'}
-          </button>
-          <button className={styles.danger} type="button" role="menuitem" onClick={() => execute(onDelete)}>
-            <Trash2 aria-hidden="true" />Eliminar ruta
-          </button>
+          {canEnableDeliveries && (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={deliveriesDisabled}
+              onClick={() => execute(onEnableDeliveries)}
+            >
+              <FileCheck2 aria-hidden="true" />
+              {deliveriesEnabled ? 'Ya está en entregas' : route.total_registros <= 0 ? 'Sin paquetes para entregas' : 'Enviar a entregas'}
+            </button>
+          )}
+          {canDelete && (
+            <button className={styles.danger} type="button" role="menuitem" onClick={() => execute(onDelete)}>
+              <Trash2 aria-hidden="true" />Eliminar ruta
+            </button>
+          )}
         </div>,
         document.body,
       )}

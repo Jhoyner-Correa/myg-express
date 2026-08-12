@@ -7,6 +7,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../core/auth/authState';
+import { PERMISSIONS, usePermissions } from '../../core/auth/permissions';
 import { getApiErrorMessage } from '../../core/api/errors';
 import { showToast, showConfirm } from '../../core/utils/toast';
 import { RoutesToolbar } from './routes/components/RoutesToolbar';
@@ -19,13 +20,13 @@ import { RoutesOverview } from './routes/components/RoutesOverview';
 import type { RouteDateFilter, RouteStatusFilter } from './routes/components/RoutesToolbar';
 import type { ReportSummary, RouteItem, RouteNoticeSummaryItem } from './routes/types';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
+import { Button } from '../../components/ui/Button/Button';
+import { PageLoader } from '../../components/ui/PageLoader/PageLoader';
 import pageStyles from './routes/RoutesPage.module.css';
 import { routesService } from './routes/routes.service';
 import { useRoutesData } from './routes/hooks/useRoutesData';
 import { routeStatusLabel } from './routes/formatters';
-import { 
-  MapPin
-} from 'lucide-react';
+import { AlertTriangle, MapPin, RefreshCw } from 'lucide-react';
 
 const ROLES_MAP: Record<string, string> = {
   SysAdmin: 'Administrador del Sistema',
@@ -38,8 +39,12 @@ type HistoryScope = 'all' | 'today';
 export const Logistica: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { can } = usePermissions();
 
-  const { routes, zones, reload, refreshZones } = useRoutesData();
+  const { routes, zones, loading, error, reload, refreshZones } = useRoutesData();
+  const canManageRoutes = can(PERMISSIONS.ROUTES_MANAGE);
+  const canViewNotices = can(PERMISSIONS.NOTICES_VIEW);
+  const canManageDeliveries = can(PERMISSIONS.DELIVERIES_MANAGE);
 
   // Filtros
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,7 +81,10 @@ export const Logistica: React.FC = () => {
     return (
       <RouteRowActions
         route={route}
-        canEdit={String(route.fecha || '').startsWith(getTodayKey())}
+        canReport={canViewNotices}
+        canEdit={canManageRoutes && String(route.fecha || '').startsWith(getTodayKey())}
+        canEnableDeliveries={canManageDeliveries}
+        canDelete={canManageRoutes}
         onReport={() => handleOpenReport(route.id, route.nombre_lote)}
         onEdit={() => {
           setEditandoId(route.id);
@@ -348,7 +356,30 @@ export const Logistica: React.FC = () => {
 
       {/* CUERPO DEL CONTENIDO */}
       <section className={pageStyles.content}>
-        
+        {loading && routes.length === 0 ? (
+          <div className={pageStyles.loadState}>
+            <PageLoader compact label="Cargando rutas" />
+            <strong>Cargando información de rutas</strong>
+            <p>Estamos consultando los datos de tu sede.</p>
+          </div>
+        ) : error && routes.length === 0 ? (
+          <div className={`${pageStyles.loadState} ${pageStyles.errorState}`} role="alert">
+            <span className={pageStyles.stateIcon}><AlertTriangle aria-hidden="true" /></span>
+            <strong>No se pudieron cargar las rutas</strong>
+            <p>{getApiErrorMessage(error, 'Verifica la conexión con el servidor e inténtalo nuevamente.')}</p>
+            <Button size="sm" icon={<RefreshCw aria-hidden="true" />} onClick={() => void reload()}>
+              Reintentar
+            </Button>
+          </div>
+        ) : (
+          <>
+        {error && (
+          <div className={pageStyles.refreshWarning} role="alert">
+            <AlertTriangle aria-hidden="true" />
+            <span>No se pudo actualizar la información. Se muestran los últimos datos disponibles.</span>
+            <button type="button" onClick={() => void reload()}>Reintentar</button>
+          </div>
+        )}
         <RoutesOverview routes={routes} />
 
 
@@ -361,6 +392,7 @@ export const Logistica: React.FC = () => {
           onDateFilterChange={setFilterDate}
           onStatusFilterChange={setFilterStatus}
           onCreate={() => setShowCreateModal(true)}
+          canCreate={canManageRoutes}
         />
 
 
@@ -395,6 +427,8 @@ export const Logistica: React.FC = () => {
             setShowHistoryModal(true);
           }}
         />
+          </>
+        )}
       </section>
 
       <RouteEditorModal
