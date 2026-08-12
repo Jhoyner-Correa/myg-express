@@ -1,9 +1,17 @@
-import type { FormEvent } from 'react';
-import { FileImage, FileText, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { FileImage, FileText, Info, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button/Button';
 import { Modal } from '../../../../components/ui/Modal/Modal';
 import type { TemplateItem } from '../types';
 import styles from './TemplateModals.module.css';
+
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+function formatFileSize(size: number): string {
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 interface TemplateModalsProps {
   galleryOpen: boolean;
@@ -50,9 +58,36 @@ export function TemplateModals({
   onRemoveImage,
   onSave,
 }: TemplateModalsProps) {
+  const [imageDimensions, setImageDimensions] = useState('');
+  const [imageSize, setImageSize] = useState('');
+  const [imageError, setImageError] = useState('');
+
+  useEffect(() => {
+    if (!imagePreview) {
+      setImageDimensions('');
+      setImageSize('');
+      setImageError('');
+    } else if (imageName === 'Imagen actual') {
+      setImageSize('—');
+    }
+  }, [imageName, imagePreview]);
+
   const handleImage = (selected?: File) => {
     if (!selected) return;
 
+    if (!ACCEPTED_IMAGE_TYPES.has(selected.type)) {
+      setImageError('Formato no compatible. Usa una imagen JPG, PNG o WebP.');
+      return;
+    }
+
+    if (selected.size > MAX_IMAGE_SIZE) {
+      setImageError('La imagen supera el tamaño máximo permitido de 5 MB.');
+      return;
+    }
+
+    setImageError('');
+    setImageDimensions('');
+    setImageSize(formatFileSize(selected.size));
     const reader = new FileReader();
     reader.onload = () => onImage(selected, String(reader.result ?? ''));
     reader.readAsDataURL(selected);
@@ -66,6 +101,7 @@ export function TemplateModals({
         description="Elige una para la ruta o administra tus plantillas."
         onClose={onCloseGallery}
         maxWidth={1120}
+        className={styles.galleryDialog}
         footer={
           <Button variant="secondary" onClick={onCloseGallery}>
             Cerrar
@@ -158,22 +194,24 @@ export function TemplateModals({
       <Modal
         open={editorOpen}
         title={editing ? 'Editar plantilla' : 'Nueva plantilla'}
-        description="Guarda un mensaje reutilizable para los envíos."
+        description="Guarda un texto reutilizable para tus envíos por ruta."
         onClose={onBack}
+        maxWidth={640}
+        className={styles.editorDialog}
         footer={
           <>
             <Button variant="secondary" onClick={onBack}>
-              Atrás
+              Cancelar
             </Button>
             <Button type="submit" form="template-editor-form">
-              Guardar
+              {editing ? 'Guardar cambios' : 'Crear plantilla'}
             </Button>
           </>
         }
       >
-        <form id="template-editor-form" onSubmit={onSave}>
+        <form id="template-editor-form" className={styles.editorForm} onSubmit={onSave}>
           <label className={styles.field}>
-            Nombre
+            <span className={styles.fieldLabel}>Nombre de plantilla</span>
             <input
               value={name}
               onChange={(event) => onName(event.target.value)}
@@ -183,39 +221,75 @@ export function TemplateModals({
           </label>
 
           <label className={styles.field}>
-            Mensaje
+            <span className={styles.fieldLabel}>Mensaje</span>
             <textarea
               value={body}
               onChange={(event) => onBody(event.target.value)}
               required
               placeholder="Hola {nombre}, su paquete {codigo_paquete} llegó."
             />
-            <span className={styles.hint}>
-              Variables: {'{nombre}'}, {'{codigo_paquete}'} y {'{telefono}'}
-            </span>
           </label>
 
+          <div className={styles.variablesHint}>
+            <Info size={15} aria-hidden="true" />
+            <span>Variables útiles:</span>
+            <code>{'{nombre}'}</code>
+            <code>{'{codigo_paquete}'}</code>
+            <code>{'{telefono}'}</code>
+          </div>
+
           <div className={styles.field}>
-            <span>Imagen adjunta (opcional)</span>
+            <span className={styles.fieldLabel}>Imagen adjunta (opcional)</span>
             <label className={styles.upload}>
-              {imagePreview && (
-                <span className={styles.preview}>
-                  <img src={imagePreview} alt="Vista previa del adjunto" />
-                </span>
-              )}
-              <Upload size={18} aria-hidden="true" />
-              <span>{imageName || 'Seleccionar imagen'}</span>
+              <Upload size={15} aria-hidden="true" />
+              <span>{imagePreview ? 'Cambiar imagen' : 'Subir imagen'}</span>
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
+                aria-label={imagePreview ? 'Cambiar imagen adjunta' : 'Subir imagen adjunta'}
                 onChange={(event) => handleImage(event.target.files?.[0])}
               />
             </label>
-            {imageName && (
-              <Button size="sm" variant="ghost" type="button" onClick={onRemoveImage}>
-                Quitar imagen
-              </Button>
+
+            {imagePreview && (
+              <div className={styles.fileCard}>
+                <span className={styles.preview}>
+                  <img
+                    src={imagePreview}
+                    alt="Vista previa del adjunto"
+                    onLoad={(event) => {
+                      const image = event.currentTarget;
+                      setImageDimensions(`${image.naturalWidth} × ${image.naturalHeight} px`);
+                    }}
+                  />
+                </span>
+                <span className={styles.fileInfo}>
+                  <strong>{imageName && imageName !== 'Imagen actual' ? imageName : 'Imagen adjunta'}</strong>
+                  <small>
+                    {imageDimensions || 'Dimensiones disponibles al cargar'}
+                    <span aria-hidden="true">•</span>
+                    {imageSize || '—'}
+                  </small>
+                </span>
+                <button
+                  className={styles.removeImage}
+                  type="button"
+                  aria-label="Quitar imagen adjunta"
+                  title="Quitar imagen"
+                  onClick={() => {
+                    setImageDimensions('');
+                    setImageSize('');
+                    setImageError('');
+                    onRemoveImage();
+                  }}
+                >
+                  <X size={15} aria-hidden="true" />
+                </button>
+              </div>
             )}
+
+            <small className={styles.uploadHint}>JPG, PNG o WebP — máximo 5 MB. Se guarda con la plantilla.</small>
+            {imageError && <span className={styles.imageError} role="alert">{imageError}</span>}
           </div>
         </form>
       </Modal>

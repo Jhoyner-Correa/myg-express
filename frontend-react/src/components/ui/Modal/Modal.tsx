@@ -11,9 +11,10 @@ type ModalProps = {
   footer?: ReactNode;
   onClose: () => void;
   maxWidth?: number;
+  className?: string;
 };
 
-export function Modal({ open, title, description, children, footer, onClose, maxWidth = 560 }: ModalProps) {
+export function Modal({ open, title, description, children, footer, onClose, maxWidth = 560, className = '' }: ModalProps) {
   const titleId = useId();
   const descriptionId = useId();
 
@@ -38,7 +39,7 @@ export function Modal({ open, title, description, children, footer, onClose, max
       if (event.target === event.currentTarget) onClose();
     }}>
       <section
-        className={styles.dialog}
+        className={[styles.dialog, className].filter(Boolean).join(' ')}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
