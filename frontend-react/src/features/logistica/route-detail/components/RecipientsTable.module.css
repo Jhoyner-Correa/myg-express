@@ -1,6 +1,6 @@
 .card {
   display: flex;
-  height: clamp(560px, calc(100vh - 310px), 690px);
+  height: 100%;
   min-height: 560px;
   flex-direction: column;
   overflow: hidden;

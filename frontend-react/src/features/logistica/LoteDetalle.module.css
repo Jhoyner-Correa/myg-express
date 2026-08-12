@@ -19,13 +19,15 @@
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(420px, 1fr);
   gap: var(--space-5);
-  align-items: start;
+  align-items: stretch;
 }
 
 .workspaceMain {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   min-width: 0;
   gap: var(--space-4);
+  align-self: stretch;
   container-type: inline-size;
 }
 
