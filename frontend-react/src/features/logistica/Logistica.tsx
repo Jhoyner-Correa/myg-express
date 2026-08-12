@@ -297,6 +297,12 @@ export const Logistica: React.FC = () => {
     return { routesToday: todayList, routesHistory: historyList };
   }, [filteredRoutes]);
 
+  // Compensa el espacio liberado por las rutas de hoy con más filas de historial.
+  // 0 hoy → 3 históricas; 1 → 6; 2 → 5; 3 → 4; 4 o más → 3.
+  const historyPreviewLimit = routesToday.length === 0
+    ? 3
+    : Math.max(3, 7 - Math.min(routesToday.length, 4));
+
   // Rutas en el modal. La vista "Rutas de hoy" usa un alcance real,
   // independiente del buscador, para no convertir la fecha en texto de búsqueda.
   const historyBaseRoutes = useMemo(() => {
@@ -367,7 +373,6 @@ export const Logistica: React.FC = () => {
           emptyTitle="No hay rutas registradas hoy"
           emptyDescription="Crea una nueva ruta para comenzar."
           renderActions={renderRowActions}
-          preserveBodyHeight
           onViewOverflow={() => {
             setHistoryScope('today');
             setSearchQueryHistory('');
@@ -383,7 +388,7 @@ export const Logistica: React.FC = () => {
           getDate={route => route.finished_at || route.fecha_finalizacion || route.updated_at || route.created_at || route.fecha}
           emptyTitle="No hay historial de rutas anteriores"
           renderActions={renderRowActions}
-          limit={5}
+          limit={historyPreviewLimit}
           onViewAll={() => {
             setHistoryScope('all');
             setSearchQueryHistory('');

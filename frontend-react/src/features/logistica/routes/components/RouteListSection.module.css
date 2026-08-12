@@ -44,7 +44,6 @@
 
 .scrollArea { position: relative; overflow-x: auto; }
 .emptyScroll { min-height: 170px; }
-.stableBody { min-height: 158px; }
 .table { width: 100%; min-width: 920px; border-collapse: collapse; table-layout: fixed; }
 .table th {
   height: 34px;
@@ -113,7 +112,6 @@
   .count { min-height: 22px; padding-inline: 9px; font-size: 0.625rem; }
   .viewAll { min-height: 32px; padding-inline: 12px; font-size: 0.6875rem; }
   .emptyScroll { min-height: 240px; }
-  .stableBody { min-height: 220px; }
   .table th { height: 38px; font-size: 0.625rem; }
   .table td { height: 49px; font-size: 0.75rem; }
   .index { width: 26px; height: 26px; font-size: 0.6875rem; }

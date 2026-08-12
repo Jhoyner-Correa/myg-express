@@ -17,7 +17,6 @@ type RouteListSectionProps = {
   viewAllLabel?: string;
   onViewOverflow?: () => void;
   limit?: number;
-  preserveBodyHeight?: boolean;
 };
 
 export function RouteListSection({
@@ -33,7 +32,6 @@ export function RouteListSection({
   viewAllLabel = 'Ver historial completo',
   onViewOverflow,
   limit = 5,
-  preserveBodyHeight = false,
 }: RouteListSectionProps) {
   const visibleRoutes = routes.slice(0, limit);
 
@@ -52,11 +50,7 @@ export function RouteListSection({
           )}
         </header>
 
-        <div className={[
-          styles.scrollArea,
-          routes.length === 0 ? styles.emptyScroll : '',
-          preserveBodyHeight && routes.length > 0 ? styles.stableBody : '',
-        ].filter(Boolean).join(' ')}>
+        <div className={`${styles.scrollArea} ${routes.length === 0 ? styles.emptyScroll : ''}`}>
           <table className={styles.table}>
             <thead>
               <tr>
