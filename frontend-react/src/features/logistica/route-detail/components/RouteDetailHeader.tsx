@@ -87,7 +87,7 @@ export function RouteDetailHeader({
             <Activity size={16} aria-hidden="true" />
             <span>
               <strong>{queue?.isProcessing ? 'Envío en curso' : 'Ruta pausada'}</strong>
-              <small>{queue?.isProcessing ? 'Gestionar cola' : 'Revisar decisión'}</small>
+              <small>{queue?.isProcessing ? 'Gestionar envío' : 'Revisar decisión'}</small>
             </span>
           </button>
         )}

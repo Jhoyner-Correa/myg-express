@@ -292,7 +292,7 @@ export const LoteDetalle: React.FC = () => {
       });
       await loadRouteDetails();
     } catch (e: unknown) {
-      showToast(getApiErrorMessage(e, 'Error al encolar los envíos.'), 'error', { title: 'Error de envío' });
+      showToast(getApiErrorMessage(e, 'No se pudo iniciar el envío.'), 'error', { title: 'Error de envío' });
     } finally {
       setSendingAction(false);
     }
@@ -302,12 +302,18 @@ export const LoteDetalle: React.FC = () => {
   const handleQueueControl = async (action: 'pausar' | 'reanudar' | 'manual' | 'cancelar') => {
     setSendingAction(true);
     try {
-      const result = await routeDetailService.controlQueue(rutaId, action, Number(selectedSessionId) || undefined);
-      showToast(result.message || 'Acción ejecutada con éxito', 'success', { title: 'Cola actualizada' });
+      await routeDetailService.controlQueue(rutaId, action, Number(selectedSessionId) || undefined);
+      const successMessages = {
+        pausar: 'El envío quedó pausado.',
+        reanudar: 'El envío se retomó correctamente.',
+        manual: 'El cierre manual quedó registrado.',
+        cancelar: 'Los mensajes pendientes fueron cancelados.',
+      } as const;
+      showToast(successMessages[action], 'success', { title: 'Estado actualizado' });
       await loadRouteDetails();
       return true;
     } catch (e: unknown) {
-      showToast(getApiErrorMessage(e, 'Error al ejecutar control de cola'), 'error', { title: 'Error de control' });
+      showToast(getApiErrorMessage(e, 'No se pudo actualizar el estado del envío.'), 'error', { title: 'Error de envío' });
       return false;
     } finally {
       setSendingAction(false);

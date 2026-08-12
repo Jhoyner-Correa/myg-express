@@ -67,10 +67,37 @@ describe('SendControlModals confirmation', () => {
 
     expect(screen.getByText('Satipo principal')).toBeInTheDocument();
     expect(screen.getByText('Incluida en la plantilla')).toBeInTheDocument();
+    expect(screen.queryByText(/worker|cola/i)).not.toBeInTheDocument();
 
     const startButton = screen.getByRole('button', { name: 'Iniciar envío' });
     expect(startButton).toBeEnabled();
     fireEvent.click(startButton);
     expect(actions.onStart).toHaveBeenCalledOnce();
+  });
+
+  it('presenta una ruta pausada sin exponer detalles internos del sistema', () => {
+    const actions = callbacks();
+
+    render(
+      <SendControlModals
+        confirmOpen={false}
+        controlOpen
+        queue={{ isPaused: true, pausedJobs: 9 }}
+        pending={9}
+        session={{ ...session, estado_real: 'disconnected' }}
+        template={template}
+        loading={false}
+        {...actions}
+      />,
+    );
+
+    expect(screen.getByRole('dialog', { name: 'Ruta pausada' })).toBeInTheDocument();
+    expect(screen.getByText('Decisión requerida')).toBeInTheDocument();
+    expect(screen.getByText('El envío está detenido')).toBeInTheDocument();
+    expect(screen.getByText('Sin conexión')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retomar envío' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Registrar cierre manual' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Cancelar pendientes' })).toBeEnabled();
+    expect(screen.queryByText(/worker|cola/i)).not.toBeInTheDocument();
   });
 });

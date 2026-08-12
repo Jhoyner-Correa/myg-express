@@ -1,5 +1,16 @@
 import type { ReactNode } from 'react';
-import { AlertTriangle, FileImage, FileText, Info, MessageSquareText, Radio, Send } from 'lucide-react';
+import {
+  AlertTriangle,
+  Ban,
+  CheckCircle2,
+  FileImage,
+  FileText,
+  MessageSquareText,
+  Pause,
+  Play,
+  Radio,
+  Send,
+} from 'lucide-react';
 import { Button } from '../../../../components/ui/Button/Button';
 import { Modal } from '../../../../components/ui/Modal/Modal';
 import type { QueueAction, QueueControl, SessionItem, TemplateItem } from '../types';
@@ -61,26 +72,32 @@ export function SendControlModals({
 
   const controlFooter = queue?.isProcessing ? (
     <>
-      <Button loading={loading} onClick={() => void runAction('pausar')}>
+      <Button icon={<Pause size={15} />} loading={loading} onClick={() => void runAction('pausar')}>
         Pausar envío
       </Button>
-      <Button variant="danger" loading={loading} onClick={() => void runAction('cancelar')}>
+      <Button icon={<Ban size={15} />} variant="danger" loading={loading} onClick={() => void runAction('cancelar')}>
         Cancelar pendientes
       </Button>
     </>
   ) : (
     <>
       <Button
+        icon={<Play size={15} />}
         loading={loading}
         disabled={session?.estado_real !== 'connected'}
         onClick={() => void runAction('reanudar')}
       >
         Retomar envío
       </Button>
-      <Button variant="secondary" loading={loading} onClick={() => void runAction('manual')}>
-        Cierre manual
+      <Button
+        icon={<CheckCircle2 size={15} />}
+        variant="secondary"
+        loading={loading}
+        onClick={() => void runAction('manual')}
+      >
+        Registrar cierre manual
       </Button>
-      <Button variant="danger" loading={loading} onClick={() => void runAction('cancelar')}>
+      <Button icon={<Ban size={15} />} variant="danger" loading={loading} onClick={() => void runAction('cancelar')}>
         Cancelar pendientes
       </Button>
     </>
@@ -121,7 +138,7 @@ export function SendControlModals({
             <span className={styles.pendingIcon}><MessageSquareText aria-hidden="true" /></span>
             <span className={styles.pendingCopy}>
               <span>Mensajes pendientes</span>
-              <small>Destinatarios listos para entrar a la cola</small>
+              <small>Destinatarios pendientes por enviar</small>
             </span>
             <strong>{pending}</strong>
           </div>
@@ -146,41 +163,41 @@ export function SendControlModals({
             />
           </div>
         </div>
-        <div className={styles.note}>
-          <Info aria-hidden="true" />
-          <div>
-            <strong>Envío gestionado por cola</strong>
-            <p>
-              Solo se encolarán destinatarios pendientes. El worker de WhatsApp procesará
-              cada mensaje y actualizará los resultados dentro de la ruta.
-            </p>
-          </div>
-        </div>
       </Modal>
 
       <Modal
         open={controlOpen && Boolean(queue)}
         title={queue?.isProcessing ? 'Control de envío' : 'Ruta pausada'}
+        description={queue?.isProcessing
+          ? 'Supervisa el envío actual y decide si necesitas detenerlo.'
+          : 'Esta ruta requiere una decisión antes de continuar.'}
         onClose={onCloseControl}
+        maxWidth={520}
+        className={styles.controlDialog}
         footer={controlFooter}
       >
-        <div className={styles.status}>
-          <AlertTriangle aria-hidden="true" />
+        <div className={`${styles.status} ${queue?.isProcessing ? styles.processing : ''}`}>
+          <span className={styles.statusIcon}>
+            {queue?.isProcessing ? <Radio aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}
+          </span>
           <div>
-            <h3>{queue?.isProcessing ? 'Envío activo' : 'Decisión requerida'}</h3>
+            <span className={styles.kicker}>{queue?.isProcessing ? 'Envío activo' : 'Decisión requerida'}</span>
+            <h3>{queue?.isProcessing ? 'Mensajes en proceso' : 'El envío está detenido'}</h3>
             <p>
-              {queue?.lastError || (queue?.isProcessing
-                ? 'Puedes pausar los pendientes sin perderlos.'
-                : 'No se reenviará nada automáticamente hasta que elijas una acción.')}
+              {queue?.isProcessing
+                ? 'Puedes pausar los mensajes pendientes sin perder el avance registrado.'
+                : queue?.lastError
+                  ? 'El envío se detuvo antes de completar todos los mensajes. Elige cómo deseas continuar.'
+                  : 'No se enviarán más mensajes hasta que elijas cómo continuar.'}
             </p>
           </div>
         </div>
         <div className={styles.stats}>
-          <span><strong>{queued}</strong>{queue?.isProcessing ? 'en cola' : 'en pausa'}</span>
-          <span><strong>{pending}</strong>pendientes</span>
+          <span><strong>{queued}</strong><small>{queue?.isProcessing ? 'por enviar' : 'en pausa'}</small></span>
+          <span><strong>{pending}</strong><small>pendientes</small></span>
           <span>
-            <strong>{session?.estado_real === 'connected' ? 'Lista' : 'Sin conexión'}</strong>
-            sesión
+            <strong>{session?.estado_real === 'connected' ? 'Disponible' : 'Sin conexión'}</strong>
+            <small>sesión</small>
           </span>
         </div>
       </Modal>
