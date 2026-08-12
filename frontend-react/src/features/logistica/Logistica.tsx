@@ -33,6 +33,8 @@ const ROLES_MAP: Record<string, string> = {
   EncargadoOficina: 'Encargado de Oficina'
 };
 
+type HistoryScope = 'all' | 'today';
+
 export const Logistica: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -47,6 +49,7 @@ export const Logistica: React.FC = () => {
   // Modales
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyScope, setHistoryScope] = useState<HistoryScope>('all');
   const [showReportModal, setShowReportModal] = useState(false);
   
   // Datos del Reporte
@@ -294,23 +297,32 @@ export const Logistica: React.FC = () => {
     return { routesToday: todayList, routesHistory: historyList };
   }, [filteredRoutes]);
 
-  // Rutas en el Modal de Historial Completo
+  // Rutas en el modal. La vista "Rutas de hoy" usa un alcance real,
+  // independiente del buscador, para no convertir la fecha en texto de búsqueda.
+  const historyBaseRoutes = useMemo(() => {
+    if (historyScope === 'today') {
+      const todayKey = getTodayKey();
+      return routes.filter(item => item.fecha?.startsWith(todayKey));
+    }
+    return routes;
+  }, [historyScope, routes]);
+
   const filteredHistoryModal = useMemo(() => {
-    return routes.filter((item) => {
+    return historyBaseRoutes.filter((item) => {
       if (!searchQueryHistory) return true;
       const needle = searchQueryHistory.toLowerCase();
       const haystack = [item.nombre_lote, item.origen, item.sede_nombre, item.zona, `MYG-${item.id}`, routeStatusLabel(item.estado)]
         .map(v => String(v || '').toLowerCase()).join(' ');
       return haystack.includes(needle);
     });
-  }, [routes, searchQueryHistory]);
+  }, [historyBaseRoutes, searchQueryHistory]);
 
   const historyStats = useMemo(() => {
-    const totalRutas = routesHistory.length;
-    const totalPaquetes = routesHistory.reduce((sum, r) => sum + (r.total_registros || 0), 0);
+    const totalRutas = historyBaseRoutes.length;
+    const totalPaquetes = historyBaseRoutes.reduce((sum, r) => sum + (r.total_registros || 0), 0);
     const promedio = totalRutas > 0 ? Math.round(totalPaquetes / totalRutas) : 0;
     return { totalRutas, totalPaquetes, promedio };
-  }, [routesHistory]);
+  }, [historyBaseRoutes]);
 
   return (
     <main className={`main ${pageStyles.page} rutas-page`} id="main-content">
@@ -356,7 +368,8 @@ export const Logistica: React.FC = () => {
           emptyDescription="Crea una nueva ruta para comenzar."
           renderActions={renderRowActions}
           onViewOverflow={() => {
-            setSearchQueryHistory(getTodayKey());
+            setHistoryScope('today');
+            setSearchQueryHistory('');
             setShowHistoryModal(true);
           }}
         />
@@ -370,6 +383,7 @@ export const Logistica: React.FC = () => {
           emptyTitle="No hay historial de rutas anteriores"
           renderActions={renderRowActions}
           onViewAll={() => {
+            setHistoryScope('all');
             setSearchQueryHistory('');
             setShowHistoryModal(true);
           }}
@@ -394,6 +408,7 @@ export const Logistica: React.FC = () => {
         routes={filteredHistoryModal}
         query={searchQueryHistory}
         stats={historyStats}
+        scope={historyScope}
         onQueryChange={setSearchQueryHistory}
         onClose={() => setShowHistoryModal(false)}
         getDate={route => String(route.fecha || '').startsWith(getTodayKey())

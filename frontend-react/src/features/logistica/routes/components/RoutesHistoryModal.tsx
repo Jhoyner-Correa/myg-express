@@ -13,6 +13,7 @@ type HistoryStats = {
 
 type RoutesHistoryModalProps = {
   open: boolean;
+  scope: 'all' | 'today';
   routes: RouteItem[];
   query: string;
   stats: HistoryStats;
@@ -24,6 +25,7 @@ type RoutesHistoryModalProps = {
 
 export function RoutesHistoryModal({
   open,
+  scope,
   routes,
   query,
   stats,
@@ -35,8 +37,10 @@ export function RoutesHistoryModal({
   return (
     <Modal
       open={open}
-      title="Historial de rutas"
-      description="Consulta las rutas registradas y su avance operativo."
+      title={scope === 'today' ? 'Rutas de hoy' : 'Historial de rutas'}
+      description={scope === 'today'
+        ? 'Consulta todas las rutas registradas durante el día.'
+        : 'Consulta las rutas registradas y su avance operativo.'}
       maxWidth={1180}
       onClose={onClose}
     >

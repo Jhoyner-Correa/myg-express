@@ -27,20 +27,33 @@ export function RouteRowActions({
 }: RouteRowActionsProps) {
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const deliveriesEnabled = route.entregas_habilitado === 1;
   const deliveriesDisabled = deliveriesEnabled || route.total_registros <= 0;
 
   useEffect(() => {
     if (!menuPosition) return;
     const close = (event: Event) => {
-      if (event instanceof PointerEvent && triggerRef.current?.contains(event.target as Node)) return;
+      const target = event.target;
+      if (target instanceof Node && (
+        triggerRef.current?.contains(target)
+        || menuRef.current?.contains(target)
+      )) return;
       setMenuPosition(null);
     };
+    const closeWithKeyboard = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuPosition(null);
+        triggerRef.current?.focus();
+      }
+    };
     document.addEventListener('pointerdown', close);
+    document.addEventListener('keydown', closeWithKeyboard);
     window.addEventListener('resize', close);
     window.addEventListener('scroll', close, true);
     return () => {
       document.removeEventListener('pointerdown', close);
+      document.removeEventListener('keydown', closeWithKeyboard);
       window.removeEventListener('resize', close);
       window.removeEventListener('scroll', close, true);
     };
@@ -50,7 +63,17 @@ export function RouteRowActions({
     if (menuPosition) return setMenuPosition(null);
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setMenuPosition({ top: rect.bottom + 6, left: Math.max(8, rect.right - 210) });
+    const menuWidth = 210;
+    const menuHeight = 94;
+    const viewportGap = 8;
+    const top = rect.bottom + 6 + menuHeight <= window.innerHeight
+      ? rect.bottom + 6
+      : Math.max(viewportGap, rect.top - menuHeight - 6);
+    const left = Math.max(
+      viewportGap,
+      Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - viewportGap),
+    );
+    setMenuPosition({ top, left });
   };
 
   const execute = (action: () => void) => {
@@ -76,7 +99,7 @@ export function RouteRowActions({
       </button>
 
       {menuPosition && createPortal(
-        <div className={styles.menu} role="menu" style={menuPosition}>
+        <div ref={menuRef} className={styles.menu} role="menu" style={menuPosition}>
           <button
             type="button"
             role="menuitem"
