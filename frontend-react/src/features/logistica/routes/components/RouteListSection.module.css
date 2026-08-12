@@ -74,7 +74,7 @@
 .center { font-variant-numeric: tabular-nums; font-weight: 700; }
 .status { min-height: 22px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border-radius: 999px; font-size: 0.625rem; font-weight: 750; }
 .status > span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
-.success { background: var(--color-success-soft); color: var(--color-success); }
+.success { padding-inline: 0; background: transparent; color: var(--color-success); }
 .info { background: var(--color-info-soft); color: var(--color-info); }
 .warning { background: var(--color-warning-soft); color: var(--color-warning); }
 .danger { background: var(--color-danger-soft); color: var(--color-danger); }
@@ -103,4 +103,24 @@
 @media (max-width: 460px) {
   .viewAll { width: 30px; padding: 0; justify-content: center; font-size: 0; }
   .viewAll svg { width: 14px; height: 14px; }
+}
+
+@container routes-content (min-width: 1400px) {
+  .sectionHeader { min-height: 46px; padding-inline: 18px 16px; }
+  .titleGroup h2 { font-size: 0.8125rem; }
+  .count { min-height: 22px; padding-inline: 9px; font-size: 0.625rem; }
+  .viewAll { min-height: 32px; padding-inline: 12px; font-size: 0.6875rem; }
+  .emptyScroll { min-height: 240px; }
+  .table th { height: 38px; font-size: 0.625rem; }
+  .table td { height: 49px; font-size: 0.75rem; }
+  .index { width: 26px; height: 26px; font-size: 0.6875rem; }
+  .code,
+  .zone,
+  .date { font-size: 0.75rem; }
+  .status { font-size: 0.6875rem; }
+  .empty { inset-block-start: 38px; }
+  .emptyIcon { width: 48px; height: 48px; margin-bottom: 12px; }
+  .emptyIcon svg { width: 21px; height: 21px; }
+  .empty strong { font-size: 0.8125rem; }
+  .empty p { margin-top: 6px; font-size: 0.6875rem; }
 }

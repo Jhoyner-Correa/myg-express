@@ -64,6 +64,25 @@
 .chartLine { fill: none; stroke: var(--color-brand-600); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.25; vector-effect: non-scaling-stroke; }
 .chartPoint { fill: #fff; stroke: var(--color-brand-600); stroke-width: 2; vector-effect: non-scaling-stroke; }
 
+@container routes-content (min-width: 1400px) {
+  .overview { height: 184px; grid-template-columns: 600px minmax(0, 1fr); }
+  .metrics { padding-block: 22px; }
+  .metric { min-height: 122px; gap: 12px; padding-inline: 12px; }
+  .metricIcon { width: 58px; height: 58px; border-radius: 13px; }
+  .metricIcon svg { width: 26px; height: 26px; }
+  .metricLabel { font-size: 0.6875rem; }
+  .metricValueRow { min-height: 36px; }
+  .metricValueRow strong { font-size: 1.75rem; }
+  .metricBadge { font-size: 0.625rem; }
+  .metricContent small { font-size: 0.625rem; }
+  .chartPanel { padding: 17px 20px 7px 16px; }
+  .chartHeader { min-height: 20px; }
+  .eyebrow { font-size: 0.625rem; }
+  .chartHeader h2 { font-size: 0.6875rem; }
+  .chart, .chartSvg { height: 140px; }
+  .axisLabel { font-size: 8.75px; }
+}
+
 @container routes-content (max-width: 900px) {
   .overview { height: auto; grid-template-columns: 1fr; }
   .metrics { border-right: 0; border-bottom: 1px solid var(--border-default); }

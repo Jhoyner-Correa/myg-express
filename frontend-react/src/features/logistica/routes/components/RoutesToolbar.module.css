@@ -72,3 +72,13 @@
 @container routes-content (max-width: 580px) {
   .filters { grid-template-columns: 1fr; }
 }
+
+@container routes-content (min-width: 1400px) {
+  .toolbar { min-height: 62px; padding-inline: 16px; }
+  .filters { gap: 10px; }
+  .search { width: 220px; }
+  .selectField { width: 164px; }
+  .search input,
+  .selectField select { height: 36px; font-size: 0.75rem; }
+  .createButton { min-width: 104px; min-height: 36px; font-size: 0.6875rem; }
+}

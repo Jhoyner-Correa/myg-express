@@ -13,3 +13,10 @@
 .menu button.danger { color: var(--color-danger); }
 .menu button.danger:hover { background: var(--color-danger-soft); color: #b91c1c; }
 @keyframes enter { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+
+@container routes-content (min-width: 1400px) {
+  .actions { gap: 6px; }
+  .iconButton { width: 32px; height: 32px; }
+  .iconButton svg { width: 15px; height: 15px; }
+  .detail { min-height: 32px; padding-inline: 12px; font-size: 0.75rem; }
+}
