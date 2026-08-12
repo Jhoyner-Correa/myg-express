@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { Activity, CalendarDays, Check, MapPin, Users } from 'lucide-react';
+import { CalendarDays, Check, ChevronRight, MapPin, Pause, Radio, Users } from 'lucide-react';
 import { formatDateOnly, getBadgeClass, getBadgeLabel } from '../domain';
 import type { QueueControl, RouteDetail } from '../types';
 import styles from './RouteDetailHeader.module.css';
@@ -84,11 +84,14 @@ export function RouteDetailHeader({
             className={`${styles.queueButton} ${queue?.isProcessing ? styles.processing : styles.paused}`}
             onClick={onOpenQueue}
           >
-            <Activity size={16} aria-hidden="true" />
-            <span>
-              <strong>{queue?.isProcessing ? 'Envío en curso' : 'Ruta pausada'}</strong>
-              <small>{queue?.isProcessing ? 'Gestionar envío' : 'Revisar decisión'}</small>
+            <span className={styles.queueIcon}>
+              {queue?.isProcessing ? <Radio aria-hidden="true" /> : <Pause aria-hidden="true" />}
             </span>
+            <span className={styles.queueCopy}>
+              <strong>{queue?.isProcessing ? 'Envío en curso' : 'Ruta pausada'}</strong>
+              <small>{queue?.isProcessing ? 'Administrar envío' : 'Revisar opciones'}</small>
+            </span>
+            <ChevronRight className={styles.queueChevron} aria-hidden="true" />
           </button>
         )}
 
