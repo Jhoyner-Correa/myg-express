@@ -7,7 +7,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
     "dev:worker": "ts-node-dev --respawn --transpile-only src/worker.ts",
     "build": "tsc",
-    "test": "npm run build && node --test test/authorization.test.js test/time.test.js test/savarScanDomain.test.js test/deliveryDomain.test.js",
+    "test": "npm run build && node --test test/authorization.test.js test/time.test.js test/savarScanDomain.test.js test/deliveryDomain.test.js test/urbanoRouteDomain.test.js test/noticeImportDomain.test.js",
     "test:authorization": "npm run build && node --test test/authorization.test.js test/time.test.js",
     "db:preflight": "npm run build && node dist/scripts/checkDatabaseIntegrity.js",
     "db:migrate:integrity": "npm run db:preflight && node dist/scripts/applyIntegrityMigration.js",

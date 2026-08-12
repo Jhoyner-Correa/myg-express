@@ -1,36 +1,29 @@
 import { Response } from 'express';
+import { RowDataPacket } from 'mysql2/promise';
 import { pool } from '../../../core/database/database';
 import { AuthRequest } from '../../../core/middlewares/authMiddleware';
+import {
+  normalizeNoticeOptionalText,
+  normalizeNoticePhone,
+  normalizeNoticePositiveInteger,
+  normalizeNoticeWeight,
+  parseNoticeImportRows,
+} from '../domain/noticeImportDomain';
 
 function normalizarTelefono(telefono: string): string {
-  return String(telefono || '').replace(/[^\d]/g, '').trim();
+  return normalizeNoticePhone(telefono);
 }
 
 function normalizarTextoOpcional(value: unknown, maxLength: number): string | null {
-  const clean = String(value ?? '')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  return clean ? clean.slice(0, maxLength) : null;
+  return normalizeNoticeOptionalText(value, maxLength);
 }
 
 function normalizarPesoKg(value: unknown): number | null {
-  const raw = String(value ?? '')
-    .replace(',', '.')
-    .replace(/[^\d.]/g, '')
-    .trim();
-
-  if (!raw) return null;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed < 0 || parsed >= 100000) return null;
-  return Number(parsed.toFixed(3));
+  return normalizeNoticeWeight(value);
 }
 
 function normalizarEnteroPositivo(value: unknown): number | null {
-  const parsed = Number(String(value ?? '').replace(/[^\d]/g, ''));
-  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 9999) return null;
-  return Math.floor(parsed);
+  return normalizeNoticePositiveInteger(value);
 }
 
 // Crear aviso
@@ -245,56 +238,53 @@ export const importarAvisos = async (req: AuthRequest, res: Response) => {
 
   try {
     const { lote_id, avisos } = req.body;
-    const sede_id = req.user?.sede_id;
+    const loteId = Number(lote_id);
+    const sedeId = Number(req.user?.sede_id);
 
-    if (!lote_id || !sede_id || !Array.isArray(avisos) || avisos.length === 0) {
+    if (!Number.isInteger(loteId) || loteId <= 0 || !Number.isInteger(sedeId) || sedeId <= 0 || !Array.isArray(avisos) || avisos.length === 0) {
       return res.status(400).json({
         ok: false,
         message: 'lote_id y avisos son obligatorios'
       });
     }
 
-    const [loteRows]: any = await connection.query(
+    const parsed = parseNoticeImportRows(avisos);
+    if (!parsed.rows.length) {
+      return res.status(400).json({ ok: false, message: 'No hay filas validas para importar' });
+    }
+
+    await connection.beginTransaction();
+    const [loteRows] = await connection.query<RowDataPacket[]>(
       `SELECT id
        FROM lotes_carga
        WHERE id = ? AND sede_id = ? AND fecha_eliminacion IS NULL
-       LIMIT 1`,
-      [lote_id, sede_id]
+       LIMIT 1
+       FOR UPDATE`,
+      [loteId, sedeId]
     );
 
     if (!loteRows.length) {
+      await connection.rollback();
       return res.status(404).json({
         ok: false,
         message: 'Lote no encontrado o no pertenece a tu sede'
       });
     }
 
-    const avisosValidos = avisos
-      .map((item: any) => ({
-        nombre: item.nombre?.trim() || null,
-        telefono: normalizarTelefono(item.telefono),
-        codigo_paquete: item.codigo_paquete?.trim() || null,
-        peso_kg: normalizarPesoKg(item.peso_kg ?? item.peso),
-        tipo_paquete_urbano: normalizarTextoOpcional(item.tipo_paquete_urbano ?? item.tipo_paquete, 80),
-        piezas: normalizarEnteroPositivo(item.piezas),
-        contenido_paquete: normalizarTextoOpcional(item.contenido_paquete ?? item.contenido, 255),
-        id_plantilla: item.id_plantilla || null,
-        mensaje_personalizado: item.mensaje?.trim() || null
-      }))
-      .filter((item: any) => item.telefono);
-
-    if (!avisosValidos.length) {
-      return res.status(400).json({
-        ok: false,
-        message: 'No hay filas validas para importar'
-      });
+    const requestedCodes = parsed.rows.map(item => item.codigo_paquete).filter((code): code is string => Boolean(code));
+    const existingCodes = new Set<string>();
+    if (requestedCodes.length) {
+      const [existing] = await connection.query<(RowDataPacket & { codigo_paquete: string })[]>(
+        `SELECT codigo_paquete FROM avisos_diarios WHERE lote_id = ? AND sede_id = ? AND codigo_paquete IN (?)`,
+        [loteId, sedeId, requestedCodes]
+      );
+      existing.forEach(item => existingCodes.add(String(item.codigo_paquete).toLocaleLowerCase('es')));
     }
+    const noticesToInsert = parsed.rows.filter(item => !item.codigo_paquete || !existingCodes.has(item.codigo_paquete.toLocaleLowerCase('es')));
 
-    await connection.beginTransaction();
-
-    const values = avisosValidos.map((aviso: any) => [
-      lote_id,
-      sede_id,
+    const values = noticesToInsert.map(aviso => [
+      loteId,
+      sedeId,
       aviso.nombre,
       aviso.telefono,
       aviso.codigo_paquete,
@@ -306,28 +296,31 @@ export const importarAvisos = async (req: AuthRequest, res: Response) => {
       aviso.mensaje_personalizado
     ]);
 
-    await connection.query(
-      `INSERT INTO avisos_diarios
-      (lote_id, sede_id, nombre, telefono, codigo_paquete, peso_kg, tipo_paquete_urbano, piezas, contenido_paquete, id_plantilla, mensaje_personalizado)
-      VALUES ?`,
-      [values]
-    );
+    if (values.length) {
+      await connection.query(
+        `INSERT INTO avisos_diarios
+        (lote_id, sede_id, nombre, telefono, codigo_paquete, peso_kg, tipo_paquete_urbano, piezas, contenido_paquete, id_plantilla, mensaje_personalizado)
+        VALUES ?`,
+        [values]
+      );
+    }
 
     // Eliminado el update a lotes_carga.total_registros
 
     await connection.commit();
 
-    return res.status(201).json({
+    return res.status(values.length ? 201 : 200).json({
       ok: true,
-      message: 'Avisos importados correctamente',
-      importados: avisosValidos.length
+      message: values.length ? 'Avisos importados correctamente' : 'Los avisos ya existian en el lote',
+      importados: values.length,
+      omitidos: parsed.invalid + parsed.duplicates + existingCodes.size
     });
-  } catch (error: any) {
+  } catch (error) {
     await connection.rollback();
+    console.error('[avisos] Error al importar avisos:', error);
     return res.status(500).json({
       ok: false,
-      message: 'Error al importar avisos',
-      error: error.message
+      message: 'Error al importar avisos'
     });
   } finally {
     connection.release();

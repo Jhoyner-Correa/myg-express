@@ -10,6 +10,7 @@ import {
   getLatestUrbanoRouteCache,
   saveUrbanoRouteCache
 } from '../../../services/urbanoRouteCacheService';
+import { parseUrbanoRouteId, publicUrbanoErrorMessage } from '../domain/urbanoRouteDomain';
 
 function getUrbanoContext(req: AuthRequest) {
   const userId = Number(req.user?.id);
@@ -36,9 +37,9 @@ export function estadoUrbano(req: AuthRequest, res: Response) {
 export async function consultarRutaUrbano(req: AuthRequest, res: Response) {
   try {
     const context = getUrbanoContext(req);
-    const routeId = String(req.params.routeId || '').trim();
+    const routeId = parseUrbanoRouteId(req.params.routeId);
 
-    if (!context.userId || !/^\d{1,20}$/.test(routeId)) {
+    if (!context.userId || !routeId) {
       return res.status(400).json({
         ok: false,
         message: 'Debes indicar un numero de ruta valido.'
@@ -57,10 +58,11 @@ export async function consultarRutaUrbano(req: AuthRequest, res: Response) {
       ok: true,
       data
     });
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[urbano] Error al consultar ruta:', error);
     return res.status(500).json({
       ok: false,
-      message: error.message || 'No se pudo consultar la ruta en Urbano.'
+      message: publicUrbanoErrorMessage(error)
     });
   }
 }
@@ -82,10 +84,11 @@ export async function obtenerUltimaConsultaUrbano(req: AuthRequest, res: Respons
       ok: true,
       data
     });
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[urbano] Error al recuperar la consulta temporal:', error);
     return res.status(500).json({
       ok: false,
-      message: error.message || 'No se pudo recuperar la ultima consulta temporal.'
+      message: 'No se pudo recuperar la ultima consulta temporal.'
     });
   }
 }
@@ -107,10 +110,11 @@ export async function limpiarConsultaUrbano(req: AuthRequest, res: Response) {
       ok: true,
       message: 'Consulta temporal limpiada correctamente.'
     });
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[urbano] Error al limpiar la consulta temporal:', error);
     return res.status(500).json({
       ok: false,
-      message: error.message || 'No se pudo limpiar la consulta temporal.'
+      message: 'No se pudo limpiar la consulta temporal.'
     });
   }
 }

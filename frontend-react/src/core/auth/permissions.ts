@@ -12,6 +12,8 @@ export const PERMISSIONS = {
   TEMPLATES_MANAGE: 'plantillas.gestionar',
   WHATSAPP_VIEW: 'whatsapp.ver',
   WHATSAPP_MANAGE: 'whatsapp.gestionar',
+  URBANO_ROUTES_VIEW: 'urbano.rutas.ver',
+  URBANO_ROUTES_MANAGE: 'urbano.rutas.gestionar',
   SAVAR_SCAN_VIEW: 'savarscan.ver',
   SAVAR_SCAN_MANAGE: 'savarscan.gestionar',
 } as const;
