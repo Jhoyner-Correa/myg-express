@@ -50,7 +50,7 @@ export function RouteListSection({
           )}
         </header>
 
-        <div className={styles.scrollArea}>
+        <div className={`${styles.scrollArea} ${routes.length === 0 ? styles.emptyScroll : ''}`}>
           <table className={styles.table}>
             <thead>
               <tr>

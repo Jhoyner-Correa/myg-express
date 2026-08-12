@@ -33,7 +33,7 @@ export function RoutesToolbar({
           <Search aria-hidden="true" />
           <input
             type="search"
-            placeholder="Buscar por ruta, zona o sede"
+            placeholder="Buscar ruta..."
             value={search}
             onChange={event => onSearchChange(event.target.value)}
           />
@@ -66,7 +66,7 @@ export function RoutesToolbar({
         </SelectField>
       </div>
 
-      <Button size="sm" icon={<Plus aria-hidden="true" />} onClick={onCreate}>Nueva ruta</Button>
+      <Button className={styles.createButton} size="sm" icon={<Plus aria-hidden="true" />} onClick={onCreate}>Nueva ruta</Button>
     </section>
   );
 }

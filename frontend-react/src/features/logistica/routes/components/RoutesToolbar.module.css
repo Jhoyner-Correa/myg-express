@@ -1,9 +1,10 @@
 .toolbar {
+  min-height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: 9px 12px;
+  padding: 10px 14px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   background: var(--surface-card);
@@ -13,7 +14,7 @@
 .filters { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .search,
 .selectField { position: relative; display: flex; align-items: center; min-width: 0; }
-.search { width: min(280px, 30vw); }
+.search { width: 180px; }
 .search > svg,
 .leadingIcon {
   position: absolute;
@@ -30,12 +31,12 @@
 .search input,
 .selectField select {
   width: 100%;
-  height: 34px;
+  height: 32px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   background: var(--surface-subtle);
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   outline: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
@@ -43,11 +44,13 @@
 
 .search input { padding: 0 12px 0 32px; }
 .search input::placeholder { color: var(--text-muted); font-weight: 500; }
-.selectField { width: 174px; }
+.selectField { width: 150px; }
 .selectField select { appearance: none; padding: 0 30px 0 32px; cursor: pointer; }
 .search input:focus,
 .selectField select:focus { border-color: var(--color-brand-400); background: #fff; box-shadow: var(--focus-ring); }
 .chevron { position: absolute; right: 9px; width: 13px; height: 13px; color: var(--text-muted); pointer-events: none; }
+.createButton { min-width: 94px; font-size: 0.625rem; }
+.createButton svg { width: 14px; height: 14px; }
 .srOnly {
   position: absolute;
   width: 1px;

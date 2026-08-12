@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { CalendarDays, CheckCircle2, Flag, MapPinned } from 'lucide-react';
+import { CalendarDays, Flag, MapPinned } from 'lucide-react';
 import type { RouteItem } from '../types';
 import styles from './RoutesOverview.module.css';
 
@@ -36,6 +36,11 @@ function getRouteDateKey(route: RouteItem): string {
   return Number.isNaN(date.getTime()) ? timestamp.slice(0, 10) : getDateKey(date);
 }
 
+function getDayLabel(date: Date): string {
+  const [day = '', month = ''] = DAY_LABEL_FORMATTER.format(date).replace('.', '').split(' ');
+  return `${day} ${month.charAt(0).toUpperCase()}${month.slice(1)}`.trim();
+}
+
 export function RoutesOverview({ routes }: RoutesOverviewProps) {
   const dashboard = useMemo(() => {
     const now = new Date();
@@ -57,7 +62,7 @@ export function RoutesOverview({ routes }: RoutesOverviewProps) {
       const key = getDateKey(date);
       return {
         key,
-        label: DAY_LABEL_FORMATTER.format(date).replace('.', ''),
+        label: getDayLabel(date),
         count: routes.filter(route => getRouteDateKey(route) === key).length,
       };
     });
@@ -100,13 +105,9 @@ export function RoutesOverview({ routes }: RoutesOverviewProps) {
 
       <div className={styles.chartPanel}>
         <header className={styles.chartHeader}>
-          <div>
+          <div className={styles.chartTitle}>
             <span className={styles.eyebrow}>Actividad</span>
             <h2 id="routes-overview-title">Tendencia de rutas</h2>
-          </div>
-          <div className={styles.period} aria-label="Periodo del gráfico: últimos 14 días">
-            <CalendarDays aria-hidden="true" />
-            <span>Últimos 14 días</span>
           </div>
         </header>
         <div className={styles.chart}>
@@ -152,13 +153,15 @@ function TrendChart({ labels, values }: { labels: string[]; values: number[] }) 
       })}
       {area && <path d={area} fill="url(#routes-area-gradient)" />}
       {points && <polyline points={points} className={styles.chartLine} />}
+      {values.map((value, index) => value > 0 && (
+        <circle key={`point-${labels[index]}`} cx={x(index)} cy={y(value)} r="3" className={styles.chartPoint}>
+          <title>{labels[index]}: {value} {value === 1 ? 'ruta' : 'rutas'}</title>
+        </circle>
+      ))}
       {values.map((value, index) => (
-        <g key={`${labels[index]}-${index}`}>
-          <circle cx={x(index)} cy={y(value)} r="3" className={styles.chartPoint}>
-            <title>{labels[index]}: {value} {value === 1 ? 'ruta' : 'rutas'}</title>
-          </circle>
-          <text x={x(index)} y={height - 6} textAnchor="middle" className={styles.axisLabel}>{labels[index]}</text>
-        </g>
+        <text key={`${labels[index]}-${value}`} x={x(index)} y={height - 6} textAnchor="middle" className={styles.axisLabel}>
+          {labels[index]}
+        </text>
       ))}
     </svg>
   );
@@ -186,7 +189,6 @@ function Metric({ accent, icon, label, value, helper, badge }: MetricProps) {
         </span>
         <small>{helper}</small>
       </span>
-      {accent === 'success' && <CheckCircle2 className={styles.metricStatus} aria-hidden="true" />}
     </article>
   );
 }
