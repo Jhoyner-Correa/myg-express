@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ChevronRight, Eye, MapPin, PackageOpen } from 'lucide-react';
+import { ChevronRight, Eye, MapPin } from 'lucide-react';
 import type { RouteItem } from '../types';
 import { formatRouteDateTime, routeStatusLabel, routeStatusTone } from '../formatters';
 import styles from './RouteListSection.module.css';
@@ -37,20 +37,19 @@ export function RouteListSection({
 
   return (
     <section className={styles.section} aria-labelledby={id}>
-      <header className={styles.sectionHeader}>
-        <div className={styles.titleGroup}>
-          <span className={styles.indicator} aria-hidden="true" />
-          <h2 id={id}>{title}</h2>
-          <span className={styles.count}>{routes.length} {routes.length === 1 ? 'ruta' : 'rutas'}</span>
-        </div>
-        {onViewAll && (
-          <button className={styles.viewAll} type="button" onClick={onViewAll}>
-            {viewAllLabel}<ChevronRight aria-hidden="true" />
-          </button>
-        )}
-      </header>
-
       <div className={styles.card}>
+        <header className={styles.sectionHeader}>
+          <div className={styles.titleGroup}>
+            <h2 id={id}>{title}</h2>
+            <span className={styles.count}>{routes.length} {routes.length === 1 ? 'ruta' : 'rutas'}</span>
+          </div>
+          {onViewAll && (
+            <button className={styles.viewAll} type="button" onClick={onViewAll}>
+              {viewAllLabel}<ChevronRight aria-hidden="true" />
+            </button>
+          )}
+        </header>
+
         <div className={styles.scrollArea}>
           <table className={styles.table}>
             <thead>
@@ -87,7 +86,7 @@ export function RouteListSection({
 
           {routes.length === 0 && (
             <div className={styles.empty} role="status">
-              <span className={styles.emptyIcon}><PackageOpen aria-hidden="true" /></span>
+              <span className={styles.emptyIcon}><MapPin aria-hidden="true" /></span>
               <strong>{emptyTitle}</strong>
               {emptyDescription && <p>{emptyDescription}</p>}
             </div>
