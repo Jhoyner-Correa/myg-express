@@ -1,0 +1,125 @@
+.dialog {
+  font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.dialog h2 {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+}
+
+.form {
+  display: grid;
+  gap: 15px;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--color-brand-600);
+  border-radius: 11px;
+  background: #f8faf9;
+}
+
+.summaryIcon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border: 1px solid var(--color-brand-200);
+  border-radius: 10px;
+  background: var(--surface-card);
+  color: var(--color-brand-700);
+}
+
+.summaryIcon svg { width: 18px; height: 18px; }
+.summary strong { display: block; color: var(--text-primary); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; }
+.summary p { margin: 3px 0 0; color: var(--text-secondary); font-size: 11px; }
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--text-secondary);
+}
+
+.notice svg { width: 15px; height: 15px; flex: 0 0 15px; margin-top: 1px; color: var(--color-brand-600); }
+.notice p { margin: 0; font-size: 10.5px; line-height: 1.55; }
+
+.field {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.field > span small {
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: none;
+}
+
+.field select,
+.field textarea {
+  width: 100%;
+  border: 1px solid var(--border-default);
+  border-radius: 9px;
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font: 500 12px/1.45 'DM Sans', system-ui, sans-serif;
+  letter-spacing: normal;
+  outline: none;
+  text-transform: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.field select { min-height: 40px; padding: 0 11px; }
+.field textarea { min-height: 82px; padding: 10px 11px 22px; resize: vertical; }
+.field select:focus,
+.field textarea:focus { border-color: var(--color-brand-500); box-shadow: var(--focus-ring); }
+
+.counter {
+  position: absolute;
+  right: 9px;
+  bottom: 7px;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 9px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.confirmation input {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  margin: 1px 0 0;
+  accent-color: var(--color-brand-600);
+}
+
+@media (max-width: 620px) {
+  .dialog footer { align-items: stretch; flex-direction: column-reverse; }
+  .dialog footer button { width: 100%; }
+}

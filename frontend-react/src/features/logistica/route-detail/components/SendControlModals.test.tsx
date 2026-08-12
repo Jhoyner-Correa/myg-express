@@ -23,6 +23,7 @@ function callbacks() {
     onCloseControl: vi.fn(),
     onStart: vi.fn(),
     onAction: vi.fn(async () => true),
+    onRequestManual: vi.fn(),
   };
 }
 
@@ -75,6 +76,24 @@ describe('SendControlModals confirmation', () => {
     expect(actions.onStart).toHaveBeenCalledOnce();
   });
 
+  it('bloquea el envío si la sesión seleccionada está desconectada', () => {
+    render(
+      <SendControlModals
+        confirmOpen
+        controlOpen={false}
+        queue={null}
+        pending={9}
+        session={{ ...session, estado_real: 'disconnected' }}
+        template={template}
+        loading={false}
+        {...callbacks()}
+      />,
+    );
+
+    expect(screen.getByText('Satipo principal · Sin conexión')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Iniciar envío' })).toBeDisabled();
+  });
+
   it('presenta una ruta pausada sin exponer detalles internos del sistema', () => {
     const actions = callbacks();
 
@@ -99,5 +118,8 @@ describe('SendControlModals confirmation', () => {
     expect(screen.getByRole('button', { name: 'Cierre manual' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Cancelar pendientes' })).toBeEnabled();
     expect(screen.queryByText(/worker|cola/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cierre manual' }));
+    expect(actions.onRequestManual).toHaveBeenCalledOnce();
   });
 });

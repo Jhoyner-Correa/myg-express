@@ -412,18 +412,22 @@ export const marcarLoteWhatsAppManual = async (req: AuthRequest, res: Response) 
     const sede_id = req.user?.sede_id;
     const usuario_id = req.user?.id;
     const mediosValidos = ['whatsapp_manual', 'llamada', 'otro'];
-    const medioManual = mediosValidos.includes(String(medio_manual)) ? String(medio_manual) : 'whatsapp_manual';
+    const medioManual = String(medio_manual);
     const observacionManual = String(observacion_manual || '').replace(/\s+/g, ' ').trim().slice(0, 255) || null;
 
     if (!sede_id || !usuario_id || !loteId) {
       return res.status(400).json({ ok: false, message: 'loteId es obligatorio' });
     }
 
+    if (!mediosValidos.includes(medioManual)) {
+      return res.status(400).json({ ok: false, message: 'El medio de gestión manual no es válido.' });
+    }
+
     await connection.beginTransaction();
 
     // 1. Validar lote
     const [loteRows]: any = await connection.query(
-      `SELECT id FROM lotes_carga WHERE id = ? AND sede_id = ? LIMIT 1`,
+      `SELECT id FROM lotes_carga WHERE id = ? AND sede_id = ? LIMIT 1 FOR UPDATE`,
       [loteId, sede_id]
     );
     if (!loteRows.length) {
@@ -431,15 +435,15 @@ export const marcarLoteWhatsAppManual = async (req: AuthRequest, res: Response) 
       return res.status(404).json({ ok: false, message: 'Lote no encontrado o no pertenece a tu sede' });
     }
 
-    // 2. Obtener avisos que seran cerrados por trabajo manual de oficina.
-    //    Los registros sin_whatsapp se conservan para que el usuario identifique
-    //    claramente que clientes no tienen cuenta WhatsApp.
+    // 2. Cerrar únicamente registros que todavía requieren atención.
+    //    Los enviados no se modifican y los registros sin WhatsApp sí se incluyen,
+    //    porque son precisamente candidatos a una gestión fuera del sistema.
     const [avisosRows]: any = await connection.query(
       `SELECT id, telefono, nombre, whatsapp_sesion_id
        FROM avisos_diarios
        WHERE lote_id = ?
          AND sede_id = ?
-         AND estado_aviso IN ('pendiente', 'en_cola', 'fallido')
+         AND estado_aviso IN ('pendiente', 'en_cola', 'fallido', 'sin_whatsapp')
        ORDER BY id ASC`,
       [loteId, sede_id]
     );
@@ -448,7 +452,7 @@ export const marcarLoteWhatsAppManual = async (req: AuthRequest, res: Response) 
       await connection.rollback();
       return res.status(400).json({
         ok: false,
-        message: 'No hay mensajes pendientes o fallidos para cerrar manualmente.'
+        message: 'No hay destinatarios pendientes de gestión manual.'
       });
     }
 
@@ -460,6 +464,7 @@ export const marcarLoteWhatsAppManual = async (req: AuthRequest, res: Response) 
       `UPDATE avisos_diarios
        SET estado_aviso = 'enviado_manual',
            error_detalle = NULL,
+           id_trabajo_cola = NULL,
            fecha_envio = NOW(),
            marcado_manual_por = ?,
            fecha_marcado_manual = NOW(),
@@ -467,7 +472,7 @@ export const marcarLoteWhatsAppManual = async (req: AuthRequest, res: Response) 
            observacion_manual = ?
        WHERE lote_id = ?
          AND sede_id = ?
-         AND estado_aviso IN ('pendiente', 'en_cola', 'fallido')`,
+         AND estado_aviso IN ('pendiente', 'en_cola', 'fallido', 'sin_whatsapp')`,
       [usuario_id, medioManual, observacionManual, loteId, sede_id]
     );
 
@@ -507,7 +512,7 @@ export const marcarLoteWhatsAppManual = async (req: AuthRequest, res: Response) 
       processed: result.affectedRows,
       removed_jobs: removedJobs,
       estado: 'enviado_manual',
-      message: `Se registraron ${result.affectedRows} mensajes como cierre manual y se limpiaron ${removedJobs} trabajos de la cola.`
+      message: `Se registraron ${result.affectedRows} destinatarios como gestión manual.`
     });
   } catch (error: any) {
     await connection.rollback();

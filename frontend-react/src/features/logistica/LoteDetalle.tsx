@@ -11,16 +11,19 @@ import { RouteDetailHeader } from './route-detail/components/RouteDetailHeader';
 import { MessageComposer } from './route-detail/components/MessageComposer';
 import { NoticeEditorModal } from './route-detail/components/NoticeEditorModal';
 import { ImportNoticesModal } from './route-detail/components/ImportNoticesModal';
+import { ManualClosureModal } from './route-detail/components/ManualClosureModal';
 import { SendControlModals } from './route-detail/components/SendControlModals';
 import { TemplateModals } from './route-detail/components/TemplateModals';
 import styles from './LoteDetalle.module.css';
 import {
   calculateRouteStats,
+  countManualClosureEligible,
   formatDateTime,
   readQueueControl,
 } from './route-detail/domain';
 import type {
   ImportedNotice,
+  ManualClosureInput,
   NoticeItem,
   RawTemplateItem,
   RouteDetail,
@@ -51,6 +54,7 @@ export const LoteDetalle: React.FC = () => {
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [showTemplateEditorModal, setShowTemplateEditorModal] = useState(false);
   const [showConfirmSendModal, setShowConfirmSendModal] = useState(false);
+  const [showManualClosureModal, setShowManualClosureModal] = useState(false);
   
   // Nuevo aviso manual
   const [newNoticeName, setNewNoticeName] = useState('');
@@ -244,6 +248,7 @@ export const LoteDetalle: React.FC = () => {
 
   // Estadísticas del Lote
   const stats = useMemo(() => calculateRouteStats(notices), [notices]);
+  const manualEligibleCount = useMemo(() => countManualClosureEligible(notices), [notices]);
 
   // Previsualización de mensaje en el mockup de WhatsApp
   const messagePreview = useMemo(() => {
@@ -299,14 +304,13 @@ export const LoteDetalle: React.FC = () => {
   };
 
   // Control de flujo de cola
-  const handleQueueControl = async (action: 'pausar' | 'reanudar' | 'manual' | 'cancelar') => {
+  const handleQueueControl = async (action: 'pausar' | 'reanudar' | 'cancelar') => {
     setSendingAction(true);
     try {
       await routeDetailService.controlQueue(rutaId, action, Number(selectedSessionId) || undefined);
       const successMessages = {
         pausar: 'El envío quedó pausado.',
         reanudar: 'El envío se retomó correctamente.',
-        manual: 'El cierre manual quedó registrado.',
         cancelar: 'Los mensajes pendientes fueron cancelados.',
       } as const;
       showToast(successMessages[action], 'success', { title: 'Estado actualizado' });
@@ -315,6 +319,33 @@ export const LoteDetalle: React.FC = () => {
     } catch (e: unknown) {
       showToast(getApiErrorMessage(e, 'No se pudo actualizar el estado del envío.'), 'error', { title: 'Error de envío' });
       return false;
+    } finally {
+      setSendingAction(false);
+    }
+  };
+
+  const handleManualClosure = async (input: ManualClosureInput) => {
+    if (manualEligibleCount <= 0) {
+      showToast('No hay destinatarios pendientes de gestión manual.', 'info', { title: 'Sin pendientes' });
+      return;
+    }
+
+    setSendingAction(true);
+    try {
+      await routeDetailService.markRouteManual(rutaId, input);
+      setShowManualClosureModal(false);
+      showToast(
+        `${manualEligibleCount} ${manualEligibleCount === 1 ? 'destinatario fue registrado' : 'destinatarios fueron registrados'} como gestión manual.`,
+        'success',
+        { title: 'Cierre manual registrado' },
+      );
+      await loadRouteDetails();
+    } catch (e: unknown) {
+      showToast(
+        getApiErrorMessage(e, 'No se pudo registrar el cierre manual.'),
+        'error',
+        { title: 'Error de cierre manual' },
+      );
     } finally {
       setSendingAction(false);
     }
@@ -592,12 +623,13 @@ export const LoteDetalle: React.FC = () => {
             message={messagePreview ? formatPreviewMessage(messagePreview) : null}
             imageUrl={resolveTemplateImageUrl(activeTemplate?.adjunto_url)}
             imageError={previewImageError}
-            hasSession={Boolean(selectedSessionId)}
+            manualEligible={manualEligibleCount}
             queue={queueControl}
             sending={sendingAction}
             onImageError={() => setPreviewImageError(true)}
             onOpenTemplates={() => setShowTemplatesModal(true)}
             onOpenControl={() => setShowControlModal(true)}
+            onOpenManualClosure={() => setShowManualClosureModal(true)}
             onConfirmSend={() => setShowConfirmSendModal(true)}
           />
         </section>
@@ -698,6 +730,17 @@ export const LoteDetalle: React.FC = () => {
         onCloseControl={() => setShowControlModal(false)}
         onStart={() => void handleStartSending()}
         onAction={handleQueueControl}
+        onRequestManual={() => {
+          setShowControlModal(false);
+          setShowManualClosureModal(true);
+        }}
+      />
+      <ManualClosureModal
+        open={showManualClosureModal}
+        affected={manualEligibleCount}
+        loading={sendingAction}
+        onClose={() => setShowManualClosureModal(false)}
+        onConfirm={input => void handleManualClosure(input)}
       />
 
 

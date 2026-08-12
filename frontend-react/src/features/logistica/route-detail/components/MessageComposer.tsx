@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import {
   BatteryMedium,
   ChevronLeft,
+  ClipboardCheck,
   FileText,
   MessageCircle,
   Mic,
@@ -23,12 +24,13 @@ interface MessageComposerProps {
   message: ReactNode;
   imageUrl: string;
   imageError: boolean;
-  hasSession: boolean;
+  manualEligible: number;
   queue: QueueControl | null;
   sending: boolean;
   onImageError: () => void;
   onOpenTemplates: () => void;
   onOpenControl: () => void;
+  onOpenManualClosure: () => void;
   onConfirmSend: () => void;
 }
 
@@ -40,12 +42,13 @@ export function MessageComposer({
   message,
   imageUrl,
   imageError,
-  hasSession,
+  manualEligible,
   queue,
   sending,
   onImageError,
   onOpenTemplates,
   onOpenControl,
+  onOpenManualClosure,
   onConfirmSend,
 }: MessageComposerProps) {
   const sessionTone = session?.estado_real === 'connected'
@@ -54,6 +57,7 @@ export function MessageComposer({
       ? styles.error
       : styles.offline;
   const interrupted = Boolean(queue?.isPaused || queue?.hasInterruptedFlow);
+  const sessionConnected = session?.estado_real === 'connected';
 
   return (
     <aside className={styles.sidebar}>
@@ -111,7 +115,7 @@ export function MessageComposer({
                 <span className={styles.avatar}>MG</span>
                 <div className={styles.contact}>
                   <strong>{contactName}</strong>
-                  <span>{hasSession ? 'En sesión elegida' : 'Sin sesión seleccionada'}</span>
+                  <span>{sessionConnected ? 'Sesión conectada' : 'Vista previa sin conexión'}</span>
                 </div>
                 <span className={styles.whatsappActions} aria-hidden="true">
                   <Phone size={14} />
@@ -163,6 +167,21 @@ export function MessageComposer({
             <Button className={styles.sendButton} variant="secondary" onClick={onOpenControl}>
               Retomar envío
             </Button>
+          ) : !sessionConnected && manualEligible > 0 ? (
+            <div className={styles.manualActions}>
+              <div className={styles.manualHint}>
+                <span>Sin conexión de WhatsApp</span>
+                <small>Puedes registrar la atención realizada desde otro teléfono.</small>
+              </div>
+              <Button
+                className={styles.sendButton}
+                variant="secondary"
+                icon={<ClipboardCheck aria-hidden="true" />}
+                onClick={onOpenManualClosure}
+              >
+                Registrar cierre manual
+              </Button>
+            </div>
           ) : (
             <Button
               className={styles.sendButton}

@@ -3,6 +3,7 @@ import type { ApiEnvelope } from '../../../core/api/types';
 import { unwrapApiData } from '../../../core/api/types';
 import type {
   ImportedNotice,
+  ManualClosureInput,
   NoticeItem,
   QueueAction,
   RawTemplateItem,
@@ -84,12 +85,22 @@ export const routeDetailService = {
     const endpoints: Record<QueueAction, string> = {
       pausar: 'pause',
       reanudar: 'resume',
-      manual: 'mark-manual',
       cancelar: 'cancel-pending',
     };
     const response = await apiClient.post<ApiEnvelope<unknown> & MutationResult>(
       `/whatsapp/lotes/${routeId}/${endpoints[action]}`,
       action === 'reanudar' ? { whatsapp_sesion_id: sessionId } : {},
+    );
+    return mutationResult(response.data);
+  },
+
+  async markRouteManual(routeId: number, input: ManualClosureInput): Promise<MutationResult> {
+    const response = await apiClient.post<ApiEnvelope<unknown> & MutationResult>(
+      `/whatsapp/lotes/${routeId}/mark-manual`,
+      {
+        medio_manual: input.medium,
+        observacion_manual: input.observation?.trim() || null,
+      },
     );
     return mutationResult(response.data);
   },

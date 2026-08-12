@@ -107,3 +107,23 @@ export function calculateRouteStats(notices: NoticeItem[]) {
     procesadosPct: percentage(counts.sent),
   };
 }
+
+export function isManualClosureEligible(notice: NoticeItem): boolean {
+  const status = String(notice.estado_aviso || 'pendiente').toLowerCase();
+  return [
+    'pendiente',
+    'en_cola',
+    'processing',
+    'procesando',
+    'fallido',
+    'error',
+    'auth_failure',
+    'fail',
+    'sin_whatsapp',
+    'no_whatsapp',
+  ].includes(status);
+}
+
+export function countManualClosureEligible(notices: NoticeItem[]): number {
+  return notices.filter(isManualClosureEligible).length;
+}

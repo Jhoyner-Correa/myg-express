@@ -27,6 +27,7 @@ interface SendControlModalsProps {
   onCloseControl: () => void;
   onStart: () => void;
   onAction: (action: QueueAction) => Promise<boolean>;
+  onRequestManual: () => void;
 }
 
 function SummaryRow({
@@ -63,6 +64,7 @@ export function SendControlModals({
   onCloseControl,
   onStart,
   onAction,
+  onRequestManual,
 }: SendControlModalsProps) {
   const runAction = async (action: QueueAction) => {
     const succeeded = await onAction(action);
@@ -98,7 +100,7 @@ export function SendControlModals({
         icon={<CheckCircle2 size={15} />}
         variant="secondary"
         loading={loading}
-        onClick={() => void runAction('manual')}
+        onClick={onRequestManual}
       >
         Cierre manual
       </Button>
@@ -119,7 +121,8 @@ export function SendControlModals({
       ? queue.queuedCount || queue.processingJobs || 0
       : queue?.pausedJobs || 0,
   );
-  const canStart = pending > 0 && Boolean(session) && Boolean(template);
+  const sessionConnected = session?.estado_real === 'connected';
+  const canStart = pending > 0 && sessionConnected && Boolean(template);
 
   return (
     <>
@@ -158,8 +161,10 @@ export function SendControlModals({
             <SummaryRow
               icon={<Radio aria-hidden="true" />}
               label="Sesión seleccionada"
-              value={session?.nombre || 'Sin seleccionar'}
-              missing={!session}
+              value={session
+                ? sessionConnected ? session.nombre : `${session.nombre} · Sin conexión`
+                : 'Sin seleccionar'}
+              missing={!sessionConnected}
             />
             <SummaryRow
               icon={<FileText aria-hidden="true" />}

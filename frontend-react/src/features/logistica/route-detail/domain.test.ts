@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { calculateRouteStats, normalizeAvisoVisualStatus, readQueueControl } from './domain';
+import {
+  calculateRouteStats,
+  countManualClosureEligible,
+  normalizeAvisoVisualStatus,
+  readQueueControl,
+} from './domain';
 import type { NoticeItem, RouteDetail } from './types';
 
 function notice(id: number, status: string): NoticeItem {
@@ -11,6 +16,20 @@ describe('route detail domain', () => {
     expect(normalizeAvisoVisualStatus('processing')).toBe('enviando');
     expect(normalizeAvisoVisualStatus('auth_failure')).toBe('fallido');
     expect(normalizeAvisoVisualStatus('enviado_manual')).toBe('manual');
+  });
+
+  it('cuenta para cierre manual solo los destinatarios que aún requieren gestión', () => {
+    const notices = [
+      notice(1, 'pendiente'),
+      notice(2, 'en_cola'),
+      notice(3, 'fallido'),
+      notice(4, 'sin_whatsapp'),
+      notice(5, 'enviado'),
+      notice(6, 'enviado_manual'),
+      notice(7, 'cancelado'),
+    ];
+
+    expect(countManualClosureEligible(notices)).toBe(4);
   });
 
   it('calcula métricas sin divisiones inválidas', () => {

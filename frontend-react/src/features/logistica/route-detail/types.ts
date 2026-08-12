@@ -70,4 +70,11 @@ export type TemplateInput = {
   imagen_borrar?: boolean;
 };
 
-export type QueueAction = 'pausar' | 'reanudar' | 'manual' | 'cancelar';
+export type QueueAction = 'pausar' | 'reanudar' | 'cancelar';
+
+export type ManualClosureMedium = 'whatsapp_manual' | 'llamada' | 'otro';
+
+export type ManualClosureInput = {
+  medium: ManualClosureMedium;
+  observation?: string;
+};
