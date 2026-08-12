@@ -48,15 +48,17 @@
 
 .valueRow strong {
   color: var(--text-primary);
+  font-family: var(--route-font-display);
   font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 .valueRow span,
 .label {
   color: var(--text-muted);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
 }
 
