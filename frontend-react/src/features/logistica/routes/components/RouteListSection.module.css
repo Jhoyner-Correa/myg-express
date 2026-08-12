@@ -75,7 +75,7 @@
 .center { font-variant-numeric: tabular-nums; font-weight: 600; }
 .status { --status-color: var(--color-neutral-500); min-height: 22px; display: inline-flex; align-items: center; gap: 7px; padding: 0; background: transparent; color: var(--text-secondary); font-size: 0.625rem; font-weight: 600; }
 .status > span { width: 6px; height: 6px; border-radius: 50%; background: var(--status-color); }
-.success { --status-color: #10b981; }
+.success { --status-color: #10b981; font-weight: 700; }
 .info { --status-color: var(--color-info); }
 .warning { --status-color: var(--color-warning); }
 .danger { --status-color: var(--color-danger); }
