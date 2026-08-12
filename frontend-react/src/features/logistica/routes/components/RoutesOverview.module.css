@@ -60,7 +60,7 @@
 .chart { min-width: 0; height: 122px; }
 .chartSvg { width: 100%; height: 122px; overflow: visible; }
 .gridLine { stroke: #e9eef4; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.axisLabel { fill: #718096; font-family: var(--font-sans); font-size: 8px; font-weight: 650; }
+.axisLabel { fill: #718096; font-family: var(--routes-font); font-size: 8px; font-weight: 600; }
 .chartLine { fill: none; stroke: var(--color-brand-600); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.25; vector-effect: non-scaling-stroke; }
 .chartPoint { fill: #fff; stroke: var(--color-brand-600); stroke-width: 2; vector-effect: non-scaling-stroke; }
 
