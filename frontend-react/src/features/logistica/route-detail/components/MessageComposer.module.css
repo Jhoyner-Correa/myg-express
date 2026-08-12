@@ -376,33 +376,6 @@
 
 .sendButton { width: 100%; }
 
-.manualActions {
-  display: grid;
-  gap: 8px;
-}
-
-.manualHint {
-  display: grid;
-  gap: 2px;
-  padding: 10px 11px;
-  border: 1px solid var(--border-default);
-  border-left: 3px solid var(--color-brand-600);
-  border-radius: 9px;
-  background: #f8faf9;
-}
-
-.manualHint span {
-  color: var(--text-primary);
-  font-size: 10.5px;
-  font-weight: 700;
-}
-
-.manualHint small {
-  color: var(--text-muted);
-  font-size: 9.5px;
-  line-height: 1.4;
-}
-
 @media (max-width: 980px) {
   .sidebar { position: static; margin-top: 0; }
 }

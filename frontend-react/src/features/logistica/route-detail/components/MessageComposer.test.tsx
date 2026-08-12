@@ -33,7 +33,7 @@ describe('MessageComposer manual fallback', () => {
       />,
     );
 
-    expect(screen.getByText('Sin conexión de WhatsApp')).toBeInTheDocument();
+    expect(screen.queryByText('Sin conexión de WhatsApp')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Enviar mensajes' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Registrar cierre manual' }));

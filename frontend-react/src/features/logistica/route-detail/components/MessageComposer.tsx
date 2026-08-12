@@ -168,20 +168,14 @@ export function MessageComposer({
               Retomar envío
             </Button>
           ) : !sessionConnected && manualEligible > 0 ? (
-            <div className={styles.manualActions}>
-              <div className={styles.manualHint}>
-                <span>Sin conexión de WhatsApp</span>
-                <small>Puedes registrar la atención realizada desde otro teléfono.</small>
-              </div>
-              <Button
-                className={styles.sendButton}
-                variant="secondary"
-                icon={<ClipboardCheck aria-hidden="true" />}
-                onClick={onOpenManualClosure}
-              >
-                Registrar cierre manual
-              </Button>
-            </div>
+            <Button
+              className={styles.sendButton}
+              variant="secondary"
+              icon={<ClipboardCheck aria-hidden="true" />}
+              onClick={onOpenManualClosure}
+            >
+              Registrar cierre manual
+            </Button>
           ) : (
             <Button
               className={styles.sendButton}
