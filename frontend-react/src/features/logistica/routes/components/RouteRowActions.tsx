@@ -83,15 +83,15 @@ export function RouteRowActions({
 
   return (
     <div className={styles.actions}>
-      <button className={styles.iconButton} type="button" onClick={onReport} title="Ver reporte" aria-label={`Ver reporte de MYG-${route.id}`}>
+      <button className={`${styles.iconButton} ${styles.reportButton}`} type="button" onClick={onReport} title="Ver reporte" aria-label={`Ver reporte de MYG-${route.id}`}>
         <BarChart3 aria-hidden="true" />
       </button>
       {canEdit && (
-        <button className={styles.iconButton} type="button" onClick={onEdit} title="Editar ruta" aria-label={`Editar MYG-${route.id}`}>
+        <button className={`${styles.iconButton} ${styles.editButton}`} type="button" onClick={onEdit} title="Editar ruta" aria-label={`Editar MYG-${route.id}`}>
           <Edit3 aria-hidden="true" />
         </button>
       )}
-      <button ref={triggerRef} className={styles.iconButton} type="button" onClick={toggleMenu} aria-haspopup="menu" aria-expanded={Boolean(menuPosition)} aria-label={`Más opciones para MYG-${route.id}`}>
+      <button ref={triggerRef} className={`${styles.iconButton} ${styles.menuButton}`} type="button" onClick={toggleMenu} aria-haspopup="menu" aria-expanded={Boolean(menuPosition)} aria-label={`Más opciones para MYG-${route.id}`}>
         <MoreVertical aria-hidden="true" />
       </button>
       <button className={styles.detail} type="button" onClick={onViewDetail}>
