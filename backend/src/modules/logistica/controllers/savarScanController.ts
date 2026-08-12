@@ -1,442 +1,333 @@
 import { Response } from 'express';
-import { pool } from '../../../core/database/database';
+import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
+import { pool, runInTransaction } from '../../../core/database/database';
 import { AuthRequest } from '../../../core/middlewares/authMiddleware';
+import { cleanSavarText, MAX_SAVAR_IMPORT_ROWS, parseSavarImportRows } from '../domain/savarScanDomain';
+
+const IMPORT_CHUNK_SIZE = 500;
+const MAX_LIST_ROWS = 500;
+
+type PackageStatus = 'PENDIENTE' | 'LLEGÓ';
+
+type PackageRow = RowDataPacket & {
+  id: number;
+  codigo_paquete: string;
+  consignado: string;
+  direccion: string;
+  telefono: string | null;
+  departamento: string;
+  provincia: string;
+  distrito: string;
+  lote_importacion: string;
+  estado: PackageStatus;
+  fecha_escaneo: Date | string | null;
+  usuario_id_escaneo: number | null;
+  sede_id_escaneo: number | null;
+};
+
+type UserNameRow = RowDataPacket & { nombre: string };
+
+type ScanOutcome = {
+  status: number;
+  body: Record<string, unknown>;
+};
 
 function requireSede(req: AuthRequest, res: Response): number | null {
   const sedeId = Number(req.user?.sede_id);
-  if (!Number.isFinite(sedeId) || sedeId <= 0) {
+  if (!Number.isInteger(sedeId) || sedeId <= 0) {
     res.status(403).json({
       ok: false,
-      message: 'Este módulo solo está disponible para usuarios asignados a una sede.'
+      message: 'Este módulo solo está disponible para usuarios asignados a una sede.',
     });
     return null;
   }
   return sedeId;
 }
 
-// 1. Procesar Escaneo (Individual)
+function internalError(res: Response, operation: string, error: unknown) {
+  const detail = error instanceof Error ? error.message : String(error);
+  console.error(`[savar-scan] ${operation}:`, detail);
+  return res.status(500).json({ ok: false, message: `No se pudo ${operation.toLowerCase()}.` });
+}
+
+async function recordIncident(
+  connection: Awaited<ReturnType<typeof pool.getConnection>>,
+  code: string,
+  type: 'NO_EXISTE' | 'OTRO_LOTE' | 'DUPLICADO',
+  userId: number,
+  sedeId: number,
+) {
+  await connection.query<ResultSetHeader>(
+    `INSERT INTO paquetes_auditoria (codigo_escaneado, tipo_incidencia, usuario_id, sede_id)
+     VALUES (?, ?, ?, ?)`,
+    [code, type, userId, sedeId],
+  );
+}
+
 export const procesarEscaneo = async (req: AuthRequest, res: Response) => {
+  const code = cleanSavarText(req.body?.codigo, 100);
+  const activeLot = cleanSavarText(req.body?.lote_activo, 120);
+  if (!code || !activeLot) {
+    return res.status(400).json({ ok: false, message: 'El código y el lote activo son obligatorios.' });
+  }
+
+  const sedeId = requireSede(req, res);
+  if (!sedeId) return;
+  const userId = Number(req.user?.id);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(401).json({ ok: false, message: 'Sesión inválida o expirada.' });
+  }
+
   try {
-    const { codigo, lote_activo } = req.body;
-    const cleanCodigo = String(codigo || '').trim();
-    const cleanLoteActivo = String(lote_activo || '').trim();
-    
-    if (!cleanCodigo) {
-      return res.status(400).json({
-        ok: false,
-        message: 'El código de paquete es obligatorio.'
-      });
-    }
-
-    const sedeId = requireSede(req, res);
-    if (!sedeId) return;
-
-    const usuarioId = req.user?.id;
-    if (!usuarioId) {
-      return res.status(401).json({
-        ok: false,
-        message: 'Sesión inválida o expirada.'
-      });
-    }
-
-    // Buscar paquete en la base de datos
-    const [rows]: any = await pool.query(
-      'SELECT * FROM paquetes WHERE codigo_paquete = ? LIMIT 1',
-      [cleanCodigo]
-    );
-
-    if (rows.length === 0) {
-      // Registrar incidencia: NO EXISTE EN NINGÚN LADO
-      await pool.query(
-        `INSERT INTO paquetes_auditoria (codigo_escaneado, tipo_incidencia, usuario_id, sede_id)
-         VALUES (?, 'NO_EXISTE', ?, ?)`,
-        [cleanCodigo, usuarioId, sedeId]
+    const outcome = await runInTransaction<ScanOutcome>(async connection => {
+      const [packages] = await connection.query<PackageRow[]>(
+        'SELECT * FROM paquetes WHERE codigo_paquete = ? LIMIT 1 FOR UPDATE',
+        [code],
       );
+      const packageItem = packages[0];
 
-      return res.status(404).json({
-        ok: false,
-        estado: 'NO EXISTE',
-        message: 'El paquete no existe en el sistema.'
-      });
-    }
+      if (!packageItem) {
+        await recordIncident(connection, code, 'NO_EXISTE', userId, sedeId);
+        return { status: 404, body: { ok: false, estado: 'NO EXISTE', message: 'El paquete no existe en el sistema.' } };
+      }
 
-    const paquete = rows[0];
+      if (packageItem.lote_importacion !== activeLot) {
+        await recordIncident(connection, code, 'OTRO_LOTE', userId, sedeId);
+        return {
+          status: 422,
+          body: {
+            ok: false,
+            estado: 'OTRO_LOTE',
+            message: `El paquete pertenece a otro lote: "${packageItem.lote_importacion}".`,
+            data: packageItem,
+          },
+        };
+      }
 
-    // Validación de pertenencia al lote activo seleccionado en el frontend
-    if (cleanLoteActivo && paquete.lote_importacion !== cleanLoteActivo) {
-      // Registrar incidencia: PERTENECE A OTRO LOTE
-      await pool.query(
-        `INSERT INTO paquetes_auditoria (codigo_escaneado, tipo_incidencia, usuario_id, sede_id)
-         VALUES (?, 'OTRO_LOTE', ?, ?)`,
-        [cleanCodigo, usuarioId, sedeId]
+      if (packageItem.estado === 'LLEGÓ') {
+        await recordIncident(connection, code, 'DUPLICADO', userId, sedeId);
+        const [users] = await connection.query<UserNameRow[]>(
+          'SELECT nombre FROM usuarios WHERE id = ? LIMIT 1',
+          [packageItem.usuario_id_escaneo],
+        );
+        const operator = users[0]?.nombre || 'otro operador';
+        const scannedAt = packageItem.fecha_escaneo
+          ? new Date(packageItem.fecha_escaneo).toLocaleString('es-PE')
+          : 'una fecha no disponible';
+        return {
+          status: 409,
+          body: {
+            ok: false,
+            estado: 'DUPLICADO',
+            message: `Este código ya fue escaneado por ${operator} el ${scannedAt}.`,
+            data: packageItem,
+          },
+        };
+      }
+
+      await connection.query<ResultSetHeader>(
+        `UPDATE paquetes
+            SET estado = 'LLEGÓ', fecha_escaneo = NOW(), usuario_id_escaneo = ?, sede_id_escaneo = ?
+          WHERE id = ? AND estado = 'PENDIENTE'`,
+        [userId, sedeId, packageItem.id],
       );
-
-      return res.status(422).json({
-        ok: false,
-        estado: 'OTRO_LOTE',
-        message: `El paquete pertenece a otro lote: "${paquete.lote_importacion}".`,
-        data: paquete
-      });
-    }
-
-    // Si ya fue escaneado anteriormente
-    if (paquete.estado === 'LLEGÓ') {
-      // Registrar incidencia: DUPLICADO
-      await pool.query(
-        `INSERT INTO paquetes_auditoria (codigo_escaneado, tipo_incidencia, usuario_id, sede_id)
-         VALUES (?, 'DUPLICADO', ?, ?)`,
-        [cleanCodigo, usuarioId, sedeId]
-      );
-
-      // Obtener el nombre del operador que lo escaneó antes
-      const [opRows]: any = await pool.query(
-        'SELECT nombre FROM usuarios WHERE id = ? LIMIT 1',
-        [paquete.usuario_id_escaneo]
-      );
-      const operadorPrevio = opRows?.[0]?.nombre || 'Operador Desconocido';
-
-      return res.status(409).json({
-        ok: false,
-        estado: 'DUPLICADO',
-        message: `Este código ya fue escaneado por ${operadorPrevio} el ${new Date(paquete.fecha_escaneo).toLocaleString('es-PE')}.`,
-        data: paquete
-      });
-    }
-
-    // Registrar llegada del paquete
-    await pool.query(
-      `UPDATE paquetes
-          SET estado = 'LLEGÓ',
-              fecha_escaneo = NOW(),
-              usuario_id_escaneo = ?,
-              sede_id_escaneo = ?
-        WHERE id = ?`,
-      [usuarioId, sedeId, paquete.id]
-    );
-
-    // Obtener datos actualizados del paquete
-    const [updatedRows]: any = await pool.query(
-      'SELECT * FROM paquetes WHERE id = ? LIMIT 1',
-      [paquete.id]
-    );
-    const paqueteActualizado = updatedRows[0];
-
-    return res.status(200).json({
-      ok: true,
-      estado: 'LLEGÓ',
-      message: 'Paquete registrado con éxito.',
-      data: paqueteActualizado
+      const [updated] = await connection.query<PackageRow[]>('SELECT * FROM paquetes WHERE id = ? LIMIT 1', [packageItem.id]);
+      return {
+        status: 200,
+        body: { ok: true, estado: 'LLEGÓ', message: 'Paquete registrado con éxito.', data: updated[0] },
+      };
     });
 
-  } catch (error: any) {
-    console.error('[savar-scan] Error al procesar escaneo:', error);
-    return res.status(500).json({
-      ok: false,
-      message: 'Error interno al procesar el escaneo.',
-      error: error.message
-    });
+    return res.status(outcome.status).json(outcome.body);
+  } catch (error) {
+    return internalError(res, 'procesar el escaneo', error);
   }
 };
 
-// 2. Importar Paquetes (Carga Masiva de Catálogo con Lote)
 export const importarPaquetes = async (req: AuthRequest, res: Response) => {
+  const lot = cleanSavarText(req.body?.lote_importacion, 120);
+  if (!lot) return res.status(400).json({ ok: false, message: 'El nombre del lote es obligatorio.' });
+  if (!Array.isArray(req.body?.paquetes) || req.body.paquetes.length === 0) {
+    return res.status(400).json({ ok: false, message: 'Debe proporcionar una lista de paquetes.' });
+  }
+  if (req.body.paquetes.length > MAX_SAVAR_IMPORT_ROWS) {
+    return res.status(413).json({ ok: false, message: `Cada importación admite hasta ${MAX_SAVAR_IMPORT_ROWS} filas.` });
+  }
+  if (!requireSede(req, res)) return;
+
+  const parsed = parseSavarImportRows(req.body.paquetes);
+  if (!parsed.rows.length) {
+    return res.status(400).json({ ok: false, message: 'Ninguna fila contiene código y consignado válidos.' });
+  }
+
   try {
-    const { paquetes, lote_importacion } = req.body;
-    
-    const cleanLote = String(lote_importacion || '').trim();
-    if (!cleanLote) {
-      return res.status(400).json({
-        ok: false,
-        message: 'El nombre del lote de importación es obligatorio.'
-      });
-    }
+    await runInTransaction(async connection => {
+      for (let offset = 0; offset < parsed.rows.length; offset += IMPORT_CHUNK_SIZE) {
+        const chunk = parsed.rows.slice(offset, offset + IMPORT_CHUNK_SIZE).map(item => [
+          item.codigo, item.consignado, item.direccion, item.telefono, item.departamento,
+          item.provincia, item.distrito, lot, 'PENDIENTE',
+        ]);
+        await connection.query<ResultSetHeader>(
+          `INSERT INTO paquetes
+            (codigo_paquete, consignado, direccion, telefono, departamento, provincia, distrito, lote_importacion, estado)
+           VALUES ?
+           ON DUPLICATE KEY UPDATE
+             consignado = VALUES(consignado), direccion = VALUES(direccion), telefono = VALUES(telefono),
+             departamento = VALUES(departamento), provincia = VALUES(provincia), distrito = VALUES(distrito),
+             lote_importacion = IF(estado = 'PENDIENTE', VALUES(lote_importacion), lote_importacion)`,
+          [chunk],
+        );
+      }
+    });
 
-    if (!Array.isArray(paquetes) || paquetes.length === 0) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Debe proporcionar una lista de paquetes para importar.'
-      });
-    }
-
-    const sedeId = requireSede(req, res);
-    if (!sedeId) return;
-
-    // Estructurar registros para inserción masiva
-    const insertData = paquetes.map((p: any) => [
-      String(p.codigo || p.codigo_paquete || '').trim(),
-      String(p.consignado || '').trim(),
-      String(p.direccion || '').trim(),
-      String(p.telefono || '').trim() || null,
-      String(p.departamento || '').trim(),
-      String(p.provincia || '').trim(),
-      String(p.distrito || '').trim(),
-      cleanLote,
-      'PENDIENTE'
-    ]).filter((p: any) => p[0] && p[1]);
-
-    if (insertData.length === 0) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Ningún paquete de la lista es válido (debe tener Código y Consignado).'
-      });
-    }
-
-    // Inserción en bloques con ON DUPLICATE KEY UPDATE
-    const query = `
-      INSERT INTO paquetes 
-        (codigo_paquete, consignado, direccion, telefono, departamento, provincia, distrito, lote_importacion, estado)
-      VALUES ?
-      ON DUPLICATE KEY UPDATE
-        consignado = VALUES(consignado),
-        direccion = VALUES(direccion),
-        telefono = VALUES(telefono),
-        departamento = VALUES(departamento),
-        provincia = VALUES(provincia),
-        distrito = VALUES(distrito),
-        lote_importacion = VALUES(lote_importacion)
-    `;
-
-    const [result]: any = await pool.query(query, [insertData]);
-
+    const ignored = parsed.invalid + parsed.duplicates;
     return res.status(200).json({
       ok: true,
-      message: `Procesados correctamente. Creados/actualizados: ${result.affectedRows} registros en lote "${cleanLote}".`
+      message: `${parsed.rows.length} paquetes procesados en el lote "${lot}"${ignored ? `; ${ignored} filas inválidas o repetidas fueron omitidas` : ''}.`,
+      data: { processed: parsed.rows.length, invalid: parsed.invalid, duplicates: parsed.duplicates },
     });
-
-  } catch (error: any) {
-    console.error('[savar-scan] Error al importar paquetes:', error);
-    return res.status(500).json({
-      ok: false,
-      message: 'Error al importar los paquetes a la base de datos.',
-      error: error.message
-    });
+  } catch (error) {
+    return internalError(res, 'importar los paquetes', error);
   }
 };
 
-// 3. Listar Paquetes (con filtro de Lote e Historial de la Sede)
 export const listarPaquetes = async (req: AuthRequest, res: Response) => {
-  try {
-    const sedeId = requireSede(req, res);
-    if (!sedeId) return;
+  const sedeId = requireSede(req, res);
+  if (!sedeId) return;
 
-    const estado = String(req.query.estado || '').trim(); // PENDIENTE, LLEGÓ
-    const lote_importacion = String(req.query.lote_importacion || '').trim();
-    const q = String(req.query.q || '').trim();
-    const limit = Math.min(Math.max(Number(req.query.limit || 100), 1), 500);
+  const status = cleanSavarText(req.query.estado, 20).toUpperCase();
+  const lot = cleanSavarText(req.query.lote_importacion, 120);
+  const search = cleanSavarText(req.query.q, 100);
+  const requestedLimit = Number(req.query.limit ?? 100);
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.trunc(requestedLimit), 1), MAX_LIST_ROWS) : 100;
+  const conditions: string[] = [];
+  const params: Array<string | number> = [];
 
-    const conditions: string[] = [];
-    const params: any[] = [];
-
-    if (estado === 'LLEGÓ') {
-      conditions.push('p.estado = "LLEGÓ" AND p.sede_id_escaneo = ?');
-      params.push(sedeId);
-    } else if (estado === 'PENDIENTE') {
-      conditions.push('p.estado = "PENDIENTE"');
-    }
-
-    if (lote_importacion) {
-      conditions.push('p.lote_importacion = ?');
-      params.push(lote_importacion);
-    }
-
-    if (q) {
-      conditions.push('(p.codigo_paquete LIKE ? OR p.consignado LIKE ? OR p.telefono LIKE ?)');
-      const likeVal = `%${q}%`;
-      params.push(likeVal, likeVal, likeVal);
-    }
-
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    
-    const query = `
-      SELECT 
-        p.*,
-        u.nombre AS operador_escaneo_nombre,
-        s.nombre AS sede_escaneo_nombre
-      FROM paquetes p
-      LEFT JOIN usuarios u ON u.id = p.usuario_id_escaneo
-      LEFT JOIN sedes s ON s.id = p.sede_id_escaneo
-      ${whereClause}
-      ORDER BY p.updated_at DESC
-      LIMIT ?
-    `;
-    params.push(limit);
-
-    const [rows] = await pool.query(query, params);
-
-    return res.status(200).json({
-      ok: true,
-      data: rows
-    });
-
-  } catch (error: any) {
-    console.error('[savar-scan] Error al listar paquetes:', error);
-    return res.status(500).json({
-      ok: false,
-      message: 'Error al listar los paquetes.',
-      error: error.message
-    });
+  if (status === 'LLEGÓ') {
+    conditions.push(`p.estado = 'LLEGÓ' AND p.sede_id_escaneo = ?`);
+    params.push(sedeId);
+  } else if (status === 'PENDIENTE') {
+    conditions.push(`p.estado = 'PENDIENTE'`);
   }
-};
-
-// 4. Listar Lotes de Importación Únicos y Estadísticas
-export const listarLotes = async (req: AuthRequest, res: Response) => {
-  try {
-    const sedeId = requireSede(req, res);
-    if (!sedeId) return;
-
-    const query = `
-      SELECT 
-        lote_importacion AS nombre,
-        MIN(created_at) AS fecha_creacion,
-        COUNT(*) AS total,
-        SUM(CASE WHEN estado = 'LLEGÓ' AND sede_id_escaneo = ? THEN 1 ELSE 0 END) AS recibidos,
-        SUM(CASE WHEN estado = 'PENDIENTE' THEN 1 ELSE 0 END) AS pendientes
-      FROM paquetes
-      GROUP BY lote_importacion
-      ORDER BY fecha_creacion DESC
-    `;
-
-    const [rows] = await pool.query(query, [sedeId]);
-
-    return res.status(200).json({
-      ok: true,
-      data: rows
-    });
-
-  } catch (error: any) {
-    console.error('[savar-scan] Error al listar lotes:', error);
-    return res.status(500).json({
-      ok: false,
-      message: 'Error al listar los lotes de importación.',
-      error: error.message
-    });
+  if (lot) {
+    conditions.push('p.lote_importacion = ?');
+    params.push(lot);
   }
-};
+  if (search) {
+    conditions.push('(p.codigo_paquete LIKE ? OR p.consignado LIKE ? OR p.telefono LIKE ?)');
+    const like = `%${search}%`;
+    params.push(like, like, like);
+  }
 
-// 5. Obtener Listado de Faltantes de un Lote Específico
-export const listarFaltantes = async (req: AuthRequest, res: Response) => {
   try {
-    const sedeId = requireSede(req, res);
-    if (!sedeId) return;
-
-    const lote = String(req.query.lote || '').trim();
-
-    if (!lote) {
-      return res.status(400).json({
-        ok: false,
-        message: 'El parámetro "lote" es obligatorio.'
-      });
-    }
-
-    const [rows] = await pool.query(
-      `SELECT codigo_paquete, consignado, direccion, distrito, telefono 
-       FROM paquetes 
-       WHERE lote_importacion = ? AND estado = 'PENDIENTE'
-       ORDER BY consignado ASC`,
-      [lote]
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const [rows] = await pool.query<PackageRow[]>(
+      `SELECT p.*, u.nombre AS operador_escaneo_nombre, s.nombre AS sede_escaneo_nombre
+         FROM paquetes p
+         LEFT JOIN usuarios u ON u.id = p.usuario_id_escaneo
+         LEFT JOIN sedes s ON s.id = p.sede_id_escaneo
+         ${where}
+        ORDER BY p.updated_at DESC
+        LIMIT ?`,
+      [...params, limit],
     );
-
-    return res.status(200).json({
-      ok: true,
-      data: rows
-    });
-
-  } catch (error: any) {
-    console.error('[savar-scan] Error al listar faltantes:', error);
-    return res.status(500).json({
-      ok: false,
-      message: 'Error al listar los paquetes faltantes.',
-      error: error.message
-    });
+    return res.status(200).json({ ok: true, data: rows });
+  } catch (error) {
+    return internalError(res, 'listar los paquetes', error);
   }
 };
 
-// 6. Restablecer Escaneos
+export const listarLotes = async (req: AuthRequest, res: Response) => {
+  const sedeId = requireSede(req, res);
+  if (!sedeId) return;
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT lote_importacion AS nombre, MIN(created_at) AS fecha_creacion, COUNT(*) AS total,
+              SUM(CASE WHEN estado = 'LLEGÓ' AND sede_id_escaneo = ? THEN 1 ELSE 0 END) AS recibidos,
+              SUM(CASE WHEN estado = 'PENDIENTE' THEN 1 ELSE 0 END) AS pendientes
+         FROM paquetes
+        GROUP BY lote_importacion
+        ORDER BY fecha_creacion DESC`,
+      [sedeId],
+    );
+    return res.status(200).json({ ok: true, data: rows });
+  } catch (error) {
+    return internalError(res, 'listar los lotes', error);
+  }
+};
+
+export const listarFaltantes = async (req: AuthRequest, res: Response) => {
+  if (!requireSede(req, res)) return;
+  const lot = cleanSavarText(req.query.lote, 120);
+  if (!lot) return res.status(400).json({ ok: false, message: 'El parámetro "lote" es obligatorio.' });
+  try {
+    const [rows] = await pool.query<PackageRow[]>(
+      `SELECT id, codigo_paquete, consignado, direccion, distrito, telefono, estado, lote_importacion
+         FROM paquetes
+        WHERE lote_importacion = ? AND estado = 'PENDIENTE'
+        ORDER BY consignado ASC`,
+      [lot],
+    );
+    return res.status(200).json({ ok: true, data: rows });
+  } catch (error) {
+    return internalError(res, 'listar los paquetes faltantes', error);
+  }
+};
+
 export const restablecerEscaneos = async (req: AuthRequest, res: Response) => {
+  const sedeId = requireSede(req, res);
+  if (!sedeId) return;
+  const lot = cleanSavarText(req.query.lote, 120);
+
   try {
-    const sedeId = requireSede(req, res);
-    if (!sedeId) return;
+    const affected = await runInTransaction(async connection => {
+      const params: Array<string | number> = [sedeId];
+      const lotCondition = lot ? ' AND lote_importacion = ?' : '';
+      if (lot) params.push(lot);
+      const [result] = await connection.query<ResultSetHeader>(
+        `UPDATE paquetes
+            SET estado = 'PENDIENTE', fecha_escaneo = NULL, usuario_id_escaneo = NULL, sede_id_escaneo = NULL
+          WHERE sede_id_escaneo = ?${lotCondition}`,
+        params,
+      );
 
-    // Permitido para todos los usuarios autenticados de la Sede
-
-    const lote = String(req.query.lote || '').trim();
-
-    let queryUpdate = `
-      UPDATE paquetes
-         SET estado = 'PENDIENTE',
-             fecha_escaneo = NULL,
-             usuario_id_escaneo = NULL,
-             sede_id_escaneo = NULL
-       WHERE sede_id_escaneo = ?
-    `;
-    let queryDeleteAud = 'DELETE FROM paquetes_auditoria WHERE sede_id = ?';
-    const paramsUpdate: any[] = [sedeId];
-    const paramsAud = [sedeId];
-
-    if (lote) {
-      queryUpdate += ' AND lote_importacion = ?';
-      paramsUpdate.push(lote);
-    }
-
-    const [result]: any = await pool.query(queryUpdate, paramsUpdate);
-    await pool.query(queryDeleteAud, paramsAud);
-
-    return res.status(200).json({
-      ok: true,
-      message: `Escaneos restablecidos con éxito. Se restablecieron ${result.affectedRows} paquetes.`
+      if (lot) {
+        await connection.query<ResultSetHeader>(
+          `DELETE audit FROM paquetes_auditoria audit
+            INNER JOIN paquetes package_item ON package_item.codigo_paquete = audit.codigo_escaneado
+           WHERE audit.sede_id = ? AND package_item.lote_importacion = ?`,
+          [sedeId, lot],
+        );
+      } else {
+        await connection.query<ResultSetHeader>('DELETE FROM paquetes_auditoria WHERE sede_id = ?', [sedeId]);
+      }
+      return result.affectedRows;
     });
-
-  } catch (error: any) {
-    console.error('[savar-scan] Error al restablecer escaneos:', error);
-    return res.status(500).json({
-      ok: false,
-      message: 'Error al restablecer los escaneos.',
-      error: error.message
-    });
+    return res.status(200).json({ ok: true, message: `${affected} paquetes fueron restablecidos correctamente.` });
+  } catch (error) {
+    return internalError(res, 'restablecer los escaneos', error);
   }
 };
 
-// 7. Eliminar Lote de Importación Completo (Lote + Paquetes)
 export const eliminarLote = async (req: AuthRequest, res: Response) => {
+  if (!requireSede(req, res)) return;
+  const lot = cleanSavarText(req.params.nombre, 120);
+  if (!lot) return res.status(400).json({ ok: false, message: 'Debe especificar el lote a eliminar.' });
+
   try {
-    const sedeId = requireSede(req, res);
-    if (!sedeId) return;
-
-    // Permitido para todos los usuarios autenticados de la Sede
-
-    const nombreLote = String(req.params.nombre || '').trim();
-    if (!nombreLote) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Debe especificar el nombre del lote a eliminar.'
-      });
-    }
-
-    // 1. Eliminar auditorías/incidencias asociadas a los paquetes de este lote
-    const deleteAuditoriaQuery = `
-      DELETE pa FROM paquetes_auditoria pa
-      INNER JOIN paquetes p ON pa.codigo_escaneado = p.codigo_paquete
-      WHERE p.lote_importacion = ?
-    `;
-    await pool.query(deleteAuditoriaQuery, [nombreLote]);
-
-    // 2. Eliminar los paquetes del lote
-    const deletePaquetesQuery = `
-      DELETE FROM paquetes WHERE lote_importacion = ?
-    `;
-    const [result]: any = await pool.query(deletePaquetesQuery, [nombreLote]);
-
-    return res.status(200).json({
-      ok: true,
-      message: `El lote "${nombreLote}" y sus ${result.affectedRows} paquetes asociados fueron eliminados con éxito.`
+    const affected = await runInTransaction(async connection => {
+      await connection.query<ResultSetHeader>(
+        `DELETE audit FROM paquetes_auditoria audit
+          INNER JOIN paquetes package_item ON audit.codigo_escaneado = package_item.codigo_paquete
+         WHERE package_item.lote_importacion = ?`,
+        [lot],
+      );
+      const [result] = await connection.query<ResultSetHeader>('DELETE FROM paquetes WHERE lote_importacion = ?', [lot]);
+      return result.affectedRows;
     });
-
-  } catch (error: any) {
-    console.error('[savar-scan] Error al eliminar lote:', error);
-    return res.status(500).json({
-      ok: false,
-      message: 'Error al eliminar el lote de importación.',
-      error: error.message
-    });
+    if (!affected) return res.status(404).json({ ok: false, message: `No existe el lote "${lot}".` });
+    return res.status(200).json({ ok: true, message: `El lote "${lot}" y sus ${affected} paquetes fueron eliminados.` });
+  } catch (error) {
+    return internalError(res, 'eliminar el lote', error);
   }
 };

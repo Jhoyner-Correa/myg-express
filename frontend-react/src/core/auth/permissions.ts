@@ -12,6 +12,8 @@ export const PERMISSIONS = {
   TEMPLATES_MANAGE: 'plantillas.gestionar',
   WHATSAPP_VIEW: 'whatsapp.ver',
   WHATSAPP_MANAGE: 'whatsapp.gestionar',
+  SAVAR_SCAN_VIEW: 'savarscan.ver',
+  SAVAR_SCAN_MANAGE: 'savarscan.gestionar',
 } as const;
 
 export type AppPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS] | string;
