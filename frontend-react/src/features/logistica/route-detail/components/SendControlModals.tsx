@@ -1,4 +1,5 @@
-import { AlertTriangle } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { AlertTriangle, FileImage, FileText, Info, MessageSquareText, Radio, Send } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button/Button';
 import { Modal } from '../../../../components/ui/Modal/Modal';
 import type { QueueAction, QueueControl, SessionItem, TemplateItem } from '../types';
@@ -18,11 +19,24 @@ interface SendControlModalsProps {
   onAction: (action: QueueAction) => Promise<boolean>;
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
+function SummaryRow({
+  icon,
+  label,
+  value,
+  missing = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  missing?: boolean;
+}) {
   return (
     <div className={styles.row}>
-      <span>{label}</span>
-      <strong>{value}</strong>
+      <span className={styles.rowIcon}>{icon}</span>
+      <span className={styles.rowCopy}>
+        <span>{label}</span>
+        <strong className={missing ? styles.missing : ''}>{value}</strong>
+      </span>
     </div>
   );
 }
@@ -77,6 +91,7 @@ export function SendControlModals({
       ? queue.queuedCount || queue.processingJobs || 0
       : queue?.pausedJobs || 0,
   );
+  const canStart = pending > 0 && Boolean(session) && Boolean(template);
 
   return (
     <>
@@ -85,25 +100,61 @@ export function SendControlModals({
         title="Confirmar envío de la ruta"
         description="Revisa el resumen antes de iniciar el envío por WhatsApp."
         onClose={onCloseConfirm}
+        maxWidth={580}
+        className={styles.confirmDialog}
         footer={
           <>
             <Button variant="secondary" onClick={onCloseConfirm}>Cancelar</Button>
-            <Button loading={loading} onClick={onStart}>Iniciar envío</Button>
+            <Button
+              icon={<Send size={15} />}
+              loading={loading}
+              disabled={!canStart}
+              onClick={onStart}
+            >
+              Iniciar envío
+            </Button>
           </>
         }
       >
         <div className={styles.summary}>
-          <SummaryRow label="Mensajes pendientes" value={String(pending)} />
-          <SummaryRow label="Sesión seleccionada" value={session?.nombre || '-'} />
-          <SummaryRow label="Plantilla activa" value={template?.nombre || '-'} />
-          <SummaryRow
-            label="Imagen adjunta"
-            value={template?.adjunto_url ? 'Según plantilla' : 'No contiene'}
-          />
+          <div className={styles.pendingCard}>
+            <span className={styles.pendingIcon}><MessageSquareText aria-hidden="true" /></span>
+            <span className={styles.pendingCopy}>
+              <span>Mensajes pendientes</span>
+              <small>Destinatarios listos para entrar a la cola</small>
+            </span>
+            <strong>{pending}</strong>
+          </div>
+
+          <div className={styles.details}>
+            <SummaryRow
+              icon={<Radio aria-hidden="true" />}
+              label="Sesión seleccionada"
+              value={session?.nombre || 'Sin seleccionar'}
+              missing={!session}
+            />
+            <SummaryRow
+              icon={<FileText aria-hidden="true" />}
+              label="Plantilla activa"
+              value={template?.nombre || 'Sin seleccionar'}
+              missing={!template}
+            />
+            <SummaryRow
+              icon={<FileImage aria-hidden="true" />}
+              label="Imagen adjunta"
+              value={template?.adjunto_url ? 'Incluida en la plantilla' : 'Sin imagen'}
+            />
+          </div>
         </div>
         <div className={styles.note}>
-          Solo se encolarán destinatarios pendientes. El worker actualizará los resultados
-          dentro de la ruta.
+          <Info aria-hidden="true" />
+          <div>
+            <strong>Envío gestionado por cola</strong>
+            <p>
+              Solo se encolarán destinatarios pendientes. El worker de WhatsApp procesará
+              cada mensaje y actualizará los resultados dentro de la ruta.
+            </p>
+          </div>
         </div>
       </Modal>
 

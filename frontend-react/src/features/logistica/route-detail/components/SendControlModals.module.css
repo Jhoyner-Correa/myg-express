@@ -1,7 +1,102 @@
-.summary { display: grid; gap: 1px; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--border-default); }
-.row { display: flex; justify-content: space-between; gap: var(--space-4); padding: 11px 13px; background: var(--surface-card); color: var(--text-secondary); font-size: var(--font-size-sm); }
-.row strong { color: var(--text-primary); text-align: right; }
-.note { margin-top: var(--space-4); padding: var(--space-3); border-radius: var(--radius-sm); background: var(--color-warning-soft); color: var(--color-neutral-700); font-size: var(--font-size-sm); line-height: 1.5; }
+.confirmDialog {
+  font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.confirmDialog h2 {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+}
+
+.summary {
+  display: grid;
+  gap: 12px;
+}
+
+.pendingCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 15px;
+  border: 1px solid var(--color-brand-200);
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--color-brand-50) 0%, #ffffff 100%);
+}
+
+.pendingIcon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--surface-card);
+  color: var(--color-brand-700);
+  box-shadow: var(--shadow-xs);
+}
+
+.pendingIcon svg { width: 18px; height: 18px; }
+.pendingCopy { display: grid; min-width: 0; flex: 1; gap: 2px; }
+.pendingCopy > span { color: var(--text-primary); font-size: 12px; font-weight: 700; }
+.pendingCopy small { color: var(--text-secondary); font-size: 10.5px; }
+
+.pendingCard > strong {
+  color: var(--color-brand-800);
+  font-family: 'Inter', sans-serif;
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.row {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 11px;
+  background: var(--surface-card);
+}
+
+.rowIcon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+}
+
+.rowIcon svg { width: 14px; height: 14px; }
+.rowCopy { display: grid; min-width: 0; gap: 4px; }
+.rowCopy > span { color: var(--text-muted); font-size: 9px; font-weight: 700; letter-spacing: 0.045em; text-transform: uppercase; }
+.rowCopy strong { overflow: hidden; color: var(--text-primary); font-size: 10.5px; font-weight: 700; line-height: 1.35; text-overflow: ellipsis; }
+.rowCopy .missing { color: var(--color-warning); }
+
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: 11px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+}
+
+.note > svg { width: 17px; height: 17px; flex: 0 0 17px; margin-top: 1px; color: var(--color-brand-600); }
+.note strong { display: block; margin-bottom: 2px; color: var(--text-primary); font-size: 11px; font-weight: 700; }
+.note p { margin: 0; font-size: 10.5px; line-height: 1.55; }
+
 .status { display: flex; align-items: flex-start; gap: var(--space-3); }
 .status svg { flex: 0 0 auto; color: var(--color-warning); }
 .status h3 { margin: 0; color: var(--text-primary); font-size: var(--font-size-lg); }
@@ -9,4 +104,8 @@
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); margin-top: var(--space-4); }
 .stats span { padding: 10px; border-radius: var(--radius-sm); background: var(--surface-subtle); color: var(--text-secondary); font-size: var(--font-size-xs); text-align: center; }
 .stats strong { display: block; color: var(--text-primary); font-size: var(--font-size-lg); }
-@media (max-width: 520px) { .stats { grid-template-columns: 1fr; } }
+
+@media (max-width: 520px) {
+  .details, .stats { grid-template-columns: 1fr; }
+  .pendingCard { align-items: flex-start; }
+}
