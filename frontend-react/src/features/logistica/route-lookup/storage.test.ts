@@ -13,7 +13,7 @@ describe('persistencia temporal de Consulta de rutas', () => {
   it('elimina estados vencidos o corruptos', () => {
     localStorage.setItem('myg_consulta_rutas_state', JSON.stringify({ savedAt: 1, queriedRouteId: '123' }));
     expect(readLookupState(13 * 60 * 60 * 1000)).toBeNull();
-    localStorage.setItem('myg_consulta_rutas_state', '{invÃ¡lido');
+    localStorage.setItem('myg_consulta_rutas_state', '{inv\u00e1lido');
     expect(readLookupState()).toBeNull();
   });
 });

@@ -26,7 +26,7 @@ export const ConsultaHistorica: React.FC = () => {
   const consult = async () => {
     const routeId = normalizeRouteId(lookup.routeId);
     if (!routeId) {
-      showToast('Ingresa un nÃºmero de ruta vÃ¡lido.', 'warning', { title: 'Ruta requerida' });
+      showToast('Ingresa un n\u00famero de ruta v\u00e1lido.', 'warning', { title: 'Ruta requerida' });
       return;
     }
     const result = await lookup.lookup();
@@ -47,13 +47,13 @@ export const ConsultaHistorica: React.FC = () => {
     if (!canManage || !lookup.selectedDestination) return;
     const notices = lookup.filteredRecords.map(toNoticeImport).filter(item => item.telefono.length >= 8 && item.codigo_paquete);
     if (!notices.length) {
-      showToast('Los resultados no contienen telÃ©fonos y cÃ³digos vÃ¡lidos.', 'warning', { title: 'Sin registros importables' });
+      showToast('Los resultados no contienen tel\u00e9fonos y c\u00f3digos v\u00e1lidos.', 'warning', { title: 'Sin registros importables' });
       return;
     }
     const skipped = lookup.filteredRecords.length - notices.length;
     const accepted = await showConfirm({
       title: 'Importar registros al lote',
-      message: `Se agregarÃ¡n ${notices.length} registros a â€œ${lookup.selectedDestination.nombre_lote}â€.${skipped ? ` ${skipped} registros invÃ¡lidos serÃ¡n omitidos.` : ''}`,
+      message: `Se agregar\u00e1n ${notices.length} registros a \u201c${lookup.selectedDestination.nombre_lote}\u201d.${skipped ? ` ${skipped} registros inv\u00e1lidos ser\u00e1n omitidos.` : ''}`,
       confirmText: 'Importar registros', cancelText: 'Cancelar', type: 'success',
     });
     if (!accepted) return;
@@ -61,9 +61,9 @@ export const ConsultaHistorica: React.FC = () => {
     try {
       const outcome = await routeLookupService.importNotices(lookup.selectedDestination.id, notices);
       if (!outcome.imported) {
-        showToast('Estas guÃ­as ya existÃ­an en el lote seleccionado.', 'info', { title: 'Sin duplicados' });
+        showToast('Estas gu\u00edas ya exist\u00edan en el lote seleccionado.', 'info', { title: 'Sin duplicados' });
       } else {
-        showToast(`${outcome.imported} registros importados.${outcome.skipped ? ` ${outcome.skipped} omitidos.` : ''}`, 'success', { title: 'ImportaciÃ³n completada' });
+        showToast(`${outcome.imported} registros importados.${outcome.skipped ? ` ${outcome.skipped} omitidos.` : ''}`, 'success', { title: 'Importaci\u00f3n completada' });
       }
     } catch (error) {
       showToast(getApiErrorMessage(error, 'No se pudieron importar los registros.'), 'error');
@@ -74,9 +74,9 @@ export const ConsultaHistorica: React.FC = () => {
 
   return (
     <main className={`main ${styles.page}`} id="main-content">
-      <PageHeader icon={<Search />} title="Consulta de rutas" subtitle="Consulta guÃ­as de Urbano en tiempo real" metadata={<><span>{currentDate}</span><span className={styles.headerRole}><i />{user?.rol || 'Encargado de oficina'}</span></>} />
+      <PageHeader icon={<Search />} title="Consulta de rutas" subtitle={'Consulta gu\u00edas de Urbano en tiempo real'} metadata={<><span>{currentDate}</span><span className={styles.headerRole}><i />{user?.rol || 'Encargado de oficina'}</span></>} />
       <div className={styles.content}>
-        {Boolean(lookup.initialError) && <div className={styles.warning} role="alert"><AlertTriangle /><span>No se pudo cargar toda la configuraciÃ³n inicial.</span><button type="button" onClick={() => void lookup.reloadInitial()}>Reintentar</button></div>}
+        {Boolean(lookup.initialError) && <div className={styles.warning} role="alert"><AlertTriangle /><span>{'No se pudo cargar toda la configuraci\u00f3n inicial.'}</span><button type="button" onClick={() => void lookup.reloadInitial()}>Reintentar</button></div>}
         <RouteLookupPanel
           routeId={lookup.routeId} loading={lookup.loading} importing={importing} connected={lookup.connected}
           localities={lookup.localities} filters={lookup.filters} destinations={lookup.destinations}

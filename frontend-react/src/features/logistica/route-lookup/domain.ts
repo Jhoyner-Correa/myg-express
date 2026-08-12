@@ -13,7 +13,7 @@ export function normalizeSearchText(value: unknown): string {
 }
 
 export function displayText(value: unknown): string {
-  return String(value ?? '').trim() || 'â€”';
+  return String(value ?? '').trim() || '\u2014';
 }
 
 export function normalizePhone(value: unknown): string {
@@ -22,7 +22,7 @@ export function normalizePhone(value: unknown): string {
 
 export function formatPhone(value: unknown): string {
   const phone = normalizePhone(value);
-  return phone ? phone.replace(/(\d{3})(?=\d)/g, '$1 ').trim() : 'â€”';
+  return phone ? phone.replace(/(\d{3})(?=\d)/g, '$1 ').trim() : '\u2014';
 }
 
 export function normalizeWeight(value: unknown): number | null {
@@ -50,7 +50,7 @@ export function formatGuide(value: unknown): string {
 
 export function formatLocality(value: unknown): string {
   const clean = displayText(value).replace(/\s*\([^)]*\)\s*/g, '').trim();
-  return clean || 'â€”';
+  return clean || '\u2014';
 }
 
 export function getLimaDateKey(date = new Date()): string {
@@ -85,7 +85,7 @@ export function filterLookupRecords(records: UrbanoRecord[], filters: LookupFilt
 export function destinationLabel(route: RouteDestination): string {
   const name = displayText(route.nombre_lote).replace(/^Ruta\s*\d+\s*[-.]\s*/i, '').trim();
   const zone = String(route.zona ?? '').trim();
-  return `${zone || name} Â· MYG-${route.id}`;
+  return `${zone || name} \u00b7 MYG-${route.id}`;
 }
 
 export function toNoticeImport(record: UrbanoRecord): NoticeImport {

@@ -32,12 +32,12 @@ export function RouteLookupPanel(props: Props) {
     <section className={styles.lookupCard} aria-labelledby="route-lookup-title">
       <header className={styles.provider}>
         <span className={`${styles.providerIcon} ${props.connected ? styles.connected : ''}`}><Truck /></span>
-        <div><strong id="route-lookup-title">Consulta integrada con Urbano</strong><span>{props.connected ? 'ConexiÃ³n activa para esta sede' : 'La sesiÃ³n se iniciarÃ¡ al consultar'}</span></div>
+        <div><strong id="route-lookup-title">Consulta integrada con Urbano</strong><span>{props.connected ? 'Conexi\u00f3n activa para esta sede' : 'La sesi\u00f3n se iniciar\u00e1 al consultar'}</span></div>
         <span className={`${styles.connection} ${props.connected ? styles.online : ''}`}><i />{props.connected ? 'Conectado' : 'En espera'}</span>
       </header>
 
       <form className={styles.lookupForm} onSubmit={submit}>
-        <label className={styles.routeField}><span>NÃºmero de ruta</span><div><Search /><input aria-label="NÃºmero de ruta Urbano" inputMode="numeric" autoComplete="off" placeholder="Ej. 1044897" value={props.routeId} disabled={props.loading} onChange={event => props.onRouteId(event.target.value)} /></div></label>
+        <label className={styles.routeField}><span>{'N\u00famero de ruta'}</span><div><Search /><input aria-label={'N\u00famero de ruta Urbano'} inputMode="numeric" autoComplete="off" placeholder="Ej. 1044897" value={props.routeId} disabled={props.loading} onChange={event => props.onRouteId(event.target.value)} /></div></label>
         <Button type="submit" loading={props.loading} disabled={!props.routeId}>Consultar ruta</Button>
       </form>
 
@@ -46,13 +46,13 @@ export function RouteLookupPanel(props: Props) {
           <option value="">Todas las localidades</option>{props.localities.map(value => <option key={value} value={value}>{value}</option>)}
         </SelectField>
         <SelectField label="Orden" value={props.filters.sort} disabled={!props.resultCount} onChange={value => update('sort', value as LookupFilters['sort'])}>
-          <option value="default">Orden original</option><option value="guia-asc">GuÃ­a Aâ€“Z</option><option value="cliente-asc">Cliente Aâ€“Z</option><option value="localidad-asc">Localidad Aâ€“Z</option>
+          <option value="default">Orden original</option><option value="guia-asc">{'Gu\u00eda A\u2013Z'}</option><option value="cliente-asc">{'Cliente A\u2013Z'}</option><option value="localidad-asc">{'Localidad A\u2013Z'}</option>
         </SelectField>
         <SelectField label="Contrato" value={props.filters.contract} disabled={!props.resultCount} onChange={value => update('contract', value as LookupFilters['contract'])}>
           <option value="">Todos</option><option value="temu">Solo Temu</option><option value="no-temu">Sin Temu</option>
         </SelectField>
         {props.canManage && <SelectField label="Ruta destino" value={props.selectedDestinationId} disabled={!props.destinations.length} onChange={props.onDestination} wide>
-          <option value="">Seleccionar lote del dÃ­a</option>{props.destinations.map(route => <option key={route.id} value={route.id}>{destinationLabel(route)}</option>)}
+          <option value="">{'Seleccionar lote del d\u00eda'}</option>{props.destinations.map(route => <option key={route.id} value={route.id}>{destinationLabel(route)}</option>)}
         </SelectField>}
         <div className={styles.actions}>
           <Button type="button" variant="secondary" size="sm" icon={<Download />} disabled={!props.resultCount || props.importing} onClick={props.onExport}>Excel</Button>

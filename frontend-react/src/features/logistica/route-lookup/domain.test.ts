@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { activeDestinationsForToday, filterLookupRecords, formatLocality, normalizePhone, normalizeRouteId, normalizeWeight, toNoticeImport, uniqueLocalities } from './domain';
 import type { RouteDestination, UrbanoRecord } from './types';
 
-const base: UrbanoRecord = { routeId: '100', guia: 'WYB-1', rastreo: 'R-1', cliente: 'MarÃ­a', telefono: '+51 987-654-321', contrato: 'TEMU PERU', localidad: 'SATIPO (JUNIN)' };
+const base: UrbanoRecord = { routeId: '100', guia: 'WYB-1', rastreo: 'R-1', cliente: 'Mar\u00eda', telefono: '+51 987-654-321', contrato: 'TEMU PERU', localidad: 'SATIPO (JUNIN)' };
 
 describe('dominio de Consulta de rutas', () => {
-  it('normaliza identificadores, telÃ©fonos y pesos', () => {
+  it('normaliza identificadores, tel\u00e9fonos y pesos', () => {
     expect(normalizeRouteId(' ruta 001-23 abc ')).toBe('00123');
     expect(normalizePhone('+51 987-654-321')).toBe('51987654321');
     expect(normalizeWeight('1,250 kg')).toBe(1.25);
@@ -22,7 +22,7 @@ describe('dominio de Consulta de rutas', () => {
     expect(formatLocality(base.localidad)).toBe('SATIPO');
   });
 
-  it('solo ofrece rutas activas del dÃ­a empresarial de Lima', () => {
+  it('solo ofrece rutas activas del d\u00eda empresarial de Lima', () => {
     const routes: RouteDestination[] = [
       { id: 1, nombre_lote: 'Activa', estado: 'pendiente', fecha: '2026-08-12T08:00:00-05:00' },
       { id: 2, nombre_lote: 'Finalizada', estado: 'completado', fecha: '2026-08-12T09:00:00-05:00' },
@@ -32,8 +32,8 @@ describe('dominio de Consulta de rutas', () => {
   });
 
   it('convierte un registro Urbano a un aviso importable y limpia HTML', () => {
-    expect(toNoticeImport({ ...base, cliente: '<b>MarÃ­a</b>', piezas: 2, peso_kg: 1.5 })).toMatchObject({
-      nombre: 'MarÃ­a', telefono: '51987654321', codigo_paquete: 'WYB-1', peso_kg: 1.5, piezas: 2, empresa_origen: 'Urbano', mensaje: null,
+    expect(toNoticeImport({ ...base, cliente: '<b>Mar\u00eda</b>', piezas: 2, peso_kg: 1.5 })).toMatchObject({
+      nombre: 'Mar\u00eda', telefono: '51987654321', codigo_paquete: 'WYB-1', peso_kg: 1.5, piezas: 2, empresa_origen: 'Urbano', mensaje: null,
     });
   });
 });

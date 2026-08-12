@@ -37,7 +37,7 @@ export function useRouteLookup() {
       }
     }
     if ([status, routes, latest].some(item => item.status === 'rejected' && !axios.isCancel(item.reason))) {
-      setInitialError(new Error('No se pudo cargar toda la informaciÃ³n inicial.'));
+      setInitialError(new Error('No se pudo cargar toda la informaci\u00f3n inicial.'));
     }
   }, []);
 
