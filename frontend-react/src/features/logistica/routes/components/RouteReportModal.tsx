@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Check, ChevronDown, Clipboard, MessageCircleOff, Send, TriangleAlert } from 'lucide-react';
+import { Check, ChevronDown, Clipboard, MessageCircleOff, TriangleAlert } from 'lucide-react';
 import { Modal } from '../../../../components/ui/Modal/Modal';
 import { showToast } from '../../../../core/utils/toast';
 import type { ReportSummary, RouteNoticeSummaryItem } from '../types';
@@ -14,66 +14,111 @@ type RouteReportModalProps = {
 };
 
 type DetailType = 'manual' | 'noWhatsapp' | null;
+type StatusTone = 'pending' | 'sent' | 'manual' | 'noWhatsapp' | 'failed';
 
 export function RouteReportModal({ open, loading, routeName, data, onClose }: RouteReportModalProps) {
   const [detail, setDetail] = useState<DetailType>(null);
 
   useEffect(() => {
-    if (!open) setDetail(null);
-  }, [open]);
+    setDetail(null);
+  }, [open, routeName]);
 
   const processed = data ? data.enviados + data.manuales : 0;
-  const progress = data && data.total > 0 ? Math.round((processed / data.total) * 100) : 0;
+  const progress = percentage(processed, data?.total ?? 0);
 
   return (
     <Modal
       open={open}
       title="Reporte de ruta"
-      description={`${routeName || 'Ruta seleccionada'} · Resumen operativo de mensajería`}
-      maxWidth={650}
+      description={`${routeName || 'Ruta seleccionada'} · Resumen operativo y detalle de avisos.`}
+      maxWidth={720}
       onClose={onClose}
+      className={styles.modal}
     >
-      {loading && <div className={styles.loading}><span aria-hidden="true" /><p>Procesando reporte…</p></div>}
+      {loading && (
+        <div className={styles.loading} role="status">
+          <span aria-hidden="true" />
+          <strong>Calculando métricas</strong>
+          <p>Estamos consolidando los resultados de la ruta.</p>
+        </div>
+      )}
 
       {!loading && data && (
         <div className={styles.report}>
-          <section className={styles.summary} aria-label="Progreso de procesamiento">
-            <div className={styles.summaryHeader}>
-              <span><strong>{processed}</strong> de {data.total} procesados</span>
-              <strong>{progress}%</strong>
-            </div>
-            <div className={styles.progress} aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
+          <section className={styles.summaryGrid} aria-label="Resumen del reporte">
+            <article className={styles.summaryCard}>
+              <span className={styles.summaryLabel}>Total de registros</span>
+              <strong className={styles.summaryValue}>{data.total}</strong>
+              <p>Destinatarios incluidos en la ruta</p>
+            </article>
+
+            <article className={`${styles.summaryCard} ${styles.processedCard}`}>
+              <div className={styles.processedHeading}>
+                <span className={styles.summaryLabel}>Procesados</span>
+                <span className={styles.progressBadge}>{progress}%</span>
+              </div>
+              <strong className={styles.summaryValue}>{processed}</strong>
+              <div className={styles.summaryProgress} aria-label={`${progress}% procesado`}>
+                <span style={{ width: `${progress}%` }} />
+              </div>
+            </article>
           </section>
 
-          <div className={styles.statusList}>
-            <StatusRow label="Pendientes" value={data.pendientes} total={data.total} tone="warning" />
-            <StatusRow label="Enviados" value={data.enviados} total={data.total} tone="success" icon={<Send />} />
+          <div className={styles.sectionTitle}><span>Desglose de estados</span></div>
+
+          <section className={styles.breakdown} aria-label="Desglose de estados">
+            <StatusRow label="Pendientes" value={data.pendientes} total={data.total} tone="pending" />
+            <StatusRow label="Enviados" value={data.enviados} total={data.total} tone="sent" />
             <StatusRow
               label="Envío manual"
               value={data.manuales}
               total={data.total}
-              tone="info"
-              icon={<Check />}
+              tone="manual"
               expanded={detail === 'manual'}
-              onClick={data.manuales > 0 ? () => setDetail(value => value === 'manual' ? null : 'manual') : undefined}
+              onClick={data.manuales > 0
+                ? () => setDetail(value => value === 'manual' ? null : 'manual')
+                : undefined}
             />
-            {detail === 'manual' && <ContactDetail title="Envíos manuales" items={data.manualList} />}
             <StatusRow
               label="Sin WhatsApp"
               value={data.sinWhatsapp}
               total={data.total}
-              tone="violet"
-              icon={<MessageCircleOff />}
+              tone="noWhatsapp"
               expanded={detail === 'noWhatsapp'}
-              onClick={data.sinWhatsapp > 0 ? () => setDetail(value => value === 'noWhatsapp' ? null : 'noWhatsapp') : undefined}
+              onClick={data.sinWhatsapp > 0
+                ? () => setDetail(value => value === 'noWhatsapp' ? null : 'noWhatsapp')
+                : undefined}
             />
-            {detail === 'noWhatsapp' && <ContactDetail title="Clientes sin WhatsApp" items={data.nowaList} />}
-            <StatusRow label="Fallidos" value={data.fallidos} total={data.total} tone="danger" icon={<TriangleAlert />} />
-          </div>
+            <StatusRow label="Fallidos / errores" value={data.fallidos} total={data.total} tone="failed" />
+          </section>
+
+          {detail === 'manual' && (
+            <ContactDetail
+              title="Envíos manuales"
+              items={data.manualList}
+              tone="manual"
+              icon={<Check aria-hidden="true" />}
+            />
+          )}
+
+          {detail === 'noWhatsapp' && (
+            <ContactDetail
+              title="Clientes sin WhatsApp"
+              items={data.nowaList}
+              tone="noWhatsapp"
+              icon={<MessageCircleOff aria-hidden="true" />}
+            />
+          )}
         </div>
       )}
 
-      {!loading && !data && <div className={styles.error}>No se pudo cargar el reporte de esta ruta.</div>}
+      {!loading && !data && (
+        <div className={styles.error} role="alert">
+          <span><TriangleAlert aria-hidden="true" /></span>
+          <strong>No se pudo cargar el reporte</strong>
+          <p>Vuelve a cerrarlo e intenta nuevamente.</p>
+        </div>
+      )}
     </Modal>
   );
 }
@@ -82,49 +127,121 @@ type StatusRowProps = {
   label: string;
   value: number;
   total: number;
-  tone: 'warning' | 'success' | 'info' | 'violet' | 'danger';
-  icon?: ReactNode;
+  tone: StatusTone;
   expanded?: boolean;
   onClick?: () => void;
 };
 
-function StatusRow({ label, value, total, tone, icon, expanded, onClick }: StatusRowProps) {
-  const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+function StatusRow({ label, value, total, tone, expanded, onClick }: StatusRowProps) {
+  const valuePercentage = percentage(value, total);
   const content = (
     <>
-      <span className={styles.statusIcon}>{icon ?? <span />}</span>
-      <span className={styles.statusCopy}><span>{label}</span><span className={styles.bar}><span style={{ width: `${percentage}%` }} /></span></span>
-      <strong>{value}</strong>
-      {onClick && <ChevronDown className={expanded ? styles.expanded : ''} aria-hidden="true" />}
+      <span className={styles.statusDot} aria-hidden="true" />
+      <span className={styles.statusLabel}>
+        <span>{label}</span>
+        {onClick && <ChevronDown className={expanded ? styles.expanded : ''} aria-hidden="true" />}
+      </span>
+      <span className={styles.statusBar} aria-hidden="true">
+        <span style={{ width: `${valuePercentage}%` }} />
+      </span>
+      <strong className={styles.statusValue}>{value}</strong>
     </>
   );
+
+  const className = `${styles.statusRow} ${styles[tone]} ${onClick ? styles.clickable : ''}`;
   return onClick
-    ? <button className={`${styles.statusRow} ${styles[tone]}`} type="button" onClick={onClick} aria-expanded={expanded}>{content}</button>
-    : <div className={`${styles.statusRow} ${styles[tone]}`}>{content}</div>;
+    ? (
+        <button className={className} type="button" onClick={onClick} aria-expanded={expanded}>
+          {content}
+        </button>
+      )
+    : <div className={className}>{content}</div>;
 }
 
-function ContactDetail({ title, items }: { title: string; items: RouteNoticeSummaryItem[] }) {
-  const copy = async (item: RouteNoticeSummaryItem) => {
-    const text = `${item.nombre || '-'}\t${item.telefono || '-'}\t${item.codigo_paquete || '-'}`;
+type ContactDetailProps = {
+  title: string;
+  items: RouteNoticeSummaryItem[];
+  tone: 'manual' | 'noWhatsapp';
+  icon: ReactNode;
+};
+
+function ContactDetail({ title, items, tone, icon }: ContactDetailProps) {
+  const toneClass = tone === 'manual' ? styles.manualDetail : styles.noWhatsappDetail;
+  const copyText = async (text: string, successMessage: string) => {
     try {
+      if (!navigator.clipboard) throw new Error('Clipboard API unavailable');
       await navigator.clipboard.writeText(text);
-      showToast('Registro copiado al portapapeles.', 'success', { title: 'Copiado' });
+      showToast(successMessage, 'success', { title: 'Copiado' });
     } catch {
-      showToast('No se pudo copiar el registro.', 'error', { title: 'Error' });
+      showToast('No se pudieron copiar los datos.', 'error', { title: 'Error' });
     }
   };
 
+  const copyItem = (item: RouteNoticeSummaryItem) => copyText(
+    `${item.nombre || '-'}\t${item.telefono || '-'}\t${item.codigo_paquete || '-'}`,
+    'Registro copiado al portapapeles.',
+  );
+
+  const copyAll = () => copyText(
+    items.map((item, index) => [
+      `${index + 1}. ${item.nombre || '-'}`,
+      `   • Teléfono: ${item.telefono || '-'}`,
+      `   • Código: ${item.codigo_paquete || '-'}`,
+    ].join('\n')).join('\n\n'),
+    'Todos los registros fueron copiados.',
+  );
+
   return (
-    <section className={styles.detail}>
-      <header><strong>{title}</strong><span>{items.length}</span></header>
-      <div className={styles.detailRows}>
-        {items.map((item, index) => (
-          <div className={styles.contact} key={item.id ?? `${item.codigo_paquete}-${index}`}>
-            <span><strong>{item.nombre || 'Sin nombre'}</strong><small>{item.telefono || 'Sin teléfono'} · {item.codigo_paquete || 'Sin código'}</small></span>
-            <button type="button" onClick={() => copy(item)} aria-label={`Copiar datos de ${item.nombre || 'cliente'}`}><Clipboard aria-hidden="true" /></button>
-          </div>
-        ))}
+    <section className={`${styles.detail} ${toneClass}`} aria-label={title}>
+      <header className={styles.detailHeader}>
+        <div className={styles.detailTitle}>
+          <span className={styles.detailIcon}>{icon}</span>
+          <strong>{title}</strong>
+          <span className={styles.detailCount}>{items.length}</span>
+        </div>
+        {items.length > 1 && (
+          <button className={styles.copyAll} type="button" onClick={copyAll}>
+            <Clipboard aria-hidden="true" />Copiar todo
+          </button>
+        )}
+      </header>
+
+      <div className={styles.tableWrapper}>
+        <table className={styles.detailTable}>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Teléfono</th>
+              <th>Código</th>
+              <th><span className={styles.srOnly}>Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, index) => (
+              <tr key={item.id ?? `${item.codigo_paquete}-${index}`}>
+                <td title={item.nombre || 'Sin nombre'}>{item.nombre || 'Sin nombre'}</td>
+                <td><span className={styles.phone}>{item.telefono || '-'}</span></td>
+                <td><span className={styles.code}>{item.codigo_paquete || '-'}</span></td>
+                <td>
+                  <button
+                    className={styles.copyRow}
+                    type="button"
+                    onClick={() => copyItem(item)}
+                    aria-label={`Copiar datos de ${item.nombre || 'cliente'}`}
+                  >
+                    <Clipboard aria-hidden="true" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   );
+}
+
+function percentage(value: number, total: number): number {
+  if (total <= 0) return 0;
+  return Math.round((value / total) * 100);
 }
