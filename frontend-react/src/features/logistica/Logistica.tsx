@@ -367,6 +367,7 @@ export const Logistica: React.FC = () => {
           emptyTitle="No hay rutas registradas hoy"
           emptyDescription="Crea una nueva ruta para comenzar."
           renderActions={renderRowActions}
+          preserveBodyHeight
           onViewOverflow={() => {
             setHistoryScope('today');
             setSearchQueryHistory('');
@@ -382,6 +383,7 @@ export const Logistica: React.FC = () => {
           getDate={route => route.finished_at || route.fecha_finalizacion || route.updated_at || route.created_at || route.fecha}
           emptyTitle="No hay historial de rutas anteriores"
           renderActions={renderRowActions}
+          limit={5}
           onViewAll={() => {
             setHistoryScope('all');
             setSearchQueryHistory('');
