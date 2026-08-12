@@ -1,8 +1,8 @@
 .actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
-.iconButton { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: #fff; color: var(--text-muted); }
+.iconButton { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--border-default); border-radius: 7px; background: #fff; color: var(--text-muted); }
 .iconButton:hover { border-color: var(--color-brand-300, var(--color-brand-400)); background: var(--color-brand-50); color: var(--color-brand-700); }
-.iconButton svg { width: 14px; height: 14px; }
-.detail { min-height: 30px; display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; border: 1px solid var(--border-default); border-radius: 999px; background: #fff; color: var(--text-secondary); font-size: 0.6875rem; font-weight: 800; }
+.iconButton svg { width: 13px; height: 13px; }
+.detail { min-height: 29px; display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; border: 1px solid var(--border-default); border-radius: 999px; background: #fff; color: var(--text-secondary); font-size: 0.6875rem; font-weight: 750; }
 .detail:hover { border-color: var(--color-brand-400); color: var(--color-brand-700); }
 .detail svg { width: 12px; height: 12px; }
 .menu { position: fixed; z-index: 2800; width: 210px; padding: 6px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: #fff; box-shadow: 0 18px 46px rgb(15 23 42 / 0.16); animation: enter 140ms cubic-bezier(.16, 1, .3, 1); }
@@ -15,8 +15,8 @@
 @keyframes enter { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
 
 @container routes-content (min-width: 1400px) {
-  .actions { gap: 6px; }
-  .iconButton { width: 32px; height: 32px; }
-  .iconButton svg { width: 15px; height: 15px; }
-  .detail { min-height: 32px; padding-inline: 12px; font-size: 0.75rem; }
+  .actions { gap: 5px; }
+  .iconButton { width: 29px; height: 29px; }
+  .iconButton svg { width: 13px; height: 13px; }
+  .detail { min-height: 30px; padding-inline: 11px; font-size: 0.6875rem; }
 }
