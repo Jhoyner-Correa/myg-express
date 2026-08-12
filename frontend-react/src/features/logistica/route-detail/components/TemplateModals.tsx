@@ -1,4 +1,4 @@
-import type { FormEvent, KeyboardEvent, MouseEvent } from 'react';
+import type { FormEvent } from 'react';
 import { FileImage, FileText, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button/Button';
 import { Modal } from '../../../../components/ui/Modal/Modal';
@@ -26,11 +26,6 @@ interface TemplateModalsProps {
   onImage: (file: File, base64: string) => void;
   onRemoveImage: () => void;
   onSave: (event: FormEvent) => void;
-}
-
-function stopAndRun(event: MouseEvent, callback: () => void) {
-  event.stopPropagation();
-  callback();
 }
 
 export function TemplateModals({
@@ -63,15 +58,6 @@ export function TemplateModals({
     reader.readAsDataURL(selected);
   };
 
-  const handleCardKeyDown = (
-    event: KeyboardEvent<HTMLElement>,
-    template: TemplateItem,
-  ) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    onSelect(template);
-  };
-
   return (
     <>
       <Modal
@@ -79,7 +65,7 @@ export function TemplateModals({
         title="Plantillas disponibles"
         description="Elige una para la ruta o administra tus plantillas."
         onClose={onCloseGallery}
-        maxWidth={820}
+        maxWidth={1120}
         footer={
           <Button variant="secondary" onClick={onCloseGallery}>
             Cerrar
@@ -87,7 +73,13 @@ export function TemplateModals({
         }
       >
         <div className={styles.toolbar}>
-          <span className={styles.hint}>{templates.length} plantillas disponibles</span>
+          <div className={styles.summary}>
+            <span className={styles.summaryCount}>{templates.length}</span>
+            <span>
+              <strong>{templates.length === 1 ? 'plantilla disponible' : 'plantillas disponibles'}</strong>
+              <small>Selecciona una tarjeta para usarla en esta ruta.</small>
+            </span>
+          </div>
           <Button size="sm" icon={<Plus size={15} />} onClick={onNew}>
             Nueva plantilla
           </Button>
@@ -102,32 +94,44 @@ export function TemplateModals({
                 <article
                   key={template.id}
                   className={`${styles.card} ${selected ? styles.selected : ''}`}
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={selected}
-                  onClick={() => onSelect(template)}
-                  onKeyDown={(event) => handleCardKeyDown(event, template)}
                 >
-                  <div className={styles.cardHead}>
-                    <span className={styles.name}>
-                      <FileText size={15} aria-hidden="true" />
-                      {template.nombre}
+                  <button
+                    className={styles.selectArea}
+                    type="button"
+                    aria-pressed={selected}
+                    aria-label={`Usar plantilla ${template.nombre}`}
+                    onClick={() => onSelect(template)}
+                  >
+                    <span className={styles.cardHead}>
+                      <span className={styles.documentIcon}>
+                        <FileText size={17} aria-hidden="true" />
+                      </span>
+                      <span className={styles.titleBlock}>
+                        <strong className={styles.name}>{template.nombre}</strong>
+                        <small>Plantilla de WhatsApp</small>
+                      </span>
+                      {template.adjunto_url && (
+                        <span className={styles.imageBadge}>
+                          <FileImage size={13} aria-hidden="true" />
+                          Imagen
+                        </span>
+                      )}
                     </span>
-                    {template.adjunto_url && (
-                      <FileImage size={15} aria-label="Contiene imagen" />
-                    )}
-                  </div>
 
-                  <p className={styles.body}>{template.cuerpo}</p>
+                    <span className={styles.body}>{template.cuerpo}</span>
+                  </button>
 
                   <div className={styles.cardFoot}>
-                    <span className={styles.badge}>{selected ? 'En uso' : 'Disponible'}</span>
+                    <span className={`${styles.badge} ${selected ? styles.inUse : ''}`}>
+                      {selected ? 'En uso en esta ruta' : 'Disponible'}
+                    </span>
                     <span className={styles.actions}>
                       <button
                         className={styles.iconButton}
                         type="button"
                         aria-label={`Editar ${template.nombre}`}
-                        onClick={(event) => stopAndRun(event, () => onEdit(template))}
+                        title="Editar plantilla"
+                        onClick={() => onEdit(template)}
                       >
                         <Pencil size={14} />
                       </button>
@@ -135,7 +139,8 @@ export function TemplateModals({
                         className={`${styles.iconButton} ${styles.danger}`}
                         type="button"
                         aria-label={`Eliminar ${template.nombre}`}
-                        onClick={(event) => stopAndRun(event, () => onDelete(template.id))}
+                        title="Eliminar plantilla"
+                        onClick={() => onDelete(template.id)}
                       >
                         <Trash2 size={14} />
                       </button>
