@@ -1,24 +1,56 @@
 import { Response } from 'express';
+import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool } from '../../../core/database/database';
 import { AuthRequest } from '../../../core/middlewares/authMiddleware';
 import { classifyPackageSize } from '../../../core/utils/packageSizeClassifier';
+import {
+  makeDeliveryClientKey,
+  normalizeDeliveryDigits,
+  normalizeDeliveryText,
+  parseDeliveryClientKey,
+  parseDeliveryLimit,
+} from '../domain/deliveryDomain';
 
 const DELIVERY_STATES = new Set(['pendiente', 'recogido']);
 const DATE_FILTERS = new Set(['hoy', 'ayer', '7dias', '30dias']);
 
-function single(value: unknown): string {
-  if (Array.isArray(value)) return String(value[0] || '');
-  if (typeof value === 'object' && value !== null) return '';
-  return String(value || '');
-}
+type SqlValue = string | number | null;
 
-function normalizeText(value: unknown): string {
-  return single(value).trim();
-}
+type DeliveryRow = RowDataPacket & {
+  id: number;
+  lote_id: number;
+  cliente: string | null;
+  telefono: string | null;
+  codigo_paquete: string | null;
+  peso_kg: number | string | null;
+  tipo_paquete_urbano: string | null;
+  piezas: number | string | null;
+  contenido_paquete: string | null;
+  estado_entrega: string | null;
+  estado_aviso: string;
+  fecha_ingreso: Date | string;
+  fecha_entrega: Date | string | null;
+  observacion_entrega: string | null;
+  nombre_lote: string;
+  zona: string;
+  fecha_ruta: Date | string;
+  estado_lote: string;
+  entregado_por_nombre: string | null;
+};
 
-function normalizeDigits(value: unknown): string {
-  return String(value || '').replace(/[^\d]/g, '').trim();
-}
+type ClientRow = RowDataPacket & {
+  normalized_name: string;
+  telefono: string;
+  nombre: string | null;
+  total: number | string;
+  pendientes: number | string;
+  recogidos: number | string;
+  ultimo_ingreso: Date | string | null;
+  rutas_resumen: string | null;
+  coincidencia_codigo: string | null;
+};
+
+type SummaryRow = RowDataPacket & { total: number | string; pendientes: number | string; recogidos: number | string };
 
 function requireSede(req: AuthRequest, res: Response): number | null {
   const sedeId = Number(req.user?.sede_id);
@@ -32,24 +64,24 @@ function requireSede(req: AuthRequest, res: Response): number | null {
   return sedeId;
 }
 
-function addDateFilter(where: string[], params: any[], fecha: string) {
+function addDateFilter(where: string[], params: SqlValue[], fecha: string) {
   if (!fecha) return;
 
   if (DATE_FILTERS.has(fecha)) {
-    if (fecha === 'hoy') where.push('DATE(a.created_at) = CURDATE()');
-    if (fecha === 'ayer') where.push('DATE(a.created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)');
+    if (fecha === 'hoy') where.push('a.created_at >= CURDATE() AND a.created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)');
+    if (fecha === 'ayer') where.push('a.created_at >= DATE_SUB(CURDATE(), INTERVAL 1 DAY) AND a.created_at < CURDATE()');
     if (fecha === '7dias') where.push('a.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)');
     if (fecha === '30dias') where.push('a.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)');
     return;
   }
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
-    where.push('DATE(a.created_at) = ?');
-    params.push(fecha);
+    where.push('a.created_at >= ? AND a.created_at < DATE_ADD(?, INTERVAL 1 DAY)');
+    params.push(fecha, fecha);
   }
 }
 
-function mapPackage(row: any) {
+function mapPackage(row: DeliveryRow) {
   const pesoKg = row.peso_kg !== null && row.peso_kg !== undefined ? Number(row.peso_kg) : null;
 
   return {
@@ -79,32 +111,11 @@ function mapPackage(row: any) {
   };
 }
 
-function makeClientKey(normalizedName: string, telefono: string): string {
-  const payload = JSON.stringify({
-    n: String(normalizedName || '').toLowerCase().trim(),
-    t: String(telefono || '').trim()
-  });
-  return Buffer.from(payload, 'utf8').toString('base64url');
-}
-
-function parseClientKey(key: string): { n: string; t: string } | null {
-  try {
-    const raw = Buffer.from(String(key || ''), 'base64url').toString('utf8');
-    const parsed = JSON.parse(raw);
-    const n = String(parsed?.n || '').toLowerCase().trim();
-    const t = String(parsed?.t || '').trim();
-    if (!n && !t) return null;
-    return { n, t };
-  } catch {
-    return null;
-  }
-}
-
-function mapClient(row: any) {
+function mapClient(row: ClientRow) {
   const normalizedName = String(row.normalized_name || '').toLowerCase().trim();
   const telefono = String(row.telefono || '').trim();
   return {
-    cliente_key: makeClientKey(normalizedName, telefono),
+    cliente_key: makeDeliveryClientKey(normalizedName, telefono),
     nombre: row.nombre || 'Sin nombre',
     telefono: telefono || null,
     total: Number(row.total || 0),
@@ -121,18 +132,18 @@ export async function buscarClientesEntrega(req: AuthRequest, res: Response) {
     const sedeId = requireSede(req, res);
     if (!sedeId) return;
 
-    const q = normalizeText(req.query.q);
-    const fecha = normalizeText(req.query.fecha).toLowerCase();
-    const loteId = normalizeText(req.query.lote_id);
-    const estado = normalizeText(req.query.estado).toLowerCase();
-    const limit = Math.min(Math.max(Number(req.query.limit || 30), 1), 60);
+    const q = normalizeDeliveryText(req.query.q);
+    const fecha = normalizeDeliveryText(req.query.fecha).toLowerCase();
+    const loteId = normalizeDeliveryText(req.query.lote_id);
+    const estado = normalizeDeliveryText(req.query.estado).toLowerCase();
+    const limit = parseDeliveryLimit(req.query.limit, 30, 60);
 
-    const where = ['a.sede_id = ?', 'l.fecha_eliminacion IS NULL', 'l.entregas_habilitado = 1'];
-    const params: any[] = [sedeId];
+    const where = ['a.sede_id = ?', 'l.sede_id = a.sede_id', 'l.fecha_eliminacion IS NULL', 'l.entregas_habilitado = 1'];
+    const params: SqlValue[] = [sedeId];
 
     if (q) {
       const like = `%${q}%`;
-      const digits = normalizeDigits(q);
+      const digits = normalizeDeliveryDigits(q);
       where.push(`(
         a.codigo_paquete LIKE ?
         OR a.telefono LIKE ?
@@ -142,7 +153,7 @@ export async function buscarClientesEntrega(req: AuthRequest, res: Response) {
     }
 
     if (DELIVERY_STATES.has(estado)) {
-      where.push('a.estado_entrega = ?');
+      where.push("COALESCE(a.estado_entrega, 'pendiente') = ?");
       params.push(estado);
     }
 
@@ -153,7 +164,7 @@ export async function buscarClientesEntrega(req: AuthRequest, res: Response) {
 
     addDateFilter(where, params, fecha);
 
-    const [rows]: any = await pool.query(
+    const [rows] = await pool.query<ClientRow[]>(
       `SELECT
         LOWER(TRIM(COALESCE(a.nombre, ''))) AS normalized_name,
         COALESCE(a.telefono, '') AS telefono,
@@ -179,16 +190,16 @@ export async function buscarClientesEntrega(req: AuthRequest, res: Response) {
       data,
       resumen: {
         total_clientes: data.length,
-        total_paquetes: data.reduce((acc: number, item: any) => acc + item.total, 0),
-        pendientes: data.reduce((acc: number, item: any) => acc + item.pendientes, 0),
-        recogidos: data.reduce((acc: number, item: any) => acc + item.recogidos, 0)
+        total_paquetes: data.reduce((acc, item) => acc + item.total, 0),
+        pendientes: data.reduce((acc, item) => acc + item.pendientes, 0),
+        recogidos: data.reduce((acc, item) => acc + item.recogidos, 0)
       }
     });
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[entregas] Error al buscar clientes:', error);
     return res.status(500).json({
       ok: false,
-      message: 'Error al buscar clientes',
-      error: error.message
+      message: 'Error al buscar clientes'
     });
   }
 }
@@ -198,7 +209,7 @@ export async function obtenerPaquetesCliente(req: AuthRequest, res: Response) {
     const sedeId = requireSede(req, res);
     if (!sedeId) return;
 
-    const client = parseClientKey(req.params.key);
+    const client = parseDeliveryClientKey(req.params.key);
     if (!client) {
       return res.status(400).json({
         ok: false,
@@ -206,7 +217,7 @@ export async function obtenerPaquetesCliente(req: AuthRequest, res: Response) {
       });
     }
 
-    const [rows]: any = await pool.query(
+    const [rows] = await pool.query<DeliveryRow[]>(
       `SELECT
         a.id,
         a.lote_id,
@@ -231,6 +242,7 @@ export async function obtenerPaquetesCliente(req: AuthRequest, res: Response) {
        INNER JOIN lotes_carga l ON l.id = a.lote_id
        LEFT JOIN usuarios u ON u.id = a.entregado_por
        WHERE a.sede_id = ?
+        AND l.sede_id = a.sede_id
         AND l.fecha_eliminacion IS NULL
         AND l.entregas_habilitado = 1
         AND LOWER(TRIM(COALESCE(a.nombre, ''))) = ?
@@ -253,15 +265,15 @@ export async function obtenerPaquetesCliente(req: AuthRequest, res: Response) {
       } : null,
       resumen: {
         total: data.length,
-        pendientes: data.filter((item: any) => item.estado_entrega === 'pendiente').length,
-        recogidos: data.filter((item: any) => item.estado_entrega === 'recogido').length
+        pendientes: data.filter(item => item.estado_entrega === 'pendiente').length,
+        recogidos: data.filter(item => item.estado_entrega === 'recogido').length
       }
     });
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[entregas] Error al obtener paquetes del cliente:', error);
     return res.status(500).json({
       ok: false,
-      message: 'Error al obtener paquetes del cliente',
-      error: error.message
+      message: 'Error al obtener paquetes del cliente'
     });
   }
 }
@@ -271,7 +283,7 @@ export async function obtenerResumenEntregas(req: AuthRequest, res: Response) {
     const sedeId = requireSede(req, res);
     if (!sedeId) return;
 
-    const [rows]: any = await pool.query(
+    const [rows] = await pool.query<SummaryRow[]>(
       `SELECT
         COUNT(*) AS total,
         SUM(COALESCE(a.estado_entrega, 'pendiente') = 'pendiente') AS pendientes,
@@ -279,6 +291,7 @@ export async function obtenerResumenEntregas(req: AuthRequest, res: Response) {
        FROM avisos_diarios a
        INNER JOIN lotes_carga l ON l.id = a.lote_id
        WHERE a.sede_id = ?
+         AND l.sede_id = a.sede_id
          AND l.fecha_eliminacion IS NULL
          AND l.entregas_habilitado = 1`,
       [sedeId]
@@ -293,11 +306,11 @@ export async function obtenerResumenEntregas(req: AuthRequest, res: Response) {
         recogidos: Number(row.recogidos || 0)
       }
     });
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[entregas] Error al cargar el resumen:', error);
     return res.status(500).json({
       ok: false,
-      message: 'Error al cargar el resumen de entregas',
-      error: error.message
+      message: 'Error al cargar el resumen de entregas'
     });
   }
 }
@@ -307,18 +320,18 @@ export async function buscarPaquetesEntrega(req: AuthRequest, res: Response) {
     const sedeId = requireSede(req, res);
     if (!sedeId) return;
 
-    const q = normalizeText(req.query.q);
-    const estado = normalizeText(req.query.estado).toLowerCase();
-    const fecha = normalizeText(req.query.fecha).toLowerCase();
-    const loteId = normalizeText(req.query.lote_id);
-    const limit = Math.min(Math.max(Number(req.query.limit || 200), 1), 300);
+    const q = normalizeDeliveryText(req.query.q);
+    const estado = normalizeDeliveryText(req.query.estado).toLowerCase();
+    const fecha = normalizeDeliveryText(req.query.fecha).toLowerCase();
+    const loteId = normalizeDeliveryText(req.query.lote_id);
+    const limit = parseDeliveryLimit(req.query.limit, 200, 300);
 
-    const where = ['a.sede_id = ?', 'l.fecha_eliminacion IS NULL', 'l.entregas_habilitado = 1'];
-    const params: any[] = [sedeId];
+    const where = ['a.sede_id = ?', 'l.sede_id = a.sede_id', 'l.fecha_eliminacion IS NULL', 'l.entregas_habilitado = 1'];
+    const params: SqlValue[] = [sedeId];
 
     if (q) {
       const like = `%${q}%`;
-      const digits = normalizeDigits(q);
+      const digits = normalizeDeliveryDigits(q);
       where.push(`(
         a.codigo_paquete LIKE ?
         OR a.telefono LIKE ?
@@ -328,7 +341,7 @@ export async function buscarPaquetesEntrega(req: AuthRequest, res: Response) {
     }
 
     if (DELIVERY_STATES.has(estado)) {
-      where.push('a.estado_entrega = ?');
+      where.push("COALESCE(a.estado_entrega, 'pendiente') = ?");
       params.push(estado);
     }
 
@@ -339,7 +352,7 @@ export async function buscarPaquetesEntrega(req: AuthRequest, res: Response) {
 
     addDateFilter(where, params, fecha);
 
-    const [rows]: any = await pool.query(
+    const [rows] = await pool.query<DeliveryRow[]>(
       `SELECT
         a.id,
         a.lote_id,
@@ -373,8 +386,8 @@ export async function buscarPaquetesEntrega(req: AuthRequest, res: Response) {
     );
 
     const data = rows.map(mapPackage);
-    const pendientes = data.filter((item: any) => item.estado_entrega === 'pendiente').length;
-    const recogidos = data.filter((item: any) => item.estado_entrega === 'recogido').length;
+    const pendientes = data.filter(item => item.estado_entrega === 'pendiente').length;
+    const recogidos = data.filter(item => item.estado_entrega === 'recogido').length;
 
     return res.json({
       ok: true,
@@ -385,11 +398,11 @@ export async function buscarPaquetesEntrega(req: AuthRequest, res: Response) {
         recogidos
       }
     });
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[entregas] Error al buscar paquetes:', error);
     return res.status(500).json({
       ok: false,
-      message: 'Error al buscar paquetes',
-      error: error.message
+      message: 'Error al buscar paquetes'
     });
   }
 }
@@ -400,16 +413,16 @@ export async function marcarPaqueteRecogido(req: AuthRequest, res: Response) {
     if (!sedeId) return;
 
     const id = Number(req.params.id);
-    const observacion = normalizeText(req.body?.observacion).slice(0, 255) || null;
+    const observacion = normalizeDeliveryText(req.body?.observacion).slice(0, 255) || null;
 
-    if (!Number.isFinite(id) || id <= 0) {
+    if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
         ok: false,
         message: 'ID de paquete invalido'
       });
     }
 
-    const [result]: any = await pool.query(
+    const [result] = await pool.query<ResultSetHeader>(
       `UPDATE avisos_diarios a
        SET estado_entrega = 'recogido',
            fecha_entrega = NOW(),
@@ -417,6 +430,7 @@ export async function marcarPaqueteRecogido(req: AuthRequest, res: Response) {
            observacion_entrega = ?
        WHERE a.id = ?
          AND a.sede_id = ?
+         AND COALESCE(a.estado_entrega, 'pendiente') = 'pendiente'
          AND EXISTS (
            SELECT 1
            FROM lotes_carga l
@@ -429,9 +443,9 @@ export async function marcarPaqueteRecogido(req: AuthRequest, res: Response) {
     );
 
     if (!result.affectedRows) {
-      return res.status(404).json({
+      return res.status(409).json({
         ok: false,
-        message: 'Paquete no encontrado o su ruta no fue enviada a Gestion de entregas'
+        message: 'El paquete ya fue entregado, no existe o su ruta no está habilitada para entregas.'
       });
     }
 
@@ -439,11 +453,11 @@ export async function marcarPaqueteRecogido(req: AuthRequest, res: Response) {
       ok: true,
       message: 'Paquete marcado como recogido'
     });
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[entregas] Error al confirmar la entrega:', error);
     return res.status(500).json({
       ok: false,
-      message: 'Error al marcar el paquete como recogido',
-      error: error.message
+      message: 'Error al marcar el paquete como recogido'
     });
   }
 }
@@ -454,14 +468,14 @@ export async function revertirPaqueteRecogido(req: AuthRequest, res: Response) {
     if (!sedeId) return;
 
     const id = Number(req.params.id);
-    if (!Number.isFinite(id) || id <= 0) {
+    if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({
         ok: false,
         message: 'ID de paquete invalido'
       });
     }
 
-    const [result]: any = await pool.query(
+    const [result] = await pool.query<ResultSetHeader>(
       `UPDATE avisos_diarios a
        SET estado_entrega = 'pendiente',
            fecha_entrega = NULL,
@@ -469,6 +483,7 @@ export async function revertirPaqueteRecogido(req: AuthRequest, res: Response) {
            observacion_entrega = NULL
        WHERE a.id = ?
          AND a.sede_id = ?
+         AND a.estado_entrega = 'recogido'
          AND EXISTS (
            SELECT 1
            FROM lotes_carga l
@@ -481,9 +496,9 @@ export async function revertirPaqueteRecogido(req: AuthRequest, res: Response) {
     );
 
     if (!result.affectedRows) {
-      return res.status(404).json({
+      return res.status(409).json({
         ok: false,
-        message: 'Paquete no encontrado o su ruta no fue enviada a Gestion de entregas'
+        message: 'El paquete ya está pendiente, no existe o su ruta no está habilitada para entregas.'
       });
     }
 
@@ -491,11 +506,11 @@ export async function revertirPaqueteRecogido(req: AuthRequest, res: Response) {
       ok: true,
       message: 'Paquete devuelto a pendiente'
     });
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[entregas] Error al revertir la entrega:', error);
     return res.status(500).json({
       ok: false,
-      message: 'Error al revertir la entrega',
-      error: error.message
+      message: 'Error al revertir la entrega'
     });
   }
 }
