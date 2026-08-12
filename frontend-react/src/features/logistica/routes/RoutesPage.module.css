@@ -1,7 +1,9 @@
 .page {
+  min-width: 0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow-x: clip;
   background: var(--surface-app);
 }
 
@@ -12,6 +14,8 @@
   gap: 14px;
   min-height: 0;
   padding: 18px 24px 28px;
+  container-name: routes-content;
+  container-type: inline-size;
 }
 
 .headerMeta { display: flex; align-items: center; gap: var(--space-4); }

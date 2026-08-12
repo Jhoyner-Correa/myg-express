@@ -60,12 +60,12 @@
   border: 0;
 }
 
-@media (max-width: 900px) {
+@container routes-content (max-width: 860px) {
   .toolbar { align-items: stretch; flex-direction: column; }
   .filters { display: grid; grid-template-columns: minmax(0, 1fr) repeat(2, 170px); }
   .search, .selectField { width: 100%; }
 }
 
-@media (max-width: 620px) {
+@container routes-content (max-width: 580px) {
   .filters { grid-template-columns: 1fr; }
 }

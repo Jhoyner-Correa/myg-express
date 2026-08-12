@@ -313,7 +313,7 @@ export const Logistica: React.FC = () => {
   }, [routesHistory]);
 
   return (
-    <main className={`${pageStyles.page} rutas-page`} id="main-content">
+    <main className={`main ${pageStyles.page} rutas-page`} id="main-content">
       <PageHeader
         icon={<MapPin />}
         title="Rutas"
@@ -329,7 +329,7 @@ export const Logistica: React.FC = () => {
       />
 
       {/* CUERPO DEL CONTENIDO */}
-      <section className={`${pageStyles.content} content`}>
+      <section className={pageStyles.content}>
         
         <RoutesOverview routes={routes} />
 
