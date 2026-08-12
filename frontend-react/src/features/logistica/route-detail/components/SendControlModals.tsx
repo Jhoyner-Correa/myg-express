@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import {
-  AlertTriangle,
   Ban,
   CheckCircle2,
   FileImage,
@@ -75,7 +74,13 @@ export function SendControlModals({
       <Button icon={<Pause size={15} />} loading={loading} onClick={() => void runAction('pausar')}>
         Pausar envío
       </Button>
-      <Button icon={<Ban size={15} />} variant="danger" loading={loading} onClick={() => void runAction('cancelar')}>
+      <Button
+        className={styles.dangerAction}
+        icon={<Ban size={15} />}
+        variant="danger"
+        loading={loading}
+        onClick={() => void runAction('cancelar')}
+      >
         Cancelar pendientes
       </Button>
     </>
@@ -95,9 +100,15 @@ export function SendControlModals({
         loading={loading}
         onClick={() => void runAction('manual')}
       >
-        Registrar cierre manual
+        Cierre manual
       </Button>
-      <Button icon={<Ban size={15} />} variant="danger" loading={loading} onClick={() => void runAction('cancelar')}>
+      <Button
+        className={styles.dangerAction}
+        icon={<Ban size={15} />}
+        variant="danger"
+        loading={loading}
+        onClick={() => void runAction('cancelar')}
+      >
         Cancelar pendientes
       </Button>
     </>
@@ -172,13 +183,13 @@ export function SendControlModals({
           ? 'Supervisa el envío actual y decide si necesitas detenerlo.'
           : 'Esta ruta requiere una decisión antes de continuar.'}
         onClose={onCloseControl}
-        maxWidth={520}
+        maxWidth={580}
         className={styles.controlDialog}
         footer={controlFooter}
       >
         <div className={`${styles.status} ${queue?.isProcessing ? styles.processing : ''}`}>
           <span className={styles.statusIcon}>
-            {queue?.isProcessing ? <Radio aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}
+            {queue?.isProcessing ? <Radio aria-hidden="true" /> : <Pause aria-hidden="true" />}
           </span>
           <div>
             <span className={styles.kicker}>{queue?.isProcessing ? 'Envío activo' : 'Decisión requerida'}</span>

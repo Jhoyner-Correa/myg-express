@@ -96,7 +96,7 @@ describe('SendControlModals confirmation', () => {
     expect(screen.getByText('El envío está detenido')).toBeInTheDocument();
     expect(screen.getByText('Sin conexión')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retomar envío' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Registrar cierre manual' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Cierre manual' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Cancelar pendientes' })).toBeEnabled();
     expect(screen.queryByText(/worker|cola/i)).not.toBeInTheDocument();
   });
