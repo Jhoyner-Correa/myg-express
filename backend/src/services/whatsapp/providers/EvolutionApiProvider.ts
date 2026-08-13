@@ -667,13 +667,4 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
     }
   }
 
-  async bootstrapActiveSessions(): Promise<void> {
-    // Evolution API persiste y rehidrata sus instancias automáticamente.
-    return Promise.resolve();
-  }
-
-  async cleanupStaleAuthData(retentionDays: number): Promise<number> {
-    // La limpieza de archivos de sesión se maneja en el microservicio Evolution API.
-    return Promise.resolve(0);
-  }
 }

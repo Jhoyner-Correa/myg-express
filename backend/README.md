@@ -156,12 +156,6 @@ backend/
 
 ---
 
-## Integración futura de WhatsApp
+## Integración de WhatsApp
 
-El archivo `src/services/whatsappService.ts` está preparado para conectarse a:
-
-- **WhatsApp Business API oficial** (Meta)
-- **Baileys** (librería open source)
-- **whatsapp-web.js** (librería open source)
-
-Solo necesitas editar ese archivo cuando estés listo para la integración real.
+El sistema utiliza exclusivamente **Evolution API** como proveedor de WhatsApp. La API y el worker se conectan mediante `EVOLUTION_API_URL` y `EVOLUTION_API_APIKEY`; las actualizaciones de sesión se reciben en `EVOLUTION_API_WEBHOOK_URL`.

@@ -2,7 +2,6 @@ import { pool } from '../../core/database/database';
 import { readdir, rm, stat } from 'fs/promises';
 import path from 'path';
 import whatsappMediaStorage from '../whatsapp/media/whatsappMediaStorage';
-import whatsappService from '../whatsapp/whatsappService';
 
 type CleanupStats = {
   jobsRemoved: number;
@@ -10,7 +9,6 @@ type CleanupStats = {
   logsRemoved: number;
   sessionsRemoved: number;
   mediaFilesRemoved: number;
-  authDirsRemoved: number;
 };
 
 type CleanupSnapshot = CleanupStats & {
@@ -28,7 +26,6 @@ class DatabaseCleanupService {
     logsRemoved: 0,
     sessionsRemoved: 0,
     mediaFilesRemoved: 0,
-    authDirsRemoved: 0,
     lastRunAt: null,
     lastStatus: 'idle',
     lastError: null
@@ -77,8 +74,7 @@ class DatabaseCleanupService {
         orphanAvisosRemoved: 0,
         logsRemoved: 0,
         sessionsRemoved: 0,
-        mediaFilesRemoved: 0,
-        authDirsRemoved: 0
+        mediaFilesRemoved: 0
       };
     }
 
@@ -92,11 +88,10 @@ class DatabaseCleanupService {
       const logsRemoved = await this.cleanupOldLogs();
       const sessionsRemoved = await this.cleanupOldInactiveSessions();
       const mediaFilesRemoved = await this.cleanupUnusedMediaFiles();
-      const authDirsRemoved = await whatsappService.cleanupStaleAuthData(this.sessionsRetentionDays);
 
-      if (jobsRemoved || orphanAvisosRemoved || logsRemoved || sessionsRemoved || mediaFilesRemoved || authDirsRemoved) {
+      if (jobsRemoved || orphanAvisosRemoved || logsRemoved || sessionsRemoved || mediaFilesRemoved) {
         console.log(
-          `[cleanup] jobs=${jobsRemoved} avisos_huerfanos=${orphanAvisosRemoved} logs=${logsRemoved} sesiones=${sessionsRemoved} media=${mediaFilesRemoved} auth=${authDirsRemoved}`
+          `[cleanup] jobs=${jobsRemoved} avisos_huerfanos=${orphanAvisosRemoved} logs=${logsRemoved} sesiones=${sessionsRemoved} media=${mediaFilesRemoved}`
         );
       }
 
@@ -106,13 +101,12 @@ class DatabaseCleanupService {
         logsRemoved,
         sessionsRemoved,
         mediaFilesRemoved,
-        authDirsRemoved,
         lastRunAt: new Date().toISOString(),
         lastStatus: 'ok',
         lastError: null
       };
 
-      return { jobsRemoved, orphanAvisosRemoved, logsRemoved, sessionsRemoved, mediaFilesRemoved, authDirsRemoved };
+      return { jobsRemoved, orphanAvisosRemoved, logsRemoved, sessionsRemoved, mediaFilesRemoved };
     } catch (error) {
       console.error('Error en limpieza automatica de base de datos:', error);
       this.lastSnapshot = {
@@ -126,8 +120,7 @@ class DatabaseCleanupService {
         orphanAvisosRemoved: 0,
         logsRemoved: 0,
         sessionsRemoved: 0,
-        mediaFilesRemoved: 0,
-        authDirsRemoved: 0
+        mediaFilesRemoved: 0
       };
     } finally {
       this.running = false;

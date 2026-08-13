@@ -9,7 +9,6 @@ import whatsappRoutes from './modules/logistica/routes/whatsappRoutes';
 import whatsappSesionesRoutes from './modules/logistica/routes/whatsappSesionesRoutes';
 import { createHttpApp } from './core/server/createHttpApp';
 import databaseCleanupService from './services/maintenance/databaseCleanupService';
-import whatsappService from './services/whatsapp/whatsappService';
 import { waQueue } from './queues/whatsapp.queue';
 import { whatsappWorker } from './workers/whatsapp.worker';
 
@@ -20,7 +19,6 @@ const PORT = Number(process.env.WHATSAPP_WORKER_PORT || 3001);
 const HOST = '0.0.0.0';
 const workerLockName = process.env.WHATSAPP_WORKER_LOCK_NAME || 'myg_express_whatsapp_worker';
 const requireWorkerDbLock = String(process.env.WHATSAPP_WORKER_REQUIRE_DB_LOCK || 'true').toLowerCase() !== 'false';
-const bootstrapActiveSessions = String(process.env.WHATSAPP_BOOTSTRAP_ACTIVE_SESSIONS || 'false').toLowerCase() === 'true';
 
 let workerLockAcquired = false;
 let shuttingDown = false;
@@ -127,18 +125,6 @@ async function bootstrapWorker() {
     console.log(`WhatsApp worker corriendo en http://${HOST}:${PORT}`);
     console.log('Worker de BullMQ activo y escuchando cola de mensajes.');
     databaseCleanupService.start();
-
-    if (bootstrapActiveSessions) {
-      void whatsappService.bootstrapActiveSessions()
-        .then(() => {
-          console.log('Sesiones activas de WhatsApp rehidratadas');
-        })
-        .catch((error) => {
-          console.error('Error rehidratando sesiones activas de WhatsApp:', error);
-        });
-    } else {
-      console.log('Rehidratacion automatica de sesiones deshabilitada para ahorrar memoria');
-    }
   });
 }
 

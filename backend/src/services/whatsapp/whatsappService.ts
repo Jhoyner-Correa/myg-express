@@ -1,19 +1,12 @@
 import { IWhatsAppProvider, WhatsAppProviderInstance } from './providers/IWhatsAppProvider';
-import { WhatsAppWebProvider } from './providers/WhatsAppWebProvider';
 import { EvolutionApiProvider } from './providers/EvolutionApiProvider';
 
 class WhatsAppService {
-  private provider: IWhatsAppProvider;
+  private readonly provider: IWhatsAppProvider;
 
   constructor() {
-    const providerType = (process.env.WHATSAPP_PROVIDER || 'evolution').toLowerCase();
-    if (providerType === 'webjs') {
-      console.log('[WhatsAppService] Iniciando con proveedor: whatsapp-web.js (Puppeteer)');
-      this.provider = new WhatsAppWebProvider();
-    } else {
-      console.log('[WhatsAppService] Iniciando con proveedor: Evolution API (Baileys REST)');
-      this.provider = new EvolutionApiProvider();
-    }
+    console.log('[WhatsAppService] Proveedor único: Evolution API');
+    this.provider = new EvolutionApiProvider();
   }
 
   async init(sessionKey: string): Promise<void> {
@@ -63,13 +56,6 @@ class WhatsAppService {
     return await this.provider.listProviderInstances();
   }
 
-  async bootstrapActiveSessions(): Promise<void> {
-    await this.provider.bootstrapActiveSessions();
-  }
-
-  async cleanupStaleAuthData(retentionDays: number): Promise<number> {
-    return await this.provider.cleanupStaleAuthData(retentionDays);
-  }
 }
 
 export default new WhatsAppService();

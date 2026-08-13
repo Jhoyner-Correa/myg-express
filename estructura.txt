@@ -50,11 +50,7 @@ c:\Users\JHOYNER\Downloads\sistema-mensajeria/
 │   │   │       │   └── whatsappJobService.ts
 │   │   │       ├── providers/
 │   │   │       │   ├── IWhatsAppProvider.ts
-│   │   │       │   ├── EvolutionApiProvider.ts (activo)
-│   │   │       │   └── WhatsAppWebProvider.ts (fallback Puppeteer)
-│   │   │       ├── session/
-│   │   │       │   ├── qrManager.ts
-│   │   │       │   └── sessionManager.ts
+│   │   │       │   └── EvolutionApiProvider.ts (proveedor único)
 │   │   │       └── whatsappService.ts
 │   │   └── utils/                  # Utilidades comunes
 │   │       ├── messageFormatter.ts

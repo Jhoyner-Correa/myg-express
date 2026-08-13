@@ -33,7 +33,6 @@ REDIS_PORT=6379
 REDIS_DB=0
 
 JWT_SECRET=cambia_esto_por_un_secreto_seguro
-WHATSAPP_PROVIDER=evolution
 EVOLUTION_API_URL=http://localhost:8080
 EVOLUTION_API_APIKEY=tu_clave_api_global_de_evolution
 EVOLUTION_API_WEBHOOK_URL=http://host.docker.internal:3000/api/whatsapp/webhook

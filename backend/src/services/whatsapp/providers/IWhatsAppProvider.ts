@@ -25,6 +25,4 @@ export interface IWhatsAppProvider {
   logout(sessionKey: string): Promise<void>;
   removeSessionData(sessionKey: string): Promise<void>;
   listProviderInstances(): Promise<WhatsAppProviderInstance[]>;
-  bootstrapActiveSessions(): Promise<void>;
-  cleanupStaleAuthData(retentionDays: number): Promise<number>;
 }
