@@ -14,12 +14,13 @@ Esta fase implementa la identidad técnica y las reglas de asistencia que utiliz
 
 ## Flujo de marcación
 
-1. La app solicita `POST /api/mobile/rrhh/attendance/challenge` con el tipo de marcación.
-2. El servidor devuelve un `challenge_id` y un `nonce` válidos durante 90 segundos.
-3. Flutter pide la biometría local. Cuando Android/iOS la valida, la clave privada firma el payload canónico `myg-rrhh-clock-v1`.
-4. La app envía la firma, GPS, precisión, hora ISO y un `request_id` UUID a `POST /api/mobile/rrhh/attendance/clock`.
-5. El backend deriva empleado y dispositivo del token; nunca acepta un `empleado_id` declarado por Flutter.
-6. Se verifican firma, desafío de un solo uso, reloj, precisión GPS, geocerca, secuencia e idempotencia.
+1. La app consulta `GET /api/mobile/rrhh/attendance/today` para obtener empleado, horario, marcaciones y transiciones permitidas.
+2. La app solicita `POST /api/mobile/rrhh/attendance/challenge` con el tipo de marcación.
+3. El servidor devuelve un `challenge_id` y un `nonce` válidos durante 90 segundos.
+4. Flutter pide la biometría local. Cuando Android la valida, la clave privada firma el payload canónico `myg-rrhh-clock-v1`.
+5. La app envía la firma, GPS, precisión, hora ISO y un `request_id` UUID a `POST /api/mobile/rrhh/attendance/clock`.
+6. El backend deriva empleado y dispositivo del token; nunca acepta un `empleado_id` declarado por Flutter.
+7. Se verifican firma, desafío de un solo uso, reloj, precisión GPS, geocerca, secuencia e idempotencia.
 
 Secuencia válida: `ENTRADA` → `SALIDA_ALMUERZO` → `REGRESO` → `SALIDA`. También se permite `ENTRADA` → `SALIDA` para jornadas sin almuerzo.
 

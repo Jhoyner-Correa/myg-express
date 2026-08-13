@@ -6,6 +6,7 @@ import { AttendanceRuleError, isClockType } from '../rrhh/domain/attendancePolic
 import { SignedClockPayload, verifyClockSignature } from '../rrhh/domain/mobileSignature';
 import { AsistenciaService } from '../rrhh/services/AsistenciaService';
 import { MobileAuthRequest } from './mobileAuth.middleware';
+import { MobileAttendanceQueryService } from './mobileAttendanceQuery.service';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -19,7 +20,31 @@ type ExistingMarkRow = RowDataPacket & {
 };
 
 export class MobileAttendanceController {
-  constructor(private attendanceService: AsistenciaService) {}
+  constructor(
+    private attendanceService: AsistenciaService,
+    private queryService: MobileAttendanceQueryService,
+  ) {}
+
+  today = async (req: MobileAuthRequest, res: Response) => {
+    try {
+      if (!req.employee) return res.status(401).json({ ok: false, code: 'AUTH_REQUIRED' });
+      if (req.employee.requiresPasswordChange) {
+        return res.status(403).json({
+          ok: false,
+          code: 'PASSWORD_CHANGE_REQUIRED',
+          message: 'Cambia la contrasena temporal antes de consultar la jornada.',
+        });
+      }
+      return res.json({ ok: true, data: await this.queryService.today(req.employee.id) });
+    } catch (error) {
+      console.error('[RRHH Mobile] Error consultando jornada:', error);
+      return res.status(500).json({
+        ok: false,
+        code: 'ATTENDANCE_QUERY_ERROR',
+        message: 'No se pudo consultar la jornada de hoy.',
+      });
+    }
+  };
 
   createChallenge = async (req: MobileAuthRequest, res: Response) => {
     try {

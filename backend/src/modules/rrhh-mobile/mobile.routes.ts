@@ -5,6 +5,7 @@ import { MySqlEmpleadoRepository } from '../rrhh/repositories/mysql/MySqlEmplead
 import { MySqlMarcacionRepository } from '../rrhh/repositories/mysql/MySqlMarcacionRepository';
 import { AsistenciaService } from '../rrhh/services/AsistenciaService';
 import { MobileAttendanceController } from './mobileAttendance.controller';
+import { MobileAttendanceQueryService } from './mobileAttendanceQuery.service';
 import { MobileAuthController } from './mobileAuth.controller';
 import { verifyMobileEmployee } from './mobileAuth.middleware';
 import { MobileAuthService } from './mobileAuth.service';
@@ -31,12 +32,13 @@ const attendanceController = new MobileAttendanceController(new AsistenciaServic
   new MySqlAsistenciaRepository(),
   new MySqlMarcacionRepository(),
   new MySqlEmpleadoRepository(),
-));
+), new MobileAttendanceQueryService());
 
 router.post('/auth/activate', activationLimiter, authController.activate);
 router.post('/auth/refresh', refreshLimiter, authController.refresh);
 router.post('/auth/change-password', verifyMobileEmployee, authController.changePassword);
 router.post('/auth/logout', verifyMobileEmployee, authController.logout);
+router.get('/attendance/today', verifyMobileEmployee, attendanceController.today);
 router.post('/attendance/challenge', verifyMobileEmployee, attendanceController.createChallenge);
 router.post('/attendance/clock', verifyMobileEmployee, attendanceController.register);
 
