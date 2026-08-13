@@ -4,8 +4,10 @@
 // ============================================================
 
 import { Marcacion } from '../domain/Marcacion';
+import { PoolConnection } from 'mysql2/promise';
 
 export interface IMarcacionRepository {
-  crear(marcacion: Omit<Marcacion, 'id'>): Promise<number>;
-  obtenerPorAsistencia(asistenciaId: number): Promise<Marcacion[]>;
+  crear(marcacion: Omit<Marcacion, 'id'>, connection?: PoolConnection): Promise<number>;
+  obtenerPorAsistencia(asistenciaId: number, connection?: PoolConnection): Promise<Marcacion[]>;
+  obtenerPorRequestId(requestId: string, connection?: PoolConnection): Promise<Marcacion | null>;
 }

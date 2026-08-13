@@ -17,6 +17,7 @@ import zonasRoutes from './modules/logistica/routes/zonasRoutes';
 import savarScanRoutes from './modules/logistica/routes/savarScanRoutes';
 import rrhhRoutes from './modules/rrhh/rrhh.routes';
 import gpsRoutes from './modules/gps/gps.routes';
+import rrhhMobileRoutes from './modules/rrhh-mobile/mobile.routes';
 import { createHttpApp } from './core/server/createHttpApp';
 import { verificarToken } from './core/middlewares/authMiddleware';
 import { PERMISSIONS } from './core/constants/permissions';
@@ -59,6 +60,7 @@ app.use('/api/zonas', zonasRoutes);
 app.use('/api/savar-scan', savarScanRoutes);
 app.use('/api/rrhh', rrhhRoutes);
 app.use('/api/gps', gpsRoutes);
+app.use('/api/mobile/rrhh', rrhhMobileRoutes);
 
 app.get('/api', (_req, res) => {
   res.json({

@@ -1,173 +1,214 @@
-// ============================================================
-// backend/src/modules/rrhh/services/AsistenciaService.ts
-// Servicio de negocio para gestionar asistencia, horarios y tardanzas
-// ============================================================
-
-import { IAsistenciaRepository } from '../repositories/IAsistenciaRepository';
-import { IMarcacionRepository } from '../repositories/IMarcacionRepository';
-import { IEmpleadoRepository } from '../repositories/IEmpleadoRepository';
-import { Asistencia } from '../domain/Asistencia';
-import { Marcacion, ClockType, ClockOrigin } from '../domain/Marcacion';
-import { pool } from '../../../core/database/database';
 import { RowDataPacket } from 'mysql2/promise';
+import { pool, runInTransaction } from '../../../core/database/database';
 import { businessClockMinutes, businessDate, businessIsoWeekday, parseClockMinutes } from '../../../core/utils/time';
+import { Asistencia } from '../domain/Asistencia';
+import { AttendanceRuleError, assertClockTransition, validateGeofence } from '../domain/attendancePolicy';
+import { ClockOrigin, ClockType, IdentityVerification, Marcacion } from '../domain/Marcacion';
+import { IAsistenciaRepository } from '../repositories/IAsistenciaRepository';
+import { IEmpleadoRepository } from '../repositories/IEmpleadoRepository';
+import { IMarcacionRepository } from '../repositories/IMarcacionRepository';
+
+type GeofenceRow = RowDataPacket & {
+  latitud: string;
+  longitud: string;
+  radio_permitido_metros: number;
+  precision_maxima_metros: string;
+};
+
+type ScheduleRow = RowDataPacket & {
+  hora_entrada: string;
+  tolerancia_minutos: number;
+};
+
+const REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export interface RegisterAttendanceParams {
+  requestId: string;
+  empleadoId: number;
+  dispositivoId: number | null;
+  tipo: ClockType;
+  origen: ClockOrigin;
+  latitud: number;
+  longitud: number;
+  precisionGps: number | null;
+  selfiePath: string | null;
+  wifi: string | null;
+  bluetooth: string | null;
+  verificacionIdentidad: IdentityVerification;
+  actorUsuarioId?: number;
+  ipAddress?: string | null;
+}
+
+export interface RegisterAttendanceResult {
+  marcacion: Marcacion;
+  asistencia: Asistencia;
+  idempotentReplay: boolean;
+}
 
 export class AsistenciaService {
   constructor(
     private asistenciaRepository: IAsistenciaRepository,
     private marcacionRepository: IMarcacionRepository,
-    private empleadoRepository: IEmpleadoRepository
+    private empleadoRepository: IEmpleadoRepository,
   ) {}
 
-  /**
-   * Registra una marcación de asistencia de un empleado y calcula tardanzas si corresponde.
-   */
-  async registrarMarcacion(params: {
-    empleadoId: number;
-    dispositivoId: number | null;
-    tipo: ClockType;
-    origen: ClockOrigin;
-    latitud: number;
-    longitud: number;
-    precisionGps: number | null;
-    selfiePath: string | null;
-    wifi: string | null;
-    bluetooth: string | null;
-  }): Promise<{ marcacion: Marcacion; asistencia: Asistencia }> {
-    
-    // 1. Obtener datos del empleado
-    const empleado = await this.empleadoRepository.buscarPorId(params.empleadoId);
-    if (!empleado) {
-      throw new Error('Empleado no encontrado');
-    }
-
-    if (empleado.estado !== 'ACTIVO') {
-      throw new Error('El empleado no está activo en la empresa');
-    }
-
-    // 2. Verificar geolocalización (geocerca de la sede)
-    let dentroDeRadio = true;
-    const [configRows]: any = await pool.query(
-      `SELECT latitud, longitud, radio_permitido_metros 
-       FROM personal_configuracion_gps_sedes 
-       WHERE sede_id = ? LIMIT 1`,
-      [empleado.sedeId]
-    );
-
-    if (configRows.length > 0) {
-      const config = configRows[0];
-      const distancia = this.calcularDistanciaMetros(
-        params.latitud,
-        params.longitud,
-        Number(config.latitud),
-        Number(config.longitud)
-      );
-
-      if (distancia > Number(config.radio_permitido_metros)) {
-        dentroDeRadio = false;
+  async registrarMarcacion(params: RegisterAttendanceParams): Promise<RegisterAttendanceResult> {
+    try {
+      if (!REQUEST_ID_PATTERN.test(params.requestId)) {
+        throw new AttendanceRuleError('REQUEST_ID_INVALID', 'request_id debe ser un UUID valido.', 400);
       }
-    }
 
-    // 3. Obtener o crear el registro de asistencia del día
-    const now = new Date();
-    const fechaHoy = businessDate(now);
+      const empleado = await this.empleadoRepository.buscarPorId(params.empleadoId);
+      if (!empleado) throw new AttendanceRuleError('EMPLOYEE_NOT_FOUND', 'Empleado no encontrado.', 404);
+      if (empleado.estado !== 'ACTIVO') {
+        throw new AttendanceRuleError('EMPLOYEE_INACTIVE', 'El empleado no esta activo en la empresa.', 403);
+      }
 
-    let asistencia = await this.asistenciaRepository.obtenerPorEmpleadoYFecha(
-      params.empleadoId,
-      fechaHoy
-    );
+      const result = await runInTransaction(async connection => {
+        const previous = await this.marcacionRepository.obtenerPorRequestId(params.requestId, connection);
+        if (previous) {
+          const previousAttendance = await this.asistenciaRepository.obtenerPorId(previous.asistenciaId, connection);
+          if (!previousAttendance || previousAttendance.empleadoId !== params.empleadoId || previous.tipoMarcacion !== params.tipo) {
+            throw new AttendanceRuleError(
+              'CLOCK_ALREADY_RECORDED',
+              'request_id ya fue utilizado para otra operacion.',
+              409,
+            );
+          }
+          return { marcacion: previous, asistencia: previousAttendance, idempotentReplay: true };
+        }
 
-    if (!asistencia) {
-      const nuevaAsistenciaId = await this.asistenciaRepository.crear({
-        empleadoId: params.empleadoId,
-        fecha: new Date(fechaHoy),
-        estadoAsistencia: 'PRESENTE',
-        tipoAsistencia: 'NORMAL',
-        minutosTardanza: 0
+        const [geofenceRows] = await connection.query<GeofenceRow[]>(
+          `SELECT latitud, longitud, radio_permitido_metros, precision_maxima_metros
+             FROM personal_configuracion_gps_sedes
+            WHERE sede_id = ?
+            LIMIT 1`,
+          [empleado.sedeId],
+        );
+        const geofence = geofenceRows.length ? {
+          latitude: Number(geofenceRows[0].latitud),
+          longitude: Number(geofenceRows[0].longitud),
+          radiusMeters: Number(geofenceRows[0].radio_permitido_metros),
+          maximumAccuracyMeters: Number(geofenceRows[0].precision_maxima_metros),
+        } : null;
+        const geofenceResult = validateGeofence(
+          { latitude: params.latitud, longitude: params.longitud },
+          params.precisionGps,
+          geofence,
+        );
+
+        const now = new Date();
+        const attendanceDate = businessDate(now);
+        let asistencia = await this.asistenciaRepository.obtenerOCrear({
+          empleadoId: empleado.id,
+          fecha: new Date(`${attendanceDate}T12:00:00`),
+          estadoAsistencia: 'PRESENTE',
+          tipoAsistencia: 'NORMAL',
+          minutosTardanza: 0,
+        }, connection);
+
+        asistencia = await this.asistenciaRepository.obtenerPorEmpleadoYFecha(
+          empleado.id,
+          attendanceDate,
+          connection,
+          true,
+        ) ?? asistencia;
+
+        const recordedMarks = await this.marcacionRepository.obtenerPorAsistencia(asistencia.id, connection);
+        assertClockTransition(recordedMarks.map(mark => mark.tipoMarcacion), params.tipo);
+
+        if (params.tipo === 'ENTRADA') {
+          const [scheduleRows] = await connection.query<ScheduleRow[]>(
+            `SELECT schedule.hora_entrada, schedule.tolerancia_minutos
+               FROM personal_empleado_horarios assignment
+               INNER JOIN personal_horarios schedule ON schedule.id = assignment.horario_id
+              WHERE assignment.empleado_id = ? AND assignment.dia_semana = ?
+              LIMIT 1`,
+            [empleado.id, businessIsoWeekday(now)],
+          );
+          if (scheduleRows.length) {
+            const delayMinutes = Math.max(
+              0,
+              businessClockMinutes(now) - parseClockMinutes(String(scheduleRows[0].hora_entrada)),
+            );
+            if (delayMinutes > Number(scheduleRows[0].tolerancia_minutos)) {
+              await this.asistenciaRepository.actualizar(asistencia.id, {
+                estadoAsistencia: 'TARDANZA',
+                minutosTardanza: delayMinutes,
+              }, connection);
+              asistencia.estadoAsistencia = 'TARDANZA';
+              asistencia.minutosTardanza = delayMinutes;
+            }
+          }
+        }
+
+        const markId = await this.marcacionRepository.crear({
+          requestId: params.requestId,
+          asistenciaId: asistencia.id,
+          dispositivoId: params.dispositivoId,
+          tipoMarcacion: params.tipo,
+          origenMarcacion: params.origen,
+          horaMarcacion: now,
+          latitud: params.latitud,
+          longitud: params.longitud,
+          precisionGps: params.precisionGps,
+          selfiePath: params.selfiePath,
+          redWifi: params.wifi,
+          bluetooth: params.bluetooth,
+          dentroDeRadio: true,
+          distanciaSedeMetros: geofenceResult.distanceMeters,
+          verificacionIdentidad: params.verificacionIdentidad,
+        }, connection);
+        const created = (await this.marcacionRepository.obtenerPorAsistencia(asistencia.id, connection))
+          .find(mark => mark.id === markId);
+        if (!created) throw new Error('No se pudo recuperar la marcacion registrada.');
+
+        await connection.query(
+          `INSERT INTO personal_auditoria_eventos (
+            tipo_evento, empleado_id, usuario_id, dispositivo_id, exitoso,
+            codigo_resultado, ip_address, metadata_json
+          ) VALUES ('MARCACION_ASISTENCIA', ?, ?, ?, 1, 'ACEPTADA', ?, ?)`,
+          [
+            empleado.id,
+            params.actorUsuarioId ?? null,
+            params.dispositivoId,
+            params.ipAddress ?? null,
+            JSON.stringify({ request_id: params.requestId, tipo: params.tipo }),
+          ],
+        );
+        return { marcacion: created, asistencia, idempotentReplay: false };
       });
 
-      const recuperada = await this.asistenciaRepository.obtenerPorId(nuevaAsistenciaId);
-      if (!recuperada) {
-        throw new Error('Error al registrar la asistencia diaria');
-      }
-      asistencia = recuperada;
+      return result;
+    } catch (error) {
+      await this.auditRejectedAttempt(params, error);
+      throw error;
     }
-
-    // 4. Registrar la marcación
-    const nuevaMarcacionId = await this.marcacionRepository.crear({
-      asistenciaId: asistencia.id,
-      dispositivoId: params.dispositivoId,
-      tipoMarcacion: params.tipo,
-      origenMarcacion: params.origen,
-      horaMarcacion: now,
-      latitud: params.latitud,
-      longitud: params.longitud,
-      precisionGps: params.precisionGps,
-      selfiePath: params.selfiePath,
-      redWifi: params.wifi,
-      bluetooth: params.bluetooth,
-      dentroDeRadio
-    });
-
-    const marcaciones = await this.marcacionRepository.obtenerPorAsistencia(asistencia.id);
-    const marcacionCreada = marcaciones.find(m => m.id === nuevaMarcacionId);
-
-    if (!marcacionCreada) {
-      throw new Error('Error al recuperar el registro de la marcación');
-    }
-
-    // 5. Si es entrada, evaluar tardanza contra horario
-    if (params.tipo === 'ENTRADA') {
-      const dayOfWeek = businessIsoWeekday(now);
-
-      const [horarioRows]: any = await pool.query(
-        `SELECT h.hora_entrada, h.tolerancia_minutos
-         FROM personal_empleado_horarios eh
-         INNER JOIN personal_horarios h ON eh.horario_id = h.id
-         WHERE eh.empleado_id = ? AND eh.dia_semana = ?
-         LIMIT 1`,
-        [empleado.id, dayOfWeek]
-      );
-
-      if (horarioRows.length > 0) {
-        const horario = horarioRows[0];
-        const minutosEntrada = parseClockMinutes(String(horario.hora_entrada));
-        const minutosTardanza = Math.max(0, businessClockMinutes(now) - minutosEntrada);
-
-        if (minutosTardanza > Number(horario.tolerancia_minutos)) {
-          // Es tardanza
-          await this.asistenciaRepository.actualizar(asistencia.id, {
-            estadoAsistencia: 'TARDANZA',
-            minutosTardanza
-          });
-          asistencia.estadoAsistencia = 'TARDANZA';
-          asistencia.minutosTardanza = minutosTardanza;
-        }
-      }
-    }
-
-    return {
-      marcacion: marcacionCreada,
-      asistencia
-    };
   }
 
   async consultarAsistenciaPorSede(sedeId: number, fecha: string) {
-    return await this.asistenciaRepository.listarPorSedeYFecha(sedeId, fecha);
+    return this.asistenciaRepository.listarPorSedeYFecha(sedeId, fecha);
   }
 
-  /**
-   * Fórmula de Haversine para calcular distancia en metros entre dos coordenadas GPS
-   */
-  private calcularDistanciaMetros(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371000; // Radio de la Tierra en metros
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+  private async auditRejectedAttempt(params: RegisterAttendanceParams, error: unknown) {
+    const code = error instanceof AttendanceRuleError ? error.code : 'ERROR_INTERNO';
+    try {
+      await pool.query(
+        `INSERT INTO personal_auditoria_eventos (
+          tipo_evento, empleado_id, usuario_id, dispositivo_id, exitoso,
+          codigo_resultado, ip_address, metadata_json
+        ) VALUES ('MARCACION_ASISTENCIA', ?, ?, ?, 0, ?, ?, ?)`,
+        [
+          Number.isInteger(params.empleadoId) ? params.empleadoId : null,
+          params.actorUsuarioId ?? null,
+          params.dispositivoId,
+          code,
+          params.ipAddress ?? null,
+          JSON.stringify({ request_id: params.requestId, tipo: params.tipo }),
+        ],
+      );
+    } catch (auditError) {
+      console.error('[RRHH] No se pudo auditar una marcacion rechazada:', auditError);
+    }
   }
 }

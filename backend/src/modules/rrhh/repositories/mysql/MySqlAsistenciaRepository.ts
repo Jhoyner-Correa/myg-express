@@ -6,7 +6,7 @@
 import { pool } from '../../../../core/database/database';
 import { Asistencia, AttendanceStatus, AttendanceType } from '../../domain/Asistencia';
 import { IAsistenciaRepository } from '../IAsistenciaRepository';
-import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 
 export class MySqlAsistenciaRepository implements IAsistenciaRepository {
   
@@ -23,12 +23,13 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
     };
   }
 
-  async obtenerPorEmpleadoYFecha(empleadoId: number, fecha: string): Promise<Asistencia | null> {
-    const [rows] = await pool.query<RowDataPacket[]>(
+  async obtenerPorEmpleadoYFecha(empleadoId: number, fecha: string, connection?: PoolConnection, lock = false): Promise<Asistencia | null> {
+    const executor = connection ?? pool;
+    const [rows] = await executor.query<RowDataPacket[]>(
       `SELECT id, empleado_id, fecha, estado_asistencia, tipo_asistencia, minutos_tardanza, created_at, updated_at
        FROM personal_asistencias
        WHERE empleado_id = ? AND fecha = ?
-       LIMIT 1`,
+       LIMIT 1${lock ? ' FOR UPDATE' : ''}`,
       [empleadoId, fecha]
     );
 
@@ -36,8 +37,9 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
     return this.mapRowToEntity(rows[0]);
   }
 
-  async obtenerPorId(id: number): Promise<Asistencia | null> {
-    const [rows] = await pool.query<RowDataPacket[]>(
+  async obtenerPorId(id: number, connection?: PoolConnection): Promise<Asistencia | null> {
+    const executor = connection ?? pool;
+    const [rows] = await executor.query<RowDataPacket[]>(
       `SELECT id, empleado_id, fecha, estado_asistencia, tipo_asistencia, minutos_tardanza, created_at, updated_at
        FROM personal_asistencias
        WHERE id = ?
@@ -49,8 +51,9 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
     return this.mapRowToEntity(rows[0]);
   }
 
-  async crear(a: Omit<Asistencia, 'id'>): Promise<number> {
-    const [result] = await pool.query<ResultSetHeader>(
+  async crear(a: Omit<Asistencia, 'id'>, connection?: PoolConnection): Promise<number> {
+    const executor = connection ?? pool;
+    const [result] = await executor.query<ResultSetHeader>(
       `INSERT INTO personal_asistencias (
         empleado_id, fecha, estado_asistencia, tipo_asistencia, minutos_tardanza
       ) VALUES (?, ?, ?, ?, ?)`,
@@ -66,7 +69,26 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
     return result.insertId;
   }
 
-  async actualizar(id: number, datos: Partial<Omit<Asistencia, 'id'>>): Promise<boolean> {
+  async obtenerOCrear(a: Omit<Asistencia, 'id'>, connection: PoolConnection): Promise<Asistencia> {
+    const [result] = await connection.query<ResultSetHeader>(
+      `INSERT INTO personal_asistencias (
+        empleado_id, fecha, estado_asistencia, tipo_asistencia, minutos_tardanza
+      ) VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)`,
+      [
+        a.empleadoId,
+        a.fecha instanceof Date ? a.fecha.toISOString().slice(0, 10) : a.fecha,
+        a.estadoAsistencia,
+        a.tipoAsistencia,
+        a.minutosTardanza,
+      ],
+    );
+    const attendance = await this.obtenerPorId(result.insertId, connection);
+    if (!attendance) throw new Error('No se pudo recuperar la asistencia diaria.');
+    return attendance;
+  }
+
+  async actualizar(id: number, datos: Partial<Omit<Asistencia, 'id'>>, connection?: PoolConnection): Promise<boolean> {
     const fields: string[] = [];
     const params: any[] = [];
 
@@ -94,7 +116,8 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
     if (fields.length === 0) return false;
 
     params.push(id);
-    const [result] = await pool.query<ResultSetHeader>(
+    const executor = connection ?? pool;
+    const [result] = await executor.query<ResultSetHeader>(
       `UPDATE personal_asistencias SET ${fields.join(', ')} WHERE id = ?`,
       params
     );

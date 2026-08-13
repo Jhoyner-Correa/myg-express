@@ -11,12 +11,20 @@ import { EmployeeGender, EmployeeTracking, EmployeeStatus } from './domain/Emple
 import { AuthRequest } from '../../core/middlewares/authMiddleware';
 import { assertEntitySede, resolveSedeScope, SedeScopeError } from '../../core/auth/sedeScope';
 import { businessDate } from '../../core/utils/time';
+import { randomUUID } from 'crypto';
+import { AttendanceRuleError } from './domain/attendancePolicy';
+import { MobileAuthService, mobileAuthCode, mobileAuthStatus } from '../rrhh-mobile/mobileAuth.service';
+import { GeofenceService } from './services/GeofenceService';
 
 function errorStatus(error: unknown, fallback: number): number {
-  return error instanceof SedeScopeError ? error.statusCode : fallback;
+  if (error instanceof SedeScopeError || error instanceof AttendanceRuleError) return error.statusCode;
+  return fallback;
 }
 
 export class RrhhController {
+  private readonly mobileAuthService = new MobileAuthService();
+  private readonly geofenceService = new GeofenceService();
+
   constructor(
     private empleadoService: EmpleadoService,
     private asistenciaService: AsistenciaService
@@ -77,6 +85,75 @@ export class RrhhController {
         ok: false,
         message: error.message
       });
+    }
+  };
+
+  crearActivacionDispositivo = async (req: AuthRequest, res: Response) => {
+    try {
+      const employeeId = Number(req.params.id);
+      const employee = await this.empleadoService.obtenerPorId(employeeId);
+      assertEntitySede(req, employee.sedeId);
+      const activation = await this.mobileAuthService.createActivation(
+        employeeId,
+        Number(req.user?.id),
+        req.body.temporary_password ? String(req.body.temporary_password) : undefined,
+      );
+      return res.status(201).json({
+        ok: true,
+        message: 'Credenciales de activacion generadas. Se muestran una sola vez.',
+        data: activation,
+      });
+    } catch (error) {
+      return res.status(error instanceof SedeScopeError ? error.statusCode : mobileAuthStatus(error)).json({
+        ok: false,
+        code: mobileAuthCode(error),
+        message: error instanceof Error ? error.message : 'No se pudo generar la activacion.',
+      });
+    }
+  };
+
+  revocarDispositivo = async (req: AuthRequest, res: Response) => {
+    try {
+      const employeeId = Number(req.params.id);
+      const employee = await this.empleadoService.obtenerPorId(employeeId);
+      assertEntitySede(req, employee.sedeId);
+      await this.mobileAuthService.revokeEmployeeDevice(
+        employeeId,
+        Number(req.user?.id),
+        String(req.body.motivo || ''),
+        req.ip,
+      );
+      return res.json({ ok: true, message: 'Celular y sesiones revocados correctamente.' });
+    } catch (error) {
+      return res.status(error instanceof SedeScopeError ? error.statusCode : mobileAuthStatus(error)).json({
+        ok: false,
+        code: mobileAuthCode(error),
+        message: error instanceof Error ? error.message : 'No se pudo revocar el dispositivo.',
+      });
+    }
+  };
+
+  obtenerGeocerca = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.params.sedeId);
+      return res.json({ ok: true, data: await this.geofenceService.getBySite(siteId) });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo consultar la geocerca.' });
+    }
+  };
+
+  guardarGeocerca = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.params.sedeId);
+      const geofence = await this.geofenceService.upsert(siteId, {
+        latitude: Number(req.body.latitude),
+        longitude: Number(req.body.longitude),
+        radiusMeters: Number(req.body.radius_meters),
+        maximumAccuracyMeters: Number(req.body.maximum_accuracy_meters),
+      }, Number(req.user?.id), req.ip);
+      return res.json({ ok: true, message: 'Geocerca actualizada correctamente.', data: geofence });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo guardar la geocerca.' });
     }
   };
 
@@ -157,6 +234,7 @@ export class RrhhController {
   marcarAsistencia = async (req: AuthRequest, res: Response) => {
     try {
       const {
+        request_id,
         empleado_id,
         dispositivo_id,
         tipo,
@@ -169,7 +247,7 @@ export class RrhhController {
         bluetooth
       } = req.body;
 
-      if (!empleado_id || !tipo || !latitud || !longitud) {
+      if (!empleado_id || !tipo || latitud === undefined || longitud === undefined || precision_gps === undefined) {
         return res.status(400).json({
           ok: false,
           message: 'Faltan parámetros de marcación obligatorios'
@@ -180,16 +258,20 @@ export class RrhhController {
       assertEntitySede(req, empleado.sedeId);
 
       const result = await this.asistenciaService.registrarMarcacion({
+        requestId: request_id || randomUUID(),
         empleadoId: Number(empleado_id),
         dispositivoId: dispositivo_id ? Number(dispositivo_id) : null,
         tipo: tipo as ClockType,
         origen: (origen as ClockOrigin) || 'GPS',
         latitud: Number(latitud),
         longitud: Number(longitud),
-        precisionGps: precision_gps ? Number(precision_gps) : null,
+        precisionGps: Number(precision_gps),
         selfiePath: selfie_path || null,
         wifi: wifi || null,
-        bluetooth: bluetooth || null
+        bluetooth: bluetooth || null,
+        verificacionIdentidad: 'ADMINISTRATIVA',
+        actorUsuarioId: req.user?.id,
+        ipAddress: req.ip,
       });
 
       return res.status(201).json({
