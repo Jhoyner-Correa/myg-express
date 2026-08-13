@@ -87,7 +87,11 @@ export const ConsultaHistorica: React.FC = () => {
         />
         <RouteLookupResults
           routeId={lookup.result?.routeId || lookup.routeId} records={lookup.filteredRecords}
-          totalRecords={lookup.records.length} localityCount={lookup.localities.length}
+          totalRecords={lookup.records.length}
+          totalGuides={lookup.result?.totalGuias ?? lookup.records.length}
+          localityCount={lookup.localities.length}
+          contractFilter={lookup.filters.contract}
+          onContractFilter={contract => lookup.setFilters({ ...lookup.filters, contract })}
           loading={lookup.loading}
           error={lookup.lookupError ? getApiErrorMessage(lookup.lookupError, 'No se pudo consultar la ruta en Urbano.') : undefined}
         />

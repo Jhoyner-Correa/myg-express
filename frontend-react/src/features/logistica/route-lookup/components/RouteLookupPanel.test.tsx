@@ -22,6 +22,6 @@ describe('RouteLookupPanel', () => {
     render(<RouteLookupPanel {...defaults} canManage destinations={[{ id: 8, nombre_lote: 'Satipo', estado: 'pendiente', fecha: '2026-08-12' }]} selectedDestinationId="8" />);
     expect(screen.getByRole('button', { name: /enviar al lote/i })).toBeEnabled();
     expect(screen.getByText('Ruta destino')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Seleccionar lote del d\u00eda' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ruta destino: satipo.*myg-8/i })).toBeInTheDocument();
   });
 });
