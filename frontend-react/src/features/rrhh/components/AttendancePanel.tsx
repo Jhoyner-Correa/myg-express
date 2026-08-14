@@ -53,9 +53,10 @@ export function AttendancePanel({ siteId, canManage }: { siteId: number | null; 
     });
   }, [dashboard, query, status]);
   const summary = dashboard?.summary;
+  const workDay = dashboard?.work_day ?? null;
 
   return <div className={styles.attendanceStack}>
-    {dashboard?.work_day && dashboard.work_day.reason !== 'REGULAR' && <div className={`${styles.workDayNotice} ${dashboard.work_day.working ? styles.workDaySpecial : styles.workDayOff}`}><CalendarOff /><div><strong>{dashboard.work_day.name ?? 'Día no laborable'}</strong><span>{dashboard.work_day.working ? 'La jornada especial reemplaza el horario semanal para esta fecha.' : 'No se esperan marcaciones ni se contabilizan ausencias en esta fecha.'}</span></div><small>{dashboard.work_day.scope === 'SEDE' ? 'Regla de sede' : 'Regla corporativa'}</small></div>}
+    {workDay !== null && workDay.reason !== 'REGULAR' && <div className={`${styles.workDayNotice} ${workDay.working ? styles.workDaySpecial : styles.workDayOff}`}><CalendarOff /><div><strong>{workDay.name ?? 'Día no laborable'}</strong><span>{workDay.working ? 'La jornada especial reemplaza el horario semanal para esta fecha.' : 'No se esperan marcaciones ni se contabilizan ausencias en esta fecha.'}</span></div><small>{workDay.scope === 'SEDE' ? 'Regla de sede' : 'Regla corporativa'}</small></div>}
     <div className={styles.attendanceMetrics}>
       <article><span className={styles.attendanceGreen}><CheckCircle2 /></span><div><p>Presentes</p><strong>{summary?.present ?? 0}</strong><small>de {summary?.total_employees ?? 0} colaboradores</small></div></article>
       <article><span className={styles.attendanceOrange}><ClockAlert /></span><div><p>Tardanzas</p><strong>{summary?.late ?? 0}</strong><small>{summary?.on_time ?? 0} ingresos puntuales</small></div></article>
