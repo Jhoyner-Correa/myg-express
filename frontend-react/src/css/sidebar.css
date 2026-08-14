@@ -884,6 +884,90 @@ html.sidebar-collapsed-preload .main {
   filter: none;
 }
 
+/* Navegación ejecutiva: superficies rectas, contraste alto y jerarquía limpia. */
+.sidebar .sidebar__link,
+.sidebar .nav-item,
+.sidebar .sidebar__sub-link {
+  border-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sidebar .sidebar__link:hover,
+.sidebar .nav-item:hover,
+.sidebar .sidebar__sub-link:hover {
+  color: #12241b;
+  background: rgba(255, 255, 255, 0.94);
+  border-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sidebar .sidebar__link.active,
+.sidebar .nav-item.active,
+.sidebar .sidebar__sub-link.active {
+  color: #0c1c14;
+  background: #ffffff;
+  border-color: transparent;
+  border-radius: 0;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.14);
+  font-weight: 500;
+}
+
+.sidebar .sidebar__link:hover .sidebar__link-icon,
+.sidebar .nav-item:hover .sidebar__link-icon,
+.sidebar .sidebar__sub-link:hover .sidebar__sub-icon,
+.sidebar .sidebar__link.active .sidebar__link-icon,
+.sidebar .nav-item.active .sidebar__link-icon,
+.sidebar .sidebar__sub-link.active .sidebar__sub-icon {
+  color: #10261b;
+}
+
+/* El encabezado del acordeón identifica el módulo, no compite con la opción activa. */
+.sidebar .sidebar__section-header.active:not(:hover) {
+  color: #f4f8f6;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 400;
+}
+
+.sidebar .sidebar__section-header.active:not(:hover) .sidebar__link-icon,
+.sidebar .sidebar__section-header.active:not(:hover) .sidebar__section-arrow {
+  color: #f4f8f6;
+}
+
+.sidebar .sidebar__section-header:hover .sidebar__section-arrow {
+  color: #10261b;
+}
+
+.sidebar__menu--nested {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.sidebar__menu--nested .sidebar__sub-link {
+  position: relative;
+  min-height: 41px;
+  height: 41px;
+  line-height: 41px;
+}
+
+.sidebar__menu--nested .sidebar__sub-link:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  bottom: -1px;
+  left: 12px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.075);
+  pointer-events: none;
+}
+
+.sidebar__menu--nested .sidebar__sub-link:hover::after,
+.sidebar__menu--nested .sidebar__sub-link.active::after {
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sidebar,
   .sidebar *,
