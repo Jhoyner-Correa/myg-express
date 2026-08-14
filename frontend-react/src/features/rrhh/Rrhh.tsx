@@ -131,10 +131,10 @@ export function Rrhh({ section }: { section: RrhhSection }) {
 
   const showScopePicker = section !== 'configuration' && section !== 'schedules';
   return <main className={`main ${styles.page}`} id="main-content">
-    <PageHeader icon={<Users />} title={SECTION_META[section].title} subtitle={SECTION_META[section].subtitle} metadata={section === 'configuration' || section === 'schedules' ? 'Alcance empresarial' : selectedSite?.name ?? (canViewAllSites ? 'Todas las sedes' : user?.sede_nombre ?? 'Sede operativa')} />
+    <PageHeader icon={<Users />} title={SECTION_META[section].title} subtitle={SECTION_META[section].subtitle} metadata={section === 'configuration' || section === 'schedules' ? 'Alcance empresarial' : selectedSite?.name ?? (canViewAllSites ? 'Todas las sedes' : user?.sede_nombre ?? 'Sede operativa')} tone={section === 'overview' ? 'corporate' : 'brand'} />
     <section className={styles.content}>
-      <div className={styles.headingRow}>
-        <div className={styles.sectionContext}><span>Recursos Humanos</span><strong>{SECTION_META[section].title}</strong></div>
+      <div className={`${styles.headingRow} ${section === 'overview' ? styles.executiveHeading : ''}`}>
+        <div className={`${styles.sectionContext} ${section === 'overview' ? styles.executiveContext : ''}`}><span>Recursos Humanos</span><strong>{SECTION_META[section].title}</strong></div>
         <div className={styles.headingActions}>
           {showScopePicker && <div className={styles.sitePicker}><MapPin size={15} /><select aria-label="Alcance de sede" value={siteId ?? 'all'} onChange={event => setSiteId(event.target.value === 'all' ? null : Number(event.target.value))}>{canViewAllSites && <option value="all">Todas las sedes</option>}{catalogs.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></div>}
           {canManage && section === 'people' && <Button icon={<UserPlus size={16} />} onClick={() => setEditing('new')}>Registrar colaborador</Button>}

@@ -6,11 +6,12 @@ type PageHeaderProps = {
   title: string;
   subtitle?: string;
   metadata?: ReactNode;
+  tone?: 'brand' | 'corporate';
 };
 
-export function PageHeader({ icon, title, subtitle, metadata }: PageHeaderProps) {
+export function PageHeader({ icon, title, subtitle, metadata, tone = 'brand' }: PageHeaderProps) {
   return (
-    <header className={styles.header}>
+    <header className={`${styles.header} ${tone === 'corporate' ? styles.corporate : ''}`}>
       <div className={styles.identity}>
         <span className={styles.icon} aria-hidden="true">{icon}</span>
         <span className={styles.copy}>

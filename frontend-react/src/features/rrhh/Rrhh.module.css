@@ -5,6 +5,10 @@
 .sectionContext { display: grid; gap: 2px; padding-left: 10px; border-left: 3px solid #10924d; }
 .sectionContext span { color: #0b8747; font-size: .6rem; font-weight: 750; letter-spacing: .075em; text-transform: uppercase; }
 .sectionContext strong { color: var(--text-primary); font-size: .82rem; font-weight: 720; }
+.executiveContext { border-left-color: #245fae; }
+.executiveContext span { color: #245fae; }
+.executiveHeading .sitePicker { color: #60738a; }
+.executiveHeading .sitePicker svg { color: #3483b8; }
 .tabs { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--surface-card); }
 .tabs button { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 13px; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); font: inherit; font-size: .78rem; font-weight: 650; cursor: pointer; }
 .tabs button:hover { color: var(--text-primary); background: var(--surface-subtle); }
@@ -181,18 +185,22 @@
 
 .executiveCardHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 59px; padding: 11px 14px; border-bottom: 1px solid var(--border-default); }
 .executiveTitle { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.executiveTitle > span { display: grid; flex: 0 0 31px; width: 31px; height: 31px; place-items: center; border-radius: 8px; background: #eef7f2; color: #138a4d; }
+.executiveTitle > span { display: grid; flex: 0 0 31px; width: 31px; height: 31px; place-items: center; border-radius: 8px; background: #eaf2ff; color: #245fae; }
+.executiveAlerts .executiveTitle > span { background: #ffedef; color: #d5424c; }
+.executiveSites .executiveTitle > span { background: #e8f8fb; color: #1687a3; }
+.executiveSummary .executiveTitle > span { background: #f1ebff; color: #7543c5; }
 .executiveTitle svg { width: 15px; }
 .executiveTitle h2 { margin: 0; color: var(--text-primary); font-size: .78rem; font-weight: 720; }
 .executiveTitle p { margin: 3px 0 0; color: var(--text-muted); font-size: .6rem; }
 .executiveActions { display: flex; gap: 8px; }
 .executiveAttendanceTable { min-width: 1130px; }
+.executiveAttendanceTable th { color: #68778d; }
 .executiveAttendanceTable td { height: 51px; padding-top: 6px; padding-bottom: 6px; }
-.executiveAttendanceTable .person > span { width: 28px; height: 28px; font-size: .6rem; }
+.executiveAttendanceTable .person > span { width: 28px; height: 28px; background: #eaf2ff; color: #245fae; font-size: .6rem; }
 .executiveTableFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; padding: 7px 14px; border-top: 1px solid var(--border-default); background: #fbfcfd; }
 .executiveTableFooter span { color: var(--text-muted); font-size: .61rem; }
-.executiveTableFooter button, .executiveCardFooter button { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: #24634a; font: inherit; font-size: .62rem; font-weight: 680; cursor: pointer; }
-.executiveTableFooter button:hover, .executiveCardFooter button:hover { color: #08783d; }
+.executiveTableFooter button, .executiveCardFooter button { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: #285f9f; font: inherit; font-size: .62rem; font-weight: 680; cursor: pointer; }
+.executiveTableFooter button:hover, .executiveCardFooter button:hover { color: #1d4f91; }
 .executiveTableFooter svg, .executiveCardFooter svg { width: 13px; }
 
 .executiveAnalysis { display: grid; grid-template-columns: minmax(260px, .85fr) minmax(380px, 1.25fr) minmax(270px, .9fr); gap: 12px; align-items: stretch; }
@@ -206,18 +214,18 @@
 .executiveAlertList strong { display: block; overflow: hidden; color: var(--text-primary); font-size: .66rem; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
 .executiveAlertList small { display: block; margin-top: 3px; overflow: hidden; color: var(--text-muted); font-size: .57rem; text-overflow: ellipsis; white-space: nowrap; }
 .executiveAlertList > button > svg { width: 12px; color: #a3afba; }
-.executiveEmpty { display: grid; min-height: 205px; place-items: center; align-content: center; gap: 8px; color: #178a4e; font-size: .65rem; }
+.executiveEmpty { display: grid; min-height: 205px; place-items: center; align-content: center; gap: 8px; color: #245fae; font-size: .65rem; }
 .executiveEmpty svg { width: 22px; }
 
 .executiveSites { min-width: 0; }
 .executiveSitesTable { width: 100%; border-collapse: collapse; }
-.executiveSitesTable th { padding: 9px 11px; border-bottom: 1px solid var(--border-default); background: #fbfcfd; color: var(--text-muted); font-size: .55rem; font-weight: 730; letter-spacing: .04em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+.executiveSitesTable th { padding: 9px 11px; border-bottom: 1px solid var(--border-default); background: #fbfcfd; color: #68778d; font-size: .55rem; font-weight: 730; letter-spacing: .04em; text-align: left; text-transform: uppercase; white-space: nowrap; }
 .executiveSitesTable td { height: 43px; padding: 7px 11px; border-bottom: 1px solid var(--color-neutral-100); color: var(--text-secondary); font-size: .62rem; white-space: nowrap; }
 .executiveSitesTable tbody tr:last-child td { border-bottom: 0; }
 .executiveSitesTable td:first-child { color: var(--text-primary); font-weight: 650; }
 .executiveSitesTable td:first-child i { display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; }
 .siteGood { background: #11ad61; }.siteWarning { background: #e8a123; }.siteCritical { background: #df4c55; }
-.executiveSitesTable td strong { color: #087f43; font-weight: 700; }
+.executiveSitesTable td strong { color: #245fae; font-weight: 700; }
 .executiveCardFooter { display: flex; justify-content: flex-end; min-height: 38px; padding: 8px 13px; border-top: 1px solid var(--border-default); background: #fbfcfd; }
 
 .executiveRingArea { display: grid; grid-template-columns: 122px minmax(0, 1fr); align-items: center; gap: 14px; min-height: 204px; padding: 16px; }

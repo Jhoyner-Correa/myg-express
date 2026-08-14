@@ -18,6 +18,8 @@
 .md { min-height: 38px; padding: 0 15px; font-size: 0.8125rem; }
 .primary { background: var(--color-brand-600); color: #fff; box-shadow: 0 2px 6px rgb(21 110 58 / 0.2); }
 .primary:hover:not(:disabled) { background: var(--color-brand-700); box-shadow: 0 5px 12px rgb(21 110 58 / 0.22); }
+.corporate { background: #245fae; color: #fff; box-shadow: 0 2px 6px rgb(36 95 174 / 0.22); }
+.corporate:hover:not(:disabled) { background: #1d4f91; box-shadow: 0 5px 12px rgb(36 95 174 / 0.24); }
 .secondary { border-color: var(--border-default); background: var(--surface-card); color: var(--text-secondary); }
 .secondary:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-subtle); color: var(--text-primary); }
 .danger { background: var(--color-danger); color: #fff; }

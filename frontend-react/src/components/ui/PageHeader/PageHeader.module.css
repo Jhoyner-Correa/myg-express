@@ -58,6 +58,14 @@
   font-weight: 600;
 }
 
+.corporate .icon {
+  background: #eaf2ff;
+  color: #245fae;
+}
+
+.corporate .copy p { color: #718096; }
+.corporate .metadata { color: #52657d; }
+
 @media (max-width: 720px) {
   .header { padding-inline: var(--space-4); }
   .metadata { display: none; }
