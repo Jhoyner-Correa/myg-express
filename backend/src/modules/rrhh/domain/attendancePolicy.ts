@@ -7,8 +7,10 @@ export type AttendanceRuleCode =
   | 'INVALID_CLOCK_TYPE'
   | 'INVALID_CLOCK_SEQUENCE'
   | 'CLOCK_ALREADY_RECORDED'
+  | 'LUNCH_NOT_CONFIGURED'
   | 'GEOFENCE_NOT_CONFIGURED'
   | 'INVALID_COORDINATES'
+  | 'INVALID_CAPTURE_TIME'
   | 'GPS_ACCURACY_REQUIRED'
   | 'GPS_ACCURACY_INSUFFICIENT'
   | 'OUTSIDE_GEOFENCE';
@@ -30,16 +32,16 @@ export function isClockType(value: unknown): value is ClockType {
   return typeof value === 'string' && CLOCK_TYPES.includes(value as ClockType);
 }
 
-export function allowedNextClockTypes(recorded: ClockType[]): ClockType[] {
+export function allowedNextClockTypes(recorded: ClockType[], lunchEnabled = true): ClockType[] {
   if (recorded.includes('SALIDA')) return [];
   if (recorded.length === 0) return ['ENTRADA'];
   if (!recorded.includes('ENTRADA')) return [];
-  if (!recorded.includes('SALIDA_ALMUERZO')) return ['SALIDA_ALMUERZO', 'SALIDA'];
+  if (!recorded.includes('SALIDA_ALMUERZO')) return lunchEnabled ? ['SALIDA_ALMUERZO', 'SALIDA'] : ['SALIDA'];
   if (!recorded.includes('REGRESO')) return ['REGRESO'];
   return ['SALIDA'];
 }
 
-export function assertClockTransition(recorded: ClockType[], requested: unknown): asserts requested is ClockType {
+export function assertClockTransition(recorded: ClockType[], requested: unknown, lunchEnabled = true): asserts requested is ClockType {
   if (!isClockType(requested)) {
     throw new AttendanceRuleError('INVALID_CLOCK_TYPE', 'El tipo de marcacion no es valido.', 400);
   }
@@ -51,7 +53,7 @@ export function assertClockTransition(recorded: ClockType[], requested: unknown)
     );
   }
 
-  const allowed = allowedNextClockTypes(recorded);
+  const allowed = allowedNextClockTypes(recorded, lunchEnabled);
   if (!allowed.includes(requested)) {
     const expected = allowed.length ? allowed.join(' o ') : 'ninguna marcacion adicional';
     throw new AttendanceRuleError(

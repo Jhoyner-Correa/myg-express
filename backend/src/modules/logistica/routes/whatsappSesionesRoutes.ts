@@ -19,7 +19,7 @@ const router = Router();
 router.use(verificarToken);
 
 const requireWhatsappAuditAccess = (req: AuthRequest, res: Response, next: NextFunction) => {
-  if (req.user?.es_superadmin || req.user?.permisos?.includes(PERMISSIONS.WHATSAPP_VIEW)) {
+  if (req.user?.tipo_usuario === 'SISTEMA' || req.user?.permisos?.includes(PERMISSIONS.WHATSAPP_VIEW)) {
     return next();
   }
 

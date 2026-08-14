@@ -29,11 +29,22 @@ export type JobRole = {
 };
 export type WorkSchedule = {
   id: number;
+  version_id: number;
+  version: number;
   name: string;
+  status: 'ACTIVO' | 'INACTIVO';
   start_time: string;
   end_time: string;
   tolerance_minutes: number;
+  lunch_enabled: boolean;
+  lunch_start_from: string | null;
+  lunch_start_until: string | null;
+  lunch_duration_minutes: number;
+  return_tolerance_minutes: number;
+  effective_from: string;
+  effective_until: string | null;
 };
+export type SchedulePolicyInput = Omit<WorkSchedule, 'id' | 'version_id' | 'version' | 'status' | 'effective_until'>;
 export type RrhhCatalogs = { sites: Site[]; roles: JobRole[]; schedules: WorkSchedule[] };
 
 export type EmployeeInput = {
@@ -67,6 +78,8 @@ export type ScheduleAssignment = {
   schedule_name?: string;
   start_time?: string;
   end_time?: string;
+  effective_from?: string;
+  effective_until?: string | null;
 };
 
 export type ActivationCredentials = {
@@ -85,7 +98,16 @@ export type AttendanceDashboardEmployee = {
   status: 'PRESENTE' | 'TARDANZA' | 'FALTA' | 'PERMISO' | 'VACACIONES' | 'SIN_REGISTRO';
   delay_minutes: number;
   overtime_minutes: number;
-  schedule: { name: string; start_time: string; end_time: string } | null;
+  schedule: {
+    name: string;
+    start_time: string;
+    end_time: string;
+    lunch_enabled: boolean;
+    lunch_start_from: string | null;
+    lunch_start_until: string | null;
+    lunch_duration_minutes: number;
+    return_tolerance_minutes: number;
+  } | null;
   marks: { entry: string | null; lunch_out: string | null; lunch_return: string | null; exit: string | null };
 };
 
@@ -103,6 +125,32 @@ export type AttendanceDashboard = {
     overtime_minutes: number;
   };
   employees: AttendanceDashboardEmployee[];
+};
+
+export type BiometricContingency = {
+  id: number;
+  request_id: string;
+  employee_id: number;
+  site_id: number;
+  device_id: number;
+  clock_type: 'ENTRADA' | 'SALIDA_ALMUERZO' | 'REGRESO' | 'SALIDA';
+  latitude: number;
+  longitude: number;
+  accuracy_meters: number;
+  distance_meters: number;
+  captured_at: string;
+  biometric_failure_code: string;
+  status: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'CANCELADA';
+  reviewer_id: number | null;
+  review_comment: string | null;
+  reviewed_at: string | null;
+  mark_id: number | null;
+  expires_at: string;
+  created_at: string;
+  employee_code: string;
+  employee_names: string;
+  employee_last_names: string;
+  job_role: string;
 };
 
 export type PermissionRequest = {

@@ -11,6 +11,8 @@ import {
   listarCredencialesUrbanoAdmin,
   listarSedesAdmin,
   listarUsuariosAdmin,
+  obtenerCatalogoAccesosAdmin,
+  obtenerDetalleUsuarioAdmin,
   obtenerResumenAdmin
 } from '../controllers/adminController';
 import { verificarToken } from '../../../core/middlewares/authMiddleware';
@@ -32,6 +34,8 @@ router.put('/urbano-credenciales/:sedeId', requirePermission(PERMISSIONS.SEDES_M
 router.delete('/urbano-credenciales/:sedeId', requirePermission(PERMISSIONS.SEDES_MANAGE), eliminarCredencialUrbanoAdmin);
 
 router.get('/usuarios', listarUsuariosAdmin);
+router.get('/access/catalog', obtenerCatalogoAccesosAdmin);
+router.get('/usuarios/:id', obtenerDetalleUsuarioAdmin);
 router.post('/usuarios', requirePermission(PERMISSIONS.USERS_MANAGE), crearUsuarioAdmin);
 router.put('/usuarios/:id', requirePermission(PERMISSIONS.USERS_MANAGE), actualizarUsuarioAdmin);
 router.delete('/usuarios/:id', requirePermission(PERMISSIONS.USERS_MANAGE), eliminarUsuarioAdmin);

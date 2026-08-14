@@ -7,17 +7,13 @@ import { ClockOrigin, ClockType, IdentityVerification, Marcacion } from '../doma
 import { IAsistenciaRepository } from '../repositories/IAsistenciaRepository';
 import { IEmpleadoRepository } from '../repositories/IEmpleadoRepository';
 import { IMarcacionRepository } from '../repositories/IMarcacionRepository';
+import { findEffectiveSchedule } from './ScheduleService';
 
 type GeofenceRow = RowDataPacket & {
   latitud: string;
   longitud: string;
   radio_permitido_metros: number;
   precision_maxima_metros: string;
-};
-
-type ScheduleRow = RowDataPacket & {
-  hora_entrada: string;
-  tolerancia_minutos: number;
 };
 
 const REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -35,6 +31,7 @@ export interface RegisterAttendanceParams {
   wifi: string | null;
   bluetooth: string | null;
   verificacionIdentidad: IdentityVerification;
+  occurredAt?: Date;
   actorUsuarioId?: number;
   ipAddress?: string | null;
 }
@@ -97,8 +94,17 @@ export class AsistenciaService {
           geofence,
         );
 
-        const now = new Date();
+        const now = params.occurredAt ?? new Date();
+        if (!Number.isFinite(now.getTime())) {
+          throw new AttendanceRuleError('INVALID_CAPTURE_TIME', 'La hora de la marcacion no es valida.', 400);
+        }
         const attendanceDate = businessDate(now);
+        const schedule = await findEffectiveSchedule(
+          connection,
+          empleado.id,
+          attendanceDate,
+          businessIsoWeekday(now),
+        );
         let asistencia = await this.asistenciaRepository.obtenerOCrear({
           empleadoId: empleado.id,
           fecha: new Date(`${attendanceDate}T12:00:00`),
@@ -114,24 +120,28 @@ export class AsistenciaService {
           true,
         ) ?? asistencia;
 
-        const recordedMarks = await this.marcacionRepository.obtenerPorAsistencia(asistencia.id, connection);
-        assertClockTransition(recordedMarks.map(mark => mark.tipoMarcacion), params.tipo);
-
-        if (params.tipo === 'ENTRADA') {
-          const [scheduleRows] = await connection.query<ScheduleRow[]>(
-            `SELECT schedule.hora_entrada, schedule.tolerancia_minutos
-               FROM personal_empleado_horarios assignment
-               INNER JOIN personal_horarios schedule ON schedule.id = assignment.horario_id
-              WHERE assignment.empleado_id = ? AND assignment.dia_semana = ?
-              LIMIT 1`,
-            [empleado.id, businessIsoWeekday(now)],
+        if (schedule) {
+          await connection.query(
+            `UPDATE personal_asistencias
+                SET horario_version_id = COALESCE(horario_version_id, ?)
+              WHERE id = ?`,
+            [schedule.versionId, asistencia.id],
           );
-          if (scheduleRows.length) {
+        }
+
+        const recordedMarks = await this.marcacionRepository.obtenerPorAsistencia(asistencia.id, connection);
+        assertClockTransition(
+          recordedMarks.map(mark => mark.tipoMarcacion),
+          params.tipo,
+          schedule?.lunchEnabled ?? true,
+        );
+
+        if (params.tipo === 'ENTRADA' && schedule) {
             const delayMinutes = Math.max(
               0,
-              businessClockMinutes(now) - parseClockMinutes(String(scheduleRows[0].hora_entrada)),
+              businessClockMinutes(now) - parseClockMinutes(schedule.startTime),
             );
-            if (delayMinutes > Number(scheduleRows[0].tolerancia_minutos)) {
+            if (delayMinutes > schedule.toleranceMinutes) {
               await this.asistenciaRepository.actualizar(asistencia.id, {
                 estadoAsistencia: 'TARDANZA',
                 minutosTardanza: delayMinutes,
@@ -139,7 +149,6 @@ export class AsistenciaService {
               asistencia.estadoAsistencia = 'TARDANZA';
               asistencia.minutosTardanza = delayMinutes;
             }
-          }
         }
 
         const markId = await this.marcacionRepository.crear({

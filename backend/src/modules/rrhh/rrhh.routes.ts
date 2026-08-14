@@ -33,10 +33,11 @@ const rrhhController = new RrhhController(empleadoService, asistenciaService);
 // Endpoints de Empleados
 router.use(verificarToken);
 router.get('/catalogos', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarCatalogos);
-router.post('/cargos', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.crearCargo);
-router.put('/cargos/:id', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.actualizarCargo);
-router.post('/horarios', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.crearHorario);
-router.put('/horarios/:id', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.actualizarHorario);
+router.post('/cargos', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhController.crearCargo);
+router.put('/cargos/:id', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhController.actualizarCargo);
+router.post('/horarios', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhController.crearHorario);
+router.put('/horarios/:id', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhController.actualizarHorario);
+router.patch('/horarios/:id/estado', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhController.actualizarEstadoHorario);
 router.post('/empleados', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.crearEmpleado);
 router.put('/empleados/:id', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.actualizarEmpleado);
 router.get('/empleados/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarEmpleadosSede);
@@ -53,6 +54,9 @@ router.post('/asistencias/marcar', requirePermission(PERMISSIONS.RRHH_MANAGE), r
 router.get('/asistencias/resumen/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.consultarResumenAsistencia);
 router.get('/asistencias/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.consultarAsistenciasSede);
 router.put('/asistencias/correccion', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.corregirAsistencia);
+router.get('/contingencias/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarContingenciasMarcacion);
+router.get('/contingencias/:id/evidencia', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.obtenerEvidenciaContingencia);
+router.patch('/contingencias/:id/resolver', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.resolverContingenciaMarcacion);
 router.get('/incidencias/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarIncidencias);
 router.post('/permisos', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.crearPermiso);
 router.patch('/permisos/:id/resolver', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.resolverPermiso);

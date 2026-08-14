@@ -348,7 +348,7 @@ export const Logistica: React.FC = () => {
           <div className={pageStyles.headerMeta}>
             <span>{currentDate}</span>
             <span className={pageStyles.role}>
-              {user?.es_superadmin ? 'Super Administrador' : (user?.rol ? (ROLES_MAP[user.rol] || user.rol) : 'Operador')}
+              {user?.tipo_usuario === 'SISTEMA' ? 'Administrador del Sistema' : (user?.rol ? (ROLES_MAP[user.rol] || user.rol) : 'Operador')}
             </span>
           </div>
         )}

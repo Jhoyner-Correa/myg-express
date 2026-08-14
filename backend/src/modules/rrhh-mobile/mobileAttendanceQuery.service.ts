@@ -4,6 +4,7 @@ import { businessDate, businessIsoWeekday } from '../../core/utils/time';
 import { allowedNextClockTypes } from '../rrhh/domain/attendancePolicy';
 import { AttendanceStatus, AttendanceType } from '../rrhh/domain/Asistencia';
 import { ClockType } from '../rrhh/domain/Marcacion';
+import { findEffectiveSchedule } from '../rrhh/services/ScheduleService';
 
 type EmployeeSummaryRow = RowDataPacket & {
   id: number;
@@ -14,13 +15,6 @@ type EmployeeSummaryRow = RowDataPacket & {
   foto: string | null;
   cargo: string;
   sede: string;
-};
-
-type ScheduleRow = RowDataPacket & {
-  nombre: string;
-  hora_entrada: string;
-  hora_salida: string;
-  tolerancia_minutos: number;
 };
 
 type AttendanceRow = RowDataPacket & {
@@ -40,6 +34,7 @@ type MarkRow = RowDataPacket & {
 };
 
 type GeofenceCountRow = RowDataPacket & { total: number };
+type PendingReviewRow = RowDataPacket & { id: number; tipo_marcacion: ClockType; capturada_en: Date; estado: string };
 
 export class MobileAttendanceQueryService {
   async today(employeeId: number) {
@@ -58,15 +53,9 @@ export class MobileAttendanceQueryService {
     );
     if (!employeeRows.length) throw new Error('Empleado activo no encontrado.');
 
-    const [scheduleRows] = await pool.query<ScheduleRow[]>(
-      `SELECT schedule.nombre, schedule.hora_entrada, schedule.hora_salida,
-              schedule.tolerancia_minutos
-         FROM personal_empleado_horarios assignment
-         INNER JOIN personal_horarios schedule ON schedule.id = assignment.horario_id
-        WHERE assignment.empleado_id = ? AND assignment.dia_semana = ?
-        LIMIT 1`,
-      [employeeId, weekday],
-    );
+    const scheduleConnection = await pool.getConnection();
+    const schedule = await findEffectiveSchedule(scheduleConnection, employeeId, date, weekday)
+      .finally(() => scheduleConnection.release());
     const [geofenceRows] = await pool.query<GeofenceCountRow[]>(
       `SELECT COUNT(*) AS total
          FROM personal_configuracion_gps_sedes
@@ -93,6 +82,13 @@ export class MobileAttendanceQueryService {
       : [[] as MarkRow[], []];
     const employee = employeeRows[0];
     const recordedTypes = markRows.map((mark) => mark.tipo_marcacion);
+    const [pendingRows] = await pool.query<PendingReviewRow[]>(
+      `SELECT id, tipo_marcacion, capturada_en, estado
+         FROM personal_solicitudes_marcacion
+        WHERE empleado_id = ? AND DATE(capturada_en) = ? AND estado = 'PENDIENTE'
+        ORDER BY capturada_en`,
+      [employeeId, date],
+    );
 
     return {
       business_date: date,
@@ -106,11 +102,18 @@ export class MobileAttendanceQueryService {
         site: employee.sede,
         photo: employee.foto,
       },
-      schedule: scheduleRows.length ? {
-        name: scheduleRows[0].nombre,
-        start_time: String(scheduleRows[0].hora_entrada),
-        end_time: String(scheduleRows[0].hora_salida),
-        tolerance_minutes: Number(scheduleRows[0].tolerancia_minutos),
+      schedule: schedule ? {
+        id: schedule.scheduleId,
+        version_id: schedule.versionId,
+        name: schedule.name,
+        start_time: schedule.startTime,
+        end_time: schedule.endTime,
+        tolerance_minutes: schedule.toleranceMinutes,
+        lunch_enabled: schedule.lunchEnabled,
+        lunch_start_from: schedule.lunchStartFrom,
+        lunch_start_until: schedule.lunchStartUntil,
+        lunch_duration_minutes: schedule.lunchDurationMinutes,
+        return_tolerance_minutes: schedule.returnToleranceMinutes,
       } : null,
       attendance: attendance ? {
         id: Number(attendance.id),
@@ -126,7 +129,13 @@ export class MobileAttendanceQueryService {
         inside_geofence: Boolean(mark.dentro_de_radio),
         distance_meters: Number(mark.distancia_sede_metros),
       })),
-      allowed_next: allowedNextClockTypes(recordedTypes),
+      pending_reviews: pendingRows.map(request => ({
+        id: Number(request.id),
+        type: request.tipo_marcacion,
+        captured_at: new Date(request.capturada_en).toISOString(),
+        status: request.estado,
+      })),
+      allowed_next: pendingRows.length ? [] : allowedNextClockTypes(recordedTypes, schedule?.lunchEnabled ?? true),
       completed: recordedTypes.includes('SALIDA'),
       geofence_configured: Number(geofenceRows[0]?.total || 0) > 0,
     };

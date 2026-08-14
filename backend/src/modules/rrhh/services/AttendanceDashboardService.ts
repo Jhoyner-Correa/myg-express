@@ -14,6 +14,11 @@ type DashboardRow = RowDataPacket & {
   horario_nombre: string | null;
   hora_entrada_programada: string | null;
   hora_salida_programada: string | null;
+  almuerzo_habilitado: number | null;
+  salida_almuerzo_desde: string | null;
+  salida_almuerzo_hasta: string | null;
+  duracion_almuerzo_minutos: number | null;
+  tolerancia_retorno_minutos: number | null;
   entrada: Date | null;
   salida_almuerzo: Date | null;
   regreso: Date | null;
@@ -30,7 +35,16 @@ export type AttendanceDashboardItem = {
   status: string;
   delay_minutes: number;
   overtime_minutes: number;
-  schedule: { name: string; start_time: string; end_time: string } | null;
+  schedule: {
+    name: string;
+    start_time: string;
+    end_time: string;
+    lunch_enabled: boolean;
+    lunch_start_from: string | null;
+    lunch_start_until: string | null;
+    lunch_duration_minutes: number;
+    return_tolerance_minutes: number;
+  } | null;
   marks: { entry: Date | null; lunch_out: Date | null; lunch_return: Date | null; exit: Date | null };
 };
 
@@ -76,8 +90,13 @@ export class AttendanceDashboardService {
                    ELSE attendance.estado_asistencia
               END AS estado_asistencia_efectivo,
               attendance.minutos_tardanza, schedule.nombre AS horario_nombre,
-              schedule.hora_entrada AS hora_entrada_programada,
-              schedule.hora_salida AS hora_salida_programada,
+              COALESCE(attendance_version.hora_entrada, effective_version.hora_entrada) AS hora_entrada_programada,
+              COALESCE(attendance_version.hora_salida, effective_version.hora_salida) AS hora_salida_programada,
+              COALESCE(attendance_version.almuerzo_habilitado, effective_version.almuerzo_habilitado) AS almuerzo_habilitado,
+              COALESCE(attendance_version.salida_almuerzo_desde, effective_version.salida_almuerzo_desde) AS salida_almuerzo_desde,
+              COALESCE(attendance_version.salida_almuerzo_hasta, effective_version.salida_almuerzo_hasta) AS salida_almuerzo_hasta,
+              COALESCE(attendance_version.duracion_almuerzo_minutos, effective_version.duracion_almuerzo_minutos) AS duracion_almuerzo_minutos,
+              COALESCE(attendance_version.tolerancia_retorno_minutos, effective_version.tolerancia_retorno_minutos) AS tolerancia_retorno_minutos,
               marks.entrada, marks.salida_almuerzo, marks.regreso, marks.salida
          FROM personal_empleados employee
          INNER JOIN personal_cargos role ON role.id = employee.cargo_id
@@ -85,7 +104,16 @@ export class AttendanceDashboardService {
            ON attendance.empleado_id = employee.id AND attendance.fecha = ?
          LEFT JOIN personal_empleado_horarios assignment
            ON assignment.empleado_id = employee.id AND assignment.dia_semana = ?
-         LEFT JOIN personal_horarios schedule ON schedule.id = assignment.horario_id
+          AND assignment.vigente_desde <= ?
+          AND (assignment.vigente_hasta IS NULL OR assignment.vigente_hasta >= ?)
+         LEFT JOIN personal_horario_versiones effective_version
+           ON effective_version.horario_id = assignment.horario_id
+          AND effective_version.vigente_desde <= ?
+          AND (effective_version.vigente_hasta IS NULL OR effective_version.vigente_hasta >= ?)
+         LEFT JOIN personal_horario_versiones attendance_version
+           ON attendance_version.id = attendance.horario_version_id
+         LEFT JOIN personal_horarios schedule
+           ON schedule.id = COALESCE(attendance_version.horario_id, assignment.horario_id)
          LEFT JOIN (
            SELECT DISTINCT empleado_id FROM personal_solicitudes_permisos
             WHERE estado = 'APROBADO' AND DATE(?) BETWEEN DATE(fecha_inicio) AND DATE(fecha_fin)
@@ -106,7 +134,7 @@ export class AttendanceDashboardService {
          ) marks ON marks.asistencia_id = attendance.id
         WHERE employee.sede_id = ? AND employee.estado = 'ACTIVO'
         ORDER BY employee.apellidos ASC, employee.nombres ASC`,
-      [date, weekday, date, date, date, date, siteId],
+      [date, weekday, date, date, date, date, date, date, date, date, siteId],
     );
 
     const items: AttendanceDashboardItem[] = rows.map(row => ({
@@ -123,6 +151,11 @@ export class AttendanceDashboardService {
         name: String(row.horario_nombre),
         start_time: String(row.hora_entrada_programada),
         end_time: String(row.hora_salida_programada),
+        lunch_enabled: Boolean(row.almuerzo_habilitado),
+        lunch_start_from: row.salida_almuerzo_desde ? String(row.salida_almuerzo_desde) : null,
+        lunch_start_until: row.salida_almuerzo_hasta ? String(row.salida_almuerzo_hasta) : null,
+        lunch_duration_minutes: Number(row.duracion_almuerzo_minutos || 0),
+        return_tolerance_minutes: Number(row.tolerancia_retorno_minutos || 0),
       } : null,
       marks: {
         entry: row.entrada,

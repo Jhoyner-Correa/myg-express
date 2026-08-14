@@ -43,7 +43,6 @@ vi.mock('../../core/auth/authState', () => ({
       nombre: 'Operador',
       usuario: 'operador',
       rol: 'EncargadoOficina',
-      es_superadmin: false,
       sede_id: 1,
       permisos: ['rutas.ver', 'rutas.gestionar', 'avisos.ver', 'entregas.gestionar'],
     },

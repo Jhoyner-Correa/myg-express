@@ -2,11 +2,13 @@ import { createHash, randomBytes, randomUUID } from 'crypto';
 import { Response } from 'express';
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool } from '../../core/database/database';
+import { businessDate } from '../../core/utils/time';
 import { AttendanceRuleError, isClockType } from '../rrhh/domain/attendancePolicy';
 import { SignedClockPayload, verifyClockSignature } from '../rrhh/domain/mobileSignature';
 import { AsistenciaService } from '../rrhh/services/AsistenciaService';
 import { MobileAuthRequest } from './mobileAuth.middleware';
 import { MobileAttendanceQueryService } from './mobileAttendanceQuery.service';
+import { AttendanceContingencyService, ContingencyError } from '../rrhh/services/AttendanceContingencyService';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -23,6 +25,7 @@ export class MobileAttendanceController {
   constructor(
     private attendanceService: AsistenciaService,
     private queryService: MobileAttendanceQueryService,
+    private contingencyService: AttendanceContingencyService,
   ) {}
 
   today = async (req: MobileAuthRequest, res: Response) => {
@@ -58,6 +61,18 @@ export class MobileAttendanceController {
       }
       if (!isClockType(req.body.tipo)) {
         return res.status(400).json({ ok: false, code: 'INVALID_CLOCK_TYPE', message: 'Tipo de marcacion no valido.' });
+      }
+      const [pendingRows] = await pool.query<RowDataPacket[]>(
+        `SELECT id FROM personal_solicitudes_marcacion
+          WHERE empleado_id = ? AND estado = 'PENDIENTE' AND DATE(capturada_en) = ? LIMIT 1`,
+        [req.employee.id, businessDate()],
+      );
+      if (pendingRows.length) {
+        return res.status(409).json({
+          ok: false,
+          code: 'FALLBACK_ALREADY_PENDING',
+          message: 'Tienes una marcacion pendiente de revision. RR. HH. debe resolverla antes de continuar.',
+        });
       }
 
       const challengeId = randomUUID();
@@ -173,6 +188,49 @@ export class MobileAttendanceController {
         ok: false,
         code,
         message: error instanceof Error ? error.message : 'No se pudo registrar la asistencia.',
+      });
+    }
+  };
+
+  requestSelfieReview = async (req: MobileAuthRequest, res: Response) => {
+    try {
+      if (!req.employee) return res.status(401).json({ ok: false, code: 'AUTH_REQUIRED' });
+      if (req.employee.requiresPasswordChange) {
+        return res.status(403).json({ ok: false, code: 'PASSWORD_CHANGE_REQUIRED', message: 'Debes cambiar la contrasena temporal.' });
+      }
+      if (!req.file) {
+        return res.status(422).json({ ok: false, code: 'SELFIE_REQUIRED', message: 'Debes tomar una selfie para solicitar la revision.' });
+      }
+      const data = await this.contingencyService.create(
+        { id: req.employee.id, sedeId: req.employee.sedeId, deviceId: req.employee.deviceId },
+        {
+          requestId: String(req.body.request_id || ''),
+          clockType: req.body.tipo,
+          latitude: Number(req.body.latitud),
+          longitude: Number(req.body.longitud),
+          accuracyMeters: Number(req.body.precision_gps),
+          capturedAt: String(req.body.captured_at || ''),
+          biometricFailureCode: String(req.body.biometric_failure_code || ''),
+        },
+        req.file,
+        req.ip,
+      );
+      return res.status(202).json({
+        ok: true,
+        message: 'Selfie recibida. La marcacion quedo pendiente de revision.',
+        data,
+      });
+    } catch (error) {
+      const status = error instanceof ContingencyError || error instanceof AttendanceRuleError
+        ? error.statusCode
+        : 400;
+      const code = error instanceof ContingencyError
+        ? error.code
+        : error instanceof AttendanceRuleError ? error.code : 'FALLBACK_ERROR';
+      return res.status(status).json({
+        ok: false,
+        code,
+        message: error instanceof Error ? error.message : 'No se pudo registrar la solicitud.',
       });
     }
   };

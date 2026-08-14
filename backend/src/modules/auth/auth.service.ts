@@ -7,8 +7,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { IUsuarioRepository } from './repositories/IUsuarioRepository';
 import { Usuario } from './domain/Usuario';
-import { normalizeRole, roleRequiresSede, getRoleLabel } from '../../core/constants/roles';
-import { getFinalPermissions } from '../../core/constants/permissions';
+import { loadAccessContext } from '../../core/auth/accessControl';
 
 export class AuthService {
   constructor(private usuarioRepository: IUsuarioRepository) {}
@@ -27,31 +26,26 @@ export class AuthService {
       throw new Error('Usuario inactivo');
     }
 
-    const rol = normalizeRole(user.rol, user.esSuperadmin);
-    const sedeId = roleRequiresSede(rol) ? user.sedeId : null;
-
-    if (roleRequiresSede(rol) && !sedeId) {
-      throw new Error('Usuario sin sede asignada');
-    }
-
     const passwordOk = await bcrypt.compare(password, user.passwordHash);
     if (!passwordOk) {
       throw new Error('Usuario o contraseña incorrectos');
     }
 
+    const access = await loadAccessContext(user.id);
+    if (access.scope === 'SEDE' && !access.siteId) {
+      throw new Error('Usuario sin sede asignada');
+    }
+
     const token = jwt.sign(
       {
         id: user.id,
-        sede_id: sedeId,
-        usuario: user.usuario,
-        rol,
-        es_superadmin: user.esSuperadmin
+        usuario: user.usuario
       },
       process.env.JWT_SECRET as string,
       { expiresIn: '12h' }
     );
 
-    const permisos = getFinalPermissions(rol, user.permisos);
+    await this.usuarioRepository.registrarUltimoAcceso(user.id);
 
     return {
       token,
@@ -59,11 +53,15 @@ export class AuthService {
         id: user.id,
         nombre: user.nombre,
         usuario: user.usuario,
-        rol,
-        es_superadmin: user.esSuperadmin,
-        sede_id: sedeId,
-        sede_nombre: 'Administración Central', // NOTA: En login el controlador original hace LEFT JOIN sedes s ON u.sede_id = s.id, lo manejamos recuperando el valor.
-        permisos
+        rol: access.role,
+        rol_label: access.roleLabel,
+        tipo_usuario: access.type,
+        alcance: access.scope,
+        empresa_id: access.companyId,
+        sede_id: access.siteId,
+        sede_ids: access.siteIds,
+        sede_nombre: access.siteName || 'Administración Central',
+        permisos: access.permissions
       }
     };
   }

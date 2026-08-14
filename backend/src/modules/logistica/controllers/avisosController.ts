@@ -114,7 +114,7 @@ export const crearAviso = async (req: AuthRequest, res: Response) => {
 export const listarAvisosPorLote = async (req: AuthRequest, res: Response) => {
   try {
     const { loteId } = req.params;
-    const isSuper = req.user?.es_superadmin;
+    const isSuper = req.user?.tipo_usuario === 'SISTEMA';
     const sede_id = req.user?.sede_id;
 
     const [rows] = await pool.query(

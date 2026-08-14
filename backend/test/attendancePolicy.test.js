@@ -23,6 +23,14 @@ test('permite salida directa cuando el empleado no toma almuerzo', () => {
   assert.doesNotThrow(() => assertClockTransition(['ENTRADA'], 'SALIDA'));
 });
 
+test('oculta acciones de almuerzo cuando la política no las habilita', () => {
+  assert.deepEqual(allowedNextClockTypes(['ENTRADA'], false), ['SALIDA']);
+  assert.throws(
+    () => assertClockTransition(['ENTRADA'], 'SALIDA_ALMUERZO', false),
+    (error) => error instanceof AttendanceRuleError && error.code === 'INVALID_CLOCK_SEQUENCE',
+  );
+});
+
 test('no permite duplicar una marcacion', () => {
   assert.throws(
     () => assertClockTransition(['ENTRADA'], 'ENTRADA'),

@@ -4,7 +4,7 @@ import type { UserSession } from '../../core/auth/authState';
 type LoginResponse = {
   ok: boolean;
   token?: string;
-  user?: Omit<UserSession, 'es_superadmin'> & { es_superadmin: boolean | number };
+  user?: UserSession;
   message?: string;
 };
 
@@ -16,7 +16,7 @@ export const authService = {
     }
     return {
       token: response.data.token,
-      user: { ...response.data.user, es_superadmin: Boolean(response.data.user.es_superadmin) },
+      user: response.data.user,
     };
   },
 };

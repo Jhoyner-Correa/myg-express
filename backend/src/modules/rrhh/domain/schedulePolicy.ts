@@ -1,0 +1,96 @@
+import { assertDateOnly, parseClockMinutes } from '../../../core/utils/time';
+
+export type SchedulePolicyInput = {
+  name: unknown;
+  startTime: unknown;
+  endTime: unknown;
+  toleranceMinutes: unknown;
+  lunchEnabled: unknown;
+  lunchStartFrom: unknown;
+  lunchStartUntil: unknown;
+  lunchDurationMinutes: unknown;
+  returnToleranceMinutes: unknown;
+  effectiveFrom: unknown;
+};
+
+export type NormalizedSchedulePolicy = {
+  name: string;
+  startTime: string;
+  endTime: string;
+  toleranceMinutes: number;
+  lunchEnabled: boolean;
+  lunchStartFrom: string | null;
+  lunchStartUntil: string | null;
+  lunchDurationMinutes: number;
+  returnToleranceMinutes: number;
+  effectiveFrom: string;
+};
+
+function name(value: unknown) {
+  const normalized = String(value || '').trim();
+  if (normalized.length < 2 || normalized.length > 100) {
+    throw new Error('El nombre del horario debe tener entre 2 y 100 caracteres.');
+  }
+  return normalized;
+}
+
+function clock(value: unknown, label: string): string {
+  const raw = String(value || '').trim();
+  const match = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(raw);
+  if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) {
+    throw new Error(`${label} debe usar el formato HH:mm.`);
+  }
+  return `${match[1]}:${match[2]}:00`;
+}
+
+function integer(value: unknown, label: string, minimum: number, maximum: number) {
+  const normalized = Number(value);
+  if (!Number.isInteger(normalized) || normalized < minimum || normalized > maximum) {
+    throw new Error(`${label} debe estar entre ${minimum} y ${maximum} minutos.`);
+  }
+  return normalized;
+}
+
+export function normalizeSchedulePolicy(input: SchedulePolicyInput): NormalizedSchedulePolicy {
+  const startTime = clock(input.startTime, 'La hora de entrada');
+  const endTime = clock(input.endTime, 'La hora de salida');
+  const start = parseClockMinutes(startTime);
+  const end = parseClockMinutes(endTime);
+  if (end <= start) throw new Error('Por ahora los horarios deben iniciar y terminar el mismo día.');
+
+  const lunchEnabled = input.lunchEnabled === true || input.lunchEnabled === 1 || input.lunchEnabled === '1';
+  let lunchStartFrom: string | null = null;
+  let lunchStartUntil: string | null = null;
+  let lunchDurationMinutes = 0;
+  let returnToleranceMinutes = 0;
+  if (lunchEnabled) {
+    lunchStartFrom = clock(input.lunchStartFrom, 'El inicio de la ventana de almuerzo');
+    lunchStartUntil = clock(input.lunchStartUntil, 'El fin de la ventana de almuerzo');
+    lunchDurationMinutes = integer(input.lunchDurationMinutes, 'La duración del almuerzo', 15, 180);
+    returnToleranceMinutes = integer(input.returnToleranceMinutes, 'La tolerancia de regreso', 0, 120);
+    const from = parseClockMinutes(lunchStartFrom);
+    const until = parseClockMinutes(lunchStartUntil);
+    if (from < start || until < from || until + lunchDurationMinutes > end) {
+      throw new Error('La ventana y duración del almuerzo deben estar dentro de la jornada.');
+    }
+  }
+
+  return {
+    name: name(input.name),
+    startTime,
+    endTime,
+    toleranceMinutes: integer(input.toleranceMinutes, 'La tolerancia de entrada', 0, 180),
+    lunchEnabled,
+    lunchStartFrom,
+    lunchStartUntil,
+    lunchDurationMinutes,
+    returnToleranceMinutes,
+    effectiveFrom: assertDateOnly(input.effectiveFrom),
+  };
+}
+
+export function previousDate(date: string) {
+  const value = new Date(`${assertDateOnly(date)}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() - 1);
+  return value.toISOString().slice(0, 10);
+}

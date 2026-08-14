@@ -7,6 +7,9 @@ const {
   SedeScopeError
 } = require('../dist/core/auth/sedeScope');
 const { requirePermission } = require('../dist/core/middlewares/permissionMiddleware');
+const { getFinalPermissions, getPermissionsForRole, PERMISSIONS } = require('../dist/core/constants/permissions');
+const { ROLES } = require('../dist/core/constants/roles');
+const { applyPermissionOverrides } = require('../dist/core/auth/accessControl');
 
 function requestFor({ sedeId, permisos = [], superadmin = false }) {
   return {
@@ -57,9 +60,55 @@ test('middleware usa permisos efectivos del usuario', () => {
   assert.equal(responseStatus, 403);
 });
 
-test('superadmin omite comprobacion de permiso', () => {
+test('SysAdmin también usa permisos explícitos del rol', () => {
   const middleware = requirePermission('rrhh.ver');
   let nextCalled = false;
-  middleware(requestFor({ sedeId: null, superadmin: true }), {}, () => { nextCalled = true; });
+  middleware(requestFor({ sedeId: null, permisos: ['rrhh.ver'], superadmin: true }), {}, () => { nextCalled = true; });
   assert.equal(nextCalled, true);
+});
+
+test('una excepción individual puede restringir pero no elevar el rol', () => {
+  const effective = applyPermissionOverrides(
+    [PERMISSIONS.ROUTES_VIEW, PERMISSIONS.ROUTES_MANAGE],
+    [
+      { codigo: PERMISSIONS.ROUTES_VIEW, efecto: 'DENEGAR' },
+      { codigo: PERMISSIONS.RRHH_VIEW, efecto: 'PERMITIR' },
+    ],
+  );
+  assert.equal(effective.includes(PERMISSIONS.ROUTES_VIEW), false);
+  assert.equal(effective.includes(PERMISSIONS.ROUTES_MANAGE), true);
+  assert.equal(effective.includes(PERMISSIONS.RRHH_VIEW), false);
+});
+
+test('SysAdmin obtiene capacidades por rol sin una bandera especial', () => {
+  const permissions = getPermissionsForRole(ROLES.SYSADMIN);
+  assert.equal(permissions.includes(PERMISSIONS.ADMIN_PANEL_VIEW), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_VIEW), true);
+  assert.equal(permissions.includes(PERMISSIONS.ROUTES_MANAGE), true);
+});
+
+test('administrador de empresa gestiona RRHH con alcance global', () => {
+  const permissions = getPermissionsForRole(ROLES.ADMIN_EMPRESA);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_VIEW), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_MANAGE), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_CONFIGURE), true);
+});
+
+test('encargado de oficina no accede al panel administrativo de RRHH', () => {
+  const permissions = getPermissionsForRole(ROLES.ENCARGADO_OFICINA);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_VIEW), false);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_MANAGE), false);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_CONFIGURE), false);
+  assert.equal(permissions.includes(PERMISSIONS.GPS_VIEW), false);
+});
+
+test('permisos personalizados no pueden elevar el alcance del encargado', () => {
+  const permissions = getFinalPermissions(ROLES.ENCARGADO_OFICINA, [
+    PERMISSIONS.ROUTES_VIEW,
+    PERMISSIONS.RRHH_VIEW,
+    PERMISSIONS.ADMIN_PANEL_VIEW,
+  ]);
+  assert.equal(permissions.includes(PERMISSIONS.ROUTES_VIEW), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_VIEW), false);
+  assert.equal(permissions.includes(PERMISSIONS.ADMIN_PANEL_VIEW), false);
 });

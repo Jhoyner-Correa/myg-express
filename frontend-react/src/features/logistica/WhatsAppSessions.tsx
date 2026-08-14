@@ -364,7 +364,7 @@ export const WhatsAppSessions: React.FC = () => {
           <span className="topbar-date" id="current-date">{currentDate}</span>
           <div className="user-role-badge">
             <span className="status-dot"></span>
-            <span id="user-rol">{user?.es_superadmin ? 'Super Administrador' : user?.rol || 'Encargado de Oficina'}</span>
+            <span id="user-rol">{user?.tipo_usuario === 'SISTEMA' ? 'Administrador del Sistema' : user?.rol || 'Encargado de Oficina'}</span>
           </div>
         </div>
       </header>

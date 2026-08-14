@@ -31,23 +31,22 @@ export const PERMISSIONS = {
   LABELS_GENERATE: 'etiquetas.ver',
   RRHH_VIEW: 'rrhh.ver',
   RRHH_MANAGE: 'rrhh.gestionar',
+  RRHH_CONFIGURE: 'rrhh.configurar',
   GPS_VIEW: 'gps.ver',
   GPS_MANAGE: 'gps.gestionar'
 } as const;
 
 export type AppPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
+const ALL_PERMISSIONS = Object.values(PERMISSIONS) as AppPermission[];
+
 export const ROLE_PERMISSIONS: Record<AppRole, AppPermission[]> = {
-  [ROLES.SYSADMIN]: [
-    PERMISSIONS.ADMIN_PANEL_VIEW,
-    PERMISSIONS.SEDES_MANAGE,
-    PERMISSIONS.USERS_MANAGE,
-    PERMISSIONS.QUEUES_VIEW
-  ],
+  [ROLES.SYSADMIN]: ALL_PERMISSIONS,
   [ROLES.ADMIN_EMPRESA]: [
     PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.RRHH_VIEW,
     PERMISSIONS.RRHH_MANAGE,
+    PERMISSIONS.RRHH_CONFIGURE,
     PERMISSIONS.GPS_VIEW,
     PERMISSIONS.GPS_MANAGE,
     PERMISSIONS.ROUTES_VIEW,
@@ -82,9 +81,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, AppPermission[]> = {
     PERMISSIONS.URBANO_ROUTES_MANAGE,
     PERMISSIONS.SAVAR_SCAN_VIEW,
     PERMISSIONS.SAVAR_SCAN_MANAGE,
-    PERMISSIONS.LABELS_GENERATE,
-    PERMISSIONS.GPS_VIEW,
-    PERMISSIONS.GPS_MANAGE
+    PERMISSIONS.LABELS_GENERATE
   ]
 };
 
@@ -109,8 +106,14 @@ export function getFinalPermissions(role: AppRole, customPermissions?: string[] 
   if (!customPermissions || customPermissions.length === 0) {
     return [...roleDefault];
   }
+  // Los permisos personalizados controlan visibilidad, pero nunca pueden
+  // elevar un rol por encima del límite definido para ese rol.
+  const allowedVisibility = customPermissions.filter((permission): permission is AppPermission =>
+    VISIBILITY_PERMISSIONS.includes(permission)
+    && roleDefault.includes(permission as AppPermission),
+  );
   const roleActions = roleDefault.filter(p => !VISIBILITY_PERMISSIONS.includes(p));
-  return [...(customPermissions as AppPermission[]), ...roleActions];
+  return [...new Set([...allowedVisibility, ...roleActions])];
 }
 
 export function hasPermission(role: AppRole, permission: AppPermission): boolean {

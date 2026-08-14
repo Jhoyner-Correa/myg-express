@@ -5,8 +5,12 @@ export type UserSession = {
   nombre: string;
   usuario: string;
   rol: string;
-  es_superadmin: boolean;
+  rol_label?: string;
+  tipo_usuario?: 'SISTEMA' | 'EMPRESA';
+  alcance?: 'SISTEMA' | 'EMPRESA' | 'SEDE';
+  empresa_id?: number | null;
   sede_id: number | null;
+  sede_ids?: number[];
   sede_nombre?: string;
   permisos?: string[];
 };

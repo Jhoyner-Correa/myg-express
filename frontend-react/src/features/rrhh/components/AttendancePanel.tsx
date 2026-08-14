@@ -8,6 +8,7 @@ import { rrhhService } from '../rrhh.service';
 import type { AttendanceDashboard, AttendanceDashboardEmployee } from '../types';
 import styles from '../Rrhh.module.css';
 import { AttendanceCorrectionModal } from './AttendanceCorrectionModal';
+import { BiometricReviewPanel } from './BiometricReviewPanel';
 
 function businessToday() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -60,6 +61,7 @@ export function AttendancePanel({ siteId, canManage }: { siteId: number; canMana
       <article><span className={styles.attendanceGray}><UserX /></span><div><p>Sin registrar</p><strong>{summary?.without_record ?? 0}</strong><small>Sin marcación de entrada</small></div></article>
       <article><span className={styles.attendanceBlue}><TimerReset /></span><div><p>Horas extra</p><strong>{Math.floor((summary?.overtime_minutes ?? 0) / 60)} h {(summary?.overtime_minutes ?? 0) % 60} min</strong><small>{summary?.completed ?? 0} jornadas cerradas</small></div></article>
     </div>
+    <BiometricReviewPanel siteId={siteId} canManage={canManage} onResolved={() => load()} />
     <article className={styles.card}>
       <header className={styles.toolbar}><div><h2>Asistencia diaria</h2><p>Marcaciones y cumplimiento de jornada del personal activo.</p></div><div className={styles.attendanceTools}>
         <label className={styles.dateControl}><CalendarDays size={15} /><input aria-label="Fecha de asistencia" type="date" max={businessToday()} value={date} onChange={event => setDate(event.target.value)} /></label>

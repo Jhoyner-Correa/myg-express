@@ -99,7 +99,7 @@ export const crearLote = async (req: AuthRequest, res: Response) => {
 // Listar rutas de la sede del usuario
 export const listarLotes = async (req: AuthRequest, res: Response) => {
   try {
-    const isSuper = req.user?.es_superadmin;
+    const isSuper = req.user?.tipo_usuario === 'SISTEMA';
     const sede_id = req.user?.sede_id;
 
     const query = isSuper
@@ -156,7 +156,7 @@ export const listarLotes = async (req: AuthRequest, res: Response) => {
 export const obtenerLotePorId = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const isSuper = req.user?.es_superadmin;
+    const isSuper = req.user?.tipo_usuario === 'SISTEMA';
     const sede_id = req.user?.sede_id;
 
     const [rows]: any = await pool.query(

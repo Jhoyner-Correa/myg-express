@@ -18,15 +18,16 @@ export const PERMISSIONS = {
   SAVAR_SCAN_MANAGE: 'savarscan.gestionar',
   RRHH_VIEW: 'rrhh.ver',
   RRHH_MANAGE: 'rrhh.gestionar',
+  RRHH_CONFIGURE: 'rrhh.configurar',
 } as const;
 
 export type AppPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS] | string;
 
 export function userHasPermission(
-  user: { es_superadmin?: boolean; permisos?: string[] } | null | undefined,
+  user: { permisos?: string[] } | null | undefined,
   permission: AppPermission,
 ) {
-  return Boolean(user?.es_superadmin || user?.permisos?.includes(permission));
+  return Boolean(user?.permisos?.includes(permission));
 }
 
 export function usePermissions() {

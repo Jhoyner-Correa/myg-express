@@ -8,7 +8,6 @@ UNION ALL SELECT 'avisos_plantilla', COUNT(*) FROM avisos_diarios a LEFT JOIN pl
 UNION ALL SELECT 'mensajes_sede', COUNT(*) FROM mensajes_log m LEFT JOIN sedes s ON s.id = m.sede_id WHERE s.id IS NULL
 UNION ALL SELECT 'mensajes_lote', COUNT(*) FROM mensajes_log m LEFT JOIN lotes_carga l ON l.id = m.lote_id WHERE m.lote_id IS NOT NULL AND l.id IS NULL
 UNION ALL SELECT 'mensajes_aviso', COUNT(*) FROM mensajes_log m LEFT JOIN avisos_diarios a ON a.id = m.aviso_id WHERE m.aviso_id IS NOT NULL AND a.id IS NULL
-UNION ALL SELECT 'usuarios_sede', COUNT(*) FROM usuarios u LEFT JOIN sedes s ON s.id = u.sede_id WHERE u.sede_id IS NOT NULL AND s.id IS NULL
 UNION ALL SELECT 'sesiones_sede', COUNT(*) FROM whatsapp_sesiones w LEFT JOIN sedes s ON s.id = w.sede_id WHERE s.id IS NULL
 UNION ALL SELECT 'plantillas_sede', COUNT(*) FROM plantillas p LEFT JOIN sedes s ON s.id = p.sede_id WHERE p.sede_id IS NOT NULL AND s.id IS NULL
 UNION ALL SELECT 'zonas_sede', COUNT(*) FROM zonas z LEFT JOIN sedes s ON s.id = z.sede_id WHERE s.id IS NULL

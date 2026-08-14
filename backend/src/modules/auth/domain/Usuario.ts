@@ -3,19 +3,18 @@
 // Entidad de Dominio que representa a un Usuario en el sistema
 // ============================================================
 
-export type UserRole = 'SysAdmin' | 'AdminEmpresa' | 'EncargadoOficina';
 export type UserStatus = 'activo' | 'inactivo';
+export type UserType = 'SISTEMA' | 'EMPRESA';
 
 export interface Usuario {
   id: number;
-  sedeId: number | null;
   nombre: string;
   usuario: string;
   passwordHash: string;
-  rol: UserRole;
-  esSuperadmin: boolean;
+  tipoUsuario: UserType;
   estado: UserStatus;
-  permisos?: string[] | null;
+  ultimoAccesoAt: Date | null;
+  passwordActualizadoAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

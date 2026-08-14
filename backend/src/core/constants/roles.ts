@@ -6,6 +6,21 @@ export const ROLES = {
 
 export type AppRole = (typeof ROLES)[keyof typeof ROLES];
 
+export const USER_TYPES = {
+  SYSTEM: 'SISTEMA',
+  COMPANY: 'EMPRESA'
+} as const;
+
+export type UserType = (typeof USER_TYPES)[keyof typeof USER_TYPES];
+
+export const ACCESS_SCOPES = {
+  SYSTEM: 'SISTEMA',
+  COMPANY: 'EMPRESA',
+  SITE: 'SEDE'
+} as const;
+
+export type AccessScope = (typeof ACCESS_SCOPES)[keyof typeof ACCESS_SCOPES];
+
 const ROLE_ALIASES: Record<string, AppRole> = {
   sysadmin: ROLES.SYSADMIN,
   'administrador de sistemas (sysadmin)': ROLES.SYSADMIN,
@@ -47,4 +62,14 @@ export function getRoleLabel(role: AppRole): string {
   if (role === ROLES.SYSADMIN) return 'Administrador del Sistema';
   if (role === ROLES.ADMIN_EMPRESA) return 'Administrador General';
   return 'Encargado de Oficina';
+}
+
+export function getRoleUserType(role: AppRole): UserType {
+  return role === ROLES.SYSADMIN ? USER_TYPES.SYSTEM : USER_TYPES.COMPANY;
+}
+
+export function getRoleScope(role: AppRole): AccessScope {
+  if (role === ROLES.SYSADMIN) return ACCESS_SCOPES.SYSTEM;
+  if (role === ROLES.ADMIN_EMPRESA) return ACCESS_SCOPES.COMPANY;
+  return ACCESS_SCOPES.SITE;
 }

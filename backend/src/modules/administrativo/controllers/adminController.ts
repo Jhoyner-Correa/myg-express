@@ -1,17 +1,35 @@
-import bcrypt from 'bcrypt';
 import { Response } from 'express';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../../core/database/database';
 import { encryptUrbanoPassword } from '../../../services/urbanoCredentialsService';
-import {
-  AppRole,
-  getRoleLabel,
-  isManagedUserRole,
-  normalizeRole,
-  roleRequiresSede,
-  ROLES
-} from '../../../core/constants/roles';
 import { AuthRequest } from '../../../core/middlewares/authMiddleware';
+import {
+  AccessValidationError,
+  UserAccessAdminService,
+} from '../services/UserAccessAdminService';
+
+const userAccessAdminService = new UserAccessAdminService();
+
+function auditContext(req: AuthRequest) {
+  return {
+    actorId: Number(req.user!.id),
+    ip: req.ip || null,
+    userAgent: req.get('user-agent') || null,
+  };
+}
+
+function handleAccessError(error: unknown, res: Response, fallback: string): void {
+  if (error instanceof AccessValidationError) {
+    res.status(error.status).json({ ok: false, mensaje: error.message });
+    return;
+  }
+  const duplicate = (error as { code?: string })?.code === 'ER_DUP_ENTRY';
+  console.error(fallback, error);
+  res.status(duplicate ? 409 : 500).json({
+    ok: false,
+    mensaje: duplicate ? 'El nombre de usuario ya existe' : fallback,
+  });
+}
 
 type DashboardRow = RowDataPacket & {
   total_sedes: number;
@@ -34,19 +52,6 @@ type SedeRow = RowDataPacket & {
   destinatarios: number;
 };
 
-type UsuarioRow = RowDataPacket & {
-  id: number;
-  sede_id: number | null;
-  nombre: string;
-  usuario: string;
-  rol: string;
-  es_superadmin: number;
-  estado: 'activo' | 'inactivo';
-  permisos: string | null;
-  sede_nombre: string | null;
-  created_at: string;
-};
-
 type UrbanoCredentialRow = RowDataPacket & {
   id: number;
   sede_id: number;
@@ -61,11 +66,6 @@ function validarTexto(value: unknown): string {
   return String(value || '').trim();
 }
 
-function obtenerRolGestionable(value: unknown): AppRole {
-  const role = normalizeRole(value);
-  return isManagedUserRole(role) ? role : ROLES.ENCARGADO_OFICINA;
-}
-
 async function assertSedeExiste(sedeId: number): Promise<boolean> {
   const [[sede]] = await pool.query<RowDataPacket[]>(
     'SELECT id FROM sedes WHERE id = ? LIMIT 1',
@@ -74,32 +74,13 @@ async function assertSedeExiste(sedeId: number): Promise<boolean> {
   return Boolean(sede);
 }
 
-function normalizarUsuarioParaRespuesta(user: UsuarioRow) {
-  const rol = normalizeRole(user.rol, Boolean(user.es_superadmin));
-  let parsedPermisos: string[] | null = null;
-  if (user.permisos) {
-    try {
-      parsedPermisos = typeof user.permisos === 'string' ? JSON.parse(user.permisos) : user.permisos;
-    } catch (e) {
-      console.error('Error al parsear permisos de usuario:', e);
-    }
-  }
-  return {
-    ...user,
-    rol,
-    rol_label: getRoleLabel(rol),
-    sede_nombre: user.sede_nombre || 'Administracion Central',
-    permisos: parsedPermisos
-  };
-}
-
 export async function obtenerResumenAdmin(_req: AuthRequest, res: Response): Promise<void> {
   try {
     const [[resumen]] = await pool.query<DashboardRow[]>(
       `SELECT
          (SELECT COUNT(*) FROM sedes) AS total_sedes,
          (SELECT COUNT(*) FROM sedes WHERE estado = 'activo') AS sedes_activas,
-         (SELECT COUNT(*) FROM usuarios WHERE es_superadmin = 0) AS total_usuarios,
+         (SELECT COUNT(*) FROM usuarios WHERE tipo_usuario = 'EMPRESA') AS total_usuarios,
          (SELECT COUNT(*) FROM lotes_carga WHERE fecha_eliminacion IS NULL) AS total_lotes,
          (SELECT COUNT(*) FROM lotes_carga WHERE estado IN ('borrador', 'pendiente', 'procesando') AND fecha_eliminacion IS NULL) AS lotes_activos,
          (SELECT COUNT(*)
@@ -120,7 +101,12 @@ export async function obtenerResumenAdmin(_req: AuthRequest, res: Response): Pro
          COALESCE(l.cnt, 0) AS total_lotes,
          COALESCE(a.cnt, 0) AS destinatarios
        FROM sedes s
-       LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM usuarios WHERE es_superadmin = 0 GROUP BY sede_id) u ON u.sede_id = s.id
+       LEFT JOIN (
+         SELECT sede_id, COUNT(DISTINCT usuario_id) AS cnt
+           FROM usuario_asignaciones
+          WHERE alcance = 'SEDE' AND estado = 'ACTIVA'
+          GROUP BY sede_id
+       ) u ON u.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM whatsapp_sesiones GROUP BY sede_id) ws ON ws.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM lotes_carga WHERE fecha_eliminacion IS NULL GROUP BY sede_id) l ON l.sede_id = s.id
        LEFT JOIN (
@@ -163,7 +149,12 @@ export async function listarSedesAdmin(_req: AuthRequest, res: Response): Promis
          COALESCE(l.cnt, 0) AS total_lotes,
          COALESCE(a.cnt, 0) AS destinatarios
        FROM sedes s
-       LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM usuarios WHERE es_superadmin = 0 GROUP BY sede_id) u ON u.sede_id = s.id
+       LEFT JOIN (
+         SELECT sede_id, COUNT(DISTINCT usuario_id) AS cnt
+           FROM usuario_asignaciones
+          WHERE alcance = 'SEDE' AND estado = 'ACTIVA'
+          GROUP BY sede_id
+       ) u ON u.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM whatsapp_sesiones GROUP BY sede_id) ws ON ws.sede_id = s.id
        LEFT JOIN (SELECT sede_id, COUNT(*) as cnt FROM lotes_carga WHERE fecha_eliminacion IS NULL GROUP BY sede_id) l ON l.sede_id = s.id
        LEFT JOIN (
@@ -198,10 +189,17 @@ export async function crearSedeAdmin(req: AuthRequest, res: Response): Promise<v
     }
 
     const [result] = await pool.query<ResultSetHeader>(
-      `INSERT INTO sedes (nombre, direccion, telefono, latitud, longitud, radio_permitido_metros, estado)
-       VALUES (?, ?, ?, ?, ?, ?, 'activo')`,
+      `INSERT INTO sedes
+         (empresa_id, nombre, direccion, telefono, latitud, longitud, radio_permitido_metros, estado)
+       SELECT id, ?, ?, ?, ?, ?, ?, 'activo'
+         FROM empresas WHERE codigo = 'MYG_EXPRESS' AND estado = 'ACTIVA' LIMIT 1`,
       [nombre, direccion || null, telefono || null, latitud, longitud, radio_permitido_metros]
     );
+
+    if (!result.affectedRows) {
+      res.status(409).json({ ok: false, mensaje: 'La empresa MyG Express no está configurada' });
+      return;
+    }
 
     res.status(201).json({
       ok: true,
@@ -255,7 +253,7 @@ export async function eliminarSedeAdmin(req: AuthRequest, res: Response): Promis
 
     const [[uso]] = await pool.query<RowDataPacket[]>(
       `SELECT
-         (SELECT COUNT(*) FROM usuarios WHERE sede_id = ?) AS usuarios,
+         (SELECT COUNT(*) FROM usuario_asignaciones WHERE sede_id = ?) AS usuarios,
          (SELECT COUNT(*) FROM lotes_carga WHERE sede_id = ? AND fecha_eliminacion IS NULL) AS lotes,
          (SELECT COUNT(*) FROM whatsapp_sesiones WHERE sede_id = ?) AS sesiones,
          (SELECT COUNT(*) FROM mensajes_log WHERE sede_id = ?) AS logs`,
@@ -286,197 +284,77 @@ export async function eliminarSedeAdmin(req: AuthRequest, res: Response): Promis
 
 export async function listarUsuariosAdmin(_req: AuthRequest, res: Response): Promise<void> {
   try {
-    const [rows] = await pool.query<UsuarioRow[]>(
-      `SELECT
-         u.id,
-         u.sede_id,
-         u.nombre,
-         u.usuario,
-         u.rol,
-         u.es_superadmin,
-         u.estado,
-         u.permisos,
-         COALESCE(s.nombre, 'Administracion Central') AS sede_nombre,
-         u.created_at
-       FROM usuarios u
-       LEFT JOIN sedes s ON s.id = u.sede_id
-       WHERE u.es_superadmin = 0
-       ORDER BY u.created_at DESC, u.id DESC`
-    );
-
-    res.json({ ok: true, data: rows.map(normalizarUsuarioParaRespuesta) });
+    res.json({ ok: true, data: await userAccessAdminService.listUsers() });
   } catch (error) {
-    console.error('Error al listar usuarios:', error);
-    res.status(500).json({ ok: false, mensaje: 'No se pudieron cargar los usuarios' });
+    handleAccessError(error, res, 'No se pudieron cargar los usuarios');
+  }
+}
+
+export async function obtenerCatalogoAccesosAdmin(_req: AuthRequest, res: Response): Promise<void> {
+  try {
+    res.json({ ok: true, data: await userAccessAdminService.getCatalog() });
+  } catch (error) {
+    handleAccessError(error, res, 'No se pudo cargar el catálogo de accesos');
+  }
+}
+
+export async function obtenerDetalleUsuarioAdmin(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ ok: false, mensaje: 'Identificador de usuario inválido' });
+      return;
+    }
+    res.json({ ok: true, data: await userAccessAdminService.getUserDetail(id) });
+  } catch (error) {
+    handleAccessError(error, res, 'No se pudo cargar el detalle del usuario');
   }
 }
 
 export async function crearUsuarioAdmin(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const rol = obtenerRolGestionable(req.body.rol);
-    const sede_id = roleRequiresSede(rol) ? Number(req.body.sede_id) : null;
-    const nombre = validarTexto(req.body.nombre);
-    const usuario = validarTexto(req.body.usuario);
-    const password = validarTexto(req.body.password);
-    const estado = validarTexto(req.body.estado) || 'activo';
-    const es_superadmin = 0;
-
-    if (!nombre || !usuario || !password) {
-      res.status(400).json({ ok: false, mensaje: 'Nombre, usuario y password son obligatorios' });
-      return;
-    }
-
-    if (roleRequiresSede(rol)) {
-      if (!sede_id) {
-        res.status(400).json({ ok: false, mensaje: 'La sede es obligatoria para Encargado de Oficina' });
-        return;
-      }
-
-      const sedeExiste = await assertSedeExiste(sede_id);
-      if (!sedeExiste) {
-        res.status(404).json({ ok: false, mensaje: 'La sede seleccionada no existe' });
-        return;
-      }
-    }
-
-    const hash = await bcrypt.hash(password, 10);
-    const permisos = req.body.permisos;
-
-    const [result] = await pool.query<ResultSetHeader>(
-      `INSERT INTO usuarios (sede_id, nombre, usuario, password_hash, rol, es_superadmin, estado, permisos)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [sede_id, nombre, usuario, hash, rol, es_superadmin, estado, permisos ? JSON.stringify(permisos) : null]
-    );
+    const id = await userAccessAdminService.createUser({
+      nombre: req.body.nombre,
+      usuario: req.body.usuario,
+      password: req.body.password,
+      roleCode: req.body.role_code ?? req.body.rol,
+      siteId: req.body.sede_id == null ? null : Number(req.body.sede_id),
+      estado: req.body.estado,
+    }, auditContext(req));
 
     res.status(201).json({
       ok: true,
       mensaje: 'Usuario creado correctamente',
-      id: result.insertId
+      id,
     });
-  } catch (error: any) {
-    console.error('Error al crear usuario:', error);
-    const mensaje = error?.code === 'ER_DUP_ENTRY'
-      ? 'El nombre de usuario ya existe'
-      : 'No se pudo crear el usuario';
-    res.status(500).json({ ok: false, mensaje });
+  } catch (error) {
+    handleAccessError(error, res, 'No se pudo crear el usuario');
   }
 }
 
 export async function actualizarUsuarioAdmin(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-    const nombre = validarTexto(req.body.nombre);
-    const usuario = validarTexto(req.body.usuario);
-    const password = validarTexto(req.body.password);
-    const estado = validarTexto(req.body.estado) || 'activo';
-
-    const [[existingUser]] = await pool.query<RowDataPacket[]>(
-      'SELECT id, rol, es_superadmin FROM usuarios WHERE id = ? LIMIT 1',
-      [id]
-    );
-
-    if (!existingUser) {
-      res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
-      return;
-    }
-
-    if (existingUser.es_superadmin) {
-      res.status(400).json({
-        ok: false,
-        mensaje: 'Accion no permitida para este usuario'
-      });
-      return;
-    }
-
-    const es_superadmin = existingUser.es_superadmin ? 1 : 0;
-    const rol = es_superadmin ? ROLES.SYSADMIN : obtenerRolGestionable(req.body.rol || existingUser.rol);
-    const final_sede_id = roleRequiresSede(rol) ? Number(req.body.sede_id) : null;
-    const final_estado = es_superadmin ? 'activo' : estado;
-
-    if (!nombre || !usuario) {
-      res.status(400).json({ ok: false, mensaje: 'Nombre y usuario son obligatorios' });
-      return;
-    }
-
-    if (roleRequiresSede(rol)) {
-      if (!final_sede_id) {
-        res.status(400).json({ ok: false, mensaje: 'La sede es obligatoria para Encargado de Oficina' });
-        return;
-      }
-
-      const sedeExiste = await assertSedeExiste(final_sede_id);
-      if (!sedeExiste) {
-        res.status(404).json({ ok: false, mensaje: 'La sede seleccionada no existe' });
-        return;
-      }
-    }
-
-    const permisos = req.body.permisos;
-
-    let sql = `UPDATE usuarios SET sede_id = ?, nombre = ?, usuario = ?, rol = ?, es_superadmin = ?, estado = ?, permisos = ?`;
-    const params: Array<any> = [final_sede_id, nombre, usuario, rol, es_superadmin, final_estado, permisos ? JSON.stringify(permisos) : null];
-
-    if (password) {
-      const hash = await bcrypt.hash(password, 10);
-      sql += ', password_hash = ?';
-      params.push(hash);
-    }
-
-    sql += ' WHERE id = ?';
-    params.push(id);
-
-    const [result] = await pool.query<ResultSetHeader>(sql, params);
-
-    if (!result.affectedRows) {
-      res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
-      return;
-    }
-
+    const id = Number(req.params.id);
+    await userAccessAdminService.updateUser(id, {
+      nombre: req.body.nombre,
+      usuario: req.body.usuario,
+      password: req.body.password,
+      roleCode: req.body.role_code ?? req.body.rol,
+      siteId: req.body.sede_id == null ? null : Number(req.body.sede_id),
+      estado: req.body.estado,
+    }, auditContext(req));
     res.json({ ok: true, mensaje: 'Usuario actualizado correctamente' });
-  } catch (error: any) {
-    console.error('Error al actualizar usuario:', error);
-    const mensaje = error?.code === 'ER_DUP_ENTRY'
-      ? 'El nombre de usuario ya existe'
-      : 'No se pudo actualizar el usuario';
-    res.status(500).json({ ok: false, mensaje });
+  } catch (error) {
+    handleAccessError(error, res, 'No se pudo actualizar el usuario');
   }
 }
 
 export async function eliminarUsuarioAdmin(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { id } = req.params;
-
-    if (String(req.user?.id) === String(id)) {
-      res.status(400).json({ ok: false, mensaje: 'No puedes eliminar tu propio usuario administrador' });
-      return;
-    }
-
-    const [[targetUser]] = await pool.query<RowDataPacket[]>(
-      'SELECT es_superadmin FROM usuarios WHERE id = ? LIMIT 1',
-      [id]
-    );
-
-    if (!targetUser) {
-      res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
-      return;
-    }
-
-    if (targetUser.es_superadmin) {
-      res.status(400).json({ ok: false, mensaje: 'No se puede eliminar el SysAdmin del sistema' });
-      return;
-    }
-
-    const [result] = await pool.query<ResultSetHeader>('DELETE FROM usuarios WHERE id = ?', [id]);
-
-    if (!result.affectedRows) {
-      res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
-      return;
-    }
-
-    res.json({ ok: true, mensaje: 'Usuario eliminado correctamente' });
+    await userAccessAdminService.suspendUser(Number(req.params.id), auditContext(req));
+    res.json({ ok: true, mensaje: 'Usuario suspendido correctamente' });
   } catch (error) {
-    console.error('Error al eliminar usuario:', error);
-    res.status(500).json({ ok: false, mensaje: 'No se pudo eliminar el usuario' });
+    handleAccessError(error, res, 'No se pudo suspender el usuario');
   }
 }
 

@@ -2,8 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { RowDataPacket } from 'mysql2';
 import { pool } from '../database/database';
-import { AppPermission, getFinalPermissions } from '../constants/permissions';
-import { normalizeRole, roleRequiresSede } from '../constants/roles';
+import { AppPermission } from '../constants/permissions';
+import { AccessScope, UserType } from '../constants/roles';
+import { loadAccessContext } from '../auth/accessControl';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -12,9 +13,13 @@ export interface AuthRequest extends Request {
     nombre: string;
     usuario: string;
     rol: string;
-    es_superadmin: boolean;
+    rol_label: string;
+    tipo_usuario: UserType;
+    alcance: AccessScope;
+    empresa_id: number | null;
     estado: 'activo' | 'inactivo';
     sede_nombre: string | null;
+    sede_ids: number[];
     permisos: AppPermission[];
   };
 }
@@ -26,14 +31,10 @@ type TokenPayload = {
 
 type UsuarioAuthRow = RowDataPacket & {
   id: number;
-  sede_id: number | null;
   nombre: string;
   usuario: string;
-  rol: string;
-  es_superadmin: number;
+  tipo_usuario: UserType;
   estado: 'activo' | 'inactivo';
-  permisos: string | null;
-  sede_nombre: string | null;
 };
 
 export const verificarToken = async (
@@ -72,16 +73,11 @@ export const verificarToken = async (
     const [rows] = await pool.query<UsuarioAuthRow[]>(
       `SELECT
           u.id,
-          u.sede_id,
           u.nombre,
           u.usuario,
-          u.rol,
-          u.es_superadmin,
-          u.estado,
-          u.permisos,
-          s.nombre AS sede_nombre
+          u.tipo_usuario,
+          u.estado
        FROM usuarios u
-       LEFT JOIN sedes s ON s.id = u.sede_id
        WHERE u.id = ?
        LIMIT 1`,
       [decoded.id]
@@ -103,21 +99,9 @@ export const verificarToken = async (
       });
     }
 
-    const es_superadmin = Boolean(user.es_superadmin);
-    const rol = normalizeRole(user.rol, es_superadmin);
-    const sede_id = roleRequiresSede(rol) ? user.sede_id : null;
+    const access = await loadAccessContext(user.id);
 
-    let parsedPermisos: any[] | null = null;
-    if (user.permisos) {
-      try {
-        parsedPermisos = typeof user.permisos === 'string' ? JSON.parse(user.permisos) : user.permisos;
-      } catch (e) {
-        console.error('Error al parsear permisos en authMiddleware:', e);
-      }
-    }
-    const permisos = getFinalPermissions(rol, parsedPermisos);
-
-    if (roleRequiresSede(rol) && !sede_id) {
+    if (access.scope === 'SEDE' && !access.siteId) {
       return res.status(403).json({
         ok: false,
         message: 'Usuario sin sede asignada'
@@ -126,14 +110,18 @@ export const verificarToken = async (
 
     req.user = {
       id: user.id,
-      sede_id,
+      sede_id: access.siteId,
       nombre: user.nombre,
       usuario: user.usuario,
-      rol,
-      es_superadmin,
+      rol: access.role,
+      rol_label: access.roleLabel,
+      tipo_usuario: access.type,
+      alcance: access.scope,
+      empresa_id: access.companyId,
       estado: user.estado,
-      sede_nombre: user.sede_nombre || null,
-      permisos
+      sede_nombre: access.siteName,
+      sede_ids: access.siteIds,
+      permisos: access.permissions,
     };
 
     return next();

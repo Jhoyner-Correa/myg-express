@@ -4,10 +4,6 @@ import { AuthRequest } from './authMiddleware';
 
 export function requirePermission(permission: AppPermission) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (req.user?.es_superadmin) {
-      return next();
-    }
-
     if (!req.user?.permisos?.includes(permission)) {
       return res.status(403).json({
         ok: false,

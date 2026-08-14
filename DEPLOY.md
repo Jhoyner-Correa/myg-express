@@ -150,11 +150,39 @@ migraciones en orden después de verificar el respaldo de MariaDB:
 ```bash
 npm run db:migrate:rrhh-foundation
 npm run db:migrate:rrhh-incidents
+npm run db:migrate:rrhh-biometric-contingency
+npm run db:migrate:rrhh-schedules
 ```
 
 Ambos comandos usan un candado de base de datos y migraciones idempotentes. El segundo
 agrega permisos, vacaciones, resolución administrativa y el historial inmutable de
 correcciones de asistencia.
+
+Para activar el modelo corporativo de usuarios, roles y alcance por empresa/sede,
+ejecuta después de un respaldo verificado:
+
+```bash
+npm run db:migrate:access-model
+npm run db:migrate:access-cleanup
+npm run db:verify:access-model
+```
+
+El primer comando normaliza las cuentas existentes. El segundo valida que cada usuario
+tenga una asignación principal consistente y retira definitivamente las columnas
+heredadas de rol, sede y permisos. El tercero comprueba la estructura final y resuelve
+los accesos efectivos de todas las cuentas.
+
+En instalaciones que ya disponen del esquema base de MyG Express, toda la secuencia
+anterior puede ejecutarse y verificarse con un solo comando:
+
+```bash
+cd backend
+npm run db:migrate
+```
+
+El proceso se detiene en la primera inconsistencia y no continúa con las etapas
+posteriores. Puede ejecutarse nuevamente: cada migración conserva sus controles de
+idempotencia y candados de base de datos.
 
 Arranca API y worker separados:
 
@@ -202,6 +230,8 @@ server {
 - Backups de MariaDB activos.
 - `npm run db:preflight` sin hallazgos antes de migrar.
 - Preflight SAVAR sin lotes ambiguos y `npm run db:migrate:savar-sede` aplicado.
+- Modelo de acceso aplicado y verificado con `db:migrate:access-model`,
+  `db:migrate:access-cleanup` y `db:verify:access-model`, en ese orden.
 - Frontend y backend compilando sin errores.
 - Redis no expuesto publicamente a internet.
 

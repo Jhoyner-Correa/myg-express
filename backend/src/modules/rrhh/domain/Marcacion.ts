@@ -5,7 +5,7 @@
 
 export type ClockType = 'ENTRADA' | 'SALIDA_ALMUERZO' | 'REGRESO' | 'SALIDA';
 export type ClockOrigin = 'GPS' | 'QR' | 'NFC' | 'BIOMETRICO' | 'ADMINISTRATIVO';
-export type IdentityVerification = 'BIOMETRIA_DISPOSITIVO' | 'ADMINISTRATIVA' | 'NO_APLICA';
+export type IdentityVerification = 'BIOMETRIA_DISPOSITIVO' | 'SELFIE_REVISADA' | 'ADMINISTRATIVA' | 'NO_APLICA';
 
 export interface Marcacion {
   id: number;

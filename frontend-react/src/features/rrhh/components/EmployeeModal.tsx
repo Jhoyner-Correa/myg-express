@@ -13,7 +13,7 @@ type Props = {
   roles: JobRole[];
   schedules: WorkSchedule[];
   onClose: () => void;
-  onSave: (input: EmployeeInput, assignments: ScheduleAssignment[]) => Promise<void>;
+  onSave: (input: EmployeeInput, assignments: ScheduleAssignment[], effectiveFrom: string) => Promise<void>;
 };
 
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -33,6 +33,7 @@ export function EmployeeModal({ open, siteId, employee, roles, schedules, onClos
   const [form, setForm] = useState(() => initialInput(siteId, employee));
   const [scheduleId, setScheduleId] = useState(0);
   const [weekdays, setWeekdays] = useState<number[]>([1, 2, 3, 4, 5, 6]);
+  const [scheduleEffectiveFrom, setScheduleEffectiveFrom] = useState(today());
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const title = employee ? 'Editar colaborador' : 'Registrar colaborador';
@@ -42,6 +43,7 @@ export function EmployeeModal({ open, siteId, employee, roles, schedules, onClos
     setForm(initialInput(siteId, employee));
     setScheduleId(0);
     setWeekdays([1, 2, 3, 4, 5, 6]);
+    setScheduleEffectiveFrom(today());
     setError(null);
     if (employee) {
       void rrhhService.getEmployeeSchedule(employee.id).then(assignments => {
@@ -63,7 +65,7 @@ export function EmployeeModal({ open, siteId, employee, roles, schedules, onClos
     if (validation) { setError(validation); return; }
     if (scheduleId < 1 || weekdays.length === 0) { setError('Selecciona un horario y al menos un día laboral.'); return; }
     setSaving(true); setError(null);
-    try { await onSave(form, buildWeeklyAssignments(scheduleId, weekdays)); } catch (saveError) {
+    try { await onSave(form, buildWeeklyAssignments(scheduleId, weekdays), scheduleEffectiveFrom); } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'No se pudo guardar el colaborador.');
     } finally { setSaving(false); }
   };
@@ -85,7 +87,8 @@ export function EmployeeModal({ open, siteId, employee, roles, schedules, onClos
           <label>Sexo<select value={form.sexo} onChange={e => update('sexo', e.target.value as EmployeeInput['sexo'])}><option value="M">Masculino</option><option value="F">Femenino</option></select></label>
           <label>Estado<select value={form.estado} onChange={e => update('estado', e.target.value as EmployeeInput['estado'])}><option value="ACTIVO">Activo</option><option value="SUSPENDIDO">Suspendido</option><option value="INACTIVO">Inactivo</option></select></label>
           <label>Seguimiento<select value={form.tipo_rastreo} onChange={e => update('tipo_rastreo', e.target.value as EmployeeInput['tipo_rastreo'])}><option value="NINGUNO">Sin rastreo</option><option value="SOLO_MARCACION">Solo marcación</option><option value="CONTINUO">Continuo (repartidor)</option></select></label>
-          <label>Horario<select value={scheduleId} onChange={e => setScheduleId(Number(e.target.value))}><option value={0}>Seleccionar horario</option>{schedules.map(schedule => <option key={schedule.id} value={schedule.id}>{schedule.name} · {schedule.start_time.slice(0, 5)}–{schedule.end_time.slice(0, 5)}</option>)}</select></label>
+          <label>Horario<select value={scheduleId} onChange={e => setScheduleId(Number(e.target.value))}><option value={0}>Seleccionar horario</option>{schedules.filter(schedule => schedule.status === 'ACTIVO').map(schedule => <option key={schedule.id} value={schedule.id}>{schedule.name} · {schedule.start_time.slice(0, 5)}–{schedule.end_time.slice(0, 5)}</option>)}</select></label>
+          <label>Aplicar horario desde<input type="date" min={today()} value={scheduleEffectiveFrom} onChange={e => setScheduleEffectiveFrom(e.target.value)} /></label>
         </div>
         <fieldset className={styles.weekdays}><legend>Días laborales</legend>{WEEKDAYS.map(day => <label key={day.value}><input type="checkbox" checked={weekdays.includes(day.value)} onChange={() => setWeekdays(current => current.includes(day.value) ? current.filter(value => value !== day.value) : [...current, day.value])} />{day.label}</label>)}</fieldset>
         <label className={styles.fullField}>Observaciones<textarea rows={2} value={form.observaciones} onChange={e => update('observaciones', e.target.value)} /></label>

@@ -148,7 +148,7 @@ export const auditarSesionesEvolution = async (req: AuthRequest, res: Response) 
   try {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
-    const isSystemAudit = Boolean(req.user?.es_superadmin);
+    const isSystemAudit = req.user?.tipo_usuario === 'SISTEMA';
     const sedeId = req.user?.sede_id;
 
     if (!isSystemAudit && !sedeId) {
@@ -263,7 +263,7 @@ export const listarSesionesWhatsApp = async (req: AuthRequest, res: Response) =>
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     let sede_id = req.user?.sede_id;
 
-    if (req.user?.es_superadmin) {
+    if (req.user?.tipo_usuario === 'SISTEMA') {
       const querySedeId = req.query.sede_id || req.body.sede_id;
       if (querySedeId) sede_id = Number(querySedeId);
     }

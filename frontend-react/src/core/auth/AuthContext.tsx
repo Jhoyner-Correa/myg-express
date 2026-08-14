@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthContext } from './authState';
 import type { UserSession } from './authState';
+import { apiClient } from '../api/apiClient';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserSession | null>(null);
@@ -13,21 +14,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Restaurar sesión al inicializar la app
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
 
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error('Error parseando sesión guardada:', e);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
+    if (!storedToken || !storedUser) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    const controller = new AbortController();
+    setToken(storedToken);
+
+    try {
+      setUser(JSON.parse(storedUser));
+    } catch (error) {
+      console.error('Error parseando sesión guardada:', error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setToken(null);
+      setLoading(false);
+      return;
+    }
+
+    void apiClient.get<{ user: UserSession }>('/auth/perfil', { signal: controller.signal })
+      .then(({ data }) => {
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setUser(data.user);
+      })
+      .catch(error => {
+        if (!controller.signal.aborted) {
+          console.warn('No se pudo actualizar el perfil de la sesión:', error);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
   }, []);
 
   const login = (newToken: string, newUser: UserSession) => {

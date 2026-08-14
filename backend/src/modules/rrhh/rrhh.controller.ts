@@ -19,6 +19,8 @@ import { RrhhCatalogService } from './services/RrhhCatalogService';
 import { AttendanceDashboardService } from './services/AttendanceDashboardService';
 import { AbsenceWorkflowService } from './services/AbsenceWorkflowService';
 import { AttendanceCorrectionService } from './services/AttendanceCorrectionService';
+import { AttendanceContingencyService, ContingencyError } from './services/AttendanceContingencyService';
+import { ScheduleService } from './services/ScheduleService';
 
 function errorStatus(error: unknown, fallback: number): number {
   if (error instanceof SedeScopeError || error instanceof AttendanceRuleError) return error.statusCode;
@@ -32,11 +34,15 @@ export class RrhhController {
   private readonly attendanceDashboardService = new AttendanceDashboardService();
   private readonly absenceWorkflowService = new AbsenceWorkflowService();
   private readonly attendanceCorrectionService = new AttendanceCorrectionService();
+  private readonly scheduleService = new ScheduleService();
+  private readonly attendanceContingencyService: AttendanceContingencyService;
 
   constructor(
     private empleadoService: EmpleadoService,
     private asistenciaService: AsistenciaService
-  ) {}
+  ) {
+    this.attendanceContingencyService = new AttendanceContingencyService(asistenciaService);
+  }
 
   listarCatalogos = async (req: AuthRequest, res: Response) => {
     try {
@@ -44,7 +50,7 @@ export class RrhhController {
       const [sites, roles, schedules] = await Promise.all([
         this.catalogService.listSites(scopedSite),
         this.catalogService.listJobRoles(),
-        this.catalogService.listSchedules(),
+        this.scheduleService.listSchedules(),
       ]);
       return res.json({ ok: true, data: { sites, roles, schedules } });
     } catch (error) {
@@ -85,11 +91,17 @@ export class RrhhController {
 
   crearHorario = async (req: AuthRequest, res: Response) => {
     try {
-      const schedule = await this.catalogService.saveSchedule(null, {
+      const schedule = await this.scheduleService.saveSchedule(null, {
         name: req.body.name,
         startTime: req.body.start_time,
         endTime: req.body.end_time,
-        toleranceMinutes: Number(req.body.tolerance_minutes),
+        toleranceMinutes: req.body.tolerance_minutes,
+        lunchEnabled: req.body.lunch_enabled,
+        lunchStartFrom: req.body.lunch_start_from,
+        lunchStartUntil: req.body.lunch_start_until,
+        lunchDurationMinutes: req.body.lunch_duration_minutes,
+        returnToleranceMinutes: req.body.return_tolerance_minutes,
+        effectiveFrom: req.body.effective_from,
       }, Number(req.user?.id));
       return res.status(201).json({ ok: true, message: 'Horario creado correctamente.', data: schedule });
     } catch (error) {
@@ -101,13 +113,34 @@ export class RrhhController {
     try {
       const scheduleId = Number(req.params.id);
       if (!Number.isInteger(scheduleId) || scheduleId < 1) throw new Error('Horario no válido.');
-      const schedule = await this.catalogService.saveSchedule(scheduleId, {
+      const schedule = await this.scheduleService.saveSchedule(scheduleId, {
         name: req.body.name,
         startTime: req.body.start_time,
         endTime: req.body.end_time,
-        toleranceMinutes: Number(req.body.tolerance_minutes),
+        toleranceMinutes: req.body.tolerance_minutes,
+        lunchEnabled: req.body.lunch_enabled,
+        lunchStartFrom: req.body.lunch_start_from,
+        lunchStartUntil: req.body.lunch_start_until,
+        lunchDurationMinutes: req.body.lunch_duration_minutes,
+        returnToleranceMinutes: req.body.return_tolerance_minutes,
+        effectiveFrom: req.body.effective_from,
       }, Number(req.user?.id));
       return res.json({ ok: true, message: 'Horario actualizado correctamente.', data: schedule });
+    } catch (error) {
+      return res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo actualizar el horario.' });
+    }
+  };
+
+  actualizarEstadoHorario = async (req: AuthRequest, res: Response) => {
+    try {
+      const scheduleId = Number(req.params.id);
+      if (!Number.isInteger(scheduleId) || scheduleId < 1) throw new Error('Horario no válido.');
+      const schedule = await this.scheduleService.setScheduleStatus(
+        scheduleId,
+        req.body.status,
+        Number(req.user?.id),
+      );
+      return res.json({ ok: true, message: 'Estado del horario actualizado.', data: schedule });
     } catch (error) {
       return res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo actualizar el horario.' });
     }
@@ -118,7 +151,10 @@ export class RrhhController {
       const employeeId = Number(req.params.id);
       const employee = await this.empleadoService.obtenerPorId(employeeId);
       assertEntitySede(req, employee.sedeId);
-      return res.json({ ok: true, data: await this.catalogService.getEmployeeSchedule(employeeId) });
+      return res.json({
+        ok: true,
+        data: await this.scheduleService.getEmployeeSchedule(employeeId, req.query.fecha),
+      });
     } catch (error) {
       return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo consultar el horario.' });
     }
@@ -138,9 +174,10 @@ export class RrhhController {
           };
         })
         : [];
-      const data = await this.catalogService.replaceEmployeeSchedule(
+      const data = await this.scheduleService.replaceEmployeeSchedule(
         employeeId,
         assignments,
+        req.body.effective_from,
         Number(req.user?.id),
       );
       return res.json({ ok: true, message: 'Horario semanal actualizado.', data });
@@ -496,6 +533,57 @@ export class RrhhController {
       return res.json({ ok: true, message: 'Corrección aplicada y auditada.', data });
     } catch (error) {
       return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo corregir la asistencia.' });
+    }
+  };
+
+  listarContingenciasMarcacion = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.params.sedeId);
+      const data = await this.attendanceContingencyService.list(siteId, String(req.query.estado || 'PENDIENTE'));
+      return res.json({ ok: true, data });
+    } catch (error) {
+      const status = error instanceof ContingencyError ? error.statusCode : errorStatus(error, 400);
+      return res.status(status).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudieron consultar las revisiones biometricas.',
+      });
+    }
+  };
+
+  resolverContingenciaMarcacion = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.body.sede_id);
+      const data = await this.attendanceContingencyService.resolve(
+        siteId,
+        Number(req.params.id),
+        Number(req.user?.id),
+        req.body.decision,
+        req.body.comment,
+        req.ip,
+      );
+      return res.json({ ok: true, message: 'Solicitud de marcacion resuelta.', data });
+    } catch (error) {
+      const status = error instanceof ContingencyError ? error.statusCode : errorStatus(error, 400);
+      return res.status(status).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudo resolver la solicitud.',
+      });
+    }
+  };
+
+  obtenerEvidenciaContingencia = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.query.sede_id);
+      const evidence = await this.attendanceContingencyService.evidence(siteId, Number(req.params.id));
+      res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+      res.setHeader('Content-Type', evidence.mimeType);
+      return res.sendFile(evidence.absolutePath);
+    } catch (error) {
+      const status = error instanceof ContingencyError ? error.statusCode : errorStatus(error, 400);
+      return res.status(status).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudo consultar la evidencia.',
+      });
     }
   };
 }

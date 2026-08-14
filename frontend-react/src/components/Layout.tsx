@@ -26,7 +26,7 @@ export const Layout: React.FC = () => {
 
   const getRoleLabel = () => {
     if (!user) return 'OPERADOR DEL SISTEMA';
-    if (user.es_superadmin) return 'SYSADMIN';
+    if (user.tipo_usuario === 'SISTEMA') return 'SYSADMIN';
     const rawRole = String(user.rol || '').toLowerCase().replace(/[\s_-]+/g, '');
     if (rawRole === 'sysadmin' || rawRole.includes('sysadmin')) {
       return 'SYSADMIN';

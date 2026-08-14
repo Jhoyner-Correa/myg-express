@@ -18,7 +18,7 @@ type SedeConfiguracionRow = RowDataPacket & {
 };
 
 function obtenerSedeId(req: AuthRequest): number | null {
-  if (req.user?.es_superadmin) {
+  if (req.user?.tipo_usuario === 'SISTEMA') {
     const querySedeId = req.query.sede_id || req.body.sede_id;
     if (querySedeId) return Number(querySedeId);
   }

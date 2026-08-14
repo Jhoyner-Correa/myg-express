@@ -13,6 +13,8 @@ import type {
   AttendanceDashboard,
   AbsenceWorkflows,
   AttendanceCorrectionInput,
+  BiometricContingency,
+  SchedulePolicyInput,
 } from './types';
 
 async function unwrapRequest<T>(request: Promise<{ data: ApiEnvelope<T> }>, fallback?: T) {
@@ -45,14 +47,24 @@ export const rrhhService = {
   createJobRole(input: Pick<JobRole, 'name' | 'description' | 'default_tracking_type'>) {
     return unwrapRequest(apiClient.post<ApiEnvelope<JobRole>>('/rrhh/cargos', input));
   },
-  createSchedule(input: Pick<WorkSchedule, 'name' | 'start_time' | 'end_time' | 'tolerance_minutes'>) {
+  createSchedule(input: SchedulePolicyInput) {
     return unwrapRequest(apiClient.post<ApiEnvelope<WorkSchedule>>('/rrhh/horarios', input));
   },
-  getEmployeeSchedule(employeeId: number) {
-    return unwrapRequest(apiClient.get<ApiEnvelope<ScheduleAssignment[]>>(`/rrhh/empleados/${employeeId}/horario`), []);
+  updateSchedule(scheduleId: number, input: SchedulePolicyInput) {
+    return unwrapRequest(apiClient.put<ApiEnvelope<WorkSchedule>>(`/rrhh/horarios/${scheduleId}`, input));
   },
-  saveEmployeeSchedule(employeeId: number, assignments: ScheduleAssignment[]) {
-    return unwrapRequest(apiClient.put<ApiEnvelope<ScheduleAssignment[]>>(`/rrhh/empleados/${employeeId}/horario`, { assignments }), []);
+  setScheduleStatus(scheduleId: number, status: WorkSchedule['status']) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<WorkSchedule>>(`/rrhh/horarios/${scheduleId}/estado`, { status }));
+  },
+  getEmployeeSchedule(employeeId: number, date?: string) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<ScheduleAssignment[]>>(
+      `/rrhh/empleados/${employeeId}/horario`, { params: date ? { fecha: date } : undefined },
+    ), []);
+  },
+  saveEmployeeSchedule(employeeId: number, assignments: ScheduleAssignment[], effectiveFrom: string) {
+    return unwrapRequest(apiClient.put<ApiEnvelope<ScheduleAssignment[]>>(
+      `/rrhh/empleados/${employeeId}/horario`, { assignments, effective_from: effectiveFrom },
+    ), []);
   },
   getAttendanceDashboard(siteId: number, date: string, signal?: AbortSignal) {
     return unwrapRequest(apiClient.get<ApiEnvelope<AttendanceDashboard>>(
@@ -77,5 +89,25 @@ export const rrhhService = {
   },
   correctAttendance(input: AttendanceCorrectionInput) {
     return unwrapRequest(apiClient.put<ApiEnvelope<{ correction_id: number; attendance_id: number }>>('/rrhh/asistencias/correccion', input));
+  },
+  getBiometricContingencies(siteId: number, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<BiometricContingency[]>>(
+      `/rrhh/contingencias/sede/${siteId}`,
+      { params: { estado: 'PENDIENTE' }, signal },
+    ), []);
+  },
+  resolveBiometricContingency(id: number, input: { sede_id: number; decision: 'APROBAR' | 'RECHAZAR'; comment: string }) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<{ id: number; status: string; mark_id: number | null }>>(
+      `/rrhh/contingencias/${id}/resolver`,
+      input,
+    ));
+  },
+  async getBiometricEvidence(id: number, siteId: number, signal?: AbortSignal) {
+    const response = await apiClient.get<Blob>(`/rrhh/contingencias/${id}/evidencia`, {
+      params: { sede_id: siteId },
+      responseType: 'blob',
+      signal,
+    });
+    return response.data;
   },
 };

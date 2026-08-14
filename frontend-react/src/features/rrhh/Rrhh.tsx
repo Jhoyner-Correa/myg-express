@@ -22,6 +22,7 @@ const emptyCatalogs: RrhhCatalogs = { sites: [], roles: [], schedules: [] };
 export function Rrhh() {
   const { user } = useAuth();
   const canManage = userHasPermission(user, PERMISSIONS.RRHH_MANAGE);
+  const canConfigure = userHasPermission(user, PERMISSIONS.RRHH_CONFIGURE);
   const [catalogs, setCatalogs] = useState<RrhhCatalogs>(emptyCatalogs);
   const [siteId, setSiteId] = useState<number | null>(user?.sede_id ?? null);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -74,12 +75,17 @@ export function Rrhh() {
     if (siteId !== null) await loadEmployees(siteId);
   }, [loadEmployees, siteId]);
 
-  const saveEmployee = async (input: EmployeeInput, assignments: ScheduleAssignment[]) => {
+  const startEmployeeRegistration = () => {
+    setTab('people');
+    setEditing('new');
+  };
+
+  const saveEmployee = async (input: EmployeeInput, assignments: ScheduleAssignment[], effectiveFrom: string) => {
     const currentEmployee = editing === 'new' ? null : editing;
     const saved = currentEmployee
       ? await rrhhService.updateEmployee(currentEmployee.id, input)
       : await rrhhService.createEmployee(input);
-    try { await rrhhService.saveEmployeeSchedule(saved.id, assignments); }
+    try { await rrhhService.saveEmployeeSchedule(saved.id, assignments, effectiveFrom); }
     catch (scheduleError) { showToast(getApiErrorMessage(scheduleError, 'El colaborador se guardó, pero debes revisar su horario.'), 'warning'); }
     await reload(); setEditing(null);
     showToast(currentEmployee ? 'Información del colaborador actualizada.' : 'Colaborador registrado correctamente.', 'success');
@@ -87,7 +93,7 @@ export function Rrhh() {
 
   return (
     <main className={`main ${styles.page}`} id="main-content">
-      <PageHeader icon={<Users />} title="Recursos Humanos" subtitle="Personal, asistencia y control operativo por sede" metadata={selectedSite?.name ?? user?.sede_nombre ?? 'Administración general'} />
+      <PageHeader icon={<Users />} title="Recursos Humanos" subtitle="Gestión empresarial de personal, asistencia y operación" metadata={tab === 'configuration' ? 'Configuración empresarial' : selectedSite?.name ?? user?.sede_nombre ?? 'Administración general'} />
       <section className={styles.content}>
         <div className={styles.headingRow}>
           <div className={styles.tabs} role="tablist" aria-label="Secciones de Recursos Humanos">
@@ -96,11 +102,14 @@ export function Rrhh() {
             <button className={tab === 'people' ? styles.tabActive : ''} onClick={() => setTab('people')}><Users size={16} />Personal</button>
             <button className={tab === 'configuration' ? styles.tabActive : ''} onClick={() => setTab('configuration')}><Settings2 size={16} />Configuración</button>
           </div>
-          <div className={styles.sitePicker}><MapPin size={15} /><select aria-label="Sede operativa" value={siteId ?? ''} onChange={event => setSiteId(Number(event.target.value))}>{catalogs.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></div>
+          <div className={styles.headingActions}>
+            {tab !== 'configuration' && <div className={styles.sitePicker}><MapPin size={15} /><select aria-label="Sede operativa" value={siteId ?? ''} onChange={event => setSiteId(Number(event.target.value))}>{catalogs.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></div>}
+            {canManage && <Button icon={<UserPlus size={16} />} onClick={startEmployeeRegistration}>Registrar colaborador</Button>}
+          </div>
         </div>
 
         {loading && catalogs.sites.length === 0 ? <PageLoader label="Preparando Recursos Humanos" /> : error ? <div className={styles.errorState} role="alert"><p>{getApiErrorMessage(error, 'No se pudo cargar Recursos Humanos.')}</p><Button variant="secondary" onClick={() => void loadCatalogs()}>Reintentar</Button></div> : siteId === null ? <div className={styles.errorState}>No hay una sede disponible para gestionar.</div> : tab === 'configuration' ? (
-          <ConfigurationPanel siteId={siteId} roles={catalogs.roles} schedules={catalogs.schedules} canManage={canManage} onCatalogChanged={() => loadCatalogs()} />
+          <ConfigurationPanel siteId={siteId} sites={catalogs.sites} roles={catalogs.roles} schedules={catalogs.schedules} canManage={canConfigure} onSiteChange={setSiteId} onCatalogChanged={() => loadCatalogs()} />
         ) : tab === 'attendance' ? (
           <AttendancePanel siteId={siteId} canManage={canManage} />
         ) : tab === 'requests' ? (
@@ -112,7 +121,7 @@ export function Rrhh() {
             <article><span className={styles.metricOrange}><BriefcaseBusiness /></span><div><p>Repartidores monitoreados</p><strong>{trackedCount}</strong><small>Con seguimiento continuo</small></div></article>
           </div>
           <article className={styles.card}>
-            <header className={styles.toolbar}><div><h2>Directorio de personal</h2><p>Gestiona los datos laborales y accesos a la aplicación móvil.</p></div><div className={styles.toolbarActions}><label className={styles.search}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar colaborador..." /></label>{canManage && <Button icon={<UserPlus size={16} />} onClick={() => setEditing('new')}>Registrar colaborador</Button>}</div></header>
+            <header className={styles.toolbar}><div><h2>Directorio de personal</h2><p>Gestiona los datos laborales y accesos a la aplicación móvil.</p></div><div className={styles.toolbarActions}><label className={styles.search}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar colaborador..." /></label></div></header>
             {loading ? <PageLoader compact label="Actualizando personal" /> : <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Colaborador</th><th>Documento</th><th>Cargo</th><th>Seguimiento</th><th>Estado</th><th aria-label="Acciones" /></tr></thead><tbody>
               {filtered.map(employee => <tr key={employee.id}><td><div className={styles.person}><span>{employee.nombres.charAt(0)}{employee.apellidos.charAt(0)}</span><div><strong>{employee.nombres} {employee.apellidos}</strong><small>{employee.codigoEmpleado}</small></div></div></td><td>{employee.dni}</td><td>{employee.cargoNombre || 'Sin cargo'}</td><td>{employee.tipoRastreo === 'CONTINUO' ? 'Continuo' : employee.tipoRastreo === 'NINGUNO' ? 'Sin rastreo' : 'Solo marcación'}</td><td><span className={`${styles.status} ${styles[`status${employee.estado}`]}`}><i />{employee.estado === 'ACTIVO' ? 'Activo' : employee.estado === 'INACTIVO' ? 'Inactivo' : 'Suspendido'}</span></td><td><div className={styles.actions}>{canManage && <><button title="Editar colaborador" aria-label={`Editar a ${employee.nombres}`} onClick={() => setEditing(employee)}><Pencil /></button><button title="Generar acceso móvil" aria-label={`Generar acceso para ${employee.nombres}`} onClick={() => setActivating(employee)}><KeyRound /></button></>}</div></td></tr>)}
               {!filtered.length && <tr><td colSpan={6}><div className={styles.empty}>{query ? 'No encontramos colaboradores con ese criterio.' : 'Aún no hay colaboradores registrados en esta sede.'}</div></td></tr>}

@@ -3,6 +3,7 @@ dist/
 .env
 backend/.env
 backend/storage/
+backend/private-storage/
 *.log
 .DS_Store
 

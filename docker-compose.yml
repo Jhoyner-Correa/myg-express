@@ -46,6 +46,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./backend/storage:/app/backend/storage
+      - ./backend/private-storage:/app/backend/private-storage
     depends_on:
       redis-myg:
         condition: service_healthy

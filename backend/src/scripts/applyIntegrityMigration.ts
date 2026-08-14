@@ -11,7 +11,6 @@ const foreignKeys = [
   ['fk_log_lote', `ALTER TABLE mensajes_log ADD CONSTRAINT fk_log_lote FOREIGN KEY (lote_id) REFERENCES lotes_carga(id) ON DELETE SET NULL ON UPDATE CASCADE`],
   ['fk_log_aviso', `ALTER TABLE mensajes_log ADD CONSTRAINT fk_log_aviso FOREIGN KEY (aviso_id) REFERENCES avisos_diarios(id) ON DELETE SET NULL ON UPDATE CASCADE`],
   ['fk_log_sesion', `ALTER TABLE mensajes_log ADD CONSTRAINT fk_log_sesion FOREIGN KEY (whatsapp_sesion_id) REFERENCES whatsapp_sesiones(id) ON DELETE SET NULL ON UPDATE CASCADE`],
-  ['fk_usuarios_sede', `ALTER TABLE usuarios ADD CONSTRAINT fk_usuarios_sede FOREIGN KEY (sede_id) REFERENCES sedes(id) ON DELETE RESTRICT ON UPDATE CASCADE`],
   ['fk_sesiones_sede', `ALTER TABLE whatsapp_sesiones ADD CONSTRAINT fk_sesiones_sede FOREIGN KEY (sede_id) REFERENCES sedes(id) ON DELETE RESTRICT ON UPDATE CASCADE`],
   ['fk_plantillas_sede', `ALTER TABLE plantillas ADD CONSTRAINT fk_plantillas_sede FOREIGN KEY (sede_id) REFERENCES sedes(id) ON DELETE RESTRICT ON UPDATE CASCADE`],
   ['fk_zonas_sede', `ALTER TABLE zonas ADD CONSTRAINT fk_zonas_sede FOREIGN KEY (sede_id) REFERENCES sedes(id) ON DELETE CASCADE ON UPDATE CASCADE`],
