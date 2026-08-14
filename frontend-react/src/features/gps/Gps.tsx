@@ -1,33 +1,17 @@
-// ============================================================
-// frontend-react/src/features/gps/Gps.tsx
-// Vista del Módulo de Rastreo GPS en tiempo real
-// ============================================================
+import { MapPinned, RadioTower } from 'lucide-react';
+import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
+import styles from './Gps.module.css';
 
-import React from 'react';
-
-export const Gps: React.FC = () => {
-  return (
-    <div className="glass-panel" style={{ padding: '32px' }}>
-      <h2 style={{ marginBottom: '16px', color: '#fff' }}>Módulo de Rastreo GPS en Vivo</h2>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
-        Visualiza la ubicación geográfica en tiempo real de tus transportistas y consulta los recorridos de rutas históricas.
-      </p>
-
-      <div style={{ 
-        height: '350px', 
-        background: 'rgba(0, 0, 0, 0.2)', 
-        border: '1px solid var(--glass-border)',
-        borderRadius: '12px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'var(--text-muted)',
-        flexDirection: 'column',
-        gap: '12px'
-      }}>
-        <span style={{ fontSize: '2.5rem' }}>🗺️</span>
-        <p>El mapa interactivo se renderizará aquí utilizando Leaflet / Google Maps</p>
-      </div>
-    </div>
-  );
-};
+export function Gps() {
+  return <main className={`main ${styles.page}`} id="main-content">
+    <PageHeader icon={<MapPinned />} title="Rastreo GPS" subtitle="Ubicación operativa y recorridos del personal autorizado" metadata="Alcance empresarial" />
+    <section className={styles.content}>
+      <article className={styles.card}>
+        <header className={styles.cardHeader}><div><h2>Monitoreo en tiempo real</h2><p>Posición más reciente de los colaboradores con seguimiento continuo.</p></div><span className={styles.status}><i />Esperando transmisiones</span></header>
+        <div className={styles.mapStage}>
+          <div className={styles.empty}><span><RadioTower /></span><h3>Sin ubicaciones activas</h3><p>El mapa mostrará colaboradores cuando una jornada con rastreo continuo esté activa y la aplicación móvil esté transmitiendo ubicación.</p><div className={styles.facts}><div><strong>Solo autorizados</strong><small>Control por cargo</small></div><div><strong>Por jornada</strong><small>Inicio y cierre definidos</small></div><div><strong>Con auditoría</strong><small>Historial trazable</small></div></div></div>
+        </div>
+      </article>
+    </section>
+  </main>;
+}

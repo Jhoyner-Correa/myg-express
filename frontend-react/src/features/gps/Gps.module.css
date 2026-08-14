@@ -1,0 +1,20 @@
+.page { min-height: 100vh; background: var(--surface-app); }
+.content { padding: 18px 24px 32px; }
+.card { overflow: hidden; border: 1px solid var(--border-default); border-radius: 13px; background: var(--surface-card); box-shadow: var(--shadow-sm); }
+.cardHeader { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 15px 18px; border-bottom: 1px solid var(--border-default); }
+.cardHeader h2 { margin: 0; color: var(--text-primary); font-size: .9rem; font-weight: 730; }
+.cardHeader p { margin: 3px 0 0; color: var(--text-muted); font-size: .7rem; }
+.status { display: inline-flex; align-items: center; gap: 7px; color: #526174; font-size: .65rem; font-weight: 680; }
+.status i { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; }
+.mapStage { display: grid; min-height: 460px; place-items: center; padding: 35px; background-color: #f8fafb; background-image: linear-gradient(#e9eff2 1px, transparent 1px), linear-gradient(90deg, #e9eff2 1px, transparent 1px); background-size: 34px 34px; }
+.empty { display: grid; max-width: 490px; justify-items: center; gap: 9px; padding: 30px; border: 1px solid #dce6e1; border-radius: 15px; background: rgba(255,255,255,.94); text-align: center; box-shadow: 0 12px 35px rgba(28,50,42,.08); }
+.empty > span { display: grid; width: 54px; height: 54px; place-items: center; border-radius: 14px; background: #eaf8f0; color: #0b8f49; }
+.empty svg { width: 25px; }
+.empty h3 { margin: 4px 0 0; color: var(--text-primary); font-size: .94rem; }
+.empty p { margin: 0; color: var(--text-secondary); font-size: .72rem; line-height: 1.6; }
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; margin-top: 8px; border-top: 1px solid var(--border-default); }
+.facts div { display: grid; gap: 3px; padding: 13px 8px 0; }
+.facts div + div { border-left: 1px solid var(--border-default); }
+.facts strong { color: var(--text-primary); font-size: .69rem; }
+.facts small { color: var(--text-muted); font-size: .58rem; }
+@media (max-width: 760px) { .content { padding: 14px; }.cardHeader { align-items: flex-start; flex-direction: column; }.mapStage { min-height: 390px; padding: 18px; }.facts { grid-template-columns: 1fr; }.facts div + div { border-top: 1px solid var(--border-default); border-left: 0; } }

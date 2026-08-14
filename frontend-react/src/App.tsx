@@ -69,8 +69,16 @@ export const AppContent: React.FC = () => {
           <Route path="logistica/savar-scan" element={<ProtectedRoute permission="savarscan.ver"><SavarScan /></ProtectedRoute>} />
           <Route path="logistica/etiquetas" element={<ProtectedRoute permission="etiquetas.ver"><Etiquetas /></ProtectedRoute>} />
           <Route path="logistica/consulta" element={<ProtectedRoute permission="urbano.rutas.ver"><ConsultaHistorica /></ProtectedRoute>} />
-          <Route path="rrhh" element={<ProtectedRoute permission="rrhh.ver"><Rrhh /></ProtectedRoute>} />
-          <Route path="gps" element={<ProtectedRoute permission="gps.ver"><Gps /></ProtectedRoute>} />
+          <Route path="rrhh" element={<Navigate to="/rrhh/resumen" replace />} />
+          <Route path="rrhh/resumen" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="overview" /></ProtectedRoute>} />
+          <Route path="rrhh/personal" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="people" /></ProtectedRoute>} />
+          <Route path="rrhh/asistencia" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="attendance" /></ProtectedRoute>} />
+          <Route path="rrhh/solicitudes" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="requests" /></ProtectedRoute>} />
+          <Route path="rrhh/horarios" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="schedules" /></ProtectedRoute>} />
+          <Route path="rrhh/gps" element={<ProtectedRoute permission="gps.ver"><Gps /></ProtectedRoute>} />
+          <Route path="rrhh/reportes" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="reports" /></ProtectedRoute>} />
+          <Route path="rrhh/configuracion" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="configuration" /></ProtectedRoute>} />
+          <Route path="gps" element={<Navigate to="/rrhh/gps" replace />} />
           <Route path="admin" element={<ProtectedRoute permission="admin.panel.ver"><Admin /></ProtectedRoute>} />
         </Route>
 

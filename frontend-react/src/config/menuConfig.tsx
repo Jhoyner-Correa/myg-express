@@ -1,4 +1,14 @@
 import React from 'react';
+import {
+  BarChart3,
+  CalendarCheck2,
+  CalendarClock,
+  ClipboardList,
+  LayoutDashboard,
+  MapPinned,
+  Settings2,
+  UsersRound,
+} from 'lucide-react';
 
 export interface MenuItem {
   title: string;
@@ -98,8 +108,6 @@ export const sidebarMenuConfig: MenuItem[] = [
   },
   {
     title: 'Recursos Humanos',
-    path: '/rrhh',
-    permission: 'rrhh.ver',
     group: 'tools',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -108,19 +116,17 @@ export const sidebarMenuConfig: MenuItem[] = [
         <path d="M23 21v-2a4 4 0 00-3-3.87" />
         <path d="M16 3.13a4 4 0 010 7.75" />
       </svg>
-    )
-  },
-  {
-    title: 'Rastreo GPS',
-    path: '/gps',
-    permission: 'gps.ver',
-    group: 'tools',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-        <circle cx="12" cy="10" r="3" />
-      </svg>
-    )
+    ),
+    children: [
+      { title: 'Resumen ejecutivo', path: '/rrhh/resumen', permission: 'rrhh.ver', icon: <LayoutDashboard aria-hidden="true" /> },
+      { title: 'Personal', path: '/rrhh/personal', permission: 'rrhh.ver', icon: <UsersRound aria-hidden="true" /> },
+      { title: 'Asistencia', path: '/rrhh/asistencia', permission: 'rrhh.ver', icon: <CalendarCheck2 aria-hidden="true" /> },
+      { title: 'Solicitudes', path: '/rrhh/solicitudes', permission: 'rrhh.ver', icon: <ClipboardList aria-hidden="true" /> },
+      { title: 'Horarios y calendario', path: '/rrhh/horarios', permission: 'rrhh.ver', icon: <CalendarClock aria-hidden="true" /> },
+      { title: 'Rastreo GPS', path: '/rrhh/gps', permission: 'gps.ver', icon: <MapPinned aria-hidden="true" /> },
+      { title: 'Reportes', path: '/rrhh/reportes', permission: 'rrhh.ver', icon: <BarChart3 aria-hidden="true" /> },
+      { title: 'Configuración', path: '/rrhh/configuracion', permission: 'rrhh.ver', icon: <Settings2 aria-hidden="true" /> },
+    ],
   },
   {
     title: 'Panel central',

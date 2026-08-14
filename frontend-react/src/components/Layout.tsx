@@ -11,13 +11,17 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { sidebarMenuConfig } from '../config/menuConfig';
 import type { MenuItem } from '../config/menuConfig';
 
+function pathIsActive(currentPath: string, path?: string) {
+  return Boolean(path && (currentPath === path || currentPath.startsWith(`${path}/`)));
+}
+
 export const Layout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   // Estado para expandir/colapsar el menú de "WhatsApp Masivo"
-  const [massSendOpen, setMassSendOpen] = useState(true);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -66,6 +70,18 @@ export const Layout: React.FC = () => {
 
     return true;
   };
+
+  const toggleSection = (title: string, currentlyOpen: boolean) => {
+    setOpenSections(current => ({ ...current, [title]: !currentlyOpen }));
+  };
+
+  useEffect(() => {
+    setOpenSections(current => {
+      const activeParent = sidebarMenuConfig.find(item => item.children?.some(child => pathIsActive(location.pathname, child.path)));
+      if (!activeParent || current[activeParent.title]) return current;
+      return { ...current, [activeParent.title]: true };
+    });
+  }, [location.pathname]);
 
   return (
     <div className="app-wrapper">
@@ -116,31 +132,37 @@ export const Layout: React.FC = () => {
           </div>
 
           <nav className="sidebar__nav" aria-label="Menu principal">
-            {sidebarMenuConfig.filter(canShowItem).map((item, index) => {
+            {sidebarMenuConfig.filter(canShowItem).map((item) => {
               if (item.children) {
+                const visibleChildren = item.children.filter(canShowItem);
+                const hasActiveChild = visibleChildren.some(child => pathIsActive(location.pathname, child.path));
+                const isOpen = openSections[item.title] ?? hasActiveChild;
+                const sectionId = `sidebar-section-${item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
                 return (
-                  <div key={index} className="sidebar__section sidebar-section" data-group={item.group}>
+                  <div key={item.title} className="sidebar__section sidebar-section" data-group={item.group}>
                     <button 
-                      className="sidebar__link sidebar__section-header" 
+                      className={`sidebar__link sidebar__section-header ${hasActiveChild ? 'active' : ''}`}
                       type="button" 
-                      aria-expanded={massSendOpen}
-                      onClick={() => setMassSendOpen(!massSendOpen)}
+                      aria-expanded={isOpen}
+                      aria-controls={sectionId}
+                      onClick={() => toggleSection(item.title, isOpen)}
                       title={item.title}
                     >
                       <span className="sidebar__link-icon">{item.icon}</span>
                       <span className="sidebar__link-text">{item.title}</span>
-                      <svg className="sidebar__section-arrow" viewBox="0 0 24 24" aria-hidden="true" style={{ transform: massSendOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+                      <svg className="sidebar__section-arrow" viewBox="0 0 24 24" aria-hidden="true">
                         <polyline points="6 9 12 15 18 9"></polyline>
                       </svg>
                     </button>
 
-                    <div className={`sidebar__section-body ${massSendOpen ? '' : 'collapsed'}`} style={{ display: massSendOpen ? 'block' : 'none' }}>
+                    <div id={sectionId} className={`sidebar__section-body ${isOpen ? '' : 'collapsed'}`} hidden={!isOpen}>
                       <div className="sidebar__menu sidebar__menu--nested">
-                        {item.children.filter(canShowItem).map((child, cIdx) => (
+                        {visibleChildren.map((child) => (
                           <a 
-                            key={cIdx}
+                            key={child.path ?? child.title}
                             href={child.path} 
-                            className={`nav-item sidebar__sub-link ${location.pathname === child.path ? 'active' : ''}`} 
+                            className={`nav-item sidebar__sub-link ${pathIsActive(location.pathname, child.path) ? 'active' : ''}`}
+                            aria-current={pathIsActive(location.pathname, child.path) ? 'page' : undefined}
                             onClick={(e) => { e.preventDefault(); if (child.path) navigate(child.path); }}
                             title={child.title}
                           >
@@ -155,12 +177,13 @@ export const Layout: React.FC = () => {
               }
 
               return (
-                <div key={index} className="sidebar__section sidebar-section" data-group={item.group}>
+                <div key={item.path ?? item.title} className="sidebar__section sidebar-section" data-group={item.group}>
                   {item.group === 'administration' ? (
                     <div className="sidebar__menu">
                       <a 
                         href={item.path} 
-                        className={`nav-item sidebar__link ${location.pathname === item.path ? 'active' : ''}`} 
+                        className={`nav-item sidebar__link ${pathIsActive(location.pathname, item.path) ? 'active' : ''}`}
+                        aria-current={pathIsActive(location.pathname, item.path) ? 'page' : undefined}
                         onClick={(e) => { e.preventDefault(); if (item.path) navigate(item.path); }}
                         title={item.title}
                       >
@@ -171,7 +194,8 @@ export const Layout: React.FC = () => {
                   ) : (
                     <a 
                       href={item.path} 
-                      className={`nav-item sidebar__link ${location.pathname === item.path ? 'active' : ''}`} 
+                      className={`nav-item sidebar__link ${pathIsActive(location.pathname, item.path) ? 'active' : ''}`}
+                      aria-current={pathIsActive(location.pathname, item.path) ? 'page' : undefined}
                       onClick={(e) => { e.preventDefault(); if (item.path) navigate(item.path); }}
                       title={item.title}
                     >
