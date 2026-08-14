@@ -5,11 +5,13 @@
 
 import { IEmpleadoRepository } from '../repositories/IEmpleadoRepository';
 import { Empleado } from '../domain/Empleado';
+import { assertEmployeeDefinition } from '../domain/employeePolicy';
 
 export class EmpleadoService {
   constructor(private empleadoRepository: IEmpleadoRepository) {}
 
   async registrarEmpleado(empleado: Omit<Empleado, 'id'>): Promise<Empleado> {
+    assertEmployeeDefinition(empleado);
     // Validar si ya existe el DNI
     const existenteDni = await this.empleadoRepository.buscarPorDni(empleado.dni);
     if (existenteDni) {
@@ -44,6 +46,8 @@ export class EmpleadoService {
     if (!empleado) {
       throw new Error('Empleado no encontrado');
     }
+
+    assertEmployeeDefinition({ ...empleado, ...datos });
 
     if (datos.dni && datos.dni !== empleado.dni) {
       const existente = await this.empleadoRepository.buscarPorDni(datos.dni);

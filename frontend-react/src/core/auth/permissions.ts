@@ -16,6 +16,8 @@ export const PERMISSIONS = {
   URBANO_ROUTES_MANAGE: 'urbano.rutas.gestionar',
   SAVAR_SCAN_VIEW: 'savarscan.ver',
   SAVAR_SCAN_MANAGE: 'savarscan.gestionar',
+  RRHH_VIEW: 'rrhh.ver',
+  RRHH_MANAGE: 'rrhh.gestionar',
 } as const;
 
 export type AppPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS] | string;

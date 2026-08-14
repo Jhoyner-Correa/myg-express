@@ -15,6 +15,7 @@ import { randomUUID } from 'crypto';
 import { AttendanceRuleError } from './domain/attendancePolicy';
 import { MobileAuthService, mobileAuthCode, mobileAuthStatus } from '../rrhh-mobile/mobileAuth.service';
 import { GeofenceService } from './services/GeofenceService';
+import { RrhhCatalogService } from './services/RrhhCatalogService';
 
 function errorStatus(error: unknown, fallback: number): number {
   if (error instanceof SedeScopeError || error instanceof AttendanceRuleError) return error.statusCode;
@@ -24,11 +25,123 @@ function errorStatus(error: unknown, fallback: number): number {
 export class RrhhController {
   private readonly mobileAuthService = new MobileAuthService();
   private readonly geofenceService = new GeofenceService();
+  private readonly catalogService = new RrhhCatalogService();
 
   constructor(
     private empleadoService: EmpleadoService,
     private asistenciaService: AsistenciaService
   ) {}
+
+  listarCatalogos = async (req: AuthRequest, res: Response) => {
+    try {
+      const scopedSite = req.user?.sede_id ? Number(req.user.sede_id) : null;
+      const [sites, roles, schedules] = await Promise.all([
+        this.catalogService.listSites(scopedSite),
+        this.catalogService.listJobRoles(),
+        this.catalogService.listSchedules(),
+      ]);
+      return res.json({ ok: true, data: { sites, roles, schedules } });
+    } catch (error) {
+      return res.status(500).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudieron consultar los catálogos.',
+      });
+    }
+  };
+
+  crearCargo = async (req: AuthRequest, res: Response) => {
+    try {
+      const role = await this.catalogService.saveJobRole(null, {
+        name: req.body.name,
+        description: req.body.description,
+        defaultTrackingType: req.body.default_tracking_type,
+      }, Number(req.user?.id));
+      return res.status(201).json({ ok: true, message: 'Cargo creado correctamente.', data: role });
+    } catch (error) {
+      return res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo crear el cargo.' });
+    }
+  };
+
+  actualizarCargo = async (req: AuthRequest, res: Response) => {
+    try {
+      const roleId = Number(req.params.id);
+      if (!Number.isInteger(roleId) || roleId < 1) throw new Error('Cargo no válido.');
+      const role = await this.catalogService.saveJobRole(roleId, {
+        name: req.body.name,
+        description: req.body.description,
+        defaultTrackingType: req.body.default_tracking_type,
+      }, Number(req.user?.id));
+      return res.json({ ok: true, message: 'Cargo actualizado correctamente.', data: role });
+    } catch (error) {
+      return res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo actualizar el cargo.' });
+    }
+  };
+
+  crearHorario = async (req: AuthRequest, res: Response) => {
+    try {
+      const schedule = await this.catalogService.saveSchedule(null, {
+        name: req.body.name,
+        startTime: req.body.start_time,
+        endTime: req.body.end_time,
+        toleranceMinutes: Number(req.body.tolerance_minutes),
+      }, Number(req.user?.id));
+      return res.status(201).json({ ok: true, message: 'Horario creado correctamente.', data: schedule });
+    } catch (error) {
+      return res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo crear el horario.' });
+    }
+  };
+
+  actualizarHorario = async (req: AuthRequest, res: Response) => {
+    try {
+      const scheduleId = Number(req.params.id);
+      if (!Number.isInteger(scheduleId) || scheduleId < 1) throw new Error('Horario no válido.');
+      const schedule = await this.catalogService.saveSchedule(scheduleId, {
+        name: req.body.name,
+        startTime: req.body.start_time,
+        endTime: req.body.end_time,
+        toleranceMinutes: Number(req.body.tolerance_minutes),
+      }, Number(req.user?.id));
+      return res.json({ ok: true, message: 'Horario actualizado correctamente.', data: schedule });
+    } catch (error) {
+      return res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo actualizar el horario.' });
+    }
+  };
+
+  obtenerHorarioEmpleado = async (req: AuthRequest, res: Response) => {
+    try {
+      const employeeId = Number(req.params.id);
+      const employee = await this.empleadoService.obtenerPorId(employeeId);
+      assertEntitySede(req, employee.sedeId);
+      return res.json({ ok: true, data: await this.catalogService.getEmployeeSchedule(employeeId) });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo consultar el horario.' });
+    }
+  };
+
+  guardarHorarioEmpleado = async (req: AuthRequest, res: Response) => {
+    try {
+      const employeeId = Number(req.params.id);
+      const employee = await this.empleadoService.obtenerPorId(employeeId);
+      assertEntitySede(req, employee.sedeId);
+      const assignments = Array.isArray(req.body.assignments)
+        ? req.body.assignments.map((value: unknown) => {
+          const assignment = value as Record<string, unknown>;
+          return {
+            weekday: Number(assignment.weekday),
+            scheduleId: Number(assignment.schedule_id),
+          };
+        })
+        : [];
+      const data = await this.catalogService.replaceEmployeeSchedule(
+        employeeId,
+        assignments,
+        Number(req.user?.id),
+      );
+      return res.json({ ok: true, message: 'Horario semanal actualizado.', data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo guardar el horario.' });
+    }
+  };
 
   crearEmpleado = async (req: AuthRequest, res: Response) => {
     try {
