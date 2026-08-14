@@ -15,6 +15,7 @@ const steps: MigrationStep[] = [
   { label: 'Contingencia biométrica', script: 'applyRrhhBiometricContingency.js' },
   { label: 'Políticas de horarios', script: 'applyRrhhSchedulePolicies.js' },
   { label: 'Calendario laboral de RR. HH.', script: 'applyRrhhWorkCalendar.js' },
+  { label: 'Jerarquia semanal de RR. HH.', script: 'applyRrhhWeeklyScope.js' },
   { label: 'Modelo corporativo de acceso', script: 'applyAccessModel.js' },
   { label: 'Limpieza del modelo de acceso', script: 'applyAccessCleanup.js' },
   { label: 'Verificación final de accesos', script: 'verifyAccessCleanup.js' },

@@ -1,9 +1,25 @@
 import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
 import { assertDateOnly, businessDate, businessIsoWeekday } from '../../../core/utils/time';
-import { normalizeSchedulePolicy, previousDate, SchedulePolicyInput } from '../domain/schedulePolicy';
+import { normalizeSchedulePolicy, normalizeWeeklyAssignments, previousDate, SchedulePolicyInput, WeeklyScope } from '../domain/schedulePolicy';
 
 export type ScheduleAssignmentInput = { weekday: number; scheduleId: number };
+
+export type WeeklySchedulePolicy = {
+  requested_scope: 'EMPRESA' | 'SEDE';
+  source_scope: 'EMPRESA' | 'SEDE' | null;
+  inherited: boolean;
+  site_id: number | null;
+  assignments: Array<{
+    weekday: number;
+    schedule_id: number;
+    schedule_name: string;
+    start_time: string;
+    end_time: string;
+    effective_from: string;
+    effective_until: string | null;
+  }>;
+};
 
 export type EffectiveSchedule = {
   scheduleId: number;
@@ -102,18 +118,26 @@ export async function findEffectiveSchedule(
             version.salida_almuerzo_desde, version.salida_almuerzo_hasta,
             version.duracion_almuerzo_minutos, version.tolerancia_retorno_minutos,
             version.vigente_desde, version.vigente_hasta
-       FROM personal_empleado_horarios assignment
+       FROM personal_empleados employee
+       INNER JOIN personal_horario_asignaciones assignment
+         ON assignment.dia_semana = ?
+        AND assignment.vigente_desde <= ?
+        AND (assignment.vigente_hasta IS NULL OR assignment.vigente_hasta >= ?)
+        AND (
+          assignment.alcance = 'EMPRESA'
+          OR (assignment.alcance = 'SEDE' AND assignment.sede_id = employee.sede_id)
+          OR (assignment.alcance = 'EMPLEADO' AND assignment.empleado_id = employee.id)
+        )
        INNER JOIN personal_horarios schedule ON schedule.id = assignment.horario_id
        INNER JOIN personal_horario_versiones version
          ON version.horario_id = schedule.id
         AND version.vigente_desde <= ?
         AND (version.vigente_hasta IS NULL OR version.vigente_hasta >= ?)
-      WHERE assignment.empleado_id = ? AND assignment.dia_semana = ?
-        AND assignment.vigente_desde <= ?
-        AND (assignment.vigente_hasta IS NULL OR assignment.vigente_hasta >= ?)
-      ORDER BY assignment.vigente_desde DESC, version.vigente_desde DESC
+      WHERE employee.id = ?
+      ORDER BY CASE assignment.alcance WHEN 'EMPLEADO' THEN 3 WHEN 'SEDE' THEN 2 ELSE 1 END DESC,
+               assignment.vigente_desde DESC, version.vigente_desde DESC
       LIMIT 1`,
-    [date, date, employeeId, weekday, date, date],
+    [weekday, date, date, date, date, employeeId],
   );
   return rows.length ? publicSchedule(rows[0]) : null;
 }
@@ -251,17 +275,80 @@ export class ScheduleService {
     return (await this.listSchedules()).find(schedule => schedule.id === id);
   }
 
+  async getWeeklyPolicy(
+    scopeValue: unknown,
+    siteIdValue: unknown,
+    requestedDate: unknown = businessDate(),
+  ): Promise<WeeklySchedulePolicy> {
+    const scope = String(scopeValue || '').toUpperCase();
+    if (!['EMPRESA', 'SEDE'].includes(scope)) throw new Error('El alcance semanal no es válido.');
+    const requestedScope = scope as 'EMPRESA' | 'SEDE';
+    const siteId = requestedScope === 'SEDE' ? Number(siteIdValue) : null;
+    if (requestedScope === 'SEDE' && (!Number.isInteger(siteId) || Number(siteId) < 1)) {
+      throw new Error('Selecciona una sede válida.');
+    }
+    const date = assertDateOnly(requestedDate);
+    const direct = await this.listScopeAssignments(requestedScope, siteId, null, date);
+    if (direct.length || requestedScope === 'EMPRESA') {
+      return {
+        requested_scope: requestedScope,
+        source_scope: direct.length ? requestedScope : null,
+        inherited: false,
+        site_id: siteId,
+        assignments: direct,
+      };
+    }
+    const inherited = await this.listScopeAssignments('EMPRESA', null, null, date);
+    return {
+      requested_scope: 'SEDE',
+      source_scope: inherited.length ? 'EMPRESA' : null,
+      inherited: inherited.length > 0,
+      site_id: siteId,
+      assignments: inherited,
+    };
+  }
+
+  async replaceWeeklyPolicy(
+    scopeValue: unknown,
+    siteIdValue: unknown,
+    assignments: ScheduleAssignmentInput[],
+    effectiveFromValue: unknown,
+    actorUserId: number,
+  ) {
+    const scope = String(scopeValue || '').toUpperCase();
+    if (!['EMPRESA', 'SEDE'].includes(scope)) throw new Error('El alcance semanal no es válido.');
+    if (!assignments.length) throw new Error('Selecciona al menos un día laboral.');
+    const siteId = scope === 'SEDE' ? Number(siteIdValue) : null;
+    if (scope === 'SEDE' && (!Number.isInteger(siteId) || Number(siteId) < 1)) {
+      throw new Error('Selecciona una sede válida.');
+    }
+    const effectiveFrom = await this.replaceAssignments(
+      scope as WeeklyScope, siteId, null, assignments, effectiveFromValue, actorUserId,
+    );
+    return this.getWeeklyPolicy(scope, siteId, effectiveFrom);
+  }
+
+  async inheritCompanyWeeklyPolicy(siteIdValue: unknown, effectiveFromValue: unknown, actorUserId: number) {
+    const siteId = Number(siteIdValue);
+    if (!Number.isInteger(siteId) || siteId < 1) throw new Error('Selecciona una sede válida.');
+    const effectiveFrom = await this.replaceAssignments(
+      'SEDE', siteId, null, [], effectiveFromValue, actorUserId,
+    );
+    return this.getWeeklyPolicy('SEDE', siteId, effectiveFrom);
+  }
+
   async getEmployeeSchedule(employeeId: number, requestedDate: unknown = businessDate()) {
     const date = assertDateOnly(requestedDate);
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT assignment.dia_semana, assignment.horario_id, assignment.vigente_desde,
               assignment.vigente_hasta, schedule.nombre, version.hora_entrada, version.hora_salida
-         FROM personal_empleado_horarios assignment
+         FROM personal_horario_asignaciones assignment
          INNER JOIN personal_horarios schedule ON schedule.id = assignment.horario_id
          INNER JOIN personal_horario_versiones version
            ON version.horario_id = schedule.id AND version.vigente_desde <= ?
           AND (version.vigente_hasta IS NULL OR version.vigente_hasta >= ?)
-        WHERE assignment.empleado_id = ? AND assignment.vigente_desde <= ?
+        WHERE assignment.alcance = 'EMPLEADO' AND assignment.empleado_id = ?
+          AND assignment.vigente_desde <= ?
           AND (assignment.vigente_hasta IS NULL OR assignment.vigente_hasta >= ?)
         ORDER BY assignment.dia_semana`,
       [date, date, employeeId, date, date],
@@ -283,23 +370,69 @@ export class ScheduleService {
     effectiveFromValue: unknown,
     actorUserId: number,
   ) {
+    const effectiveFrom = await this.replaceAssignments(
+      'EMPLEADO', null, employeeId, assignments, effectiveFromValue, actorUserId,
+    );
+    return this.getEmployeeSchedule(employeeId, effectiveFrom);
+  }
+
+  private async listScopeAssignments(
+    scope: WeeklyScope,
+    siteId: number | null,
+    employeeId: number | null,
+    date: string,
+  ) {
+    const { clause, values } = this.scopeWhere(scope, siteId, employeeId);
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT assignment.dia_semana, assignment.horario_id, assignment.vigente_desde,
+              assignment.vigente_hasta, schedule.nombre, version.hora_entrada, version.hora_salida
+         FROM personal_horario_asignaciones assignment
+         INNER JOIN personal_horarios schedule ON schedule.id = assignment.horario_id
+         INNER JOIN personal_horario_versiones version
+           ON version.horario_id = schedule.id
+          AND version.vigente_desde <= ?
+          AND (version.vigente_hasta IS NULL OR version.vigente_hasta >= ?)
+        WHERE ${clause}
+          AND assignment.vigente_desde <= ?
+          AND (assignment.vigente_hasta IS NULL OR assignment.vigente_hasta >= ?)
+        ORDER BY assignment.dia_semana`,
+      [date, date, ...values, date, date],
+    );
+    return rows.map(row => ({
+      weekday: Number(row.dia_semana),
+      schedule_id: Number(row.horario_id),
+      schedule_name: String(row.nombre),
+      start_time: String(row.hora_entrada),
+      end_time: String(row.hora_salida),
+      effective_from: dateOnly(row.vigente_desde)!,
+      effective_until: dateOnly(row.vigente_hasta),
+    }));
+  }
+
+  private async replaceAssignments(
+    scope: WeeklyScope,
+    siteId: number | null,
+    employeeId: number | null,
+    assignments: ScheduleAssignmentInput[],
+    effectiveFromValue: unknown,
+    actorUserId: number,
+  ) {
     const effectiveFrom = assertDateOnly(effectiveFromValue);
     if (effectiveFrom < businessDate()) throw new Error('La asignación no puede comenzar en una fecha pasada.');
-    if (!Array.isArray(assignments) || assignments.length > 7) throw new Error('La asignación semanal no es válida.');
-    const normalized = assignments.map(value => ({ weekday: Number(value.weekday), scheduleId: Number(value.scheduleId) }));
-    if (normalized.some(value => !Number.isInteger(value.weekday) || value.weekday < 1 || value.weekday > 7
-      || !Number.isInteger(value.scheduleId) || value.scheduleId < 1)) {
-      throw new Error('Cada día y horario asignado debe ser válido.');
-    }
-    if (new Set(normalized.map(value => value.weekday)).size !== normalized.length) {
-      throw new Error('No puedes asignar dos horarios al mismo día.');
-    }
+    const normalized = normalizeWeeklyAssignments(assignments);
+    const { clause, values } = this.scopeWhere(scope, siteId, employeeId);
+    const writeClause = clause.split('assignment.').join('');
 
     await runInTransaction(async connection => {
-      const [employeeRows] = await connection.query<RowDataPacket[]>(
-        'SELECT id FROM personal_empleados WHERE id = ? LIMIT 1 FOR UPDATE', [employeeId],
-      );
-      if (!employeeRows.length) throw new Error('Empleado no encontrado.');
+      if (scope === 'SEDE') {
+        const [siteRows] = await connection.query<RowDataPacket[]>('SELECT id FROM sedes WHERE id = ? LIMIT 1', [siteId]);
+        if (!siteRows.length) throw new Error('Sede no encontrada.');
+      } else if (scope === 'EMPLEADO') {
+        const [employeeRows] = await connection.query<RowDataPacket[]>(
+          'SELECT id FROM personal_empleados WHERE id = ? LIMIT 1', [employeeId],
+        );
+        if (!employeeRows.length) throw new Error('Empleado no encontrado.');
+      }
       const scheduleIds = [...new Set(normalized.map(value => value.scheduleId))];
       if (scheduleIds.length) {
         const [scheduleRows] = await connection.query<RowDataPacket[]>(
@@ -316,31 +449,44 @@ export class ScheduleService {
       }
 
       await connection.query(
-        `UPDATE personal_empleado_horarios SET vigente_hasta = ?
-          WHERE empleado_id = ? AND vigente_desde < ?
+        `UPDATE personal_horario_asignaciones SET vigente_hasta = ?
+          WHERE ${writeClause} AND vigente_desde < ?
             AND (vigente_hasta IS NULL OR vigente_hasta >= ?)`,
-        [previousDate(effectiveFrom), employeeId, effectiveFrom, effectiveFrom],
+        [previousDate(effectiveFrom), ...values, effectiveFrom, effectiveFrom],
       );
       await connection.query(
-        'DELETE FROM personal_empleado_horarios WHERE empleado_id = ? AND vigente_desde >= ?',
-        [employeeId, effectiveFrom],
+        `DELETE FROM personal_horario_asignaciones WHERE ${writeClause} AND vigente_desde >= ?`,
+        [...values, effectiveFrom],
       );
       for (const assignment of normalized) {
         await connection.query(
-          `INSERT INTO personal_empleado_horarios (
-            empleado_id, horario_id, dia_semana, vigente_desde, vigente_hasta, creado_por
-          ) VALUES (?, ?, ?, ?, NULL, ?)`,
-          [employeeId, assignment.scheduleId, assignment.weekday, effectiveFrom, actorUserId],
+          `INSERT INTO personal_horario_asignaciones (
+            alcance, sede_id, empleado_id, horario_id, dia_semana,
+            vigente_desde, vigente_hasta, creado_por
+          ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
+          [scope, siteId, employeeId, assignment.scheduleId, assignment.weekday, effectiveFrom, actorUserId],
         );
       }
       await connection.query(
         `INSERT INTO personal_auditoria_eventos (
           tipo_evento, empleado_id, usuario_id, exitoso, codigo_resultado, metadata_json
-        ) VALUES ('ASIGNACION_HORARIO', ?, ?, 1, 'PROGRAMADA', ?)`,
-        [employeeId, actorUserId, JSON.stringify({ effective_from: effectiveFrom, assignments: normalized })],
+        ) VALUES ('ASIGNACION_HORARIO', ?, ?, 1, ?, ?)`,
+        [employeeId, actorUserId, normalized.length ? 'PROGRAMADA' : 'HEREDADA', JSON.stringify({
+          scope, site_id: siteId, effective_from: effectiveFrom, assignments: normalized,
+        })],
       );
     });
-    return this.getEmployeeSchedule(employeeId, effectiveFrom);
+    return effectiveFrom;
+  }
+
+  private scopeWhere(scope: WeeklyScope, siteId: number | null, employeeId: number | null) {
+    if (scope === 'EMPRESA') {
+      return { clause: "assignment.alcance = 'EMPRESA' AND assignment.sede_id IS NULL AND assignment.empleado_id IS NULL", values: [] as unknown[] };
+    }
+    if (scope === 'SEDE') {
+      return { clause: "assignment.alcance = 'SEDE' AND assignment.sede_id = ? AND assignment.empleado_id IS NULL", values: [siteId] as unknown[] };
+    }
+    return { clause: "assignment.alcance = 'EMPLEADO' AND assignment.sede_id IS NULL AND assignment.empleado_id = ?", values: [employeeId] as unknown[] };
   }
 
   private async insertVersion(

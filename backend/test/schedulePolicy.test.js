@@ -1,6 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeSchedulePolicy, previousDate } = require('../dist/modules/rrhh/domain/schedulePolicy');
+const {
+  normalizeSchedulePolicy,
+  normalizeWeeklyAssignments,
+  previousDate,
+  weeklyScopePriority,
+} = require('../dist/modules/rrhh/domain/schedulePolicy');
 
 test('normaliza una jornada con ventana de almuerzo', () => {
   const policy = normalizeSchedulePolicy({
@@ -23,4 +28,23 @@ test('rechaza un almuerzo que termina fuera de la jornada', () => {
 
 test('calcula el día anterior sin depender de la zona horaria del servidor', () => {
   assert.equal(previousDate('2026-09-01'), '2026-08-31');
+});
+
+test('normaliza una semana laboral y rechaza días repetidos', () => {
+  assert.deepEqual(normalizeWeeklyAssignments([
+    { weekday: 6, scheduleId: 2 },
+    { weekday: 1, scheduleId: 1 },
+  ]), [
+    { weekday: 1, scheduleId: 1 },
+    { weekday: 6, scheduleId: 2 },
+  ]);
+  assert.throws(() => normalizeWeeklyAssignments([
+    { weekday: 1, scheduleId: 1 },
+    { weekday: 1, scheduleId: 2 },
+  ]), /dos horarios/i);
+});
+
+test('la prioridad semanal es empleado, sede y empresa', () => {
+  assert.ok(weeklyScopePriority('EMPLEADO') > weeklyScopePriority('SEDE'));
+  assert.ok(weeklyScopePriority('SEDE') > weeklyScopePriority('EMPRESA'));
 });

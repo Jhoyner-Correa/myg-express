@@ -19,6 +19,7 @@
     "db:migrate:rrhh-biometric-contingency": "npm run build && node dist/scripts/applyRrhhBiometricContingency.js",
     "db:migrate:rrhh-schedules": "npm run build && node dist/scripts/applyRrhhSchedulePolicies.js",
     "db:migrate:rrhh-calendar": "npm run build && node dist/scripts/applyRrhhWorkCalendar.js",
+    "db:migrate:rrhh-weekly-scope": "npm run build && node dist/scripts/applyRrhhWeeklyScope.js",
     "db:migrate:access-model": "npm run build && node dist/scripts/applyAccessModel.js",
     "db:migrate:access-cleanup": "npm run build && node dist/scripts/applyAccessCleanup.js",
     "db:verify:access-model": "npm run build && node dist/scripts/verifyAccessCleanup.js",

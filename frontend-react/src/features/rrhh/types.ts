@@ -101,6 +101,14 @@ export type ScheduleAssignment = {
   effective_until?: string | null;
 };
 
+export type WeeklySchedulePolicy = {
+  requested_scope: 'EMPRESA' | 'SEDE';
+  source_scope: 'EMPRESA' | 'SEDE' | null;
+  inherited: boolean;
+  site_id: number | null;
+  assignments: ScheduleAssignment[];
+};
+
 export type ActivationCredentials = {
   temporary_password: string;
   activation_code: string;

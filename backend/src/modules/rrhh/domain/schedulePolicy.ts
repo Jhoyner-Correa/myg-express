@@ -26,6 +26,32 @@ export type NormalizedSchedulePolicy = {
   effectiveFrom: string;
 };
 
+export type WeeklyScope = 'EMPRESA' | 'SEDE' | 'EMPLEADO';
+
+export function weeklyScopePriority(scope: WeeklyScope): number {
+  return scope === 'EMPLEADO' ? 3 : scope === 'SEDE' ? 2 : 1;
+}
+
+export function normalizeWeeklyAssignments(
+  assignments: Array<{ weekday: unknown; scheduleId: unknown }>,
+) {
+  if (!Array.isArray(assignments) || assignments.length > 7) {
+    throw new Error('La asignación semanal no es válida.');
+  }
+  const normalized = assignments.map(value => ({
+    weekday: Number(value.weekday),
+    scheduleId: Number(value.scheduleId),
+  }));
+  if (normalized.some(value => !Number.isInteger(value.weekday) || value.weekday < 1 || value.weekday > 7
+    || !Number.isInteger(value.scheduleId) || value.scheduleId < 1)) {
+    throw new Error('Cada día y horario asignado debe ser válido.');
+  }
+  if (new Set(normalized.map(value => value.weekday)).size !== normalized.length) {
+    throw new Error('No puedes asignar dos horarios al mismo día.');
+  }
+  return normalized.sort((left, right) => left.weekday - right.weekday);
+}
+
 function name(value: unknown) {
   const normalized = String(value || '').trim();
   if (normalized.length < 2 || normalized.length > 100) {

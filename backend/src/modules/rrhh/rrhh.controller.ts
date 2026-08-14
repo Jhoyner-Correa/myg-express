@@ -148,6 +148,73 @@ export class RrhhController {
     }
   };
 
+  obtenerSemanaLaboral = async (req: AuthRequest, res: Response) => {
+    try {
+      const scope = String(req.query.alcance || '').toUpperCase();
+      if (scope === 'EMPRESA' && req.user?.alcance === 'SEDE') {
+        throw new SedeScopeError('No tienes permiso para consultar la política corporativa.');
+      }
+      const siteId = scope === 'SEDE' ? resolveSedeScope(req, req.query.sede_id) : null;
+      const data = await this.scheduleService.getWeeklyPolicy(
+        scope,
+        siteId,
+        req.query.fecha || businessDate(),
+      );
+      return res.json({ ok: true, data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudo consultar la semana laboral.',
+      });
+    }
+  };
+
+  guardarSemanaLaboral = async (req: AuthRequest, res: Response) => {
+    try {
+      const scope = String(req.body.scope || '').toUpperCase();
+      if (scope === 'EMPRESA' && req.user?.alcance === 'SEDE') {
+        throw new SedeScopeError('No tienes permiso para modificar la política corporativa.');
+      }
+      const siteId = scope === 'SEDE' ? resolveSedeScope(req, req.body.site_id) : null;
+      const assignments = Array.isArray(req.body.assignments)
+        ? req.body.assignments.map((value: unknown) => {
+          const assignment = value as Record<string, unknown>;
+          return { weekday: Number(assignment.weekday), scheduleId: Number(assignment.schedule_id) };
+        })
+        : [];
+      const data = await this.scheduleService.replaceWeeklyPolicy(
+        scope,
+        siteId,
+        assignments,
+        req.body.effective_from,
+        Number(req.user?.id),
+      );
+      return res.json({ ok: true, message: 'Semana laboral programada correctamente.', data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudo guardar la semana laboral.',
+      });
+    }
+  };
+
+  heredarSemanaCorporativa = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.body.site_id);
+      const data = await this.scheduleService.inheritCompanyWeeklyPolicy(
+        siteId,
+        req.body.effective_from,
+        Number(req.user?.id),
+      );
+      return res.json({ ok: true, message: 'La sede usará la semana laboral corporativa.', data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudo heredar la política corporativa.',
+      });
+    }
+  };
+
   listarCalendarioLaboral = async (req: AuthRequest, res: Response) => {
     try {
       const siteId = resolveSedeScope(req, req.query.sede_id);

@@ -107,10 +107,22 @@ export class AttendanceDashboardService {
          INNER JOIN personal_cargos role ON role.id = employee.cargo_id
          LEFT JOIN personal_asistencias attendance
            ON attendance.empleado_id = employee.id AND attendance.fecha = ?
-         LEFT JOIN personal_empleado_horarios assignment
-           ON assignment.empleado_id = employee.id AND assignment.dia_semana = ?
-          AND assignment.vigente_desde <= ?
-          AND (assignment.vigente_hasta IS NULL OR assignment.vigente_hasta >= ?)
+         LEFT JOIN personal_horario_asignaciones assignment
+           ON assignment.id = (
+             SELECT candidate.id
+             FROM personal_horario_asignaciones candidate
+             WHERE candidate.dia_semana = ?
+               AND candidate.vigente_desde <= ?
+               AND (candidate.vigente_hasta IS NULL OR candidate.vigente_hasta >= ?)
+               AND (
+                 candidate.alcance = 'EMPRESA'
+                 OR (candidate.alcance = 'SEDE' AND candidate.sede_id = employee.sede_id)
+                 OR (candidate.alcance = 'EMPLEADO' AND candidate.empleado_id = employee.id)
+               )
+             ORDER BY CASE candidate.alcance WHEN 'EMPLEADO' THEN 3 WHEN 'SEDE' THEN 2 ELSE 1 END DESC,
+                      candidate.vigente_desde DESC, candidate.id DESC
+             LIMIT 1
+           )
          LEFT JOIN personal_horario_versiones effective_version
            ON effective_version.horario_id = assignment.horario_id
           AND effective_version.vigente_desde <= ?

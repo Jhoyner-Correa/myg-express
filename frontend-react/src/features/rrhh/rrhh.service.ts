@@ -17,6 +17,7 @@ import type {
   SchedulePolicyInput,
   WorkCalendarEvent,
   WorkCalendarInput,
+  WeeklySchedulePolicy,
 } from './types';
 
 async function unwrapRequest<T>(request: Promise<{ data: ApiEnvelope<T> }>, fallback?: T) {
@@ -57,6 +58,22 @@ export const rrhhService = {
   },
   setScheduleStatus(scheduleId: number, status: WorkSchedule['status']) {
     return unwrapRequest(apiClient.patch<ApiEnvelope<WorkSchedule>>(`/rrhh/horarios/${scheduleId}/estado`, { status }));
+  },
+  getWeeklyPolicy(scope: 'EMPRESA' | 'SEDE', siteId: number, date: string, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<WeeklySchedulePolicy>>('/rrhh/semana-laboral', {
+      params: { alcance: scope, sede_id: siteId, fecha: date }, signal,
+    }));
+  },
+  saveWeeklyPolicy(input: {
+    scope: 'EMPRESA' | 'SEDE'; site_id: number | null;
+    assignments: ScheduleAssignment[]; effective_from: string;
+  }) {
+    return unwrapRequest(apiClient.put<ApiEnvelope<WeeklySchedulePolicy>>('/rrhh/semana-laboral', input));
+  },
+  inheritCompanyWeeklyPolicy(siteId: number, effectiveFrom: string) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<WeeklySchedulePolicy>>('/rrhh/semana-laboral/heredar', {
+      site_id: siteId, effective_from: effectiveFrom,
+    }));
   },
   getWorkCalendar(siteId: number, from: string, until: string, signal?: AbortSignal) {
     return unwrapRequest(apiClient.get<ApiEnvelope<WorkCalendarEvent[]>>('/rrhh/calendario', {
