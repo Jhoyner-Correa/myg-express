@@ -11,6 +11,8 @@ import type {
   ScheduleAssignment,
   WorkSchedule,
   AttendanceDashboard,
+  AbsenceWorkflows,
+  AttendanceCorrectionInput,
 } from './types';
 
 async function unwrapRequest<T>(request: Promise<{ data: ApiEnvelope<T> }>, fallback?: T) {
@@ -57,5 +59,23 @@ export const rrhhService = {
       `/rrhh/asistencias/resumen/sede/${siteId}`,
       { params: { fecha: date }, signal },
     ));
+  },
+  getAbsenceWorkflows(siteId: number, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<AbsenceWorkflows>>(`/rrhh/incidencias/sede/${siteId}`, { signal }));
+  },
+  createPermission(input: { sede_id: number; employee_id: number; type: string; start_at: string; end_at: string; reason: string }) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number }>>('/rrhh/permisos', input));
+  },
+  resolvePermission(id: number, input: { sede_id: number; decision: 'APROBADO' | 'RECHAZADO'; comment: string }) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<{ id: number }>>(`/rrhh/permisos/${id}/resolver`, input));
+  },
+  createVacation(input: { sede_id: number; employee_id: number; start_date: string; end_date: string; reason: string }) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number; days: number }>>('/rrhh/vacaciones', input));
+  },
+  resolveVacation(id: number, input: { sede_id: number; decision: 'APROBADA' | 'RECHAZADA'; comment: string }) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<{ id: number }>>(`/rrhh/vacaciones/${id}/resolver`, input));
+  },
+  correctAttendance(input: AttendanceCorrectionInput) {
+    return unwrapRequest(apiClient.put<ApiEnvelope<{ correction_id: number; attendance_id: number }>>('/rrhh/asistencias/correccion', input));
   },
 };

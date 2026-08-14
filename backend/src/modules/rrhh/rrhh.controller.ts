@@ -17,6 +17,8 @@ import { MobileAuthService, mobileAuthCode, mobileAuthStatus } from '../rrhh-mob
 import { GeofenceService } from './services/GeofenceService';
 import { RrhhCatalogService } from './services/RrhhCatalogService';
 import { AttendanceDashboardService } from './services/AttendanceDashboardService';
+import { AbsenceWorkflowService } from './services/AbsenceWorkflowService';
+import { AttendanceCorrectionService } from './services/AttendanceCorrectionService';
 
 function errorStatus(error: unknown, fallback: number): number {
   if (error instanceof SedeScopeError || error instanceof AttendanceRuleError) return error.statusCode;
@@ -28,6 +30,8 @@ export class RrhhController {
   private readonly geofenceService = new GeofenceService();
   private readonly catalogService = new RrhhCatalogService();
   private readonly attendanceDashboardService = new AttendanceDashboardService();
+  private readonly absenceWorkflowService = new AbsenceWorkflowService();
+  private readonly attendanceCorrectionService = new AttendanceCorrectionService();
 
   constructor(
     private empleadoService: EmpleadoService,
@@ -433,6 +437,65 @@ export class RrhhController {
         ok: false,
         message: error instanceof Error ? error.message : 'No se pudo consultar el resumen de asistencia.',
       });
+    }
+  };
+
+  listarIncidencias = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.params.sedeId);
+      return res.json({ ok: true, data: await this.absenceWorkflowService.list(siteId, req.query.estado) });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudieron consultar las solicitudes.' });
+    }
+  };
+
+  crearPermiso = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.body.sede_id);
+      const data = await this.absenceWorkflowService.createPermission(siteId, Number(req.user?.id), req.body);
+      return res.status(201).json({ ok: true, message: 'Solicitud de permiso registrada.', data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo crear el permiso.' });
+    }
+  };
+
+  resolverPermiso = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.body.sede_id);
+      await this.absenceWorkflowService.resolvePermission(siteId, Number(req.user?.id), Number(req.params.id), req.body);
+      return res.json({ ok: true, message: 'Solicitud de permiso resuelta.', data: { id: Number(req.params.id) } });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo resolver el permiso.' });
+    }
+  };
+
+  crearVacaciones = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.body.sede_id);
+      const data = await this.absenceWorkflowService.createVacation(siteId, Number(req.user?.id), req.body);
+      return res.status(201).json({ ok: true, message: 'Solicitud de vacaciones registrada.', data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo crear la solicitud.' });
+    }
+  };
+
+  resolverVacaciones = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.body.sede_id);
+      await this.absenceWorkflowService.resolveVacation(siteId, Number(req.user?.id), Number(req.params.id), req.body);
+      return res.json({ ok: true, message: 'Solicitud de vacaciones resuelta.', data: { id: Number(req.params.id) } });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo resolver la solicitud.' });
+    }
+  };
+
+  corregirAsistencia = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.body.sede_id);
+      const data = await this.attendanceCorrectionService.correct(siteId, Number(req.user?.id), req.body);
+      return res.json({ ok: true, message: 'Corrección aplicada y auditada.', data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo corregir la asistencia.' });
     }
   };
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { BriefcaseBusiness, CalendarCheck2, KeyRound, MapPin, Pencil, Search, Settings2, UserCheck, UserPlus, Users } from 'lucide-react';
+import { BriefcaseBusiness, CalendarCheck2, ClipboardList, KeyRound, MapPin, Pencil, Search, Settings2, UserCheck, UserPlus, Users } from 'lucide-react';
 import { Button } from '../../components/ui/Button/Button';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { PageLoader } from '../../components/ui/PageLoader/PageLoader';
@@ -12,6 +12,7 @@ import { ActivationModal } from './components/ActivationModal';
 import { ConfigurationPanel } from './components/ConfigurationPanel';
 import { EmployeeModal } from './components/EmployeeModal';
 import { AttendancePanel } from './components/AttendancePanel';
+import { AbsencePanel } from './components/AbsencePanel';
 import { rrhhService } from './rrhh.service';
 import type { Employee, EmployeeInput, RrhhCatalogs, ScheduleAssignment } from './types';
 import styles from './Rrhh.module.css';
@@ -27,7 +28,7 @@ export function Rrhh() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [query, setQuery] = useState('');
-  const [tab, setTab] = useState<'attendance' | 'people' | 'configuration'>('attendance');
+  const [tab, setTab] = useState<'attendance' | 'requests' | 'people' | 'configuration'>('attendance');
   const [editing, setEditing] = useState<Employee | 'new' | null>(null);
   const [activating, setActivating] = useState<Employee | null>(null);
 
@@ -91,6 +92,7 @@ export function Rrhh() {
         <div className={styles.headingRow}>
           <div className={styles.tabs} role="tablist" aria-label="Secciones de Recursos Humanos">
             <button className={tab === 'attendance' ? styles.tabActive : ''} onClick={() => setTab('attendance')}><CalendarCheck2 size={16} />Asistencia</button>
+            <button className={tab === 'requests' ? styles.tabActive : ''} onClick={() => setTab('requests')}><ClipboardList size={16} />Solicitudes</button>
             <button className={tab === 'people' ? styles.tabActive : ''} onClick={() => setTab('people')}><Users size={16} />Personal</button>
             <button className={tab === 'configuration' ? styles.tabActive : ''} onClick={() => setTab('configuration')}><Settings2 size={16} />Configuración</button>
           </div>
@@ -100,7 +102,9 @@ export function Rrhh() {
         {loading && catalogs.sites.length === 0 ? <PageLoader label="Preparando Recursos Humanos" /> : error ? <div className={styles.errorState} role="alert"><p>{getApiErrorMessage(error, 'No se pudo cargar Recursos Humanos.')}</p><Button variant="secondary" onClick={() => void loadCatalogs()}>Reintentar</Button></div> : siteId === null ? <div className={styles.errorState}>No hay una sede disponible para gestionar.</div> : tab === 'configuration' ? (
           <ConfigurationPanel siteId={siteId} roles={catalogs.roles} schedules={catalogs.schedules} canManage={canManage} onCatalogChanged={() => loadCatalogs()} />
         ) : tab === 'attendance' ? (
-          <AttendancePanel siteId={siteId} />
+          <AttendancePanel siteId={siteId} canManage={canManage} />
+        ) : tab === 'requests' ? (
+          <AbsencePanel siteId={siteId} employees={employees} canManage={canManage} />
         ) : <>
           <div className={styles.metrics}>
             <article><span className={styles.metricBlue}><Users /></span><div><p>Personal registrado</p><strong>{employees.length}</strong><small>En {selectedSite?.name ?? 'la sede'}</small></div></article>

@@ -16,6 +16,7 @@ test('resume presentes, tardanzas, pendientes y jornadas cerradas', () => {
     { attendance_id: null, status: 'SIN_REGISTRO', overtime_minutes: 0, marks: { entry: null, lunch_out: null, lunch_return: null, exit: null } },
   ];
   assert.deepEqual(summarizeAttendance(items), {
-    total_employees: 3, present: 2, on_time: 1, late: 1, without_record: 1, completed: 1, overtime_minutes: 25,
+    total_employees: 3, present: 2, on_time: 1, late: 1, without_record: 1,
+    authorized_absence: 0, completed: 1, overtime_minutes: 25,
   });
 });

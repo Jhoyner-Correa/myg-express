@@ -9,7 +9,7 @@ type DashboardRow = RowDataPacket & {
   apellidos: string;
   cargo_nombre: string;
   asistencia_id: number | null;
-  estado_asistencia: string | null;
+  estado_asistencia_efectivo: string | null;
   minutos_tardanza: number | null;
   horario_nombre: string | null;
   hora_entrada_programada: string | null;
@@ -42,10 +42,11 @@ export function calculateOvertimeMinutes(exit: Date | null, scheduledEnd: string
 export function summarizeAttendance(items: AttendanceDashboardItem[]) {
   return {
     total_employees: items.length,
-    present: items.filter(item => item.attendance_id !== null).length,
+    present: items.filter(item => ['PRESENTE', 'TARDANZA'].includes(item.status)).length,
     on_time: items.filter(item => item.status === 'PRESENTE').length,
     late: items.filter(item => item.status === 'TARDANZA').length,
-    without_record: items.filter(item => item.attendance_id === null).length,
+    without_record: items.filter(item => item.status === 'SIN_REGISTRO').length,
+    authorized_absence: items.filter(item => ['PERMISO', 'VACACIONES'].includes(item.status)).length,
     completed: items.filter(item => item.marks.exit !== null).length,
     overtime_minutes: items.reduce((total, item) => total + item.overtime_minutes, 0),
   };
@@ -67,7 +68,13 @@ export class AttendanceDashboardService {
     const [rows] = await pool.query<DashboardRow[]>(
       `SELECT employee.id AS empleado_id, employee.codigo_empleado, employee.nombres,
               employee.apellidos, role.nombre AS cargo_nombre,
-              attendance.id AS asistencia_id, attendance.estado_asistencia,
+              attendance.id AS asistencia_id,
+              CASE WHEN attendance.estado_asistencia IN ('PRESENTE','TARDANZA')
+                     THEN attendance.estado_asistencia
+                   WHEN vacation.empleado_id IS NOT NULL THEN 'VACACIONES'
+                   WHEN permission.empleado_id IS NOT NULL THEN 'PERMISO'
+                   ELSE attendance.estado_asistencia
+              END AS estado_asistencia_efectivo,
               attendance.minutos_tardanza, schedule.nombre AS horario_nombre,
               schedule.hora_entrada AS hora_entrada_programada,
               schedule.hora_salida AS hora_salida_programada,
@@ -80,6 +87,14 @@ export class AttendanceDashboardService {
            ON assignment.empleado_id = employee.id AND assignment.dia_semana = ?
          LEFT JOIN personal_horarios schedule ON schedule.id = assignment.horario_id
          LEFT JOIN (
+           SELECT DISTINCT empleado_id FROM personal_solicitudes_permisos
+            WHERE estado = 'APROBADO' AND DATE(?) BETWEEN DATE(fecha_inicio) AND DATE(fecha_fin)
+         ) permission ON permission.empleado_id = employee.id
+         LEFT JOIN (
+           SELECT DISTINCT empleado_id FROM personal_vacaciones
+            WHERE estado IN ('APROBADA','PROGRAMADA','EN_CURSO') AND ? BETWEEN fecha_inicio AND fecha_fin
+         ) vacation ON vacation.empleado_id = employee.id
+         LEFT JOIN (
            SELECT asistencia_id,
                   MIN(CASE WHEN tipo_marcacion = 'ENTRADA' THEN hora_marcacion END) AS entrada,
                   MIN(CASE WHEN tipo_marcacion = 'SALIDA_ALMUERZO' THEN hora_marcacion END) AS salida_almuerzo,
@@ -91,7 +106,7 @@ export class AttendanceDashboardService {
          ) marks ON marks.asistencia_id = attendance.id
         WHERE employee.sede_id = ? AND employee.estado = 'ACTIVO'
         ORDER BY employee.apellidos ASC, employee.nombres ASC`,
-      [date, weekday, date, date, siteId],
+      [date, weekday, date, date, date, date, siteId],
     );
 
     const items: AttendanceDashboardItem[] = rows.map(row => ({
@@ -101,7 +116,7 @@ export class AttendanceDashboardService {
       last_names: String(row.apellidos),
       job_role: String(row.cargo_nombre),
       attendance_id: row.asistencia_id === null ? null : Number(row.asistencia_id),
-      status: row.estado_asistencia ? String(row.estado_asistencia) : 'SIN_REGISTRO',
+      status: row.estado_asistencia_efectivo ? String(row.estado_asistencia_efectivo) : 'SIN_REGISTRO',
       delay_minutes: Number(row.minutos_tardanza || 0),
       overtime_minutes: calculateOvertimeMinutes(row.salida, row.hora_salida_programada),
       schedule: row.horario_nombre ? {

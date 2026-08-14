@@ -52,5 +52,11 @@ router.put('/sedes/:sedeId/geocerca', requirePermission(PERMISSIONS.RRHH_MANAGE)
 router.post('/asistencias/marcar', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.marcarAsistencia);
 router.get('/asistencias/resumen/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.consultarResumenAsistencia);
 router.get('/asistencias/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.consultarAsistenciasSede);
+router.put('/asistencias/correccion', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.corregirAsistencia);
+router.get('/incidencias/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarIncidencias);
+router.post('/permisos', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.crearPermiso);
+router.patch('/permisos/:id/resolver', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.resolverPermiso);
+router.post('/vacaciones', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.crearVacaciones);
+router.patch('/vacaciones/:id/resolver', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.resolverVacaciones);
 
 export default router;

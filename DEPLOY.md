@@ -144,6 +144,18 @@ El comando conserva los paquetes existentes, asigna su sede cuando puede inferir
 ambiguedad y crea la clave foranea e indices multi-sede. Si detecta un lote operado por
 varias sedes, se detiene sin decidir ni eliminar datos.
 
+Para habilitar la aplicación móvil y los flujos administrativos de RR. HH., aplica las
+migraciones en orden después de verificar el respaldo de MariaDB:
+
+```bash
+npm run db:migrate:rrhh-foundation
+npm run db:migrate:rrhh-incidents
+```
+
+Ambos comandos usan un candado de base de datos y migraciones idempotentes. El segundo
+agrega permisos, vacaciones, resolución administrativa y el historial inmutable de
+correcciones de asistencia.
+
 Arranca API y worker separados:
 
 ```bash

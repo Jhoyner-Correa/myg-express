@@ -98,8 +98,57 @@ export type AttendanceDashboard = {
     on_time: number;
     late: number;
     without_record: number;
+    authorized_absence: number;
     completed: number;
     overtime_minutes: number;
   };
   employees: AttendanceDashboardEmployee[];
+};
+
+export type PermissionRequest = {
+  id: number;
+  empleado_id: number;
+  tipo_permiso: 'MEDICO' | 'PERSONAL' | 'FAMILIAR' | 'OTRO';
+  fecha_inicio: string;
+  fecha_fin: string;
+  motivo: string;
+  estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
+  comentario_resolucion: string | null;
+  resuelto_en: string | null;
+  created_at: string;
+  codigo_empleado: string;
+  nombres: string;
+  apellidos: string;
+  cargo_nombre: string;
+};
+
+export type VacationRequest = {
+  id: number;
+  empleado_id: number;
+  periodo_anio: number;
+  fecha_inicio: string;
+  fecha_fin: string;
+  dias_tomados: number;
+  motivo: string | null;
+  estado: 'SOLICITADA' | 'APROBADA' | 'RECHAZADA' | 'PROGRAMADA' | 'EN_CURSO' | 'COMPLETADA' | 'CANCELADA';
+  comentario_revision: string | null;
+  revisado_en: string | null;
+  created_at: string;
+  codigo_empleado: string;
+  nombres: string;
+  apellidos: string;
+  cargo_nombre: string;
+};
+
+export type AbsenceWorkflows = { permissions: PermissionRequest[]; vacations: VacationRequest[] };
+
+export type AttendanceCorrectionInput = {
+  sede_id: number;
+  employee_id: number;
+  date: string;
+  status: AttendanceDashboardEmployee['status'];
+  attendance_type: 'NORMAL' | 'REMOTA' | 'COMISION' | 'VISITA';
+  delay_minutes: number;
+  reason: string;
+  marks: Record<'ENTRADA' | 'SALIDA_ALMUERZO' | 'REGRESO' | 'SALIDA', string | null>;
 };
