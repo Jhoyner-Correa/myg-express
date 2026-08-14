@@ -1,6 +1,7 @@
 import { RowDataPacket } from 'mysql2/promise';
 import { pool } from '../../../core/database/database';
 import { assertDateOnly, businessClockMinutes, businessDate, businessIsoWeekday, parseClockMinutes } from '../../../core/utils/time';
+import { resolveWorkDay } from './WorkCalendarService';
 
 type DashboardRow = RowDataPacket & {
   empleado_id: number;
@@ -61,6 +62,7 @@ export function summarizeAttendance(items: AttendanceDashboardItem[]) {
     late: items.filter(item => item.status === 'TARDANZA').length,
     without_record: items.filter(item => item.status === 'SIN_REGISTRO').length,
     authorized_absence: items.filter(item => ['PERMISO', 'VACACIONES'].includes(item.status)).length,
+    non_working: items.filter(item => item.status === 'NO_LABORABLE').length,
     completed: items.filter(item => item.marks.exit !== null).length,
     overtime_minutes: items.reduce((total, item) => total + item.overtime_minutes, 0),
   };
@@ -79,6 +81,9 @@ export class AttendanceDashboardService {
   async getDailyDashboard(siteId: number, requestedDate: unknown) {
     const date = validateDate(requestedDate);
     const weekday = businessIsoWeekday(new Date(`${date}T12:00:00-05:00`));
+    const calendarConnection = await pool.getConnection();
+    const workDay = await resolveWorkDay(calendarConnection, siteId, date)
+      .finally(() => calendarConnection.release());
     const [rows] = await pool.query<DashboardRow[]>(
       `SELECT employee.id AS empleado_id, employee.codigo_empleado, employee.nombres,
               employee.apellidos, role.nombre AS cargo_nombre,
@@ -137,6 +142,7 @@ export class AttendanceDashboardService {
       [date, weekday, date, date, date, date, date, date, date, date, siteId],
     );
 
+    const override = workDay.scheduleOverride;
     const items: AttendanceDashboardItem[] = rows.map(row => ({
       employee_id: Number(row.empleado_id),
       employee_code: String(row.codigo_empleado),
@@ -144,19 +150,35 @@ export class AttendanceDashboardService {
       last_names: String(row.apellidos),
       job_role: String(row.cargo_nombre),
       attendance_id: row.asistencia_id === null ? null : Number(row.asistencia_id),
-      status: row.estado_asistencia_efectivo ? String(row.estado_asistencia_efectivo) : 'SIN_REGISTRO',
+      status: row.asistencia_id !== null && row.estado_asistencia_efectivo
+        ? String(row.estado_asistencia_efectivo)
+        : (!workDay.working || (!override && !row.horario_nombre)
+            ? 'NO_LABORABLE'
+            : row.estado_asistencia_efectivo ? String(row.estado_asistencia_efectivo) : 'SIN_REGISTRO'),
       delay_minutes: Number(row.minutos_tardanza || 0),
-      overtime_minutes: calculateOvertimeMinutes(row.salida, row.hora_salida_programada),
-      schedule: row.horario_nombre ? {
-        name: String(row.horario_nombre),
-        start_time: String(row.hora_entrada_programada),
-        end_time: String(row.hora_salida_programada),
-        lunch_enabled: Boolean(row.almuerzo_habilitado),
-        lunch_start_from: row.salida_almuerzo_desde ? String(row.salida_almuerzo_desde) : null,
-        lunch_start_until: row.salida_almuerzo_hasta ? String(row.salida_almuerzo_hasta) : null,
-        lunch_duration_minutes: Number(row.duracion_almuerzo_minutos || 0),
-        return_tolerance_minutes: Number(row.tolerancia_retorno_minutos || 0),
-      } : null,
+      overtime_minutes: calculateOvertimeMinutes(
+        row.salida,
+        override && row.asistencia_id === null ? override.endTime : row.hora_salida_programada,
+      ),
+      schedule: override && row.asistencia_id === null ? {
+        name: override.name,
+        start_time: override.startTime,
+        end_time: override.endTime,
+        lunch_enabled: override.lunchEnabled,
+        lunch_start_from: override.lunchStartFrom,
+        lunch_start_until: override.lunchStartUntil,
+        lunch_duration_minutes: override.lunchDurationMinutes,
+        return_tolerance_minutes: override.returnToleranceMinutes,
+      } : row.horario_nombre ? {
+          name: String(row.horario_nombre),
+          start_time: String(row.hora_entrada_programada),
+          end_time: String(row.hora_salida_programada),
+          lunch_enabled: Boolean(row.almuerzo_habilitado),
+          lunch_start_from: row.salida_almuerzo_desde ? String(row.salida_almuerzo_desde) : null,
+          lunch_start_until: row.salida_almuerzo_hasta ? String(row.salida_almuerzo_hasta) : null,
+          lunch_duration_minutes: Number(row.duracion_almuerzo_minutos || 0),
+          return_tolerance_minutes: Number(row.tolerancia_retorno_minutos || 0),
+        } : null,
       marks: {
         entry: row.entrada,
         lunch_out: row.salida_almuerzo,
@@ -164,6 +186,17 @@ export class AttendanceDashboardService {
         exit: row.salida,
       },
     }));
-    return { date, site_id: siteId, summary: summarizeAttendance(items), employees: items };
+    return {
+      date,
+      site_id: siteId,
+      work_day: {
+        working: workDay.working,
+        reason: workDay.reason,
+        name: workDay.event?.name ?? null,
+        scope: workDay.event?.scope ?? null,
+      },
+      summary: summarizeAttendance(items),
+      employees: items,
+    };
   }
 }

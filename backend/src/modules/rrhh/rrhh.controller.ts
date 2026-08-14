@@ -21,6 +21,7 @@ import { AbsenceWorkflowService } from './services/AbsenceWorkflowService';
 import { AttendanceCorrectionService } from './services/AttendanceCorrectionService';
 import { AttendanceContingencyService, ContingencyError } from './services/AttendanceContingencyService';
 import { ScheduleService } from './services/ScheduleService';
+import { WorkCalendarService } from './services/WorkCalendarService';
 
 function errorStatus(error: unknown, fallback: number): number {
   if (error instanceof SedeScopeError || error instanceof AttendanceRuleError) return error.statusCode;
@@ -35,6 +36,7 @@ export class RrhhController {
   private readonly absenceWorkflowService = new AbsenceWorkflowService();
   private readonly attendanceCorrectionService = new AttendanceCorrectionService();
   private readonly scheduleService = new ScheduleService();
+  private readonly workCalendarService = new WorkCalendarService();
   private readonly attendanceContingencyService: AttendanceContingencyService;
 
   constructor(
@@ -143,6 +145,63 @@ export class RrhhController {
       return res.json({ ok: true, message: 'Estado del horario actualizado.', data: schedule });
     } catch (error) {
       return res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo actualizar el horario.' });
+    }
+  };
+
+  listarCalendarioLaboral = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.query.sede_id);
+      const year = Number(String(req.query.desde || businessDate()).slice(0, 4));
+      const from = req.query.desde || `${year}-01-01`;
+      const until = req.query.hasta || `${year}-12-31`;
+      const data = await this.workCalendarService.list(siteId, from, until);
+      return res.json({ ok: true, data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudo consultar el calendario laboral.',
+      });
+    }
+  };
+
+  crearEventoCalendario = async (req: AuthRequest, res: Response) => {
+    try {
+      const scope = String(req.body.scope || '').toUpperCase();
+      if (scope === 'EMPRESA' && req.user?.alcance === 'SEDE') {
+        throw new SedeScopeError('No tienes permiso para configurar el calendario corporativo.');
+      }
+      const siteId = scope === 'SEDE' ? resolveSedeScope(req, req.body.site_id) : null;
+      const data = await this.workCalendarService.create({
+        scope,
+        siteId,
+        name: req.body.name,
+        type: req.body.type,
+        startDate: req.body.start_date,
+        endDate: req.body.end_date,
+        scheduleId: req.body.schedule_id,
+        description: req.body.description,
+      }, Number(req.user?.id));
+      return res.status(201).json({ ok: true, message: 'Evento agregado al calendario laboral.', data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudo crear el evento.',
+      });
+    }
+  };
+
+  cancelarEventoCalendario = async (req: AuthRequest, res: Response) => {
+    try {
+      const eventId = Number(req.params.id);
+      if (!Number.isInteger(eventId) || eventId < 1) throw new Error('Evento no valido.');
+      const scopedSiteId = req.user?.alcance === 'SEDE' ? Number(req.user.sede_id) : null;
+      const data = await this.workCalendarService.cancel(eventId, Number(req.user?.id), scopedSiteId);
+      return res.json({ ok: true, message: 'Evento cancelado. Su historial fue conservado.', data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudo cancelar el evento.',
+      });
     }
   };
 

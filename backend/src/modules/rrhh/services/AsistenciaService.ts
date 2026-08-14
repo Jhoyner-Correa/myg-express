@@ -8,6 +8,7 @@ import { IAsistenciaRepository } from '../repositories/IAsistenciaRepository';
 import { IEmpleadoRepository } from '../repositories/IEmpleadoRepository';
 import { IMarcacionRepository } from '../repositories/IMarcacionRepository';
 import { findEffectiveSchedule } from './ScheduleService';
+import { resolveWorkDay } from './WorkCalendarService';
 
 type GeofenceRow = RowDataPacket & {
   latitud: string;
@@ -99,12 +100,24 @@ export class AsistenciaService {
           throw new AttendanceRuleError('INVALID_CAPTURE_TIME', 'La hora de la marcacion no es valida.', 400);
         }
         const attendanceDate = businessDate(now);
-        const schedule = await findEffectiveSchedule(
-          connection,
-          empleado.id,
-          attendanceDate,
-          businessIsoWeekday(now),
+        const workDay = await resolveWorkDay(connection, empleado.sedeId, attendanceDate);
+        if (!workDay.working) {
+          throw new AttendanceRuleError(
+            'NON_WORKING_DAY',
+            `${workDay.event?.name || 'Hoy'} esta configurado como dia no laborable.`,
+            409,
+          );
+        }
+        const schedule = workDay.scheduleOverride ?? await findEffectiveSchedule(
+          connection, empleado.id, attendanceDate, businessIsoWeekday(now),
         );
+        if (!schedule) {
+          throw new AttendanceRuleError(
+            'SCHEDULE_NOT_ASSIGNED',
+            'No tienes una jornada laboral asignada para hoy. Contacta al administrador.',
+            409,
+          );
+        }
         let asistencia = await this.asistenciaRepository.obtenerOCrear({
           empleadoId: empleado.id,
           fecha: new Date(`${attendanceDate}T12:00:00`),
@@ -133,10 +146,10 @@ export class AsistenciaService {
         assertClockTransition(
           recordedMarks.map(mark => mark.tipoMarcacion),
           params.tipo,
-          schedule?.lunchEnabled ?? true,
+          schedule.lunchEnabled,
         );
 
-        if (params.tipo === 'ENTRADA' && schedule) {
+        if (params.tipo === 'ENTRADA') {
             const delayMinutes = Math.max(
               0,
               businessClockMinutes(now) - parseClockMinutes(schedule.startTime),

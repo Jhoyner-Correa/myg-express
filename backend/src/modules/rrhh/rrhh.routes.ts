@@ -38,6 +38,9 @@ router.put('/cargos/:id', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhCon
 router.post('/horarios', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhController.crearHorario);
 router.put('/horarios/:id', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhController.actualizarHorario);
 router.patch('/horarios/:id/estado', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhController.actualizarEstadoHorario);
+router.get('/calendario', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarCalendarioLaboral);
+router.post('/calendario', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhController.crearEventoCalendario);
+router.patch('/calendario/:id/cancelar', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhController.cancelarEventoCalendario);
 router.post('/empleados', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.crearEmpleado);
 router.put('/empleados/:id', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.actualizarEmpleado);
 router.get('/empleados/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarEmpleadosSede);

@@ -1,4 +1,4 @@
-import type { EmployeeInput, ScheduleAssignment } from './types';
+import type { EmployeeInput, ScheduleAssignment, WorkCalendarInput } from './types';
 
 export const WEEKDAYS = [
   { value: 1, label: 'Lunes' },
@@ -25,4 +25,13 @@ export function buildWeeklyAssignments(scheduleId: number, weekdays: number[]): 
   const uniqueDays = [...new Set(weekdays)].filter(day => Number.isInteger(day) && day >= 1 && day <= 7);
   if (!Number.isInteger(scheduleId) || scheduleId < 1) return [];
   return uniqueDays.sort((left, right) => left - right).map(weekday => ({ weekday, schedule_id: scheduleId }));
+}
+
+export function validateWorkCalendarInput(input: WorkCalendarInput): string | null {
+  if (input.name.trim().length < 3 || input.name.trim().length > 120) return 'Escribe un nombre claro para el evento.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.start_date) || !/^\d{4}-\d{2}-\d{2}$/.test(input.end_date)) return 'Selecciona un periodo válido.';
+  if (input.end_date < input.start_date) return 'La fecha final no puede ser anterior a la inicial.';
+  if (input.scope === 'SEDE' && (!Number.isInteger(input.site_id) || Number(input.site_id) < 1)) return 'Selecciona la sede donde aplica.';
+  if (input.type === 'JORNADA_ESPECIAL' && (!Number.isInteger(input.schedule_id) || Number(input.schedule_id) < 1)) return 'Selecciona el horario especial.';
+  return null;
 }

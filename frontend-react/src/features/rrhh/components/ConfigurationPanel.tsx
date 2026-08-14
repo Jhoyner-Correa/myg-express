@@ -7,6 +7,7 @@ import { rrhhService } from '../rrhh.service';
 import type { Geofence, JobRole, SchedulePolicyInput, Site, WorkSchedule } from '../types';
 import styles from '../Rrhh.module.css';
 import { ScheduleEditorModal } from './ScheduleEditorModal';
+import { WorkCalendarManager } from './WorkCalendarManager';
 
 type Props = {
   siteId: number;
@@ -114,6 +115,8 @@ export function ConfigurationPanel({ siteId, sites, roles, schedules, canManage,
         {!schedules.length && <div className={styles.smallEmpty}>Aún no hay jornadas configuradas.</div>}
       </div>
     </section>
+
+    <WorkCalendarManager siteId={siteId} sites={sites} schedules={schedules} canManage={canManage} />
 
     <ScheduleEditorModal schedule={scheduleEditor} saving={saving === 'schedule'} onClose={() => setScheduleEditor(null)} onSave={saveSchedule} />
   </div>;

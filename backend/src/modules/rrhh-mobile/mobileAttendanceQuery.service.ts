@@ -5,6 +5,7 @@ import { allowedNextClockTypes } from '../rrhh/domain/attendancePolicy';
 import { AttendanceStatus, AttendanceType } from '../rrhh/domain/Asistencia';
 import { ClockType } from '../rrhh/domain/Marcacion';
 import { findEffectiveSchedule } from '../rrhh/services/ScheduleService';
+import { resolveWorkDay } from '../rrhh/services/WorkCalendarService';
 
 type EmployeeSummaryRow = RowDataPacket & {
   id: number;
@@ -54,8 +55,17 @@ export class MobileAttendanceQueryService {
     if (!employeeRows.length) throw new Error('Empleado activo no encontrado.');
 
     const scheduleConnection = await pool.getConnection();
-    const schedule = await findEffectiveSchedule(scheduleConnection, employeeId, date, weekday)
-      .finally(() => scheduleConnection.release());
+    const { workDay, schedule } = await (async () => {
+      try {
+        const resolvedDay = await resolveWorkDay(scheduleConnection, employeeRows[0].sede_id, date);
+        const resolvedSchedule = resolvedDay.scheduleOverride ?? (resolvedDay.working
+          ? await findEffectiveSchedule(scheduleConnection, employeeId, date, weekday)
+          : null);
+        return { workDay: resolvedDay, schedule: resolvedSchedule };
+      } finally {
+        scheduleConnection.release();
+      }
+    })();
     const [geofenceRows] = await pool.query<GeofenceCountRow[]>(
       `SELECT COUNT(*) AS total
          FROM personal_configuracion_gps_sedes
@@ -115,6 +125,11 @@ export class MobileAttendanceQueryService {
         lunch_duration_minutes: schedule.lunchDurationMinutes,
         return_tolerance_minutes: schedule.returnToleranceMinutes,
       } : null,
+      work_day: {
+        working: workDay.working && schedule !== null,
+        reason: workDay.working && schedule === null ? 'DESCANSO_SEMANAL' : workDay.reason,
+        name: workDay.event?.name ?? (schedule ? 'Jornada regular' : 'Descanso semanal'),
+      },
       attendance: attendance ? {
         id: Number(attendance.id),
         status: attendance.estado_asistencia,
@@ -135,7 +150,9 @@ export class MobileAttendanceQueryService {
         captured_at: new Date(request.capturada_en).toISOString(),
         status: request.estado,
       })),
-      allowed_next: pendingRows.length ? [] : allowedNextClockTypes(recordedTypes, schedule?.lunchEnabled ?? true),
+      allowed_next: pendingRows.length || !workDay.working || !schedule
+        ? []
+        : allowedNextClockTypes(recordedTypes, schedule.lunchEnabled),
       completed: recordedTypes.includes('SALIDA'),
       geofence_configured: Number(geofenceRows[0]?.total || 0) > 0,
     };

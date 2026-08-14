@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { CalendarDays, CheckCircle2, ClockAlert, PencilLine, RefreshCw, Search, TimerReset, UserX } from 'lucide-react';
+import { CalendarDays, CalendarOff, CheckCircle2, ClockAlert, PencilLine, RefreshCw, Search, TimerReset, UserX } from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
 import { PageLoader } from '../../../components/ui/PageLoader/PageLoader';
 import { getApiErrorMessage } from '../../../core/api/errors';
@@ -20,7 +20,7 @@ function clock(value: string | null) {
 }
 
 const STATUS_LABELS: Record<AttendanceDashboardEmployee['status'], string> = {
-  PRESENTE: 'Presente', TARDANZA: 'Tardanza', FALTA: 'Falta', PERMISO: 'Permiso', VACACIONES: 'Vacaciones', SIN_REGISTRO: 'Sin registrar',
+  PRESENTE: 'Presente', TARDANZA: 'Tardanza', FALTA: 'Falta', PERMISO: 'Permiso', VACACIONES: 'Vacaciones', SIN_REGISTRO: 'Sin registrar', NO_LABORABLE: 'No laborable',
 };
 
 export function AttendancePanel({ siteId, canManage }: { siteId: number; canManage: boolean }) {
@@ -55,6 +55,7 @@ export function AttendancePanel({ siteId, canManage }: { siteId: number; canMana
   const summary = dashboard?.summary;
 
   return <div className={styles.attendanceStack}>
+    {dashboard?.work_day.reason !== 'REGULAR' && <div className={`${styles.workDayNotice} ${dashboard?.work_day.working ? styles.workDaySpecial : styles.workDayOff}`}><CalendarOff /><div><strong>{dashboard?.work_day.name ?? 'Día no laborable'}</strong><span>{dashboard?.work_day.working ? 'La jornada especial reemplaza el horario semanal para esta fecha.' : 'No se esperan marcaciones ni se contabilizan ausencias en esta fecha.'}</span></div><small>{dashboard?.work_day.scope === 'SEDE' ? 'Regla de sede' : 'Regla corporativa'}</small></div>}
     <div className={styles.attendanceMetrics}>
       <article><span className={styles.attendanceGreen}><CheckCircle2 /></span><div><p>Presentes</p><strong>{summary?.present ?? 0}</strong><small>de {summary?.total_employees ?? 0} colaboradores</small></div></article>
       <article><span className={styles.attendanceOrange}><ClockAlert /></span><div><p>Tardanzas</p><strong>{summary?.late ?? 0}</strong><small>{summary?.on_time ?? 0} ingresos puntuales</small></div></article>
@@ -67,7 +68,7 @@ export function AttendancePanel({ siteId, canManage }: { siteId: number; canMana
         <label className={styles.dateControl}><CalendarDays size={15} /><input aria-label="Fecha de asistencia" type="date" max={businessToday()} value={date} onChange={event => setDate(event.target.value)} /></label>
         <Button size="sm" variant="secondary" icon={<RefreshCw size={14} />} loading={loading} onClick={() => void load()}>Actualizar</Button>
       </div></header>
-      <div className={styles.attendanceFilters}><label className={styles.search}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar colaborador..." /></label><select aria-label="Filtrar por estado" value={status} onChange={event => setStatus(event.target.value)}><option value="TODOS">Todos los estados</option><option value="PRESENTE">Presentes</option><option value="TARDANZA">Tardanzas</option><option value="SIN_REGISTRO">Sin registrar</option><option value="PERMISO">Permisos</option><option value="VACACIONES">Vacaciones</option></select><span>{employees.length} resultados</span></div>
+      <div className={styles.attendanceFilters}><label className={styles.search}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar colaborador..." /></label><select aria-label="Filtrar por estado" value={status} onChange={event => setStatus(event.target.value)}><option value="TODOS">Todos los estados</option><option value="PRESENTE">Presentes</option><option value="TARDANZA">Tardanzas</option><option value="SIN_REGISTRO">Sin registrar</option><option value="NO_LABORABLE">No laborable</option><option value="PERMISO">Permisos</option><option value="VACACIONES">Vacaciones</option></select><span>{employees.length} resultados</span></div>
       {loading && !dashboard ? <PageLoader compact label="Consultando asistencia" /> : error ? <div className={styles.tableError} role="alert"><p>{getApiErrorMessage(error, 'No se pudo consultar la asistencia.')}</p><Button size="sm" variant="secondary" onClick={() => void load()}>Reintentar</Button></div> : <div className={styles.tableWrap}><table className={`${styles.table} ${styles.attendanceTable}`}><thead><tr><th>Colaborador</th><th>Horario</th><th>Entrada</th><th>Salida almuerzo</th><th>Regreso</th><th>Salida final</th><th>Estado</th><th>Tardanza</th><th>Extra</th>{canManage && <th aria-label="Acciones" />}</tr></thead><tbody>
         {employees.map(employee => <tr key={employee.employee_id}><td><div className={styles.person}><span>{employee.names.charAt(0)}{employee.last_names.charAt(0)}</span><div><strong>{employee.names} {employee.last_names}</strong><small>{employee.job_role} · {employee.employee_code}</small></div></div></td><td>{employee.schedule ? <div className={styles.scheduleCell}><strong>{employee.schedule.name}</strong><small>{employee.schedule.start_time.slice(0, 5)}–{employee.schedule.end_time.slice(0, 5)}</small></div> : <span className={styles.muted}>Sin asignar</span>}</td><td className={styles.clockCell}>{clock(employee.marks.entry)}</td><td className={styles.clockCell}>{clock(employee.marks.lunch_out)}</td><td className={styles.clockCell}>{clock(employee.marks.lunch_return)}</td><td className={styles.clockCell}>{clock(employee.marks.exit)}</td><td><span className={`${styles.attendanceStatus} ${styles[`attendance${employee.status}`]}`}><i />{STATUS_LABELS[employee.status]}</span></td><td>{employee.delay_minutes ? `${employee.delay_minutes} min` : '—'}</td><td>{employee.overtime_minutes ? `${employee.overtime_minutes} min` : '—'}</td>{canManage && <td><div className={styles.actions}><button title="Corregir asistencia" aria-label={`Corregir asistencia de ${employee.names}`} onClick={() => setCorrecting(employee)}><PencilLine /></button></div></td>}</tr>)}
         {!employees.length && <tr><td colSpan={canManage ? 10 : 9}><div className={styles.empty}>No hay colaboradores que coincidan con los filtros seleccionados.</div></td></tr>}

@@ -152,11 +152,12 @@ npm run db:migrate:rrhh-foundation
 npm run db:migrate:rrhh-incidents
 npm run db:migrate:rrhh-biometric-contingency
 npm run db:migrate:rrhh-schedules
+npm run db:migrate:rrhh-calendar
 ```
 
 Ambos comandos usan un candado de base de datos y migraciones idempotentes. El segundo
-agrega permisos, vacaciones, resolución administrativa y el historial inmutable de
-correcciones de asistencia.
+agrega permisos, vacaciones, resolución administrativa, calendario laboral y el
+historial inmutable de correcciones de asistencia.
 
 Para activar el modelo corporativo de usuarios, roles y alcance por empresa/sede,
 ejecuta después de un respaldo verificado:

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildWeeklyAssignments, validateEmployeeInput } from './domain';
-import type { EmployeeInput } from './types';
+import { buildWeeklyAssignments, validateEmployeeInput, validateWorkCalendarInput } from './domain';
+import type { EmployeeInput, WorkCalendarInput } from './types';
 
 const validEmployee: EmployeeInput = {
   codigo_empleado: 'MYG-001', sede_id: 2, cargo_id: 1, dni: '12345678', nombres: 'Carlos',
@@ -15,5 +15,13 @@ describe('RR. HH. domain', () => {
     expect(buildWeeklyAssignments(3, [5, 1, 1, 3])).toEqual([
       { weekday: 1, schedule_id: 3 }, { weekday: 3, schedule_id: 3 }, { weekday: 5, schedule_id: 3 },
     ]);
+  });
+  it('valida el alcance y horario de una jornada especial', () => {
+    const event: WorkCalendarInput = {
+      scope: 'SEDE', site_id: 2, name: 'Inventario anual', type: 'JORNADA_ESPECIAL',
+      start_date: '2026-09-10', end_date: '2026-09-10', schedule_id: null, description: null,
+    };
+    expect(validateWorkCalendarInput(event)).toContain('horario especial');
+    expect(validateWorkCalendarInput({ ...event, schedule_id: 3 })).toBeNull();
   });
 });

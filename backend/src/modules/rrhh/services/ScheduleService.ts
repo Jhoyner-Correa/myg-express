@@ -64,6 +64,31 @@ function publicSchedule(row: EffectiveScheduleRow): EffectiveSchedule {
   };
 }
 
+export async function findEffectiveScheduleVersion(
+  connection: PoolConnection,
+  scheduleId: number,
+  date: string,
+): Promise<EffectiveSchedule | null> {
+  const [rows] = await connection.query<EffectiveScheduleRow[]>(
+    `SELECT schedule.id AS horario_id, version.id AS version_id, version.numero_version,
+            schedule.nombre, version.hora_entrada, version.hora_salida,
+            version.tolerancia_entrada_minutos, version.almuerzo_habilitado,
+            version.salida_almuerzo_desde, version.salida_almuerzo_hasta,
+            version.duracion_almuerzo_minutos, version.tolerancia_retorno_minutos,
+            version.vigente_desde, version.vigente_hasta
+       FROM personal_horarios schedule
+       INNER JOIN personal_horario_versiones version
+         ON version.horario_id = schedule.id
+        AND version.vigente_desde <= ?
+        AND (version.vigente_hasta IS NULL OR version.vigente_hasta >= ?)
+      WHERE schedule.id = ?
+      ORDER BY version.vigente_desde DESC, version.numero_version DESC
+      LIMIT 1`,
+    [date, date, scheduleId],
+  );
+  return rows.length ? publicSchedule(rows[0]) : null;
+}
+
 export async function findEffectiveSchedule(
   connection: PoolConnection,
   employeeId: number,

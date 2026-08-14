@@ -15,6 +15,8 @@ import type {
   AttendanceCorrectionInput,
   BiometricContingency,
   SchedulePolicyInput,
+  WorkCalendarEvent,
+  WorkCalendarInput,
 } from './types';
 
 async function unwrapRequest<T>(request: Promise<{ data: ApiEnvelope<T> }>, fallback?: T) {
@@ -55,6 +57,17 @@ export const rrhhService = {
   },
   setScheduleStatus(scheduleId: number, status: WorkSchedule['status']) {
     return unwrapRequest(apiClient.patch<ApiEnvelope<WorkSchedule>>(`/rrhh/horarios/${scheduleId}/estado`, { status }));
+  },
+  getWorkCalendar(siteId: number, from: string, until: string, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<WorkCalendarEvent[]>>('/rrhh/calendario', {
+      params: { sede_id: siteId, desde: from, hasta: until }, signal,
+    }), []);
+  },
+  createWorkCalendarEvent(input: WorkCalendarInput) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<WorkCalendarEvent>>('/rrhh/calendario', input));
+  },
+  cancelWorkCalendarEvent(eventId: number) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<WorkCalendarEvent>>(`/rrhh/calendario/${eventId}/cancelar`));
   },
   getEmployeeSchedule(employeeId: number, date?: string) {
     return unwrapRequest(apiClient.get<ApiEnvelope<ScheduleAssignment[]>>(

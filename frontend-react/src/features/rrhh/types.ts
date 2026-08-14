@@ -47,6 +47,25 @@ export type WorkSchedule = {
 export type SchedulePolicyInput = Omit<WorkSchedule, 'id' | 'version_id' | 'version' | 'status' | 'effective_until'>;
 export type RrhhCatalogs = { sites: Site[]; roles: JobRole[]; schedules: WorkSchedule[] };
 
+export type WorkCalendarEventType = 'FERIADO' | 'DIA_NO_LABORABLE' | 'JORNADA_ESPECIAL';
+export type WorkCalendarEvent = {
+  id: number;
+  scope: 'EMPRESA' | 'SEDE';
+  site_id: number | null;
+  site_name: string | null;
+  name: string;
+  type: WorkCalendarEventType;
+  start_date: string;
+  end_date: string;
+  schedule_id: number | null;
+  schedule_name: string | null;
+  description: string | null;
+  status: 'ACTIVO' | 'CANCELADO';
+  created_at: string;
+};
+export type WorkCalendarInput = Pick<WorkCalendarEvent,
+  'scope' | 'site_id' | 'name' | 'type' | 'start_date' | 'end_date' | 'schedule_id' | 'description'>;
+
 export type EmployeeInput = {
   codigo_empleado: string;
   sede_id: number;
@@ -95,7 +114,7 @@ export type AttendanceDashboardEmployee = {
   last_names: string;
   job_role: string;
   attendance_id: number | null;
-  status: 'PRESENTE' | 'TARDANZA' | 'FALTA' | 'PERMISO' | 'VACACIONES' | 'SIN_REGISTRO';
+  status: 'PRESENTE' | 'TARDANZA' | 'FALTA' | 'PERMISO' | 'VACACIONES' | 'SIN_REGISTRO' | 'NO_LABORABLE';
   delay_minutes: number;
   overtime_minutes: number;
   schedule: {
@@ -121,8 +140,15 @@ export type AttendanceDashboard = {
     late: number;
     without_record: number;
     authorized_absence: number;
+    non_working: number;
     completed: number;
     overtime_minutes: number;
+  };
+  work_day: {
+    working: boolean;
+    reason: 'REGULAR' | WorkCalendarEventType;
+    name: string | null;
+    scope: 'EMPRESA' | 'SEDE' | null;
   };
   employees: AttendanceDashboardEmployee[];
 };
