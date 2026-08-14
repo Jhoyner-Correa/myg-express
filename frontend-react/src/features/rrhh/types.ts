@@ -74,3 +74,32 @@ export type ActivationCredentials = {
   activation_code: string;
   expires_in_seconds: number;
 };
+
+export type AttendanceDashboardEmployee = {
+  employee_id: number;
+  employee_code: string;
+  names: string;
+  last_names: string;
+  job_role: string;
+  attendance_id: number | null;
+  status: 'PRESENTE' | 'TARDANZA' | 'FALTA' | 'PERMISO' | 'VACACIONES' | 'SIN_REGISTRO';
+  delay_minutes: number;
+  overtime_minutes: number;
+  schedule: { name: string; start_time: string; end_time: string } | null;
+  marks: { entry: string | null; lunch_out: string | null; lunch_return: string | null; exit: string | null };
+};
+
+export type AttendanceDashboard = {
+  date: string;
+  site_id: number;
+  summary: {
+    total_employees: number;
+    present: number;
+    on_time: number;
+    late: number;
+    without_record: number;
+    completed: number;
+    overtime_minutes: number;
+  };
+  employees: AttendanceDashboardEmployee[];
+};

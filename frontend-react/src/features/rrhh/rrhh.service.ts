@@ -10,6 +10,7 @@ import type {
   RrhhCatalogs,
   ScheduleAssignment,
   WorkSchedule,
+  AttendanceDashboard,
 } from './types';
 
 async function unwrapRequest<T>(request: Promise<{ data: ApiEnvelope<T> }>, fallback?: T) {
@@ -50,5 +51,11 @@ export const rrhhService = {
   },
   saveEmployeeSchedule(employeeId: number, assignments: ScheduleAssignment[]) {
     return unwrapRequest(apiClient.put<ApiEnvelope<ScheduleAssignment[]>>(`/rrhh/empleados/${employeeId}/horario`, { assignments }), []);
+  },
+  getAttendanceDashboard(siteId: number, date: string, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<AttendanceDashboard>>(
+      `/rrhh/asistencias/resumen/sede/${siteId}`,
+      { params: { fecha: date }, signal },
+    ));
   },
 };

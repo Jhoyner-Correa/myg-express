@@ -16,6 +16,7 @@ import { AttendanceRuleError } from './domain/attendancePolicy';
 import { MobileAuthService, mobileAuthCode, mobileAuthStatus } from '../rrhh-mobile/mobileAuth.service';
 import { GeofenceService } from './services/GeofenceService';
 import { RrhhCatalogService } from './services/RrhhCatalogService';
+import { AttendanceDashboardService } from './services/AttendanceDashboardService';
 
 function errorStatus(error: unknown, fallback: number): number {
   if (error instanceof SedeScopeError || error instanceof AttendanceRuleError) return error.statusCode;
@@ -26,6 +27,7 @@ export class RrhhController {
   private readonly mobileAuthService = new MobileAuthService();
   private readonly geofenceService = new GeofenceService();
   private readonly catalogService = new RrhhCatalogService();
+  private readonly attendanceDashboardService = new AttendanceDashboardService();
 
   constructor(
     private empleadoService: EmpleadoService,
@@ -414,6 +416,22 @@ export class RrhhController {
       return res.status(errorStatus(error, 500)).json({
         ok: false,
         message: error.message
+      });
+    }
+  };
+
+  consultarResumenAsistencia = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.params.sedeId);
+      const data = await this.attendanceDashboardService.getDailyDashboard(
+        siteId,
+        req.query.fecha || businessDate(),
+      );
+      return res.json({ ok: true, data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudo consultar el resumen de asistencia.',
       });
     }
   };

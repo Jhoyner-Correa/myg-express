@@ -1,0 +1,121 @@
+import { RowDataPacket } from 'mysql2/promise';
+import { pool } from '../../../core/database/database';
+import { assertDateOnly, businessClockMinutes, businessDate, businessIsoWeekday, parseClockMinutes } from '../../../core/utils/time';
+
+type DashboardRow = RowDataPacket & {
+  empleado_id: number;
+  codigo_empleado: string;
+  nombres: string;
+  apellidos: string;
+  cargo_nombre: string;
+  asistencia_id: number | null;
+  estado_asistencia: string | null;
+  minutos_tardanza: number | null;
+  horario_nombre: string | null;
+  hora_entrada_programada: string | null;
+  hora_salida_programada: string | null;
+  entrada: Date | null;
+  salida_almuerzo: Date | null;
+  regreso: Date | null;
+  salida: Date | null;
+};
+
+export type AttendanceDashboardItem = {
+  employee_id: number;
+  employee_code: string;
+  names: string;
+  last_names: string;
+  job_role: string;
+  attendance_id: number | null;
+  status: string;
+  delay_minutes: number;
+  overtime_minutes: number;
+  schedule: { name: string; start_time: string; end_time: string } | null;
+  marks: { entry: Date | null; lunch_out: Date | null; lunch_return: Date | null; exit: Date | null };
+};
+
+export function calculateOvertimeMinutes(exit: Date | null, scheduledEnd: string | null): number {
+  if (!exit || !scheduledEnd) return 0;
+  return Math.max(0, businessClockMinutes(exit) - parseClockMinutes(scheduledEnd));
+}
+
+export function summarizeAttendance(items: AttendanceDashboardItem[]) {
+  return {
+    total_employees: items.length,
+    present: items.filter(item => item.attendance_id !== null).length,
+    on_time: items.filter(item => item.status === 'PRESENTE').length,
+    late: items.filter(item => item.status === 'TARDANZA').length,
+    without_record: items.filter(item => item.attendance_id === null).length,
+    completed: items.filter(item => item.marks.exit !== null).length,
+    overtime_minutes: items.reduce((total, item) => total + item.overtime_minutes, 0),
+  };
+}
+
+function validateDate(value: unknown): string {
+  const date = assertDateOnly(value);
+  const parsed = new Date(`${date}T12:00:00-05:00`);
+  if (Number.isNaN(parsed.getTime()) || businessDate(parsed) !== date) {
+    throw new Error('La fecha consultada no es válida.');
+  }
+  return date;
+}
+
+export class AttendanceDashboardService {
+  async getDailyDashboard(siteId: number, requestedDate: unknown) {
+    const date = validateDate(requestedDate);
+    const weekday = businessIsoWeekday(new Date(`${date}T12:00:00-05:00`));
+    const [rows] = await pool.query<DashboardRow[]>(
+      `SELECT employee.id AS empleado_id, employee.codigo_empleado, employee.nombres,
+              employee.apellidos, role.nombre AS cargo_nombre,
+              attendance.id AS asistencia_id, attendance.estado_asistencia,
+              attendance.minutos_tardanza, schedule.nombre AS horario_nombre,
+              schedule.hora_entrada AS hora_entrada_programada,
+              schedule.hora_salida AS hora_salida_programada,
+              marks.entrada, marks.salida_almuerzo, marks.regreso, marks.salida
+         FROM personal_empleados employee
+         INNER JOIN personal_cargos role ON role.id = employee.cargo_id
+         LEFT JOIN personal_asistencias attendance
+           ON attendance.empleado_id = employee.id AND attendance.fecha = ?
+         LEFT JOIN personal_empleado_horarios assignment
+           ON assignment.empleado_id = employee.id AND assignment.dia_semana = ?
+         LEFT JOIN personal_horarios schedule ON schedule.id = assignment.horario_id
+         LEFT JOIN (
+           SELECT asistencia_id,
+                  MIN(CASE WHEN tipo_marcacion = 'ENTRADA' THEN hora_marcacion END) AS entrada,
+                  MIN(CASE WHEN tipo_marcacion = 'SALIDA_ALMUERZO' THEN hora_marcacion END) AS salida_almuerzo,
+                  MIN(CASE WHEN tipo_marcacion = 'REGRESO' THEN hora_marcacion END) AS regreso,
+                  MAX(CASE WHEN tipo_marcacion = 'SALIDA' THEN hora_marcacion END) AS salida
+             FROM personal_marcaciones
+            WHERE hora_marcacion >= ? AND hora_marcacion < DATE_ADD(?, INTERVAL 1 DAY)
+            GROUP BY asistencia_id
+         ) marks ON marks.asistencia_id = attendance.id
+        WHERE employee.sede_id = ? AND employee.estado = 'ACTIVO'
+        ORDER BY employee.apellidos ASC, employee.nombres ASC`,
+      [date, weekday, date, date, siteId],
+    );
+
+    const items: AttendanceDashboardItem[] = rows.map(row => ({
+      employee_id: Number(row.empleado_id),
+      employee_code: String(row.codigo_empleado),
+      names: String(row.nombres),
+      last_names: String(row.apellidos),
+      job_role: String(row.cargo_nombre),
+      attendance_id: row.asistencia_id === null ? null : Number(row.asistencia_id),
+      status: row.estado_asistencia ? String(row.estado_asistencia) : 'SIN_REGISTRO',
+      delay_minutes: Number(row.minutos_tardanza || 0),
+      overtime_minutes: calculateOvertimeMinutes(row.salida, row.hora_salida_programada),
+      schedule: row.horario_nombre ? {
+        name: String(row.horario_nombre),
+        start_time: String(row.hora_entrada_programada),
+        end_time: String(row.hora_salida_programada),
+      } : null,
+      marks: {
+        entry: row.entrada,
+        lunch_out: row.salida_almuerzo,
+        lunch_return: row.regreso,
+        exit: row.salida,
+      },
+    }));
+    return { date, site_id: siteId, summary: summarizeAttendance(items), employees: items };
+  }
+}
