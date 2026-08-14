@@ -85,7 +85,7 @@ export function Rrhh() {
   };
 
   return (
-    <main className={styles.page} id="main-content">
+    <main className={`main ${styles.page}`} id="main-content">
       <PageHeader icon={<Users />} title="Recursos Humanos" subtitle="Personal, asistencia y control operativo por sede" metadata={selectedSite?.name ?? user?.sede_nombre ?? 'Administración general'} />
       <section className={styles.content}>
         <div className={styles.headingRow}>
