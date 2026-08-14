@@ -76,6 +76,10 @@ export class EmpleadoService {
     return await this.empleadoRepository.listarPorSede(sedeId);
   }
 
+  async listarDirectorio(sedeId: number | null, companyId: number | null) {
+    return this.empleadoRepository.listarDirectorio(sedeId, companyId);
+  }
+
   async darDeBaja(id: number): Promise<boolean> {
     const empleado = await this.empleadoRepository.buscarPorId(id);
     if (!empleado) {

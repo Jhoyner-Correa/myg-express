@@ -20,15 +20,15 @@ function requiredName(value: unknown, label: string): string {
 }
 
 export class RrhhCatalogService {
-  async listSites(scopedSiteId: number | null) {
-    const params: number[] = [];
-    const where = scopedSiteId === null
-      ? 'WHERE estado = \'activo\''
-      : 'WHERE id = ? AND estado = \'activo\'';
-    if (scopedSiteId !== null) params.push(scopedSiteId);
+  async listSites(scopedSiteId: number | null, companyId: number | null = null) {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, nombre, estado FROM sedes ${where} ORDER BY nombre ASC`,
-      params,
+      `SELECT id, nombre, estado
+         FROM sedes
+        WHERE estado = 'activo'
+          AND (? IS NULL OR empresa_id = ?)
+          AND (? IS NULL OR id = ?)
+        ORDER BY nombre ASC`,
+      [companyId, companyId, scopedSiteId, scopedSiteId],
     );
     return rows.map((row) => ({
       id: Number(row.id),

@@ -29,8 +29,10 @@ export const rrhhService = {
   getCatalogs(signal?: AbortSignal) {
     return unwrapRequest(apiClient.get<ApiEnvelope<RrhhCatalogs>>('/rrhh/catalogos', { signal }));
   },
-  listEmployeesByBranch(branchId: number, signal?: AbortSignal) {
-    return unwrapRequest(apiClient.get<ApiEnvelope<Employee[]>>(`/rrhh/empleados/sede/${branchId}`, { signal }), []);
+  listEmployees(siteId: number | null, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<Employee[]>>('/rrhh/empleados', {
+      params: siteId === null ? undefined : { sede_id: siteId }, signal,
+    }), []);
   },
   createEmployee(input: EmployeeInput) {
     return unwrapRequest(apiClient.post<ApiEnvelope<Employee>>('/rrhh/empleados', input));
@@ -96,14 +98,16 @@ export const rrhhService = {
       `/rrhh/empleados/${employeeId}/horario`, { assignments, effective_from: effectiveFrom },
     ), []);
   },
-  getAttendanceDashboard(siteId: number, date: string, signal?: AbortSignal) {
+  getAttendanceDashboard(siteId: number | null, date: string, signal?: AbortSignal) {
     return unwrapRequest(apiClient.get<ApiEnvelope<AttendanceDashboard>>(
-      `/rrhh/asistencias/resumen/sede/${siteId}`,
-      { params: { fecha: date }, signal },
+      '/rrhh/asistencias/resumen',
+      { params: { fecha: date, ...(siteId === null ? {} : { sede_id: siteId }) }, signal },
     ));
   },
-  getAbsenceWorkflows(siteId: number, signal?: AbortSignal) {
-    return unwrapRequest(apiClient.get<ApiEnvelope<AbsenceWorkflows>>(`/rrhh/incidencias/sede/${siteId}`, { signal }));
+  getAbsenceWorkflows(siteId: number | null, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<AbsenceWorkflows>>('/rrhh/incidencias', {
+      params: siteId === null ? undefined : { sede_id: siteId }, signal,
+    }));
   },
   createPermission(input: { sede_id: number; employee_id: number; type: string; start_at: string; end_at: string; reason: string }) {
     return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number }>>('/rrhh/permisos', input));
@@ -120,10 +124,10 @@ export const rrhhService = {
   correctAttendance(input: AttendanceCorrectionInput) {
     return unwrapRequest(apiClient.put<ApiEnvelope<{ correction_id: number; attendance_id: number }>>('/rrhh/asistencias/correccion', input));
   },
-  getBiometricContingencies(siteId: number, signal?: AbortSignal) {
+  getBiometricContingencies(siteId: number | null, signal?: AbortSignal) {
     return unwrapRequest(apiClient.get<ApiEnvelope<BiometricContingency[]>>(
-      `/rrhh/contingencias/sede/${siteId}`,
-      { params: { estado: 'PENDIENTE' }, signal },
+      '/rrhh/contingencias',
+      { params: { estado: 'PENDIENTE', ...(siteId === null ? {} : { sede_id: siteId }) }, signal },
     ), []);
   },
   resolveBiometricContingency(id: number, input: { sede_id: number; decision: 'APROBAR' | 'RECHAZAR'; comment: string }) {

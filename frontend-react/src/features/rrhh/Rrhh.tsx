@@ -23,8 +23,10 @@ export function Rrhh() {
   const { user } = useAuth();
   const canManage = userHasPermission(user, PERMISSIONS.RRHH_MANAGE);
   const canConfigure = userHasPermission(user, PERMISSIONS.RRHH_CONFIGURE);
+  const canViewAllSites = user?.alcance !== 'SEDE';
   const [catalogs, setCatalogs] = useState<RrhhCatalogs>(emptyCatalogs);
   const [siteId, setSiteId] = useState<number | null>(user?.sede_id ?? null);
+  const [configurationSiteId, setConfigurationSiteId] = useState<number | null>(user?.sede_id ?? null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -33,14 +35,21 @@ export function Rrhh() {
   const [editing, setEditing] = useState<Employee | 'new' | null>(null);
   const [activating, setActivating] = useState<Employee | null>(null);
 
+  useEffect(() => {
+    if (user?.alcance === 'SEDE' && user.sede_id) {
+      setSiteId(user.sede_id);
+      setConfigurationSiteId(user.sede_id);
+    }
+  }, [user?.alcance, user?.sede_id]);
+
   const loadCatalogs = useCallback(async (signal?: AbortSignal) => {
     const data = await rrhhService.getCatalogs(signal);
     setCatalogs(data);
-    setSiteId(current => current ?? data.sites[0]?.id ?? null);
+    setConfigurationSiteId(current => current ?? data.sites[0]?.id ?? null);
   }, []);
 
-  const loadEmployees = useCallback(async (selectedSiteId: number, signal?: AbortSignal) => {
-    setEmployees(await rrhhService.listEmployeesByBranch(selectedSiteId, signal));
+  const loadEmployees = useCallback(async (selectedSiteId: number | null, signal?: AbortSignal) => {
+    setEmployees(await rrhhService.listEmployees(selectedSiteId, signal));
   }, []);
 
   useEffect(() => {
@@ -53,7 +62,6 @@ export function Rrhh() {
   }, [loadCatalogs]);
 
   useEffect(() => {
-    if (siteId === null) { setEmployees([]); return; }
     const controller = new AbortController();
     setLoading(true); setError(null);
     void loadEmployees(siteId, controller.signal).catch(loadError => {
@@ -65,14 +73,14 @@ export function Rrhh() {
   const filtered = useMemo(() => {
     const term = query.trim().toLocaleLowerCase('es');
     if (!term) return employees;
-    return employees.filter(employee => `${employee.nombres} ${employee.apellidos} ${employee.dni} ${employee.codigoEmpleado} ${employee.cargoNombre ?? ''}`.toLocaleLowerCase('es').includes(term));
+    return employees.filter(employee => `${employee.nombres} ${employee.apellidos} ${employee.dni} ${employee.codigoEmpleado} ${employee.cargoNombre ?? ''} ${employee.sedeNombre ?? ''}`.toLocaleLowerCase('es').includes(term));
   }, [employees, query]);
   const activeCount = employees.filter(employee => employee.estado === 'ACTIVO').length;
   const trackedCount = employees.filter(employee => employee.tipoRastreo === 'CONTINUO').length;
   const selectedSite = catalogs.sites.find(site => site.id === siteId);
 
   const reload = useCallback(async () => {
-    if (siteId !== null) await loadEmployees(siteId);
+    await loadEmployees(siteId);
   }, [loadEmployees, siteId]);
 
   const startEmployeeRegistration = () => {
@@ -93,7 +101,7 @@ export function Rrhh() {
 
   return (
     <main className={`main ${styles.page}`} id="main-content">
-      <PageHeader icon={<Users />} title="Recursos Humanos" subtitle="Gestión empresarial de personal, asistencia y operación" metadata={tab === 'configuration' ? 'Configuración empresarial' : selectedSite?.name ?? user?.sede_nombre ?? 'Administración general'} />
+      <PageHeader icon={<Users />} title="Recursos Humanos" subtitle="Gestión empresarial de personal, asistencia y operación" metadata={tab === 'configuration' ? 'Configuración empresarial' : selectedSite?.name ?? (canViewAllSites ? 'Todas las sedes' : user?.sede_nombre ?? 'Sede operativa')} />
       <section className={styles.content}>
         <div className={styles.headingRow}>
           <div className={styles.tabs} role="tablist" aria-label="Secciones de Recursos Humanos">
@@ -103,33 +111,33 @@ export function Rrhh() {
             <button className={tab === 'configuration' ? styles.tabActive : ''} onClick={() => setTab('configuration')}><Settings2 size={16} />Configuración</button>
           </div>
           <div className={styles.headingActions}>
-            {tab !== 'configuration' && <div className={styles.sitePicker}><MapPin size={15} /><select aria-label="Sede operativa" value={siteId ?? ''} onChange={event => setSiteId(Number(event.target.value))}>{catalogs.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></div>}
+            {tab !== 'configuration' && <div className={styles.sitePicker}><MapPin size={15} /><select aria-label="Alcance de sede" value={siteId ?? 'all'} onChange={event => setSiteId(event.target.value === 'all' ? null : Number(event.target.value))}>{canViewAllSites && <option value="all">Todas las sedes</option>}{catalogs.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></div>}
             {canManage && <Button icon={<UserPlus size={16} />} onClick={startEmployeeRegistration}>Registrar colaborador</Button>}
           </div>
         </div>
 
-        {loading && catalogs.sites.length === 0 ? <PageLoader label="Preparando Recursos Humanos" /> : error ? <div className={styles.errorState} role="alert"><p>{getApiErrorMessage(error, 'No se pudo cargar Recursos Humanos.')}</p><Button variant="secondary" onClick={() => void loadCatalogs()}>Reintentar</Button></div> : siteId === null ? <div className={styles.errorState}>No hay una sede disponible para gestionar.</div> : tab === 'configuration' ? (
-          <ConfigurationPanel siteId={siteId} sites={catalogs.sites} roles={catalogs.roles} schedules={catalogs.schedules} canManage={canConfigure} onSiteChange={setSiteId} onCatalogChanged={() => loadCatalogs()} />
+        {loading && catalogs.sites.length === 0 ? <PageLoader label="Preparando Recursos Humanos" /> : error ? <div className={styles.errorState} role="alert"><p>{getApiErrorMessage(error, 'No se pudo cargar Recursos Humanos.')}</p><Button variant="secondary" onClick={() => void loadCatalogs()}>Reintentar</Button></div> : catalogs.sites.length === 0 ? <div className={styles.errorState}>No hay sedes disponibles dentro de tu alcance.</div> : tab === 'configuration' && configurationSiteId !== null ? (
+          <ConfigurationPanel siteId={configurationSiteId} sites={catalogs.sites} roles={catalogs.roles} schedules={catalogs.schedules} canManage={canConfigure} onSiteChange={setConfigurationSiteId} onCatalogChanged={() => loadCatalogs()} />
         ) : tab === 'attendance' ? (
           <AttendancePanel siteId={siteId} canManage={canManage} />
         ) : tab === 'requests' ? (
           <AbsencePanel siteId={siteId} employees={employees} canManage={canManage} />
         ) : <>
           <div className={styles.metrics}>
-            <article><span className={styles.metricBlue}><Users /></span><div><p>Personal registrado</p><strong>{employees.length}</strong><small>En {selectedSite?.name ?? 'la sede'}</small></div></article>
+            <article><span className={styles.metricBlue}><Users /></span><div><p>Personal registrado</p><strong>{employees.length}</strong><small>{selectedSite ? `En ${selectedSite.name}` : 'En toda la empresa'}</small></div></article>
             <article><span className={styles.metricGreen}><UserCheck /></span><div><p>Colaboradores activos</p><strong>{activeCount}</strong><small>{employees.length ? Math.round(activeCount / employees.length * 100) : 0}% del personal</small></div></article>
             <article><span className={styles.metricOrange}><BriefcaseBusiness /></span><div><p>Repartidores monitoreados</p><strong>{trackedCount}</strong><small>Con seguimiento continuo</small></div></article>
           </div>
           <article className={styles.card}>
             <header className={styles.toolbar}><div><h2>Directorio de personal</h2><p>Gestiona los datos laborales y accesos a la aplicación móvil.</p></div><div className={styles.toolbarActions}><label className={styles.search}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar colaborador..." /></label></div></header>
-            {loading ? <PageLoader compact label="Actualizando personal" /> : <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Colaborador</th><th>Documento</th><th>Cargo</th><th>Seguimiento</th><th>Estado</th><th aria-label="Acciones" /></tr></thead><tbody>
-              {filtered.map(employee => <tr key={employee.id}><td><div className={styles.person}><span>{employee.nombres.charAt(0)}{employee.apellidos.charAt(0)}</span><div><strong>{employee.nombres} {employee.apellidos}</strong><small>{employee.codigoEmpleado}</small></div></div></td><td>{employee.dni}</td><td>{employee.cargoNombre || 'Sin cargo'}</td><td>{employee.tipoRastreo === 'CONTINUO' ? 'Continuo' : employee.tipoRastreo === 'NINGUNO' ? 'Sin rastreo' : 'Solo marcación'}</td><td><span className={`${styles.status} ${styles[`status${employee.estado}`]}`}><i />{employee.estado === 'ACTIVO' ? 'Activo' : employee.estado === 'INACTIVO' ? 'Inactivo' : 'Suspendido'}</span></td><td><div className={styles.actions}>{canManage && <><button title="Editar colaborador" aria-label={`Editar a ${employee.nombres}`} onClick={() => setEditing(employee)}><Pencil /></button><button title="Generar acceso móvil" aria-label={`Generar acceso para ${employee.nombres}`} onClick={() => setActivating(employee)}><KeyRound /></button></>}</div></td></tr>)}
-              {!filtered.length && <tr><td colSpan={6}><div className={styles.empty}>{query ? 'No encontramos colaboradores con ese criterio.' : 'Aún no hay colaboradores registrados en esta sede.'}</div></td></tr>}
+            {loading ? <PageLoader compact label="Actualizando personal" /> : <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Colaborador</th><th>Sede</th><th>Documento</th><th>Cargo</th><th>Seguimiento</th><th>Estado</th><th aria-label="Acciones" /></tr></thead><tbody>
+              {filtered.map(employee => <tr key={employee.id}><td><div className={styles.person}><span>{employee.nombres.charAt(0)}{employee.apellidos.charAt(0)}</span><div><strong>{employee.nombres} {employee.apellidos}</strong><small>{employee.codigoEmpleado}</small></div></div></td><td>{employee.sedeNombre || selectedSite?.name || 'Sin sede'}</td><td>{employee.dni}</td><td>{employee.cargoNombre || 'Sin cargo'}</td><td>{employee.tipoRastreo === 'CONTINUO' ? 'Continuo' : employee.tipoRastreo === 'NINGUNO' ? 'Sin rastreo' : 'Solo marcación'}</td><td><span className={`${styles.status} ${styles[`status${employee.estado}`]}`}><i />{employee.estado === 'ACTIVO' ? 'Activo' : employee.estado === 'INACTIVO' ? 'Inactivo' : 'Suspendido'}</span></td><td><div className={styles.actions}>{canManage && <><button title="Editar colaborador" aria-label={`Editar a ${employee.nombres}`} onClick={() => setEditing(employee)}><Pencil /></button><button title="Generar acceso móvil" aria-label={`Generar acceso para ${employee.nombres}`} onClick={() => setActivating(employee)}><KeyRound /></button></>}</div></td></tr>)}
+              {!filtered.length && <tr><td colSpan={7}><div className={styles.empty}>{query ? 'No encontramos colaboradores con ese criterio.' : 'Aún no hay colaboradores registrados en este alcance.'}</div></td></tr>}
             </tbody></table></div>}
           </article>
         </>}
       </section>
-      <EmployeeModal open={editing !== null} siteId={siteId ?? 0} employee={editing === 'new' ? null : editing} roles={catalogs.roles} schedules={catalogs.schedules} onClose={() => setEditing(null)} onSave={saveEmployee} />
+      <EmployeeModal open={editing !== null} siteId={siteId} employee={editing === 'new' ? null : editing} sites={catalogs.sites} roles={catalogs.roles} schedules={catalogs.schedules} onClose={() => setEditing(null)} onSave={saveEmployee} />
       <ActivationModal employee={activating} onClose={() => setActivating(null)} />
     </main>
   );

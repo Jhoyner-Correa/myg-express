@@ -23,7 +23,7 @@ function dateTime(value: string) {
 }
 
 export function BiometricReviewPanel({ siteId, canManage, onResolved }: {
-  siteId: number;
+  siteId: number | null;
   canManage: boolean;
   onResolved: () => void | Promise<void>;
 }) {
@@ -59,7 +59,7 @@ export function BiometricReviewPanel({ siteId, canManage, onResolved }: {
       : loading ? <div className={styles.reviewLoading}>Consultando solicitudes...</div>
       : !requests.length ? <div className={styles.reviewEmpty}><Check size={16} />No hay selfies pendientes de revisión.</div>
       : <div className={styles.reviewList}>{requests.map(request => <div className={styles.reviewRow} key={request.id}>
-        <div className={styles.person}><span>{request.employee_names.charAt(0)}{request.employee_last_names.charAt(0)}</span><div><strong>{request.employee_names} {request.employee_last_names}</strong><small>{request.job_role} · {request.employee_code}</small></div></div>
+        <div className={styles.person}><span>{request.employee_names.charAt(0)}{request.employee_last_names.charAt(0)}</span><div><strong>{request.employee_names} {request.employee_last_names}</strong><small>{request.job_role} · {request.employee_code} · {request.site_name}</small></div></div>
         <div><small>Marcación solicitada</small><strong>{CLOCK_LABELS[request.clock_type]}</strong></div>
         <div><small>Capturada</small><strong>{dateTime(request.captured_at)}</strong></div>
         <div><small>Validación GPS</small><strong><MapPin size={12} />{Math.round(request.distance_meters)} m · ±{Math.round(request.accuracy_meters)} m</strong></div>
@@ -67,13 +67,12 @@ export function BiometricReviewPanel({ siteId, canManage, onResolved }: {
           ? <Button size="sm" variant="secondary" icon={<Eye size={14} />} onClick={() => setSelected(request)}>Revisar</Button>
           : <span className={styles.reviewReadOnly}>Solo lectura</span>}
       </div>)}</div>}
-    <BiometricReviewModal request={selected} siteId={siteId} canManage={canManage} onClose={() => setSelected(null)} onResolved={resolved} />
+    <BiometricReviewModal request={selected} canManage={canManage} onClose={() => setSelected(null)} onResolved={resolved} />
   </article>;
 }
 
-function BiometricReviewModal({ request, siteId, canManage, onClose, onResolved }: {
+function BiometricReviewModal({ request, canManage, onClose, onResolved }: {
   request: BiometricContingency | null;
-  siteId: number;
   canManage: boolean;
   onClose: () => void;
   onResolved: () => void | Promise<void>;
@@ -88,17 +87,17 @@ function BiometricReviewModal({ request, siteId, canManage, onClose, onResolved 
     const controller = new AbortController();
     let currentUrl: string | null = null;
     setImageUrl(null); setImageError(null); setComment('Identidad y contexto verificados.');
-    void rrhhService.getBiometricEvidence(request.id, siteId, controller.signal).then(blob => {
+    void rrhhService.getBiometricEvidence(request.id, request.site_id, controller.signal).then(blob => {
       currentUrl = URL.createObjectURL(blob); setImageUrl(currentUrl);
     }).catch(error => { if (!axios.isCancel(error)) setImageError(getApiErrorMessage(error, 'No se pudo cargar la evidencia.')); });
     return () => { controller.abort(); if (currentUrl) URL.revokeObjectURL(currentUrl); };
-  }, [request, siteId]);
+  }, [request]);
 
   const resolve = async (decision: 'APROBAR' | 'RECHAZAR') => {
     if (!request || comment.trim().length < 3) return;
     setSaving(decision);
     try {
-      await rrhhService.resolveBiometricContingency(request.id, { sede_id: siteId, decision, comment: comment.trim() });
+      await rrhhService.resolveBiometricContingency(request.id, { sede_id: request.site_id, decision, comment: comment.trim() });
       showToast(decision === 'APROBAR' ? 'Marcación aprobada y registrada.' : 'Solicitud rechazada.', 'success');
       await onResolved();
     } catch (error) {

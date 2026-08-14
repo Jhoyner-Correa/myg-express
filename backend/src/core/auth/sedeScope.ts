@@ -37,6 +37,31 @@ export function resolveSedeScope(req: AuthRequest, requestedSedeId: unknown): nu
   return userSedeId;
 }
 
+/**
+ * Resuelve un filtro de sede para consultas corporativas.
+ *
+ * Un usuario con alcance SEDE siempre queda limitado a su sede. Los usuarios
+ * con alcance EMPRESA/SISTEMA pueden omitir el filtro para consultar una vista
+ * consolidada; si envían una sede concreta, se valida con las mismas reglas de
+ * resolveSedeScope.
+ */
+export function resolveOptionalSedeScope(req: AuthRequest, requestedSedeId: unknown): number | null {
+  if (!req.user) {
+    throw new SedeScopeError('Usuario no autenticado');
+  }
+
+  const userSedeId = validSedeId(req.user.sede_id);
+  if (userSedeId !== null) {
+    return resolveSedeScope(req, requestedSedeId);
+  }
+
+  if (requestedSedeId === undefined || requestedSedeId === null || requestedSedeId === '') {
+    return null;
+  }
+
+  return resolveSedeScope(req, requestedSedeId);
+}
+
 export function assertEntitySede(req: AuthRequest, entitySedeId: unknown): number {
   return resolveSedeScope(req, entitySedeId);
 }

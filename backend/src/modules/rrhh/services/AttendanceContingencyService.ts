@@ -91,6 +91,7 @@ function publicRow(row: ContingencyRow & Record<string, unknown>) {
     employee_names: row.nombres,
     employee_last_names: row.apellidos,
     job_role: row.cargo_nombre,
+    site_name: row.sede_nombre,
   };
 }
 
@@ -200,21 +201,23 @@ export class AttendanceContingencyService {
     }
   }
 
-  async list(siteId: number, status: string = 'PENDIENTE') {
+  async list(siteId: number | null, companyId: number | null, status: string = 'PENDIENTE') {
     const normalized = status.toUpperCase();
     if (!['PENDIENTE', 'APROBADA', 'RECHAZADA', 'CANCELADA', 'TODAS'].includes(normalized)) {
       throw new ContingencyError('Estado de solicitud no valido.', 'INVALID_STATUS');
     }
-    const params: unknown[] = [siteId];
+    const params: unknown[] = [companyId, companyId, siteId, siteId];
     const statusSql = normalized === 'TODAS' ? '' : ' AND request.estado = ?';
     if (normalized !== 'TODAS') params.push(normalized);
     const [rows] = await pool.query<(ContingencyRow & Record<string, unknown>)[]>(
       `SELECT request.*, employee.codigo_empleado, employee.nombres, employee.apellidos,
-              role.nombre AS cargo_nombre
+              role.nombre AS cargo_nombre, site.nombre AS sede_nombre
          FROM personal_solicitudes_marcacion request
          INNER JOIN personal_empleados employee ON employee.id = request.empleado_id
          INNER JOIN personal_cargos role ON role.id = employee.cargo_id
-        WHERE request.sede_id = ?${statusSql}
+         INNER JOIN sedes site ON site.id = request.sede_id
+        WHERE (? IS NULL OR site.empresa_id = ?)
+          AND (? IS NULL OR request.sede_id = ?)${statusSql}
         ORDER BY CASE request.estado WHEN 'PENDIENTE' THEN 0 ELSE 1 END,
                  request.capturada_en DESC LIMIT 200`,
       params,

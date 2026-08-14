@@ -9,7 +9,7 @@ import { AsistenciaService } from './services/AsistenciaService';
 import { ClockType, ClockOrigin } from './domain/Marcacion';
 import { EmployeeGender, EmployeeTracking, EmployeeStatus } from './domain/Empleado';
 import { AuthRequest } from '../../core/middlewares/authMiddleware';
-import { assertEntitySede, resolveSedeScope, SedeScopeError } from '../../core/auth/sedeScope';
+import { assertEntitySede, resolveOptionalSedeScope, resolveSedeScope, SedeScopeError } from '../../core/auth/sedeScope';
 import { businessDate } from '../../core/utils/time';
 import { randomUUID } from 'crypto';
 import { AttendanceRuleError } from './domain/attendancePolicy';
@@ -26,6 +26,15 @@ import { WorkCalendarService } from './services/WorkCalendarService';
 function errorStatus(error: unknown, fallback: number): number {
   if (error instanceof SedeScopeError || error instanceof AttendanceRuleError) return error.statusCode;
   return fallback;
+}
+
+function companyScope(req: AuthRequest): number | null {
+  if (req.user?.alcance === 'SISTEMA') return null;
+  const companyId = Number(req.user?.empresa_id);
+  if (!Number.isInteger(companyId) || companyId < 1) {
+    throw new SedeScopeError('Usuario empresarial sin empresa asignada');
+  }
+  return companyId;
 }
 
 export class RrhhController {
@@ -50,7 +59,7 @@ export class RrhhController {
     try {
       const scopedSite = req.user?.sede_id ? Number(req.user.sede_id) : null;
       const [sites, roles, schedules] = await Promise.all([
-        this.catalogService.listSites(scopedSite),
+        this.catalogService.listSites(scopedSite, companyScope(req)),
         this.catalogService.listJobRoles(),
         this.scheduleService.listSchedules(),
       ]);
@@ -479,10 +488,11 @@ export class RrhhController {
     }
   };
 
-  listarEmpleadosSede = async (req: AuthRequest, res: Response) => {
+  listarEmpleados = async (req: AuthRequest, res: Response) => {
     try {
-      const sedeId = resolveSedeScope(req, req.params.sedeId);
-      const empleados = await this.empleadoService.listarPorSede(sedeId);
+      const requestedSite = req.query.sede_id ?? req.params.sedeId;
+      const sedeId = resolveOptionalSedeScope(req, requestedSite);
+      const empleados = await this.empleadoService.listarDirectorio(sedeId, companyScope(req));
       return res.json({
         ok: true,
         data: empleados
@@ -589,10 +599,11 @@ export class RrhhController {
 
   consultarResumenAsistencia = async (req: AuthRequest, res: Response) => {
     try {
-      const siteId = resolveSedeScope(req, req.params.sedeId);
-      const data = await this.attendanceDashboardService.getDailyDashboard(
+      const siteId = resolveOptionalSedeScope(req, req.query.sede_id ?? req.params.sedeId);
+      const data = await this.attendanceDashboardService.getDashboard(
         siteId,
         req.query.fecha || businessDate(),
+        companyScope(req),
       );
       return res.json({ ok: true, data });
     } catch (error) {
@@ -605,8 +616,8 @@ export class RrhhController {
 
   listarIncidencias = async (req: AuthRequest, res: Response) => {
     try {
-      const siteId = resolveSedeScope(req, req.params.sedeId);
-      return res.json({ ok: true, data: await this.absenceWorkflowService.list(siteId, req.query.estado) });
+      const siteId = resolveOptionalSedeScope(req, req.query.sede_id ?? req.params.sedeId);
+      return res.json({ ok: true, data: await this.absenceWorkflowService.list(siteId, companyScope(req), req.query.estado) });
     } catch (error) {
       return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudieron consultar las solicitudes.' });
     }
@@ -664,8 +675,8 @@ export class RrhhController {
 
   listarContingenciasMarcacion = async (req: AuthRequest, res: Response) => {
     try {
-      const siteId = resolveSedeScope(req, req.params.sedeId);
-      const data = await this.attendanceContingencyService.list(siteId, String(req.query.estado || 'PENDIENTE'));
+      const siteId = resolveOptionalSedeScope(req, req.query.sede_id ?? req.params.sedeId);
+      const data = await this.attendanceContingencyService.list(siteId, companyScope(req), String(req.query.estado || 'PENDIENTE'));
       return res.json({ ok: true, data });
     } catch (error) {
       const status = error instanceof ContingencyError ? error.statusCode : errorStatus(error, 400);

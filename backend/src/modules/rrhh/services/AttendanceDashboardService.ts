@@ -28,6 +28,8 @@ type DashboardRow = RowDataPacket & {
 
 export type AttendanceDashboardItem = {
   employee_id: number;
+  site_id: number;
+  site_name: string;
   employee_code: string;
   names: string;
   last_names: string;
@@ -78,7 +80,44 @@ function validateDate(value: unknown): string {
 }
 
 export class AttendanceDashboardService {
-  async getDailyDashboard(siteId: number, requestedDate: unknown) {
+  async getDashboard(siteId: number | null, requestedDate: unknown, companyId: number | null) {
+    const date = validateDate(requestedDate);
+    const [siteRows] = await pool.query<RowDataPacket[]>(
+      `SELECT id, nombre
+         FROM sedes
+        WHERE estado = 'activo'
+          AND (? IS NULL OR empresa_id = ?)
+          AND (? IS NULL OR id = ?)
+        ORDER BY nombre ASC`,
+      [companyId, companyId, siteId, siteId],
+    );
+    if (siteId !== null && siteRows.length === 0) {
+      throw new Error('La sede solicitada no pertenece al alcance autorizado.');
+    }
+
+    const dashboards = await Promise.all(siteRows.map(site => this.getDailyDashboard(
+      Number(site.id),
+      date,
+      String(site.nombre),
+    )));
+    if (siteId !== null) return dashboards[0];
+
+    const employees = dashboards
+      .flatMap(dashboard => dashboard.employees)
+      .sort((left, right) => left.site_name.localeCompare(right.site_name, 'es')
+        || left.last_names.localeCompare(right.last_names, 'es')
+        || left.names.localeCompare(right.names, 'es'));
+    return {
+      date,
+      scope: 'EMPRESA' as const,
+      site_id: null,
+      work_day: null,
+      summary: summarizeAttendance(employees),
+      employees,
+    };
+  }
+
+  async getDailyDashboard(siteId: number, requestedDate: unknown, siteName = '') {
     const date = validateDate(requestedDate);
     const weekday = businessIsoWeekday(new Date(`${date}T12:00:00-05:00`));
     const calendarConnection = await pool.getConnection();
@@ -157,6 +196,8 @@ export class AttendanceDashboardService {
     const override = workDay.scheduleOverride;
     const items: AttendanceDashboardItem[] = rows.map(row => ({
       employee_id: Number(row.empleado_id),
+      site_id: siteId,
+      site_name: siteName,
       employee_code: String(row.codigo_empleado),
       names: String(row.nombres),
       last_names: String(row.apellidos),
@@ -200,6 +241,7 @@ export class AttendanceDashboardService {
     }));
     return {
       date,
+      scope: 'SEDE' as const,
       site_id: siteId,
       work_day: {
         working: workDay.working,

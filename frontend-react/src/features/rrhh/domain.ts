@@ -11,6 +11,7 @@ export const WEEKDAYS = [
 ] as const;
 
 export function validateEmployeeInput(input: EmployeeInput): string | null {
+  if (!Number.isInteger(input.sede_id) || input.sede_id < 1) return 'Selecciona una sede.';
   if (!/^[A-Za-z0-9-]{3,30}$/.test(input.codigo_empleado.trim())) return 'El código debe tener entre 3 y 30 caracteres, sin espacios.';
   if (!/^\d{8,12}$/.test(input.dni.trim())) return 'El documento debe contener entre 8 y 12 dígitos.';
   if (input.nombres.trim().length < 2 || input.apellidos.trim().length < 2) return 'Completa los nombres y apellidos.';

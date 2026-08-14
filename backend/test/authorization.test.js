@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   assertEntitySede,
+  resolveOptionalSedeScope,
   resolveSedeScope,
   SedeScopeError
 } = require('../dist/core/auth/sedeScope');
@@ -33,6 +34,13 @@ test('rol global puede seleccionar una sede valida', () => {
   const req = requestFor({ sedeId: null });
   assert.equal(resolveSedeScope(req, 3), 3);
   assert.throws(() => resolveSedeScope(req, undefined), SedeScopeError);
+});
+
+test('rol global puede consultar todas las sedes y un usuario de sede permanece limitado', () => {
+  assert.equal(resolveOptionalSedeScope(requestFor({ sedeId: null }), undefined), null);
+  assert.equal(resolveOptionalSedeScope(requestFor({ sedeId: null }), 3), 3);
+  assert.equal(resolveOptionalSedeScope(requestFor({ sedeId: 2 }), undefined), 2);
+  assert.throws(() => resolveOptionalSedeScope(requestFor({ sedeId: 2 }), 3), SedeScopeError);
 });
 
 test('entidad de otra sede es rechazada', () => {

@@ -30,10 +30,10 @@ export function validateAbsenceDateTime(value: unknown, label: string) {
 }
 
 export class AbsenceWorkflowService {
-  async list(siteId: number, state?: unknown) {
+  async list(siteId: number | null, companyId: number | null, state?: unknown) {
     const normalizedState = String(state || 'TODOS').toUpperCase();
-    const permissionParams: Array<number | string> = [siteId];
-    const vacationParams: Array<number | string> = [siteId];
+    const permissionParams: Array<number | string | null> = [companyId, companyId, siteId, siteId];
+    const vacationParams: Array<number | string | null> = [companyId, companyId, siteId, siteId];
     const permissionStateSql = normalizedState === 'TODOS' ? '' : 'AND request.estado = ?';
     const vacationStateSql = normalizedState === 'TODOS' ? '' : 'AND vacation.estado = ?';
     if (normalizedState !== 'TODOS') { permissionParams.push(normalizedState); vacationParams.push(normalizedState); }
@@ -44,11 +44,13 @@ export class AbsenceWorkflowService {
                 request.fecha_fin, request.motivo, request.estado, request.aprobado_por,
                 request.comentario_resolucion, request.resuelto_en, request.created_at,
                 employee.codigo_empleado, employee.nombres, employee.apellidos,
-                role.nombre AS cargo_nombre
+                employee.sede_id, site.nombre AS sede_nombre, role.nombre AS cargo_nombre
            FROM personal_solicitudes_permisos request
            INNER JOIN personal_empleados employee ON employee.id = request.empleado_id
            INNER JOIN personal_cargos role ON role.id = employee.cargo_id
-          WHERE employee.sede_id = ? ${permissionStateSql}
+           INNER JOIN sedes site ON site.id = employee.sede_id
+          WHERE (? IS NULL OR site.empresa_id = ?)
+            AND (? IS NULL OR employee.sede_id = ?) ${permissionStateSql}
           ORDER BY (request.estado = 'PENDIENTE') DESC, request.created_at DESC`,
         permissionParams,
       ),
@@ -57,11 +59,14 @@ export class AbsenceWorkflowService {
                 vacation.fecha_fin, vacation.dias_tomados, vacation.motivo, vacation.estado,
                 vacation.revisado_por, vacation.comentario_revision, vacation.revisado_en,
                 vacation.created_at, employee.codigo_empleado, employee.nombres,
-                employee.apellidos, role.nombre AS cargo_nombre
+                employee.apellidos, employee.sede_id, site.nombre AS sede_nombre,
+                role.nombre AS cargo_nombre
            FROM personal_vacaciones vacation
            INNER JOIN personal_empleados employee ON employee.id = vacation.empleado_id
            INNER JOIN personal_cargos role ON role.id = employee.cargo_id
-          WHERE employee.sede_id = ? ${vacationStateSql}
+           INNER JOIN sedes site ON site.id = employee.sede_id
+          WHERE (? IS NULL OR site.empresa_id = ?)
+            AND (? IS NULL OR employee.sede_id = ?) ${vacationStateSql}
           ORDER BY (vacation.estado = 'SOLICITADA') DESC, vacation.created_at DESC`,
         vacationParams,
       ),

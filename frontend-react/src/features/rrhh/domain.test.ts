@@ -10,6 +10,7 @@ const validEmployee: EmployeeInput = {
 
 describe('RR. HH. domain', () => {
   it('valida un empleado completo', () => expect(validateEmployeeInput(validEmployee)).toBeNull());
+  it('exige una sede concreta al registrar personal', () => expect(validateEmployeeInput({ ...validEmployee, sede_id: 0 })).toContain('sede'));
   it('rechaza documentos inválidos', () => expect(validateEmployeeInput({ ...validEmployee, dni: '12A' })).toContain('dígitos'));
   it('construye una semana ordenada y sin duplicados', () => {
     expect(buildWeeklyAssignments(3, [5, 1, 1, 3])).toEqual([

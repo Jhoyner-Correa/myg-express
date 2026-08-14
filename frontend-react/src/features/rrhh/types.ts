@@ -18,6 +18,7 @@ export type Employee = {
   estado: EmployeeStatus;
   observaciones: string | null;
   cargoNombre?: string;
+  sedeNombre?: string;
 };
 
 export type Site = { id: number; name: string; status: string };
@@ -117,6 +118,8 @@ export type ActivationCredentials = {
 
 export type AttendanceDashboardEmployee = {
   employee_id: number;
+  site_id: number;
+  site_name: string;
   employee_code: string;
   names: string;
   last_names: string;
@@ -140,7 +143,8 @@ export type AttendanceDashboardEmployee = {
 
 export type AttendanceDashboard = {
   date: string;
-  site_id: number;
+  scope: 'EMPRESA' | 'SEDE';
+  site_id: number | null;
   summary: {
     total_employees: number;
     present: number;
@@ -157,7 +161,7 @@ export type AttendanceDashboard = {
     reason: 'REGULAR' | WorkCalendarEventType;
     name: string | null;
     scope: 'EMPRESA' | 'SEDE' | null;
-  };
+  } | null;
   employees: AttendanceDashboardEmployee[];
 };
 
@@ -185,6 +189,7 @@ export type BiometricContingency = {
   employee_names: string;
   employee_last_names: string;
   job_role: string;
+  site_name: string;
 };
 
 export type PermissionRequest = {
@@ -202,6 +207,8 @@ export type PermissionRequest = {
   nombres: string;
   apellidos: string;
   cargo_nombre: string;
+  sede_id: number;
+  sede_nombre: string;
 };
 
 export type VacationRequest = {
@@ -220,6 +227,8 @@ export type VacationRequest = {
   nombres: string;
   apellidos: string;
   cargo_nombre: string;
+  sede_id: number;
+  sede_nombre: string;
 };
 
 export type AbsenceWorkflows = { permissions: PermissionRequest[]; vacations: VacationRequest[] };

@@ -45,8 +45,9 @@ router.get('/calendario', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhControll
 router.post('/calendario', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhController.crearEventoCalendario);
 router.patch('/calendario/:id/cancelar', requirePermission(PERMISSIONS.RRHH_CONFIGURE), rrhhController.cancelarEventoCalendario);
 router.post('/empleados', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.crearEmpleado);
+router.get('/empleados', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarEmpleados);
 router.put('/empleados/:id', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.actualizarEmpleado);
-router.get('/empleados/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarEmpleadosSede);
+router.get('/empleados/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarEmpleados);
 router.delete('/empleados/:id', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.darDeBajaEmpleado);
 router.post('/empleados/:id/activacion-dispositivo', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.crearActivacionDispositivo);
 router.post('/empleados/:id/revocar-dispositivo', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.revocarDispositivo);
@@ -57,12 +58,15 @@ router.put('/sedes/:sedeId/geocerca', requirePermission(PERMISSIONS.RRHH_MANAGE)
 
 // Endpoints de Asistencia
 router.post('/asistencias/marcar', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.marcarAsistencia);
+router.get('/asistencias/resumen', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.consultarResumenAsistencia);
 router.get('/asistencias/resumen/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.consultarResumenAsistencia);
 router.get('/asistencias/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.consultarAsistenciasSede);
 router.put('/asistencias/correccion', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.corregirAsistencia);
+router.get('/contingencias', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarContingenciasMarcacion);
 router.get('/contingencias/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarContingenciasMarcacion);
 router.get('/contingencias/:id/evidencia', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.obtenerEvidenciaContingencia);
 router.patch('/contingencias/:id/resolver', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.resolverContingenciaMarcacion);
+router.get('/incidencias', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarIncidencias);
 router.get('/incidencias/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarIncidencias);
 router.post('/permisos', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.crearPermiso);
 router.patch('/permisos/:id/resolver', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.resolverPermiso);

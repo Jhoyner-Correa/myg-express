@@ -3,13 +3,14 @@ import { Button } from '../../../components/ui/Button/Button';
 import { Modal } from '../../../components/ui/Modal/Modal';
 import { buildWeeklyAssignments, validateEmployeeInput, WEEKDAYS } from '../domain';
 import { rrhhService } from '../rrhh.service';
-import type { Employee, EmployeeInput, JobRole, ScheduleAssignment, WorkSchedule } from '../types';
+import type { Employee, EmployeeInput, JobRole, ScheduleAssignment, Site, WorkSchedule } from '../types';
 import styles from '../Rrhh.module.css';
 
 type Props = {
   open: boolean;
-  siteId: number;
+  siteId: number | null;
   employee: Employee | null;
+  sites: Site[];
   roles: JobRole[];
   schedules: WorkSchedule[];
   onClose: () => void;
@@ -18,9 +19,9 @@ type Props = {
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
-function initialInput(siteId: number, employee: Employee | null): EmployeeInput {
+function initialInput(siteId: number | null, employee: Employee | null): EmployeeInput {
   return {
-    codigo_empleado: employee?.codigoEmpleado ?? '', sede_id: siteId, cargo_id: employee?.cargoId ?? 0,
+    codigo_empleado: employee?.codigoEmpleado ?? '', sede_id: employee?.sedeId ?? siteId ?? 0, cargo_id: employee?.cargoId ?? 0,
     dni: employee?.dni ?? '', nombres: employee?.nombres ?? '', apellidos: employee?.apellidos ?? '',
     sexo: employee?.sexo ?? 'M', telefono: employee?.telefono ?? '', email: employee?.email ?? '',
     fecha_ingreso: String(employee?.fechaIngreso ?? today()).slice(0, 10),
@@ -29,7 +30,7 @@ function initialInput(siteId: number, employee: Employee | null): EmployeeInput 
   };
 }
 
-export function EmployeeModal({ open, siteId, employee, roles, schedules, onClose, onSave }: Props) {
+export function EmployeeModal({ open, siteId, employee, sites, roles, schedules, onClose, onSave }: Props) {
   const [form, setForm] = useState(() => initialInput(siteId, employee));
   const [scheduleId, setScheduleId] = useState(0);
   const [weekdays, setWeekdays] = useState<number[]>([1, 2, 3, 4, 5, 6]);
@@ -79,6 +80,7 @@ export function EmployeeModal({ open, siteId, employee, roles, schedules, onClos
       <form id="rrhh-employee-form" className={styles.form} onSubmit={submit}>
         {error && <div className={styles.formError} role="alert">{error}</div>}
         <div className={styles.formGrid}>
+          <label>Sede<select value={form.sede_id} onChange={e => update('sede_id', Number(e.target.value))}><option value={0}>Seleccionar sede</option>{sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label>
           <label>Código de empleado<input value={form.codigo_empleado} onChange={e => update('codigo_empleado', e.target.value.toUpperCase())} placeholder="MYG-001" /></label>
           <label>DNI / documento<input inputMode="numeric" value={form.dni} onChange={e => update('dni', e.target.value.replace(/\D/g, ''))} /></label>
           <label>Nombres<input value={form.nombres} onChange={e => update('nombres', e.target.value)} /></label>

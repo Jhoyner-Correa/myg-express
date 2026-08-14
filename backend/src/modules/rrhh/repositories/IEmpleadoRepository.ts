@@ -12,5 +12,6 @@ export interface IEmpleadoRepository {
   crear(empleado: Omit<Empleado, 'id'>): Promise<number>;
   actualizar(id: number, datos: Partial<Omit<Empleado, 'id'>>): Promise<boolean>;
   listarPorSede(sedeId: number): Promise<(Empleado & { cargoNombre: string })[]>;
+  listarDirectorio(sedeId: number | null, companyId: number | null): Promise<(Empleado & { cargoNombre: string; sedeNombre: string })[]>;
   eliminar(id: number): Promise<boolean>;
 }

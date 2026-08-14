@@ -197,6 +197,32 @@ export class MySqlEmpleadoRepository implements IEmpleadoRepository {
     });
   }
 
+  async listarDirectorio(
+    sedeId: number | null,
+    companyId: number | null,
+  ): Promise<(Empleado & { cargoNombre: string; sedeNombre: string })[]> {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT e.id, e.codigo_empleado, e.sede_id, e.cargo_id, e.dni, e.nombres,
+              e.apellidos, e.sexo, e.telefono, e.email, e.foto, e.fecha_ingreso,
+              e.fecha_cese, e.tipo_rastreo, e.estado, e.observaciones,
+              e.created_at, e.updated_at, c.nombre AS cargo_nombre,
+              s.nombre AS sede_nombre
+         FROM personal_empleados e
+         INNER JOIN personal_cargos c ON e.cargo_id = c.id
+         INNER JOIN sedes s ON s.id = e.sede_id
+        WHERE (? IS NULL OR s.empresa_id = ?)
+          AND (? IS NULL OR e.sede_id = ?)
+        ORDER BY s.nombre ASC, e.apellidos ASC, e.nombres ASC`,
+      [companyId, companyId, sedeId, sedeId],
+    );
+
+    return rows.map(row => ({
+      ...this.mapRowToEntity(row),
+      cargoNombre: String(row.cargo_nombre),
+      sedeNombre: String(row.sede_nombre),
+    }));
+  }
+
   async eliminar(id: number): Promise<boolean> {
     const [result] = await pool.query<ResultSetHeader>(
       `DELETE FROM personal_empleados WHERE id = ?`,
