@@ -182,22 +182,28 @@ export function RrhhOverview({ siteId, employees }: Props) {
   </article>;
 
   return <div className={styles.executiveDashboard}>
-    <section className={styles.executiveKpis} aria-label="Indicadores principales">
-      <ExecutiveKpiCard label="Personal activo" value={activeEmployees} insight={`${activeShare}% del personal registrado`} context={`${employees.length} colaboradores en el alcance`} icon={<UsersRound />} tone="blue" />
-      <ExecutiveKpiCard label="Asistencia" value={`${attendanceRate}%`} insight="Sin período comparable" context={`${summary?.present ?? 0} presentes hoy`} icon={<CalendarCheck2 />} tone="green" comparison={attendanceComparison === null ? undefined : { delta: attendanceComparison, suffix: ' p.p.' }} />
-      <ExecutiveKpiCard label="Horas extra" value={`${Math.floor((summary?.overtime_minutes ?? 0) / 60)} h ${(summary?.overtime_minutes ?? 0) % 60} min`} insight={`${summary?.completed ?? 0} jornadas cerradas`} context="Tiempo adicional registrado hoy" icon={<TimerReset />} tone="violet" />
-      <ExecutiveKpiCard label="Tardanzas" value={summary?.late ?? 0} insight="Sin período comparable" context={`${summary?.on_time ?? 0} ingresos puntuales`} icon={<ClockAlert />} tone="orange" comparison={tardinessComparison === null ? undefined : { delta: tardinessComparison, lowerIsBetter: true }} />
-      <ExecutiveKpiCard label="Atención requerida" value={pendingRequests + (summary?.without_record ?? 0)} insight={`${pendingRequests} solicitudes pendientes`} context="Incidencias que requieren revisión" icon={<BellRing />} tone="red" />
-    </section>
+    <section className={styles.executiveTopGrid} aria-label="Resumen operativo y agenda">
+      <div className={styles.executiveTopMain}>
+        <section className={styles.executiveKpis} aria-label="Indicadores principales">
+          <ExecutiveKpiCard label="Personal activo" value={activeEmployees} insight={`${activeShare}% del personal registrado`} context={`${employees.length} colaboradores en el alcance`} icon={<UsersRound />} tone="blue" />
+          <ExecutiveKpiCard label="Asistencia" value={`${attendanceRate}%`} insight="Sin período comparable" context={`${summary?.present ?? 0} presentes hoy`} icon={<CalendarCheck2 />} tone="green" comparison={attendanceComparison === null ? undefined : { delta: attendanceComparison, suffix: ' p.p.' }} />
+          <ExecutiveKpiCard label="Horas extra" value={`${Math.floor((summary?.overtime_minutes ?? 0) / 60)} h ${(summary?.overtime_minutes ?? 0) % 60} min`} insight={`${summary?.completed ?? 0} jornadas cerradas`} context="Tiempo adicional registrado hoy" icon={<TimerReset />} tone="violet" />
+          <ExecutiveKpiCard label="Tardanzas" value={summary?.late ?? 0} insight="Sin período comparable" context={`${summary?.on_time ?? 0} ingresos puntuales`} icon={<ClockAlert />} tone="orange" comparison={tardinessComparison === null ? undefined : { delta: tardinessComparison, lowerIsBetter: true }} />
+          <ExecutiveKpiCard label="Atención requerida" value={pendingRequests + (summary?.without_record ?? 0)} insight={`${pendingRequests} solicitudes pendientes`} context="Incidencias que requieren revisión" icon={<BellRing />} tone="red" />
+        </section>
 
-    <article className={`${styles.card} ${styles.executiveAttendance}`}>
-      <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><CalendarCheck2 /></span><div><h2>Asistencia de hoy</h2><p>{businessDateLabel(businessToday())}</p></div></div><div className={styles.executiveActions}><Button size="sm" variant="secondary" icon={<Download size={14} />} loading={exporting} onClick={() => void exportExcel()}>Exportar Excel</Button><Button size="sm" variant="corporate" onClick={() => navigate('/rrhh/reportes')}>Ver reporte</Button></div></header>
-      <div className={styles.tableWrap}><table className={`${styles.table} ${styles.executiveAttendanceTable}`} aria-label="Asistencia de hoy"><thead><tr><th>Colaborador</th><th>Cargo</th><th>Entrada</th><th>Salida almuerzo</th><th>Regreso</th><th>Salida final</th><th>Estado</th><th>Tardanza</th><th>Horas extra</th></tr></thead><tbody>
-        {(attendance?.employees ?? []).slice(0, 8).map(item => <tr key={item.employee_id}><td><div className={styles.person}><span>{item.names.charAt(0)}{item.last_names.charAt(0)}</span><div><strong>{item.names} {item.last_names}</strong><small>{item.site_name}</small></div></div></td><td>{item.job_role}</td><td className={styles.clockCell}>{clock(item.marks.entry)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_out)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_return)}</td><td className={styles.clockCell}>{clock(item.marks.exit)}</td><td><span className={`${styles.attendanceStatus} ${styles[`attendance${item.status}`]}`}><i />{STATUS_LABELS[item.status]}</span></td><td>{item.delay_minutes ? `${item.delay_minutes} min` : '—'}</td><td>{item.overtime_minutes ? `${item.overtime_minutes} min` : '—'}</td></tr>)}
-        {!attendance?.employees.length && <tr><td colSpan={9}><div className={styles.empty}>No hay personal dentro del alcance seleccionado.</div></td></tr>}
-      </tbody></table></div>
-      {(attendance?.employees.length ?? 0) > 8 && <footer className={styles.executiveTableFooter}><span>Mostrando 8 de {attendance?.employees.length} colaboradores</span><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa <ArrowRight /></button></footer>}
-    </article>
+        <article className={`${styles.card} ${styles.executiveAttendance}`}>
+          <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><CalendarCheck2 /></span><div><h2>Asistencia de hoy</h2><p>{businessDateLabel(businessToday())}</p></div></div><div className={styles.executiveActions}><Button size="sm" variant="secondary" icon={<Download size={14} />} loading={exporting} onClick={() => void exportExcel()}>Exportar Excel</Button><Button size="sm" variant="corporate" onClick={() => navigate('/rrhh/reportes')}>Ver reporte</Button></div></header>
+          <div className={styles.tableWrap}><table className={`${styles.table} ${styles.executiveAttendanceTable}`} aria-label="Asistencia de hoy"><thead><tr><th>Colaborador</th><th>Cargo</th><th>Entrada</th><th>Salida almuerzo</th><th>Regreso</th><th>Salida final</th><th>Estado</th><th>Tardanza</th><th>Horas extra</th></tr></thead><tbody>
+            {(attendance?.employees ?? []).slice(0, 8).map(item => <tr key={item.employee_id}><td><div className={styles.person}><span>{item.names.charAt(0)}{item.last_names.charAt(0)}</span><div><strong>{item.names} {item.last_names}</strong><small>{item.site_name}</small></div></div></td><td>{item.job_role}</td><td className={styles.clockCell}>{clock(item.marks.entry)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_out)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_return)}</td><td className={styles.clockCell}>{clock(item.marks.exit)}</td><td><span className={`${styles.attendanceStatus} ${styles[`attendance${item.status}`]}`}><i />{STATUS_LABELS[item.status]}</span></td><td>{item.delay_minutes ? `${item.delay_minutes} min` : '—'}</td><td>{item.overtime_minutes ? `${item.overtime_minutes} min` : '—'}</td></tr>)}
+            {!attendance?.employees.length && <tr><td colSpan={9}><div className={styles.empty}>No hay personal dentro del alcance seleccionado.</div></td></tr>}
+          </tbody></table></div>
+          {(attendance?.employees.length ?? 0) > 8 && <footer className={styles.executiveTableFooter}><span>Mostrando 8 de {attendance?.employees.length} colaboradores</span><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa <ArrowRight /></button></footer>}
+        </article>
+      </div>
+
+      <div className={styles.executiveTopAgenda}><AgendaPanel siteId={siteId} workflows={workflows} onOpenCalendar={() => navigate('/rrhh/horarios')} /></div>
+    </section>
 
     <WorkforceAnalytics trend={trend} attendance={attendance} employees={employees} trackedEmployees={trackedEmployees} refreshing={loading} onRefresh={() => void load()} onOpenReport={() => navigate('/rrhh/reportes')} attentionPanel={attentionPanel} />
 
@@ -209,8 +215,6 @@ export function RrhhOverview({ siteId, employees }: Props) {
         <div className={styles.tableWrap}><table className={styles.executiveSitesTable}><thead><tr><th>Sede</th><th>Personal</th><th>Asistencia</th><th>Tardanzas</th><th>Horas extra</th></tr></thead><tbody>{sitePerformance.map(site => <tr key={site.siteId}><td><i className={site.attendanceRate >= 90 ? styles.siteGood : site.attendanceRate >= 75 ? styles.siteWarning : styles.siteCritical} />{site.siteName}</td><td>{site.employees}</td><td><strong>{site.attendanceRate}%</strong></td><td>{site.late}</td><td>{Math.floor(site.overtimeMinutes / 60)} h {site.overtimeMinutes % 60} min</td></tr>)}{!sitePerformance.length && <tr><td colSpan={5}>Sin información por sede.</td></tr>}</tbody></table></div>
         <footer className={styles.executiveCardFooter}><button type="button" onClick={() => navigate('/rrhh/reportes')}>Ver reporte completo por sede <ArrowRight /></button></footer>
       </article>
-
-      <div className={styles.executiveAgenda}><AgendaPanel siteId={siteId} workflows={workflows} onOpenCalendar={() => navigate('/rrhh/horarios')} /></div>
 
     </section>
   </div>;
