@@ -1,15 +1,10 @@
-import type { CSSProperties, ReactNode } from 'react';
-import { MoreVertical, RefreshCw, UsersRound } from 'lucide-react';
-import { Button } from '../../../components/ui/Button/Button';
-import type { AttendanceDashboard, AttendanceTrendPoint } from '../types';
+import type { ReactNode } from 'react';
+import { MoreVertical, UsersRound } from 'lucide-react';
+import type { AttendanceTrendPoint } from '../types';
 import styles from './WorkforceAnalytics.module.css';
 
 type Props = {
   trend: AttendanceTrendPoint[];
-  attendance: AttendanceDashboard | null;
-  trackedEmployees: number;
-  refreshing: boolean;
-  onRefresh: () => void;
   onOpenReport: () => void;
   attentionPanel: ReactNode;
   performancePanel: ReactNode;
@@ -60,9 +55,7 @@ function shortDate(date: string) {
   return `${day.charAt(0).toUpperCase()}${day.slice(1)} ${value.getDate()}`;
 }
 
-export function WorkforceAnalytics({ trend, attendance, trackedEmployees, refreshing, onRefresh, onOpenReport, attentionPanel, performancePanel }: Props) {
-  const summary = attendance?.summary;
-  const attendanceRate = summary?.total_employees ? Math.round(summary.present / summary.total_employees * 100) : 0;
+export function WorkforceAnalytics({ trend, onOpenReport, attentionPanel, performancePanel }: Props) {
   const attendanceLines = pointSegments(trend, 'attendance_rate');
   const tardinessLines = pointSegments(trend, 'tardiness_rate');
 
@@ -86,17 +79,5 @@ export function WorkforceAnalytics({ trend, attendance, trackedEmployees, refres
       </svg> : <div className={styles.empty}>Sin información semanal.</div>}</div>
     </article>
 
-    <article className={`${styles.card} ${styles.summaryCard}`}>
-      <header><div><span className={styles.violetIcon}><UsersRound /></span><div><h2>Resumen del día</h2><p>Cobertura operativa actual</p></div></div><Button size="sm" variant="secondary" icon={<RefreshCw size={13} />} loading={refreshing} onClick={onRefresh}>Actualizar</Button></header>
-      <div className={styles.summaryBody}>
-        <div className={styles.summaryRing} style={{ '--attendance-progress': `${attendanceRate}%` } as CSSProperties}><div><strong>{attendanceRate}%</strong><span>Asistencia</span></div></div>
-        <ul>
-          <li><i className={styles.green} /><span>Con asistencia</span><strong>{summary?.present ?? 0}</strong></li>
-          <li><i className={styles.amber} /><span>Tardanzas incluidas</span><strong>{summary?.late ?? 0}</strong></li>
-          <li><i className={styles.gray} /><span>Sin registrar</span><strong>{summary?.without_record ?? 0}</strong></li>
-          <li><i className={styles.indigo} /><span>Con rastreo GPS</span><strong>{trackedEmployees}</strong></li>
-        </ul>
-      </div>
-    </article>
   </section>;
 }

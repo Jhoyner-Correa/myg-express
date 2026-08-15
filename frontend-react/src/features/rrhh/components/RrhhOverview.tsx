@@ -25,6 +25,7 @@ import { rrhhService } from '../rrhh.service';
 import type { AbsenceWorkflows, AttendanceDashboard, AttendanceDashboardEmployee, AttendanceTrendPoint, Employee } from '../types';
 import styles from '../Rrhh.module.css';
 import { AgendaPanel } from './AgendaPanel';
+import { DailySummaryCard } from './DailySummaryCard';
 import { ExecutiveKpiCard } from './ExecutiveKpiCard';
 import { summarizeSitePerformance } from './overview-domain';
 import { WorkforceAnalytics } from './WorkforceAnalytics';
@@ -236,10 +237,13 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
         </article>
       </div>
 
-      <div className={styles.executiveTopAgenda}><AgendaPanel siteId={siteId} workflows={workflows} month={agendaMonth} onMonthChange={onAgendaMonthChange} onOpenCalendar={() => navigate('/rrhh/horarios')} /></div>
+      <aside className={styles.executiveTopAside} aria-label="Resumen diario y agenda">
+        <DailySummaryCard attendance={attendance} trackedEmployees={trackedEmployees} refreshing={loading} onRefresh={() => void load()} />
+        <AgendaPanel siteId={siteId} workflows={workflows} month={agendaMonth} onMonthChange={onAgendaMonthChange} onOpenCalendar={() => navigate('/rrhh/horarios')} />
+      </aside>
     </section>
 
-    <WorkforceAnalytics trend={trend} attendance={attendance} trackedEmployees={trackedEmployees} refreshing={loading} onRefresh={() => void load()} onOpenReport={() => navigate('/rrhh/reportes')} attentionPanel={attentionPanel} performancePanel={performancePanel} />
+    <WorkforceAnalytics trend={trend} onOpenReport={() => navigate('/rrhh/reportes')} attentionPanel={attentionPanel} performancePanel={performancePanel} />
 
     <section className={styles.executiveAnalysis}>
       <div className={styles.executiveMap}><LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} /></div>

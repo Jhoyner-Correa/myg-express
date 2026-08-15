@@ -193,8 +193,8 @@
 .executiveDashboard { display: grid; gap: 10px; }
 .executiveTopGrid { display: grid; grid-template-columns: minmax(0, 1290px) minmax(260px, 300px); gap: 12px; align-items: stretch; }
 .executiveTopMain { display: grid; min-width: 0; gap: 10px; }
-.executiveTopAgenda { display: flex; min-width: 0; min-height: 0; }
-.executiveTopAgenda > * { flex: 1; height: auto; align-self: start; }
+.executiveTopAside { display: grid; min-width: 0; min-height: 0; align-content: start; gap: 10px; }
+.executiveTopAside > * { width: 100%; height: auto; }
 .executiveKpis { display: grid; grid-template-columns: repeat(5, minmax(190px, 250px)); gap: 8px; justify-content: start; }
 
 .executiveCardHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 59px; padding: 11px 14px; border-bottom: 1px solid var(--border-default); }
@@ -359,8 +359,8 @@
 
 @media (max-width: 1800px) {
   .executiveTopGrid { grid-template-columns: 1fr; }
-  .executiveTopAgenda { width: min(100%, 300px); }
-  .executiveTopAgenda > * { height: auto; }
+  .executiveTopAside { width: min(100%, 300px); }
+  .executiveTopAside > * { height: auto; }
 }
 
 @media (max-width: 900px) {
