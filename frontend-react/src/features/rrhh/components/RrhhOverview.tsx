@@ -153,7 +153,7 @@ export function RrhhOverview({ siteId, employees }: Props) {
     const vacationAlerts = pendingVacations.map(item => ({ id: `vacation-${item.id}`, tone: 'info' as const, kind: 'request' as const, title: `Vacaciones de ${item.nombres} ${item.apellidos} por revisar`, site: item.sede_nombre, time: clock(item.created_at), target: '/rrhh/solicitudes' }));
     return [...attendanceAlerts, ...permissionAlerts, ...vacationAlerts];
   }, [attendance, pendingPermissions, pendingVacations]);
-  const displayedAlerts = showAllAlerts ? alerts : alerts.slice(0, 5);
+  const displayedAlerts = showAllAlerts ? alerts : alerts.slice(0, 4);
 
   const exportExcel = async () => {
     if (!attendance?.employees.length) { showToast('No hay información de asistencia para exportar.', 'warning'); return; }
@@ -189,7 +189,7 @@ export function RrhhOverview({ siteId, employees }: Props) {
   const attentionPanel = <article className={`${styles.card} ${styles.executiveAlerts}`}>
     <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><BellRing /></span><div><h2>Atención requerida</h2><p>Eventos que necesitan seguimiento.</p></div></div></header>
     <div className={styles.executiveAlertList}>{displayedAlerts.map(alert => <div className={styles.executiveAlertRow} key={alert.id}><i className={`${styles.alertPriority} ${styles[`priority${alert.tone}`]}`} /><span className={`${styles.alertIcon} ${styles[`alert${alert.tone}`]}`}>{alert.kind === 'request' ? <FileClock /> : alert.tone === 'critical' ? <UserX /> : <AlertTriangle />}</span><div className={styles.alertCopy}><strong>{alert.title}</strong></div><span className={styles.alertMeta}>{alert.site} · {alert.time}</span><button type="button" onClick={() => navigate(alert.target)}>Revisar</button></div>)}{!alerts.length && <div className={styles.executiveEmpty}><CheckCircle2 /><span>La operación no tiene alertas pendientes.</span></div>}</div>
-    {alerts.length > 5 && <footer className={styles.executiveAlertFooter}><button type="button" onClick={() => setShowAllAlerts(current => !current)}>{showAllAlerts ? 'Mostrar resumen' : `Ver todas las alertas (${alerts.length})`} <ArrowRight /></button></footer>}
+    {alerts.length > 4 && <footer className={styles.executiveAlertFooter}><button type="button" onClick={() => setShowAllAlerts(current => !current)}>{showAllAlerts ? 'Mostrar resumen' : `Ver todas las alertas (${alerts.length})`} <ArrowRight /></button></footer>}
   </article>;
 
   return <div className={styles.executiveDashboard}>
