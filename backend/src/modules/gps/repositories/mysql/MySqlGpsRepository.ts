@@ -98,18 +98,20 @@ export class MySqlGpsRepository {
   /**
    * Obtiene la ubicación en tiempo real de todos los empleados activos de una sede específica
    */
-  async obtenerTiempoRealPorSede(sedeId: number): Promise<any[]> {
+  async obtenerTiempoRealPorSede(sedeId: number | null): Promise<any[]> {
+    const siteFilter = sedeId === null ? '' : 'AND e.sede_id = ?';
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT tr.empleado_id, tr.latitud, tr.longitud, tr.velocidad_kmh, tr.precision_gps, 
               tr.altitud, tr.rumbo, tr.estado_movimiento, tr.porcentaje_bateria, tr.ultima_actualizacion,
-              e.codigo_empleado, e.nombres, e.apellidos,
+              e.codigo_empleado, e.nombres, e.apellidos, e.sede_id, s.nombre AS sede_nombre,
               c.nombre AS cargo_nombre
        FROM personal_gps_tiempo_real tr
        INNER JOIN personal_empleados e ON tr.empleado_id = e.id
        INNER JOIN personal_cargos c ON e.cargo_id = c.id
-       WHERE e.sede_id = ? AND e.estado = 'ACTIVO'
+       INNER JOIN sedes s ON e.sede_id = s.id
+       WHERE e.estado = 'ACTIVO' AND e.tipo_rastreo = 'CONTINUO' ${siteFilter}
        ORDER BY tr.ultima_actualizacion DESC`,
-      [sedeId]
+      sedeId === null ? [] : [sedeId]
     );
 
     return rows;

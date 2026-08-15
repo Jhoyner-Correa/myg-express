@@ -56,7 +56,8 @@ export function createHttpApp() {
   const imgSrc = parseList(process.env.APP_CSP_IMG_SRC, [
     "'self'",
     'data:',
-    'blob:'
+    'blob:',
+    'https://*.tile.openstreetmap.org'
   ]);
   const mediaSrc = parseList(process.env.APP_CSP_MEDIA_SRC, [
     "'self'",

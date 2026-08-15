@@ -1,0 +1,77 @@
+.panel { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: 13px; background: var(--surface-card); box-shadow: var(--shadow-sm); }
+.header { display: flex; min-height: 61px; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 13px; border-bottom: 1px solid var(--border-default); }
+.title { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.title > span { display: grid; width: 31px; height: 31px; flex: 0 0 31px; place-items: center; border-radius: 8px; background: #eaf3ff; color: #2c6fc8; }
+.title svg { width: 15px; }
+.title h2 { margin: 0; color: var(--text-primary); font-size: .72rem; font-weight: 730; }
+.title p { margin: 3px 0 0; overflow: hidden; color: var(--text-muted); font-size: .57rem; text-overflow: ellipsis; white-space: nowrap; }
+.headerActions { display: flex; align-items: center; gap: 7px; }
+.openButton, .refreshButton { display: inline-flex; min-height: 29px; align-items: center; justify-content: center; gap: 5px; padding: 0 9px; border: 1px solid #bfd0e5; border-radius: 7px; background: #fff; color: #245fae; font: inherit; font-size: .58rem; font-weight: 700; cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease; white-space: nowrap; }
+.openButton:hover, .refreshButton:hover { border-color: #7fa4d2; background: #edf5ff; color: #174f99; }
+.openButton:focus-visible, .refreshButton:focus-visible, .positionList button:focus-visible { outline: 2px solid #75a7df; outline-offset: 2px; }
+.openButton svg, .refreshButton svg { width: 12px; }
+.refreshButton:disabled { cursor: wait; opacity: .7; }
+.spinning { animation: spin .8s linear infinite; }
+
+.body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(178px, .75fr); min-height: 252px; }
+.mapStage { min-width: 0; min-height: 252px; padding: 10px; background: #f4f7f9; }
+.map { width: 100%; height: 232px; overflow: hidden; border: 1px solid #dbe4e9; border-radius: 9px; background: #eaf0f2; }
+.map :global(.leaflet-control-attribution) { font-size: 8px; }
+.map :global(.leaflet-control-zoom a) { color: #294968; }
+.mapEmpty { display: grid; height: 100%; min-height: 232px; align-content: center; justify-items: center; gap: 7px; padding: 20px; border: 1px solid #dbe4e9; border-radius: 9px; background-color: #f7f9fa; background-image: linear-gradient(rgba(206,218,224,.45) 1px, transparent 1px), linear-gradient(90deg, rgba(206,218,224,.45) 1px, transparent 1px); background-size: 28px 28px; color: #285f9f; text-align: center; }
+.mapEmpty > span { display: grid; width: 39px; height: 39px; place-items: center; border-radius: 10px; background: #eaf3ff; }
+.mapEmpty svg { width: 19px; }
+.mapEmpty strong { color: #253246; font-size: .69rem; }
+.mapEmpty small { max-width: 270px; color: #6c7a8e; font-size: .58rem; line-height: 1.45; }
+
+.positionRail { display: grid; min-width: 0; grid-template-rows: minmax(0, 1fr) auto; border-left: 1px solid var(--border-default); background: #fff; }
+.positionList { display: grid; align-content: start; }
+.positionList button { display: grid; grid-template-columns: 25px minmax(0, 1fr) 7px; align-items: center; gap: 8px; min-height: 58px; padding: 8px 11px; border: 0; border-bottom: 1px solid var(--color-neutral-100); background: #fff; text-align: left; cursor: pointer; transition: background-color 150ms ease; }
+.positionList button:hover { background: #f7faff; }
+.positionList .positionSelected { background: #f1f6fd; box-shadow: inset 3px 0 #347ddc; }
+.positionIndex { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 50%; color: #fff; font-size: .59rem; font-weight: 760; }
+.positionIdentity { min-width: 0; }
+.positionIdentity strong, .positionIdentity small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.positionIdentity strong { color: #253246; font-size: .61rem; font-weight: 690; }
+.positionIdentity small { margin-top: 3px; color: #6c7a8e; font-size: .53rem; }
+.signalDot { width: 6px; height: 6px; border-radius: 50%; }
+.signalonline { background: #18a865; }.signalstale { background: #ee951f; }.signaloffline { background: #94a3b8; }
+.railEmpty { display: grid; min-height: 150px; place-items: center; align-content: center; gap: 7px; color: #7a8798; font-size: .62rem; }
+.railEmpty svg { width: 20px; }
+.positionDetails { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; padding: 10px; border-top: 1px solid var(--border-default); background: #fbfcfd; }
+.positionDetails > div { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.positionDetails svg { width: 13px; color: #347ddc; }
+.positionDetails span { min-width: 0; }
+.positionDetails strong, .positionDetails small { display: block; }
+.positionDetails strong { color: #253246; font-size: .59rem; }
+.positionDetails small { color: #7a8798; font-size: .49rem; }
+.positionDetails p { grid-column: 1 / -1; margin: 1px 0 0; color: #68778c; font-size: .51rem; }
+
+.markerRoot { border: 0; background: transparent; }
+.mapMarker { position: relative; display: grid; width: 27px; height: 27px; place-items: center; border: 3px solid #fff; border-radius: 50% 50% 50% 8px; color: #fff; font-size: 10px; font-weight: 800; box-shadow: 0 3px 8px rgba(23, 43, 68, .28); transform: rotate(-45deg); transition: transform 150ms ease; }
+.mapMarker { line-height: 1; }
+.mapMarker > b { font: inherit; transform: rotate(45deg); }
+.markerRoute { background: #2f71c7; }.markerActive { background: #18a865; }.markerOffline { background: #8795a7; }
+.markerSelected { transform: rotate(-45deg) scale(1.16); box-shadow: 0 0 0 3px rgba(52,125,220,.18), 0 4px 10px rgba(23,43,68,.32); }
+
+.full .body { grid-template-columns: minmax(0, 1fr) 310px; min-height: 570px; }
+.full .mapStage { min-height: 570px; padding: 14px; }
+.full .map { height: 542px; }
+.full .mapEmpty { min-height: 542px; }
+.full .positionList { max-height: 450px; overflow: auto; }
+.full .positionList button { min-height: 64px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 760px) {
+  .header { align-items: flex-start; flex-direction: column; }
+  .headerActions, .openButton, .refreshButton { width: 100%; }
+  .body, .full .body { grid-template-columns: 1fr; }
+  .positionRail { border-top: 1px solid var(--border-default); border-left: 0; }
+  .compact .mapStage { min-height: 220px; }
+  .compact .map { height: 200px; }
+  .compact .mapEmpty { min-height: 200px; }
+  .full .mapStage { min-height: 390px; padding: 10px; }
+  .full .map, .full .mapEmpty { height: 370px; min-height: 370px; }
+  .full .positionList { max-height: 360px; }
+}

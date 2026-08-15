@@ -45,8 +45,8 @@ export class GpsService {
     });
   }
 
-  async obtenerUbicacionesTiempoReal(sedeId: number) {
-    if (!sedeId || sedeId <= 0) {
+  async obtenerUbicacionesTiempoReal(sedeId: number | null) {
+    if (sedeId !== null && (!Number.isInteger(sedeId) || sedeId <= 0)) {
       throw new Error('Sede inválida');
     }
     return await this.gpsRepository.obtenerTiempoRealPorSede(sedeId);

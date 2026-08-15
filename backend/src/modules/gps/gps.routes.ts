@@ -21,6 +21,7 @@ const gpsController = new GpsController(gpsService);
 // Endpoints GPS
 router.use(verificarToken);
 router.post('/reportar', requirePermission(PERMISSIONS.GPS_MANAGE), gpsController.reportarUbicacion);
+router.get('/tiempo-real', requirePermission(PERMISSIONS.GPS_VIEW), gpsController.obtenerTiempoRealCorporativo);
 router.get('/tiempo-real/sede/:sedeId', requirePermission(PERMISSIONS.GPS_VIEW), gpsController.obtenerTiempoReal);
 router.get('/historial/empleado/:empleadoId', requirePermission(PERMISSIONS.GPS_VIEW), gpsController.obtenerHistorial);
 

@@ -20,6 +20,7 @@ import { Button } from '../../../components/ui/Button/Button';
 import { PageLoader } from '../../../components/ui/PageLoader/PageLoader';
 import { getApiErrorMessage } from '../../../core/api/errors';
 import { showToast } from '../../../core/utils/toast';
+import { LiveLocationPanel } from '../../gps/LiveLocationPanel';
 import { rrhhService } from '../rrhh.service';
 import type { AbsenceWorkflows, AttendanceDashboard, AttendanceDashboardEmployee, Employee } from '../types';
 import styles from '../Rrhh.module.css';
@@ -99,6 +100,11 @@ export function RrhhOverview({ siteId, employees }: Props) {
   const summary = attendance?.summary;
   const attendanceRate = summary?.total_employees ? Math.round(summary.present / summary.total_employees * 100) : 0;
   const sitePerformance = useMemo(() => summarizeSitePerformance(attendance?.employees ?? []), [attendance]);
+  const gpsSites = useMemo(() => {
+    const unique = new Map<number, { id: number; name: string }>();
+    employees.forEach(employee => unique.set(employee.sedeId, { id: employee.sedeId, name: employee.sedeNombre ?? `Sede ${employee.sedeId}` }));
+    return [...unique.values()];
+  }, [employees]);
 
   const alerts = useMemo<ExecutiveAlert[]>(() => {
     const attendanceAlerts = (attendance?.employees ?? [])
@@ -168,6 +174,7 @@ export function RrhhOverview({ siteId, employees }: Props) {
     </article>
 
     <section className={styles.executiveAnalysis}>
+      <div className={styles.executiveMap}><LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} /></div>
       <article className={`${styles.card} ${styles.executiveAlerts}`}>
         <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><BellRing /></span><div><h2>Atención requerida</h2><p>Eventos que necesitan seguimiento.</p></div></div></header>
         <div className={styles.executiveAlertList}>{displayedAlerts.map(alert => <div className={styles.executiveAlertRow} key={alert.id}><i className={`${styles.alertPriority} ${styles[`priority${alert.tone}`]}`} /><span className={`${styles.alertIcon} ${styles[`alert${alert.tone}`]}`}>{alert.kind === 'request' ? <FileClock /> : alert.tone === 'critical' ? <UserX /> : <AlertTriangle />}</span><div className={styles.alertCopy}><strong>{alert.title}</strong></div><span className={styles.alertMeta}>{alert.site} · {alert.time}</span><button type="button" onClick={() => navigate(alert.target)}>Revisar</button></div>)}{!alerts.length && <div className={styles.executiveEmpty}><CheckCircle2 /><span>La operación no tiene alertas pendientes.</span></div>}</div>

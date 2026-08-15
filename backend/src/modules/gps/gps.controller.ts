@@ -6,7 +6,7 @@
 import { Response } from 'express';
 import { GpsService } from './services/GpsService';
 import { AuthRequest } from '../../core/middlewares/authMiddleware';
-import { assertEntitySede, resolveSedeScope, SedeScopeError } from '../../core/auth/sedeScope';
+import { assertEntitySede, resolveOptionalSedeScope, resolveSedeScope, SedeScopeError } from '../../core/auth/sedeScope';
 import { businessDate } from '../../core/utils/time';
 
 function errorStatus(error: unknown, fallback: number): number {
@@ -73,6 +73,19 @@ export class GpsController {
         ok: true,
         data: posiciones
       });
+    } catch (error: any) {
+      return res.status(errorStatus(error, 500)).json({
+        ok: false,
+        message: error.message
+      });
+    }
+  };
+
+  obtenerTiempoRealCorporativo = async (req: AuthRequest, res: Response) => {
+    try {
+      const sedeId = resolveOptionalSedeScope(req, req.query.sede_id);
+      const posiciones = await this.gpsService.obtenerUbicacionesTiempoReal(sedeId);
+      return res.json({ ok: true, data: posiciones });
     } catch (error: any) {
       return res.status(errorStatus(error, 500)).json({
         ok: false,
