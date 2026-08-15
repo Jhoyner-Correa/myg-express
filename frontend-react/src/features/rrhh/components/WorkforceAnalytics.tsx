@@ -69,6 +69,8 @@ export function WorkforceAnalytics({ trend, attendance, trackedEmployees, refres
   return <section className={styles.grid} aria-label="Analítica de Recursos Humanos">
     <div className={styles.attentionSlot}>{attentionPanel}</div>
 
+    <div className={styles.performanceSlot}>{performancePanel}</div>
+
     <article className={`${styles.card} ${styles.weeklyCard}`}>
       <header><div><span><UsersRound /></span><h2>Asistencia semanal</h2></div><button type="button" className={styles.chartMenu} aria-label="Abrir reporte semanal" title="Abrir reporte semanal" onClick={onOpenReport}><MoreVertical /></button></header>
       <div className={styles.legend}><span><i className={styles.blue} />Asistencia (%)</span><span><i className={styles.orange} />Tardanzas</span></div>
@@ -96,7 +98,5 @@ export function WorkforceAnalytics({ trend, attendance, trackedEmployees, refres
         </ul>
       </div>
     </article>
-
-    <div className={styles.performanceSlot}>{performancePanel}</div>
   </section>;
 }
