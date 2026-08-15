@@ -6,7 +6,6 @@ import {
   BellRing,
   CalendarCheck2,
   CheckCircle2,
-  ChevronDown,
   ClockAlert,
   Download,
   FileClock,
@@ -22,10 +21,12 @@ import { getApiErrorMessage } from '../../../core/api/errors';
 import { showToast } from '../../../core/utils/toast';
 import { LiveLocationPanel } from '../../gps/LiveLocationPanel';
 import { rrhhService } from '../rrhh.service';
-import type { AbsenceWorkflows, AttendanceDashboard, AttendanceDashboardEmployee, AttendanceTrendPoint, Employee } from '../types';
+import type { AbsenceWorkflows, AttendanceDashboard, AttendanceTrendPoint, Employee } from '../types';
 import styles from '../Rrhh.module.css';
 import { AgendaPanel } from './AgendaPanel';
+import { ATTENDANCE_STATUS_LABELS, formatAttendanceClock } from './attendance-formatters';
 import { DailySummaryCard } from './DailySummaryCard';
+import { ExecutiveAttendanceTable } from './ExecutiveAttendanceTable';
 import { ExecutiveKpiCard } from './ExecutiveKpiCard';
 import { summarizeSitePerformance } from './overview-domain';
 import { WorkforceAnalytics } from './WorkforceAnalytics';
@@ -45,21 +46,6 @@ function shiftDate(date: string, days: number) {
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
 }
-
-function clock(value: string | null) {
-  if (!value) return '—';
-  return new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', hour: 'numeric', minute: '2-digit' }).format(new Date(value));
-}
-
-const STATUS_LABELS: Record<AttendanceDashboardEmployee['status'], string> = {
-  PRESENTE: 'Presente',
-  TARDANZA: 'Tardanza',
-  FALTA: 'Falta',
-  PERMISO: 'Permiso',
-  VACACIONES: 'Vacaciones',
-  SIN_REGISTRO: 'Sin registrar',
-  NO_LABORABLE: 'No laborable',
-};
 
 type ExecutiveAlert = {
   id: string;
@@ -128,9 +114,6 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
   const attendanceRate = summary?.total_employees ? Math.round(summary.present / summary.total_employees * 100) : 0;
   const activeShare = employees.length ? Math.round(activeEmployees / employees.length * 100) : 0;
 
-  useEffect(() => {
-    setShowAttendanceScrollHint((attendance?.employees.length ?? 0) > 5);
-  }, [attendance?.employees.length]);
   const today = businessToday();
   const todayTrend = trend.find(point => point.date === today);
   const previousWorkingDay = [...trend].reverse().find(point => point.date < today && point.working_employees > 0);
@@ -154,11 +137,11 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
         kind: 'attendance' as const,
         title: item.status === 'TARDANZA' ? `${item.names} ${item.last_names} registró ${item.delay_minutes} min de tardanza` : item.status === 'FALTA' ? `${item.names} ${item.last_names} figura como falta` : `${item.names} ${item.last_names} no registró su entrada`,
         site: item.site_name,
-        time: item.marks.entry === null ? 'Hoy' : clock(item.marks.entry),
+        time: item.marks.entry === null ? 'Hoy' : formatAttendanceClock(item.marks.entry),
         target: '/rrhh/asistencia',
       }));
-    const permissionAlerts = pendingPermissions.map(item => ({ id: `permission-${item.id}`, tone: 'info' as const, kind: 'request' as const, title: `Permiso ${item.tipo_permiso.toLocaleLowerCase('es')} de ${item.nombres} ${item.apellidos}`, site: item.sede_nombre, time: clock(item.created_at), target: '/rrhh/solicitudes' }));
-    const vacationAlerts = pendingVacations.map(item => ({ id: `vacation-${item.id}`, tone: 'info' as const, kind: 'request' as const, title: `Vacaciones de ${item.nombres} ${item.apellidos} por revisar`, site: item.sede_nombre, time: clock(item.created_at), target: '/rrhh/solicitudes' }));
+    const permissionAlerts = pendingPermissions.map(item => ({ id: `permission-${item.id}`, tone: 'info' as const, kind: 'request' as const, title: `Permiso ${item.tipo_permiso.toLocaleLowerCase('es')} de ${item.nombres} ${item.apellidos}`, site: item.sede_nombre, time: formatAttendanceClock(item.created_at), target: '/rrhh/solicitudes' }));
+    const vacationAlerts = pendingVacations.map(item => ({ id: `vacation-${item.id}`, tone: 'info' as const, kind: 'request' as const, title: `Vacaciones de ${item.nombres} ${item.apellidos} por revisar`, site: item.sede_nombre, time: formatAttendanceClock(item.created_at), target: '/rrhh/solicitudes' }));
     return [...attendanceAlerts, ...permissionAlerts, ...vacationAlerts];
   }, [attendance, pendingPermissions, pendingVacations]);
   const displayedAlerts = showAllAlerts ? alerts : alerts.slice(0, 4);
@@ -167,6 +150,10 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
     if (!normalizedQuery) return attendance?.employees ?? [];
     return (attendance?.employees ?? []).filter(item => `${item.names} ${item.last_names} ${item.employee_code} ${item.site_name} ${item.job_role}`.toLocaleLowerCase('es').includes(normalizedQuery));
   }, [attendance, normalizedQuery]);
+
+  useEffect(() => {
+    setShowAttendanceScrollHint(visibleAttendance.length > 5);
+  }, [visibleAttendance.length]);
 
   useEffect(() => onAlertCountChange(alerts.length), [alerts.length, onAlertCountChange]);
 
@@ -180,11 +167,11 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
         Colaborador: `${item.names} ${item.last_names}`,
         Sede: item.site_name,
         Cargo: item.job_role,
-        Entrada: clock(item.marks.entry),
-        'Salida almuerzo': clock(item.marks.lunch_out),
-        Regreso: clock(item.marks.lunch_return),
-        'Salida final': clock(item.marks.exit),
-        Estado: STATUS_LABELS[item.status],
+        Entrada: formatAttendanceClock(item.marks.entry),
+        'Salida almuerzo': formatAttendanceClock(item.marks.lunch_out),
+        Regreso: formatAttendanceClock(item.marks.lunch_return),
+        'Salida final': formatAttendanceClock(item.marks.exit),
+        Estado: ATTENDANCE_STATUS_LABELS[item.status],
         'Tardanza (min)': item.delay_minutes,
         'Horas extra (min)': item.overtime_minutes,
       }));
@@ -226,13 +213,12 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
 
         <article className={`${styles.card} ${styles.executiveAttendance}`}>
           <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><CalendarCheck2 /></span><div><h2>Asistencia de hoy</h2><p>{businessDateLabel(businessToday())}</p></div></div><div className={styles.executiveActions}><Button size="sm" variant="secondary" icon={<Download size={14} />} loading={exporting} onClick={() => void exportExcel()}>Exportar Excel</Button><Button size="sm" variant="corporate" onClick={() => navigate('/rrhh/reportes')}>Ver reporte</Button></div></header>
-          <div className={styles.attendanceTableShell}>
-            <div className={`${styles.tableWrap} ${styles.executiveAttendanceScroll}`} onScroll={handleAttendanceScroll}><table className={`${styles.table} ${styles.executiveAttendanceTable}`} aria-label="Asistencia de hoy"><thead><tr><th>Colaborador</th><th>Sede</th><th>Cargo</th><th>Entrada</th><th>Salida almuerzo</th><th>Regreso</th><th>Salida final</th><th>Estado</th><th>Tardanza</th><th>Horas extra</th></tr></thead><tbody>
-              {visibleAttendance.map(item => <tr key={item.employee_id}><td><div className={styles.person}><span>{item.names.charAt(0)}{item.last_names.charAt(0)}</span><div><strong>{item.names} {item.last_names}</strong></div></div></td><td className={styles.attendanceSiteCell}>{item.site_name}</td><td>{item.job_role}</td><td className={styles.clockCell}>{clock(item.marks.entry)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_out)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_return)}</td><td className={styles.clockCell}>{clock(item.marks.exit)}</td><td><span className={`${styles.attendanceStatus} ${styles[`attendance${item.status}`]}`}><i />{STATUS_LABELS[item.status]}</span></td><td>{item.delay_minutes ? `${item.delay_minutes} min` : '—'}</td><td>{item.overtime_minutes ? `${item.overtime_minutes} min` : '—'}</td></tr>)}
-              {!visibleAttendance.length && <tr><td colSpan={10}><div className={styles.empty}>{normalizedQuery ? 'No encontramos colaboradores con esa búsqueda.' : 'No hay personal dentro del alcance seleccionado.'}</div></td></tr>}
-            </tbody></table></div>
-            {showAttendanceScrollHint && <div className={styles.attendanceScrollHint} aria-hidden="true"><ChevronDown /></div>}
-          </div>
+          <ExecutiveAttendanceTable
+            employees={visibleAttendance}
+            emptyMessage={normalizedQuery ? 'No encontramos colaboradores con esa búsqueda.' : 'No hay personal dentro del alcance seleccionado.'}
+            showScrollHint={showAttendanceScrollHint}
+            onScroll={handleAttendanceScroll}
+          />
           {(attendance?.employees.length ?? 0) > 8 && <footer className={styles.executiveTableFooter}><span>{attendance?.employees.length} colaboradores en la vista</span><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa <ArrowRight /></button></footer>}
         </article>
       </div>

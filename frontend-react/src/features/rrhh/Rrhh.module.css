@@ -208,12 +208,12 @@
 .executiveTitle h2 { margin: 0; color: var(--text-primary); font-size: .78rem; font-weight: 720; }
 .executiveTitle p { margin: 3px 0 0; color: var(--text-muted); font-size: .6rem; }
 .executiveActions { display: flex; gap: 8px; }
-.executiveAttendance { width: min(100%, 1290px); overflow: hidden; border-color: #dbe4ee; box-shadow: 0 4px 13px rgba(30, 50, 73, .07); }
+.executiveAttendance { width: min(100%, 1290px); overflow: hidden; border-color: #d8e1ec; box-shadow: 0 5px 15px rgba(30, 50, 73, .065); }
 .executiveAttendance .executiveCardHeader { min-height: 46px; padding: 7px 11px; background: #fff; }
 .executiveAttendance .executiveTitle > span { flex-basis: 29px; width: 29px; height: 29px; border-radius: 7px; }
 .executiveAttendance .executiveActions button { min-height: 31px; border-radius: 7px; font-size: .64rem; }
 .executiveAttendanceTable { min-width: 1130px; table-layout: fixed; }
-.executiveAttendanceTable th { height: 30px; padding: 6px 10px; background: #f7f9fc; color: #69788d; font-size: .57rem; letter-spacing: .055em; }
+.executiveAttendanceTable th { height: 31px; padding: 6px 10px; border-bottom-color: #d9e2ed; background: #f8fafc; color: #66778d; font-size: .56rem; font-weight: 720; letter-spacing: .06em; }
 .executiveAttendanceTable th:first-child { width: 220px; }
 .executiveAttendanceTable th:nth-child(2) { width: 110px; }
 .executiveAttendanceTable th:nth-child(3) { width: 165px; }
@@ -221,21 +221,30 @@
 .executiveAttendanceTable th:nth-child(8) { width: 115px; }
 .executiveAttendanceTable th:nth-child(9), .executiveAttendanceTable th:nth-child(10) { width: 85px; }
 .executiveAttendanceTable th:nth-child(n+4), .executiveAttendanceTable td:nth-child(n+4) { text-align: center; }
-.executiveAttendanceTable td { height: 40px; padding: 4px 10px; color: #425269; font-size: .65rem; }
-.executiveAttendanceTable tbody tr { transition: background-color 150ms ease, box-shadow 150ms ease; }
-.executiveAttendanceTable tbody tr:hover { background: #f4f7fb; box-shadow: inset 3px 0 #6b91c2; }
+.executiveAttendanceTable td { height: 41px; padding: 5px 10px; border-bottom-color: #e7edf4; color: #405169; font-size: .64rem; vertical-align: middle; }
+.executiveAttendanceTable tbody tr { background: #fff; transition: background-color 150ms ease, box-shadow 150ms ease; }
+.executiveAttendanceTable tbody tr:hover { background: #f6f9fc; box-shadow: inset 2px 0 #4f7fb8; }
 .executiveAttendanceTable .person { min-width: 0; gap: 9px; }
-.executiveAttendanceTable .person > span { flex: 0 0 25px; width: 25px; height: 25px; background: #eaf2ff; color: #245fae; font-size: .55rem; font-weight: 760; }
+.executiveAttendanceTable .person > span { flex: 0 0 25px; width: 25px; height: 25px; border: 1px solid #dce8f7; background: #eef5ff; color: #245fae; font-size: .54rem; font-weight: 740; }
 .executiveAttendanceTable .person > div { min-width: 0; }
 .executiveAttendanceTable .person strong, .executiveAttendanceTable .person small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.executiveAttendanceTable .person strong { color: #1f2d40; font-size: .7rem; font-weight: 680; }
+.executiveAttendanceTable .person strong { color: #1e2c3e; font-size: .68rem; font-weight: 680; }
 .executiveAttendanceTable .person small { color: #8290a3; font-size: .59rem; }
-.executiveAttendanceTable .attendanceSiteCell { overflow: hidden; color: #52657c; font-size: .63rem; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
-.executiveAttendanceTable .clockCell { color: #40536c !important; font-size: .66rem; }
-.executiveAttendanceTable .attendanceStatus { justify-content: center; color: #26364b; font-size: .64rem; font-weight: 670; }
-.executiveAttendanceTable .attendanceStatus i { width: 5px; height: 5px; }
+.executiveAttendanceTable .attendanceSiteCell { overflow: hidden; color: #435b78; font-size: .61rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.executiveAttendanceTable .attendanceRoleCell { overflow: hidden; color: #55667c; text-overflow: ellipsis; white-space: nowrap; }
+.executiveAttendanceTable .clockCell { color: #3c5069 !important; font-size: .64rem; font-weight: 520; }
+.executiveAttendanceTable .attendanceStatus { justify-content: center; color: #2a394d; font-size: .63rem; font-weight: 660; }
+.executiveAttendanceTable .attendanceStatus svg { width: 12px; height: 12px; color: #91a0b3; stroke-width: 2.25; }
+.executiveAttendanceTable .attendancePRESENTE svg { color: #16a267; }
+.executiveAttendanceTable .attendanceTARDANZA svg { color: #e59a17; }
+.executiveAttendanceTable .attendanceFALTA svg { color: #e24755; }
+.executiveAttendanceTable .attendancePERMISO svg { color: #347edc; }
+.executiveAttendanceTable .attendanceVACACIONES svg { color: #8457dc; }
+.executiveAttendanceTable .attendanceDelay { color: #d47b0b; font-weight: 650; }
+.executiveAttendanceTable .attendanceOvertime { color: #2669bb; font-weight: 650; }
+.executiveAttendanceTable .attendanceEmptyValue { color: #94a1b2; }
 .attendanceTableShell { position: relative; min-width: 0; }
-.executiveAttendanceScroll { height: 360px; max-height: 360px; overflow: auto; scrollbar-color: #9aacc0 transparent; scrollbar-width: thin; }
+.executiveAttendanceScroll { max-height: 237px; overflow: auto; scrollbar-color: #9aacc0 transparent; scrollbar-width: thin; }
 .executiveAttendanceScroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .executiveAttendanceScroll::-webkit-scrollbar-track { background: transparent; }
 .executiveAttendanceScroll::-webkit-scrollbar-thumb { border: 1px solid transparent; border-radius: 999px; background: #9aacc0; background-clip: padding-box; }
