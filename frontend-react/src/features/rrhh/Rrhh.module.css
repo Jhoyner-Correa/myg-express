@@ -201,6 +201,7 @@
 .executiveTitle { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .executiveTitle > span { display: grid; flex: 0 0 31px; width: 31px; height: 31px; place-items: center; border-radius: 8px; background: #eaf2ff; color: #245fae; }
 .executiveAlerts .executiveTitle > span { background: #ffedef; color: #d5424c; }
+.executiveAlerts .executiveCardHeader { min-height: 45px; padding: 7px 11px; }
 .executiveSites .executiveTitle > span { background: #e8f8fb; color: #1687a3; }
 .executiveTitle svg { width: 15px; }
 .executiveTitle h2 { margin: 0; color: var(--text-primary); font-size: .78rem; font-weight: 720; }
@@ -254,7 +255,7 @@
 .executiveSites { grid-column: auto; }
 .executiveAgenda { min-width: 0; }
 .executiveAlertList { display: grid; align-content: start; }
-.executiveAlertRow { display: grid; grid-template-columns: 6px 28px minmax(135px, 1fr) minmax(76px, auto) 58px; align-items: center; gap: 8px; min-height: 54px; padding: 7px 12px; border-bottom: 1px solid var(--color-neutral-100); background: #fff; transition: background-color 150ms ease; }
+.executiveAlertRow { display: grid; grid-template-columns: 6px 26px minmax(135px, 1fr) minmax(76px, auto) 58px; align-items: center; gap: 7px; min-height: 42px; padding: 5px 10px; border-bottom: 1px solid var(--color-neutral-100); background: #fff; transition: background-color 150ms ease; }
 .executiveAlertRow:hover { background: #f8fafc; }
 .executiveAlertRow:last-child { border-bottom: 0; }
 .alertPriority { width: 6px; height: 6px; border-radius: 50%; }
@@ -270,7 +271,7 @@
 .executiveAlertRow > button { min-height: 27px; padding: 0 8px; border: 1px solid #bfd0e5; border-radius: 6px; background: #fff; color: #245fae; font: inherit; font-size: .56rem; font-weight: 700; cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease; }
 .executiveAlertRow > button:hover { border-color: #7fa4d2; background: #edf5ff; color: #174f99; }
 .executiveAlertRow > button:focus-visible, .executiveAlertFooter button:focus-visible { outline: 2px solid #75a7df; outline-offset: 2px; }
-.executiveAlertFooter { display: flex; min-height: 38px; align-items: center; padding: 0 13px; border-top: 1px solid var(--border-default); background: #fbfcfd; }
+.executiveAlertFooter { display: flex; min-height: 31px; align-items: center; padding: 0 11px; border-top: 1px solid var(--border-default); background: #fbfcfd; }
 .executiveAlertFooter button { display: flex; width: 100%; align-items: center; justify-content: space-between; padding: 0; border: 0; background: transparent; color: #245fae; font: inherit; font-size: .59rem; font-weight: 700; cursor: pointer; }
 .executiveAlertFooter button:hover { color: #174f99; }
 .executiveAlertFooter svg { width: 12px; transition: transform 150ms ease; }
