@@ -234,7 +234,7 @@
 .executiveAttendanceTable .attendanceStatus { justify-content: center; color: #26364b; font-size: .64rem; font-weight: 670; }
 .executiveAttendanceTable .attendanceStatus i { width: 5px; height: 5px; }
 .attendanceTableShell { position: relative; min-width: 0; }
-.executiveAttendanceScroll { max-height: 245px; overflow: auto; scrollbar-color: #9aacc0 transparent; scrollbar-width: thin; }
+.executiveAttendanceScroll { max-height: 300px; overflow: auto; scrollbar-color: #9aacc0 transparent; scrollbar-width: thin; }
 .executiveAttendanceScroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .executiveAttendanceScroll::-webkit-scrollbar-track { background: transparent; }
 .executiveAttendanceScroll::-webkit-scrollbar-thumb { border: 1px solid transparent; border-radius: 999px; background: #9aacc0; background-clip: padding-box; }
