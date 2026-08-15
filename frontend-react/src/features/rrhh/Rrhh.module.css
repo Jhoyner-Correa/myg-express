@@ -180,7 +180,7 @@
 .executiveTitle h2 { margin: 0; color: var(--text-primary); font-size: .78rem; font-weight: 720; }
 .executiveTitle p { margin: 3px 0 0; color: var(--text-muted); font-size: .6rem; }
 .executiveActions { display: flex; gap: 8px; }
-.executiveAttendance { overflow: hidden; border-color: #dbe4ee; box-shadow: 0 4px 13px rgba(30, 50, 73, .07); }
+.executiveAttendance { width: min(100%, 1190px); overflow: hidden; border-color: #dbe4ee; box-shadow: 0 4px 13px rgba(30, 50, 73, .07); }
 .executiveAttendance .executiveCardHeader { min-height: 54px; padding: 9px 13px; background: #fff; }
 .executiveAttendance .executiveTitle > span { flex-basis: 29px; width: 29px; height: 29px; border-radius: 7px; }
 .executiveAttendance .executiveActions button { min-height: 31px; border-radius: 7px; font-size: .64rem; }
