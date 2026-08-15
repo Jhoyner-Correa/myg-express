@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { BarChart3, RefreshCw, UsersRound } from 'lucide-react';
+import { BarChart3, MoreVertical, RefreshCw, UsersRound } from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
 import type { AttendanceDashboard, AttendanceTrendPoint, Employee } from '../types';
 import { summarizeHeadcount } from './analytics-domain';
@@ -12,6 +12,7 @@ type Props = {
   trackedEmployees: number;
   refreshing: boolean;
   onRefresh: () => void;
+  onOpenReport: () => void;
 };
 
 const CHART_LEFT = 36;
@@ -43,13 +44,23 @@ function pointSegments(trend: AttendanceTrendPoint[], key: 'attendance_rate' | '
   return segments;
 }
 
+function areaPoints(points: string[]) {
+  if (points.length < 2) return '';
+  const firstPoint = points.at(0);
+  const lastPoint = points.at(-1);
+  if (!firstPoint || !lastPoint) return '';
+  const firstX = firstPoint.split(',')[0];
+  const lastX = lastPoint.split(',')[0];
+  return `${firstX},${CHART_BOTTOM} ${points.join(' ')} ${lastX},${CHART_BOTTOM}`;
+}
+
 function shortDate(date: string) {
   const value = new Date(`${date}T12:00:00-05:00`);
   const day = new Intl.DateTimeFormat('es-PE', { weekday: 'short', timeZone: 'America/Lima' }).format(value).replace('.', '');
   return `${day.charAt(0).toUpperCase()}${day.slice(1)} ${value.getDate()}`;
 }
 
-export function WorkforceAnalytics({ trend, attendance, employees, trackedEmployees, refreshing, onRefresh }: Props) {
+export function WorkforceAnalytics({ trend, attendance, employees, trackedEmployees, refreshing, onRefresh, onOpenReport }: Props) {
   const summary = attendance?.summary;
   const attendanceRate = summary?.total_employees ? Math.round(summary.present / summary.total_employees * 100) : 0;
   const headcount = summarizeHeadcount(employees).slice(0, 6);
@@ -59,14 +70,17 @@ export function WorkforceAnalytics({ trend, attendance, employees, trackedEmploy
 
   return <section className={styles.grid} aria-label="Analítica de Recursos Humanos">
     <article className={`${styles.card} ${styles.weeklyCard}`}>
-      <header><h2>Asistencia semanal</h2></header>
+      <header><div><span><UsersRound /></span><h2>Asistencia semanal</h2></div><button type="button" className={styles.chartMenu} aria-label="Abrir reporte semanal" title="Abrir reporte semanal" onClick={onOpenReport}><MoreVertical /></button></header>
       <div className={styles.legend}><span><i className={styles.blue} />Asistencia (%)</span><span><i className={styles.orange} />Tardanzas</span></div>
-      <div className={styles.lineChart}>{trend.length ? <svg viewBox="0 0 520 148" role="img" aria-label="Tendencia semanal de asistencia y tardanzas">
+      <div className={styles.lineChart}>{trend.length ? <svg viewBox="0 0 520 178" role="img" aria-label="Tendencia semanal de asistencia y tardanzas">
+        <defs><linearGradient id="attendance-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#347ddc" stopOpacity=".2" /><stop offset="1" stopColor="#347ddc" stopOpacity=".015" /></linearGradient><linearGradient id="tardiness-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#f27618" stopOpacity=".16" /><stop offset="1" stopColor="#f27618" stopOpacity=".015" /></linearGradient></defs>
         {[0, 25, 50, 75, 100].map(value => <g key={value}><line x1={CHART_LEFT} x2={CHART_RIGHT} y1={chartY(value)} y2={chartY(value)} className={styles.gridLine} /><text x="4" y={chartY(value) + 3} className={styles.axisLabel}>{value}%</text></g>)}
         {trend.map((item, index) => <line key={`grid-${item.date}`} x1={chartX(index, trend.length)} x2={chartX(index, trend.length)} y1={CHART_TOP} y2={CHART_BOTTOM} className={styles.verticalGridLine} />)}
+        {attendanceLines.map((points, index) => areaPoints(points) && <polygon key={`attendance-area-${index}`} points={areaPoints(points)} className={styles.attendanceArea} />)}
+        {tardinessLines.map((points, index) => areaPoints(points) && <polygon key={`tardiness-area-${index}`} points={areaPoints(points)} className={styles.tardinessArea} />)}
         {attendanceLines.map((points, index) => <polyline key={`attendance-${index}`} points={points.join(' ')} className={styles.attendanceLine} />)}
         {tardinessLines.map((points, index) => <polyline key={`tardiness-${index}`} points={points.join(' ')} className={styles.tardinessLine} />)}
-        {trend.map((item, index) => <g key={item.date}>{item.attendance_rate !== null && <><circle cx={chartX(index, trend.length)} cy={chartY(item.attendance_rate)} r="3" className={styles.attendancePoint}><title>{item.attendance_rate}% de asistencia</title></circle><circle cx={chartX(index, trend.length)} cy={chartY(item.tardiness_rate ?? 0)} r="2.7" className={styles.tardinessPoint}><title>{item.tardiness_rate ?? 0}% de tardanzas</title></circle></>}<text x={chartX(index, trend.length)} y="137" textAnchor="middle" className={styles.dateLabel}>{shortDate(item.date)}</text></g>)}
+        {trend.map((item, index) => { const [weekday, day] = shortDate(item.date).split(' '); return <g key={item.date}>{item.attendance_rate !== null && <><circle cx={chartX(index, trend.length)} cy={chartY(item.attendance_rate)} r="4" className={styles.attendancePoint}><title>{item.attendance_rate}% de asistencia</title></circle><circle cx={chartX(index, trend.length)} cy={chartY(item.tardiness_rate ?? 0)} r="3.7" className={styles.tardinessPoint}><title>{item.tardiness_rate ?? 0}% de tardanzas</title></circle></>}<text x={chartX(index, trend.length)} y="151" textAnchor="middle" className={styles.dateLabel}><tspan x={chartX(index, trend.length)}>{weekday}</tspan><tspan x={chartX(index, trend.length)} dy="14" className={styles.dateNumber}>{day}</tspan></text></g>; })}
       </svg> : <div className={styles.empty}>Sin información semanal.</div>}</div>
     </article>
 
