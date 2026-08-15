@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ClockAlert,
   Download,
+  FileClock,
   MapPin,
   RefreshCw,
   TimerReset,
@@ -49,7 +50,15 @@ const STATUS_LABELS: Record<AttendanceDashboardEmployee['status'], string> = {
   NO_LABORABLE: 'No laborable',
 };
 
-type ExecutiveAlert = { id: string; tone: 'critical' | 'warning' | 'info'; title: string; detail: string; target: string };
+type ExecutiveAlert = {
+  id: string;
+  tone: 'critical' | 'warning' | 'info';
+  kind: 'attendance' | 'request';
+  title: string;
+  site: string;
+  time: string;
+  target: string;
+};
 type Props = { siteId: number | null; employees: Employee[] };
 
 export function RrhhOverview({ siteId, employees }: Props) {
@@ -58,6 +67,7 @@ export function RrhhOverview({ siteId, employees }: Props) {
   const [workflows, setWorkflows] = useState<AbsenceWorkflows | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -96,14 +106,17 @@ export function RrhhOverview({ siteId, employees }: Props) {
       .map(item => ({
         id: `attendance-${item.employee_id}`,
         tone: item.status === 'TARDANZA' ? 'warning' as const : 'critical' as const,
-        title: `${item.names} ${item.last_names}`,
-        detail: item.status === 'TARDANZA' ? `${item.delay_minutes} min de tardanza · ${item.site_name}` : `${STATUS_LABELS[item.status]} · ${item.site_name}`,
+        kind: 'attendance' as const,
+        title: item.status === 'TARDANZA' ? `${item.names} ${item.last_names} registró ${item.delay_minutes} min de tardanza` : item.status === 'FALTA' ? `${item.names} ${item.last_names} figura como falta` : `${item.names} ${item.last_names} no registró su entrada`,
+        site: item.site_name,
+        time: item.marks.entry === null ? 'Hoy' : clock(item.marks.entry),
         target: '/rrhh/asistencia',
       }));
-    const permissionAlerts = pendingPermissions.map(item => ({ id: `permission-${item.id}`, tone: 'info' as const, title: `${item.nombres} ${item.apellidos}`, detail: `Permiso ${item.tipo_permiso.toLocaleLowerCase('es')} pendiente`, target: '/rrhh/solicitudes' }));
-    const vacationAlerts = pendingVacations.map(item => ({ id: `vacation-${item.id}`, tone: 'info' as const, title: `${item.nombres} ${item.apellidos}`, detail: `${item.dias_tomados} días de vacaciones por revisar`, target: '/rrhh/solicitudes' }));
-    return [...attendanceAlerts, ...permissionAlerts, ...vacationAlerts].slice(0, 5);
+    const permissionAlerts = pendingPermissions.map(item => ({ id: `permission-${item.id}`, tone: 'info' as const, kind: 'request' as const, title: `Permiso ${item.tipo_permiso.toLocaleLowerCase('es')} de ${item.nombres} ${item.apellidos}`, site: item.sede_nombre, time: clock(item.created_at), target: '/rrhh/solicitudes' }));
+    const vacationAlerts = pendingVacations.map(item => ({ id: `vacation-${item.id}`, tone: 'info' as const, kind: 'request' as const, title: `Vacaciones de ${item.nombres} ${item.apellidos} por revisar`, site: item.sede_nombre, time: clock(item.created_at), target: '/rrhh/solicitudes' }));
+    return [...attendanceAlerts, ...permissionAlerts, ...vacationAlerts];
   }, [attendance, pendingPermissions, pendingVacations]);
+  const displayedAlerts = showAllAlerts ? alerts : alerts.slice(0, 5);
 
   const exportExcel = async () => {
     if (!attendance?.employees.length) { showToast('No hay información de asistencia para exportar.', 'warning'); return; }
@@ -157,7 +170,8 @@ export function RrhhOverview({ siteId, employees }: Props) {
     <section className={styles.executiveAnalysis}>
       <article className={`${styles.card} ${styles.executiveAlerts}`}>
         <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><BellRing /></span><div><h2>Atención requerida</h2><p>Eventos que necesitan seguimiento.</p></div></div></header>
-        <div className={styles.executiveAlertList}>{alerts.map(alert => <button key={alert.id} type="button" onClick={() => navigate(alert.target)}><i className={styles[`alert${alert.tone}`]}>{alert.tone === 'critical' ? <UserX /> : alert.tone === 'warning' ? <AlertTriangle /> : <BellRing />}</i><span><strong>{alert.title}</strong><small>{alert.detail}</small></span><ArrowRight /></button>)}{!alerts.length && <div className={styles.executiveEmpty}><CheckCircle2 /><span>La operación no tiene alertas pendientes.</span></div>}</div>
+        <div className={styles.executiveAlertList}>{displayedAlerts.map(alert => <div className={styles.executiveAlertRow} key={alert.id}><i className={`${styles.alertPriority} ${styles[`priority${alert.tone}`]}`} /><span className={`${styles.alertIcon} ${styles[`alert${alert.tone}`]}`}>{alert.kind === 'request' ? <FileClock /> : alert.tone === 'critical' ? <UserX /> : <AlertTriangle />}</span><div className={styles.alertCopy}><strong>{alert.title}</strong></div><span className={styles.alertMeta}>{alert.site} · {alert.time}</span><button type="button" onClick={() => navigate(alert.target)}>Revisar</button></div>)}{!alerts.length && <div className={styles.executiveEmpty}><CheckCircle2 /><span>La operación no tiene alertas pendientes.</span></div>}</div>
+        {alerts.length > 5 && <footer className={styles.executiveAlertFooter}><button type="button" onClick={() => setShowAllAlerts(current => !current)}>{showAllAlerts ? 'Mostrar resumen' : `Ver todas las alertas (${alerts.length})`} <ArrowRight /></button></footer>}
       </article>
 
       <article className={`${styles.card} ${styles.executiveSites}`}>

@@ -203,17 +203,29 @@
 .executiveTableFooter button:hover, .executiveCardFooter button:hover { color: #1d4f91; }
 .executiveTableFooter svg, .executiveCardFooter svg { width: 13px; }
 
-.executiveAnalysis { display: grid; grid-template-columns: minmax(260px, .85fr) minmax(380px, 1.25fr) minmax(270px, .9fr); gap: 12px; align-items: stretch; }
+.executiveAnalysis { display: grid; grid-template-columns: minmax(260px, .85fr) minmax(380px, 1.25fr) minmax(270px, .9fr); gap: 12px; align-items: start; }
 .executiveAlertList { display: grid; align-content: start; }
-.executiveAlertList > button { display: grid; grid-template-columns: 32px minmax(0, 1fr) 14px; align-items: center; gap: 9px; min-height: 58px; padding: 8px 13px; border: 0; border-bottom: 1px solid var(--color-neutral-100); background: #fff; text-align: left; cursor: pointer; }
-.executiveAlertList > button:last-of-type { border-bottom: 0; }
-.executiveAlertList > button:hover { background: #f8fafc; }
-.executiveAlertList > button > i { display: grid; width: 29px; height: 29px; place-items: center; border-radius: 50%; font-style: normal; }
-.executiveAlertList > button > i svg { width: 13px; }
-.alertcritical { color: #d33b45; background: #ffedef; }.alertwarning { color: #ca740b; background: #fff4e4; }.alertinfo { color: #2e72cf; background: #eaf3ff; }
-.executiveAlertList strong { display: block; overflow: hidden; color: var(--text-primary); font-size: .66rem; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
-.executiveAlertList small { display: block; margin-top: 3px; overflow: hidden; color: var(--text-muted); font-size: .57rem; text-overflow: ellipsis; white-space: nowrap; }
-.executiveAlertList > button > svg { width: 12px; color: #a3afba; }
+.executiveAlertRow { display: grid; grid-template-columns: 6px 28px minmax(135px, 1fr) minmax(76px, auto) 58px; align-items: center; gap: 8px; min-height: 54px; padding: 7px 12px; border-bottom: 1px solid var(--color-neutral-100); background: #fff; transition: background-color 150ms ease; }
+.executiveAlertRow:hover { background: #f8fafc; }
+.executiveAlertRow:last-child { border-bottom: 0; }
+.alertPriority { width: 6px; height: 6px; border-radius: 50%; }
+.prioritycritical { background: #df3441; box-shadow: 0 0 0 3px rgba(223, 52, 65, .08); }
+.prioritywarning { background: #ee8b18; box-shadow: 0 0 0 3px rgba(238, 139, 24, .08); }
+.priorityinfo { background: #347ddc; box-shadow: 0 0 0 3px rgba(52, 125, 220, .08); }
+.alertIcon { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 7px; }
+.alertIcon svg { width: 13px; }
+.alertcritical { color: #cf3340; background: #ffedef; }.alertwarning { color: #c86e08; background: #fff3e2; }.alertinfo { color: #2c6fc8; background: #eaf3ff; }
+.alertCopy { min-width: 0; }
+.alertCopy strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: #253246; font-size: .61rem; font-weight: 680; line-height: 1.35; }
+.alertMeta { overflow: hidden; color: #65758a; font-size: .54rem; font-weight: 570; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.executiveAlertRow > button { min-height: 27px; padding: 0 8px; border: 1px solid #bfd0e5; border-radius: 6px; background: #fff; color: #245fae; font: inherit; font-size: .56rem; font-weight: 700; cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease; }
+.executiveAlertRow > button:hover { border-color: #7fa4d2; background: #edf5ff; color: #174f99; }
+.executiveAlertRow > button:focus-visible, .executiveAlertFooter button:focus-visible { outline: 2px solid #75a7df; outline-offset: 2px; }
+.executiveAlertFooter { display: flex; min-height: 38px; align-items: center; padding: 0 13px; border-top: 1px solid var(--border-default); background: #fbfcfd; }
+.executiveAlertFooter button { display: flex; width: 100%; align-items: center; justify-content: space-between; padding: 0; border: 0; background: transparent; color: #245fae; font: inherit; font-size: .59rem; font-weight: 700; cursor: pointer; }
+.executiveAlertFooter button:hover { color: #174f99; }
+.executiveAlertFooter svg { width: 12px; transition: transform 150ms ease; }
+.executiveAlertFooter button:hover svg { transform: translateX(2px); }
 .executiveEmpty { display: grid; min-height: 205px; place-items: center; align-content: center; gap: 8px; color: #245fae; font-size: .65rem; }
 .executiveEmpty svg { width: 22px; }
 
@@ -304,6 +316,10 @@
   .executiveCardHeader { align-items: stretch; flex-direction: column; }
   .executiveActions { width: 100%; }
   .executiveActions > * { flex: 1; }
+  .executiveAlertRow { grid-template-columns: 6px 28px minmax(0, 1fr) 58px; row-gap: 3px; }
+  .alertCopy { grid-column: 3; }
+  .alertMeta { grid-column: 3; grid-row: 2; text-align: left; }
+  .executiveAlertRow > button { grid-column: 4; grid-row: 1 / span 2; }
   .executiveRingArea { grid-template-columns: 1fr; justify-items: center; }
   .executiveRingArea ul { width: min(100%, 260px); }
 }
