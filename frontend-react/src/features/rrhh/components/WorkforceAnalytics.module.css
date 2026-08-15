@@ -1,7 +1,8 @@
-.grid { display: grid; width: 100%; grid-template-columns: minmax(430px, 470px) minmax(500px, 620px); grid-template-areas: "attention performance" "weekly location"; gap: 11px; justify-content: start; align-items: start; }
-.attentionSlot { grid-area: attention; min-width: 0; }
+.grid { display: grid; width: 100%; grid-template-columns: minmax(300px, 380px) minmax(380px, 1fr) minmax(400px, 470px) minmax(420px, 520px); grid-template-areas: "attention performance weekly location"; gap: 11px; justify-content: start; align-items: stretch; }
+.attentionSlot { grid-area: attention; min-width: 0; align-self: stretch; }
 .attentionSlot > * { height: 100%; }
-.performanceSlot { grid-area: performance; min-width: 0; }
+.performanceSlot { grid-area: performance; min-width: 0; align-self: stretch; }
+.performanceSlot > * { height: 100%; }
 .locationSlot { grid-area: location; min-width: 0; align-self: stretch; }
 .locationSlot > * { height: 100%; }
 .card { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: 13px; background: #fff; box-shadow: var(--shadow-sm); }
