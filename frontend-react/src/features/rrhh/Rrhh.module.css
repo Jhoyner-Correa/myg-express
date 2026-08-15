@@ -169,9 +169,10 @@
 .attendanceTable { min-width: 1190px; }.attendanceTable td { height: 56px; }.scheduleCell strong { display: block; color: var(--text-primary); font-size: .7rem; font-weight: 650; }.scheduleCell small { display: block; margin-top: 2px; color: var(--text-muted); font-size: .62rem; }.muted { color: var(--text-muted); font-size: .68rem; }.clockCell { color: #334155 !important; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .attendanceStatus { display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary); font-size: .68rem; font-weight: 650; white-space: nowrap; }.attendanceStatus i { width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; }.attendancePRESENTE i { background: #10b869; }.attendanceTARDANZA i { background: #f59e0b; }.attendanceFALTA i { background: #ef4444; }.attendancePERMISO i { background: #3b82f6; }.attendanceVACACIONES i { background: #8b5cf6; }.attendanceSIN_REGISTRO i, .attendanceNO_LABORABLE i { background: #94a3b8; }
 .executiveDashboard { display: grid; gap: 14px; }
-.executiveTopGrid { display: grid; grid-template-columns: minmax(0, 1290px) minmax(260px, 300px); gap: 12px; align-items: start; }
+.executiveTopGrid { display: grid; grid-template-columns: minmax(0, 1290px) minmax(260px, 300px); gap: 12px; align-items: stretch; }
 .executiveTopMain { display: grid; min-width: 0; gap: 14px; }
-.executiveTopAgenda { min-width: 0; }
+.executiveTopAgenda { display: flex; min-width: 0; min-height: 0; }
+.executiveTopAgenda > * { flex: 1; height: 100%; }
 .executiveKpis { display: grid; grid-template-columns: repeat(5, minmax(190px, 250px)); gap: 10px; justify-content: start; }
 
 .executiveCardHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 59px; padding: 11px 14px; border-bottom: 1px solid var(--border-default); }
@@ -320,6 +321,7 @@
 @media (max-width: 1800px) {
   .executiveTopGrid { grid-template-columns: 1fr; }
   .executiveTopAgenda { width: min(100%, 300px); }
+  .executiveTopAgenda > * { height: auto; }
 }
 
 @media (max-width: 900px) {
