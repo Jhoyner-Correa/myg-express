@@ -1,4 +1,4 @@
-.grid { display: grid; width: min(100%, 1540px); margin-left: auto; grid-template-columns: minmax(480px, 1.35fr) minmax(340px, 1fr) minmax(220px, .62fr) minmax(280px, .8fr); gap: 11px; justify-content: end; }
+.grid { display: grid; width: min(100%, 1540px); margin-left: auto; grid-template-columns: minmax(340px, 1fr) minmax(480px, 1.35fr) minmax(220px, .62fr) minmax(280px, .8fr); gap: 11px; justify-content: end; }
 .attentionSlot { min-width: 0; }
 .attentionSlot > * { height: 100%; }
 .card { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: 13px; background: #fff; box-shadow: var(--shadow-sm); }

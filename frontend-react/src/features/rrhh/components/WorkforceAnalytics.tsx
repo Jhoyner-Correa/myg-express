@@ -70,6 +70,8 @@ export function WorkforceAnalytics({ trend, attendance, employees, trackedEmploy
   const tardinessLines = pointSegments(trend, 'tardiness_rate');
 
   return <section className={styles.grid} aria-label="Analítica de Recursos Humanos">
+    <div className={styles.attentionSlot}>{attentionPanel}</div>
+
     <article className={`${styles.card} ${styles.weeklyCard}`}>
       <header><div><span><UsersRound /></span><h2>Asistencia semanal</h2></div><button type="button" className={styles.chartMenu} aria-label="Abrir reporte semanal" title="Abrir reporte semanal" onClick={onOpenReport}><MoreVertical /></button></header>
       <div className={styles.legend}><span><i className={styles.blue} />Asistencia (%)</span><span><i className={styles.orange} />Tardanzas</span></div>
@@ -84,8 +86,6 @@ export function WorkforceAnalytics({ trend, attendance, employees, trackedEmploy
         {trend.map((item, index) => { const [weekday, day] = shortDate(item.date).split(' '); return <g key={item.date}>{item.attendance_rate !== null && <><circle cx={chartX(index, trend.length)} cy={chartY(item.attendance_rate)} r="4" className={styles.attendancePoint}><title>{item.attendance_rate}% de asistencia</title></circle><circle cx={chartX(index, trend.length)} cy={chartY(item.tardiness_rate ?? 0)} r="3.7" className={styles.tardinessPoint}><title>{item.tardiness_rate ?? 0}% de tardanzas</title></circle></>}<text x={chartX(index, trend.length)} y="151" textAnchor="middle" className={styles.dateLabel}><tspan x={chartX(index, trend.length)}>{weekday}</tspan><tspan x={chartX(index, trend.length)} dy="14" className={styles.dateNumber}>{day}</tspan></text></g>; })}
       </svg> : <div className={styles.empty}>Sin información semanal.</div>}</div>
     </article>
-
-    <div className={styles.attentionSlot}>{attentionPanel}</div>
 
     <article className={styles.card}>
       <header><div><span><BarChart3 /></span><h2>Dotación por sede</h2></div></header>
