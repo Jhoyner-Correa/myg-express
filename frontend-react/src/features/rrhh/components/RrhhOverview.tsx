@@ -69,9 +69,16 @@ type ExecutiveAlert = {
   time: string;
   target: string;
 };
-type Props = { siteId: number | null; employees: Employee[] };
+type Props = {
+  siteId: number | null;
+  employees: Employee[];
+  query: string;
+  agendaMonth: string;
+  onAgendaMonthChange: (month: string) => void;
+  onAlertCountChange: (count: number) => void;
+};
 
-export function RrhhOverview({ siteId, employees }: Props) {
+export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMonthChange, onAlertCountChange }: Props) {
   const navigate = useNavigate();
   const [attendance, setAttendance] = useState<AttendanceDashboard | null>(null);
   const [trend, setTrend] = useState<AttendanceTrendPoint[]>([]);
@@ -154,6 +161,13 @@ export function RrhhOverview({ siteId, employees }: Props) {
     return [...attendanceAlerts, ...permissionAlerts, ...vacationAlerts];
   }, [attendance, pendingPermissions, pendingVacations]);
   const displayedAlerts = showAllAlerts ? alerts : alerts.slice(0, 4);
+  const normalizedQuery = query.trim().toLocaleLowerCase('es');
+  const visibleAttendance = useMemo(() => {
+    if (!normalizedQuery) return attendance?.employees ?? [];
+    return (attendance?.employees ?? []).filter(item => `${item.names} ${item.last_names} ${item.employee_code} ${item.site_name} ${item.job_role}`.toLocaleLowerCase('es').includes(normalizedQuery));
+  }, [attendance, normalizedQuery]);
+
+  useEffect(() => onAlertCountChange(alerts.length), [alerts.length, onAlertCountChange]);
 
   const exportExcel = async () => {
     if (!attendance?.employees.length) { showToast('No hay información de asistencia para exportar.', 'warning'); return; }
@@ -186,7 +200,7 @@ export function RrhhOverview({ siteId, employees }: Props) {
   if (loading && !attendance) return <PageLoader label="Preparando resumen ejecutivo" />;
   if (error && !attendance) return <div className={styles.errorState} role="alert"><p>{getApiErrorMessage(error, 'No se pudo preparar el resumen ejecutivo.')}</p><Button variant="secondary" onClick={() => void load()}>Reintentar</Button></div>;
 
-  const attentionPanel = <article className={`${styles.card} ${styles.executiveAlerts}`}>
+  const attentionPanel = <article id="rrhh-attention-required" className={`${styles.card} ${styles.executiveAlerts}`}>
     <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><BellRing /></span><div><h2>Atención requerida</h2><p>Eventos que necesitan seguimiento.</p></div></div></header>
     <div className={styles.executiveAlertList}>{displayedAlerts.map(alert => <div className={styles.executiveAlertRow} key={alert.id}><i className={`${styles.alertPriority} ${styles[`priority${alert.tone}`]}`} /><span className={`${styles.alertIcon} ${styles[`alert${alert.tone}`]}`}>{alert.kind === 'request' ? <FileClock /> : alert.tone === 'critical' ? <UserX /> : <AlertTriangle />}</span><div className={styles.alertCopy}><strong>{alert.title}</strong></div><span className={styles.alertMeta}>{alert.site} · {alert.time}</span><button type="button" onClick={() => navigate(alert.target)}>Revisar</button></div>)}{!alerts.length && <div className={styles.executiveEmpty}><CheckCircle2 /><span>La operación no tiene alertas pendientes.</span></div>}</div>
     {alerts.length > 4 && <footer className={styles.executiveAlertFooter}><button type="button" onClick={() => setShowAllAlerts(current => !current)}>{showAllAlerts ? 'Mostrar resumen' : `Ver todas las alertas (${alerts.length})`} <ArrowRight /></button></footer>}
@@ -207,8 +221,8 @@ export function RrhhOverview({ siteId, employees }: Props) {
           <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><CalendarCheck2 /></span><div><h2>Asistencia de hoy</h2><p>{businessDateLabel(businessToday())}</p></div></div><div className={styles.executiveActions}><Button size="sm" variant="secondary" icon={<Download size={14} />} loading={exporting} onClick={() => void exportExcel()}>Exportar Excel</Button><Button size="sm" variant="corporate" onClick={() => navigate('/rrhh/reportes')}>Ver reporte</Button></div></header>
           <div className={styles.attendanceTableShell}>
             <div className={`${styles.tableWrap} ${styles.executiveAttendanceScroll}`} onScroll={handleAttendanceScroll}><table className={`${styles.table} ${styles.executiveAttendanceTable}`} aria-label="Asistencia de hoy"><thead><tr><th>Colaborador</th><th>Sede</th><th>Cargo</th><th>Entrada</th><th>Salida almuerzo</th><th>Regreso</th><th>Salida final</th><th>Estado</th><th>Tardanza</th><th>Horas extra</th></tr></thead><tbody>
-              {(attendance?.employees ?? []).map(item => <tr key={item.employee_id}><td><div className={styles.person}><span>{item.names.charAt(0)}{item.last_names.charAt(0)}</span><div><strong>{item.names} {item.last_names}</strong></div></div></td><td className={styles.attendanceSiteCell}>{item.site_name}</td><td>{item.job_role}</td><td className={styles.clockCell}>{clock(item.marks.entry)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_out)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_return)}</td><td className={styles.clockCell}>{clock(item.marks.exit)}</td><td><span className={`${styles.attendanceStatus} ${styles[`attendance${item.status}`]}`}><i />{STATUS_LABELS[item.status]}</span></td><td>{item.delay_minutes ? `${item.delay_minutes} min` : '—'}</td><td>{item.overtime_minutes ? `${item.overtime_minutes} min` : '—'}</td></tr>)}
-              {!attendance?.employees.length && <tr><td colSpan={10}><div className={styles.empty}>No hay personal dentro del alcance seleccionado.</div></td></tr>}
+              {visibleAttendance.map(item => <tr key={item.employee_id}><td><div className={styles.person}><span>{item.names.charAt(0)}{item.last_names.charAt(0)}</span><div><strong>{item.names} {item.last_names}</strong></div></div></td><td className={styles.attendanceSiteCell}>{item.site_name}</td><td>{item.job_role}</td><td className={styles.clockCell}>{clock(item.marks.entry)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_out)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_return)}</td><td className={styles.clockCell}>{clock(item.marks.exit)}</td><td><span className={`${styles.attendanceStatus} ${styles[`attendance${item.status}`]}`}><i />{STATUS_LABELS[item.status]}</span></td><td>{item.delay_minutes ? `${item.delay_minutes} min` : '—'}</td><td>{item.overtime_minutes ? `${item.overtime_minutes} min` : '—'}</td></tr>)}
+              {!visibleAttendance.length && <tr><td colSpan={10}><div className={styles.empty}>{normalizedQuery ? 'No encontramos colaboradores con esa búsqueda.' : 'No hay personal dentro del alcance seleccionado.'}</div></td></tr>}
             </tbody></table></div>
             {showAttendanceScrollHint && <div className={styles.attendanceScrollHint} aria-hidden="true"><ChevronDown /></div>}
           </div>
@@ -216,7 +230,7 @@ export function RrhhOverview({ siteId, employees }: Props) {
         </article>
       </div>
 
-      <div className={styles.executiveTopAgenda}><AgendaPanel siteId={siteId} workflows={workflows} onOpenCalendar={() => navigate('/rrhh/horarios')} /></div>
+      <div className={styles.executiveTopAgenda}><AgendaPanel siteId={siteId} workflows={workflows} month={agendaMonth} onMonthChange={onAgendaMonthChange} onOpenCalendar={() => navigate('/rrhh/horarios')} /></div>
     </section>
 
     <WorkforceAnalytics trend={trend} attendance={attendance} employees={employees} trackedEmployees={trackedEmployees} refreshing={loading} onRefresh={() => void load()} onOpenReport={() => navigate('/rrhh/reportes')} attentionPanel={attentionPanel} />

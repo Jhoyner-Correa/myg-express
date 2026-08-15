@@ -8,6 +8,8 @@ import styles from './AgendaPanel.module.css';
 type Props = {
   siteId: number | null;
   workflows: AbsenceWorkflows | null;
+  month?: string;
+  onMonthChange?: (month: string) => void;
   onOpenCalendar: () => void;
 };
 
@@ -81,8 +83,14 @@ function calendarEntries(events: WorkCalendarEvent[]): AgendaEntry[] {
   });
 }
 
-export function AgendaPanel({ siteId, workflows, onOpenCalendar }: Props) {
-  const [month, setMonth] = useState(currentMonth);
+export function AgendaPanel({ siteId, workflows, month: controlledMonth, onMonthChange, onOpenCalendar }: Props) {
+  const [localMonth, setLocalMonth] = useState(currentMonth);
+  const month = controlledMonth ? `${controlledMonth}-01` : localMonth;
+  const setMonth = (next: string | ((current: string) => string)) => {
+    const value = typeof next === 'function' ? next(month) : next;
+    if (onMonthChange) onMonthChange(value.slice(0, 7));
+    else setLocalMonth(value);
+  };
   const [events, setEvents] = useState<WorkCalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
