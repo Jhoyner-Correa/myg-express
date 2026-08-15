@@ -5,10 +5,6 @@
 .sectionContext { display: grid; gap: 2px; padding-left: 10px; border-left: 3px solid #10924d; }
 .sectionContext span { color: #0b8747; font-size: .6rem; font-weight: 750; letter-spacing: .075em; text-transform: uppercase; }
 .sectionContext strong { color: var(--text-primary); font-size: .82rem; font-weight: 720; }
-.executiveContext { border-left-color: #245fae; }
-.executiveContext span { color: #245fae; }
-.executiveHeading .sitePicker { color: #60738a; }
-.executiveHeading .sitePicker svg { color: #3483b8; }
 .tabs { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--surface-card); }
 .tabs button { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 13px; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); font: inherit; font-size: .78rem; font-weight: 650; cursor: pointer; }
 .tabs button:hover { color: var(--text-primary); background: var(--surface-subtle); }
