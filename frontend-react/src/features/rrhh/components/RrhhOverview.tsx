@@ -193,7 +193,7 @@ export function RrhhOverview({ siteId, employees }: Props) {
       {(attendance?.employees.length ?? 0) > 8 && <footer className={styles.executiveTableFooter}><span>Mostrando 8 de {attendance?.employees.length} colaboradores</span><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa <ArrowRight /></button></footer>}
     </article>
 
-    <WorkforceAnalytics trend={trend} attendance={attendance} employees={employees} />
+    <WorkforceAnalytics trend={trend} employees={employees} />
 
     <section className={styles.executiveAnalysis}>
       <div className={styles.executiveMap}><LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} /></div>
