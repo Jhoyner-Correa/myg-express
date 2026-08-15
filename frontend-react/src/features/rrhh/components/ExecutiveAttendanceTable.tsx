@@ -1,12 +1,11 @@
-import type { UIEventHandler } from 'react';
 import {
   CalendarDays,
   CalendarOff,
   CheckCircle2,
-  ChevronDown,
   CircleMinus,
   Clock3,
   FileClock,
+  UserRound,
   UserX,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -27,8 +26,6 @@ const STATUS_ICONS: Record<AttendanceDashboardEmployee['status'], LucideIcon> = 
 type Props = {
   employees: AttendanceDashboardEmployee[];
   emptyMessage: string;
-  showScrollHint: boolean;
-  onScroll: UIEventHandler<HTMLDivElement>;
 };
 
 function AttendanceState({ status }: { status: AttendanceDashboardEmployee['status'] }) {
@@ -50,7 +47,7 @@ function EmployeeRow({ employee }: { employee: AttendanceDashboardEmployee }) {
     <tr>
       <td>
         <div className={styles.person}>
-          <span aria-hidden="true">{employee.names.charAt(0)}{employee.last_names.charAt(0)}</span>
+          <span aria-hidden="true"><UserRound /></span>
           <div><strong title={`${employee.names} ${employee.last_names}`}>{employee.names} {employee.last_names}</strong></div>
         </div>
       </td>
@@ -67,32 +64,29 @@ function EmployeeRow({ employee }: { employee: AttendanceDashboardEmployee }) {
   );
 }
 
-export function ExecutiveAttendanceTable({ employees, emptyMessage, showScrollHint, onScroll }: Props) {
+export function ExecutiveAttendanceTable({ employees, emptyMessage }: Props) {
   return (
-    <div className={styles.attendanceTableShell}>
-      <div className={`${styles.tableWrap} ${styles.executiveAttendanceScroll}`} onScroll={onScroll}>
-        <table className={`${styles.table} ${styles.executiveAttendanceTable}`} aria-label="Asistencia de hoy">
-          <thead>
-            <tr>
-              <th>Colaborador</th>
-              <th>Sede</th>
-              <th>Cargo</th>
-              <th>Entrada</th>
-              <th>Salida almuerzo</th>
-              <th>Regreso</th>
-              <th>Salida final</th>
-              <th>Estado</th>
-              <th>Tardanza</th>
-              <th>Horas extra</th>
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map(employee => <EmployeeRow key={employee.employee_id} employee={employee} />)}
-            {!employees.length && <tr><td colSpan={10}><div className={styles.empty}>{emptyMessage}</div></td></tr>}
-          </tbody>
-        </table>
-      </div>
-      {showScrollHint && <div className={styles.attendanceScrollHint} aria-hidden="true"><ChevronDown /></div>}
+    <div className={styles.tableWrap}>
+      <table className={`${styles.table} ${styles.executiveAttendanceTable}`} aria-label="Asistencia de hoy">
+        <thead>
+          <tr>
+            <th>Colaborador</th>
+            <th>Sede</th>
+            <th>Cargo</th>
+            <th>Entrada</th>
+            <th>Salida almuerzo</th>
+            <th>Regreso</th>
+            <th>Salida final</th>
+            <th>Estado</th>
+            <th>Tardanza</th>
+            <th>Horas extra</th>
+          </tr>
+        </thead>
+        <tbody>
+          {employees.map(employee => <EmployeeRow key={employee.employee_id} employee={employee} />)}
+          {!employees.length && <tr><td colSpan={10}><div className={styles.empty}>{emptyMessage}</div></td></tr>}
+        </tbody>
+      </table>
     </div>
   );
 }

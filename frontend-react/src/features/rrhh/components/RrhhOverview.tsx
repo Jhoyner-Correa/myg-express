@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type UIEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
   AlertTriangle,
@@ -73,13 +73,7 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
-  const [showAttendanceScrollHint, setShowAttendanceScrollHint] = useState(false);
   const [error, setError] = useState<unknown>(null);
-
-  const handleAttendanceScroll = (event: UIEvent<HTMLDivElement>) => {
-    const viewport = event.currentTarget;
-    setShowAttendanceScrollHint(viewport.scrollTop + viewport.clientHeight < viewport.scrollHeight - 4);
-  };
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true); setError(null);
@@ -151,10 +145,6 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
     return (attendance?.employees ?? []).filter(item => `${item.names} ${item.last_names} ${item.employee_code} ${item.site_name} ${item.job_role}`.toLocaleLowerCase('es').includes(normalizedQuery));
   }, [attendance, normalizedQuery]);
 
-  useEffect(() => {
-    setShowAttendanceScrollHint(visibleAttendance.length > 5);
-  }, [visibleAttendance.length]);
-
   useEffect(() => onAlertCountChange(alerts.length), [alerts.length, onAlertCountChange]);
 
   const exportExcel = async () => {
@@ -216,8 +206,6 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
           <ExecutiveAttendanceTable
             employees={visibleAttendance}
             emptyMessage={normalizedQuery ? 'No encontramos colaboradores con esa búsqueda.' : 'No hay personal dentro del alcance seleccionado.'}
-            showScrollHint={showAttendanceScrollHint}
-            onScroll={handleAttendanceScroll}
           />
           {(attendance?.employees.length ?? 0) > 8 && <footer className={styles.executiveTableFooter}><span>{attendance?.employees.length} colaboradores en la vista</span><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa <ArrowRight /></button></footer>}
         </article>
