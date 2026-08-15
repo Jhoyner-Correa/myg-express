@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { rrhhService } from '../rrhh.service';
 import type { AbsenceWorkflows, WorkCalendarEvent } from '../types';
+import { normalizeAgendaDate } from './agenda-domain';
 import styles from './AgendaPanel.module.css';
 
 type Props = {
@@ -59,18 +60,25 @@ function monthLabel(month: string) {
 }
 
 function dayLabel(date: string) {
-  return new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short', timeZone: 'America/Lima' }).format(new Date(`${date}T12:00:00-05:00`)).replace('.', '');
+  const normalized = normalizeAgendaDate(date);
+  if (!normalized) return 'Sin fecha';
+  return new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short', timeZone: 'America/Lima' }).format(new Date(`${normalized}T12:00:00-05:00`)).replace('.', '');
 }
 
 function calendarEntries(events: WorkCalendarEvent[]): AgendaEntry[] {
-  return events.filter(event => event.status === 'ACTIVO').map(event => ({
-    id: `calendar-${event.id}`,
-    start: event.start_date,
-    end: event.end_date,
-    title: event.name,
-    context: event.site_name ?? 'Alcance corporativo',
-    tone: event.type === 'JORNADA_ESPECIAL' ? 'blue' : 'orange',
-  }));
+  return events.filter(event => event.status === 'ACTIVO').flatMap<AgendaEntry>(event => {
+    const start = normalizeAgendaDate(event.start_date);
+    const end = normalizeAgendaDate(event.end_date);
+    if (!start || !end || end < start) return [];
+    return [{
+      id: `calendar-${event.id}`,
+      start,
+      end,
+      title: event.name,
+      context: event.site_name ?? 'Alcance corporativo',
+      tone: event.type === 'JORNADA_ESPECIAL' ? 'blue' : 'orange',
+    }];
+  });
 }
 
 export function AgendaPanel({ siteId, workflows, onOpenCalendar }: Props) {
@@ -96,10 +104,22 @@ export function AgendaPanel({ siteId, workflows, onOpenCalendar }: Props) {
   const entries = useMemo(() => {
     const permissions: AgendaEntry[] = (workflows?.permissions ?? [])
       .filter(item => item.estado === 'APROBADO')
-      .map(item => ({ id: `permission-${item.id}`, start: item.fecha_inicio, end: item.fecha_fin, title: `Permiso: ${item.nombres} ${item.apellidos}`, context: item.sede_nombre, tone: 'blue' }));
+      .flatMap<AgendaEntry>(item => {
+        const start = normalizeAgendaDate(item.fecha_inicio);
+        const end = normalizeAgendaDate(item.fecha_fin);
+        return start && end && end >= start
+          ? [{ id: `permission-${item.id}`, start, end, title: `Permiso: ${item.nombres} ${item.apellidos}`, context: item.sede_nombre, tone: 'blue' }]
+          : [];
+      });
     const vacations: AgendaEntry[] = (workflows?.vacations ?? [])
       .filter(item => ['APROBADA', 'PROGRAMADA', 'EN_CURSO'].includes(item.estado))
-      .map(item => ({ id: `vacation-${item.id}`, start: item.fecha_inicio, end: item.fecha_fin, title: `Vacaciones: ${item.nombres} ${item.apellidos}`, context: item.sede_nombre, tone: 'violet' }));
+      .flatMap<AgendaEntry>(item => {
+        const start = normalizeAgendaDate(item.fecha_inicio);
+        const end = normalizeAgendaDate(item.fecha_fin);
+        return start && end && end >= start
+          ? [{ id: `vacation-${item.id}`, start, end, title: `Vacaciones: ${item.nombres} ${item.apellidos}`, context: item.sede_nombre, tone: 'violet' }]
+          : [];
+      });
     const range = monthRange(month);
     return [...calendarEntries(events), ...permissions, ...vacations]
       .filter(item => item.start <= range.end && item.end >= range.start)
