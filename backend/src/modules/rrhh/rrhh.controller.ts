@@ -226,7 +226,7 @@ export class RrhhController {
 
   listarCalendarioLaboral = async (req: AuthRequest, res: Response) => {
     try {
-      const siteId = resolveSedeScope(req, req.query.sede_id);
+      const siteId = resolveOptionalSedeScope(req, req.query.sede_id);
       const year = Number(String(req.query.desde || businessDate()).slice(0, 4));
       const from = req.query.desde || `${year}-01-01`;
       const until = req.query.hasta || `${year}-12-31`;

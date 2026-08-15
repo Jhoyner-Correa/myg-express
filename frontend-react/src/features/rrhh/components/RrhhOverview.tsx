@@ -23,6 +23,7 @@ import { LiveLocationPanel } from '../../gps/LiveLocationPanel';
 import { rrhhService } from '../rrhh.service';
 import type { AbsenceWorkflows, AttendanceDashboard, AttendanceDashboardEmployee, AttendanceTrendPoint, Employee } from '../types';
 import styles from '../Rrhh.module.css';
+import { AgendaPanel } from './AgendaPanel';
 import { ExecutiveKpiCard } from './ExecutiveKpiCard';
 import { summarizeSitePerformance } from './overview-domain';
 import { WorkforceAnalytics } from './WorkforceAnalytics';
@@ -208,6 +209,8 @@ export function RrhhOverview({ siteId, employees }: Props) {
         <div className={styles.tableWrap}><table className={styles.executiveSitesTable}><thead><tr><th>Sede</th><th>Personal</th><th>Asistencia</th><th>Tardanzas</th><th>Horas extra</th></tr></thead><tbody>{sitePerformance.map(site => <tr key={site.siteId}><td><i className={site.attendanceRate >= 90 ? styles.siteGood : site.attendanceRate >= 75 ? styles.siteWarning : styles.siteCritical} />{site.siteName}</td><td>{site.employees}</td><td><strong>{site.attendanceRate}%</strong></td><td>{site.late}</td><td>{Math.floor(site.overtimeMinutes / 60)} h {site.overtimeMinutes % 60} min</td></tr>)}{!sitePerformance.length && <tr><td colSpan={5}>Sin información por sede.</td></tr>}</tbody></table></div>
         <footer className={styles.executiveCardFooter}><button type="button" onClick={() => navigate('/rrhh/reportes')}>Ver reporte completo por sede <ArrowRight /></button></footer>
       </article>
+
+      <div className={styles.executiveAgenda}><AgendaPanel siteId={siteId} workflows={workflows} onOpenCalendar={() => navigate('/rrhh/horarios')} /></div>
 
     </section>
   </div>;

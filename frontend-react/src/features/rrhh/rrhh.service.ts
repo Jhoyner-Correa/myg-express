@@ -78,9 +78,9 @@ export const rrhhService = {
       site_id: siteId, effective_from: effectiveFrom,
     }));
   },
-  getWorkCalendar(siteId: number, from: string, until: string, signal?: AbortSignal) {
+  getWorkCalendar(siteId: number | null, from: string, until: string, signal?: AbortSignal) {
     return unwrapRequest(apiClient.get<ApiEnvelope<WorkCalendarEvent[]>>('/rrhh/calendario', {
-      params: { sede_id: siteId, desde: from, hasta: until }, signal,
+      params: { sede_id: siteId ?? undefined, desde: from, hasta: until }, signal,
     }), []);
   },
   createWorkCalendarEvent(input: WorkCalendarInput) {

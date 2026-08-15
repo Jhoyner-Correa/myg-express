@@ -109,16 +109,18 @@ export async function resolveWorkDay(
 }
 
 export class WorkCalendarService {
-  async list(siteId: number, fromValue: unknown, untilValue: unknown) {
+  async list(siteId: number | null, fromValue: unknown, untilValue: unknown) {
     const from = assertDateOnly(fromValue);
     const until = assertDateOnly(untilValue);
     if (until < from) throw new Error('El periodo de consulta no es valido.');
+    const siteFilter = siteId === null ? '' : `AND (event.alcance = 'EMPRESA' OR event.sede_id = ?)`;
+    const params = siteId === null ? [until, from] : [until, from, siteId];
     const [rows] = await pool.query<CalendarRow[]>(
       `${SELECT_EVENT}
         WHERE event.fecha_inicio <= ? AND event.fecha_fin >= ?
-          AND (event.alcance = 'EMPRESA' OR event.sede_id = ?)
+          ${siteFilter}
         ORDER BY event.fecha_inicio, event.alcance = 'SEDE' DESC, event.id`,
-      [until, from, siteId],
+      params,
     );
     return rows.map(publicEvent);
   }
