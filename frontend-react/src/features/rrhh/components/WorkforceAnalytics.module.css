@@ -3,7 +3,7 @@
 .attentionSlot > * { height: 100%; }
 .performanceSlot { min-width: 0; }
 .card { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: 13px; background: #fff; box-shadow: var(--shadow-sm); }
-.card > header { display: flex; min-height: 45px; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 11px; border-bottom: 1px solid var(--border-default); }
+.card > header { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 9px; padding: 6px 10px; border-bottom: 1px solid var(--border-default); }
 .card > header > div:first-child { display: flex; align-items: center; gap: 8px; }
 .card > header > div:first-child > span { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 7px; background: #eaf3ff; color: #2d70c9; }
 .card > header > div:first-child > div { display: grid; gap: 2px; }
@@ -11,7 +11,7 @@
 .card > header svg { width: 14px; }
 .card h2 { margin: 0; color: #253246; font-size: .69rem; font-weight: 730; }
 .card > header .violetIcon { color: #7543c5; background: #f1ebff; }
-.weeklyCard > header { min-height: 45px; padding: 8px 11px 3px; border-bottom: 0; }
+.weeklyCard > header { min-height: 42px; padding: 7px 10px 2px; border-bottom: 0; }
 .weeklyCard > header > div:first-child > span { width: 30px; height: 30px; border-radius: 8px; background: #e7efff; color: #1767e8; }
 .weeklyCard > header > div:first-child > span svg { width: 16px; height: 16px; }
 .weeklyCard > header h2 { color: #16243a; font-size: .78rem; font-weight: 740; letter-spacing: -.015em; }
@@ -19,14 +19,14 @@
 .chartMenu:hover { background: #f1f4f8; color: #53657a; }
 .chartMenu:focus-visible { outline: 2px solid #75a7df; outline-offset: 1px; }
 .chartMenu svg { width: 18px; height: 18px; }
-.legend { display: flex; min-height: 27px; align-items: center; justify-content: center; gap: 24px; color: #34445a; font-size: .61rem; font-weight: 580; white-space: nowrap; }
+.legend { display: flex; min-height: 25px; align-items: center; justify-content: center; gap: 22px; color: #34445a; font-size: .59rem; font-weight: 580; white-space: nowrap; }
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
 .legend i { position: relative; display: inline-block; width: 27px; height: 2px; border-radius: 999px; }
 .legend i::after { position: absolute; top: 50%; left: 50%; width: 7px; height: 7px; border: 2px solid #fff; border-radius: 50%; background: inherit; box-shadow: 0 0 0 1px currentColor; content: ''; transform: translate(-50%, -50%); }
 .blue { color: #1767e8; background: #1767e8; }.orange { color: #f27618; background: #f27618; }
 
-.lineChart { min-height: 166px; padding: 0 10px 5px; }
-.lineChart svg { display: block; width: 100%; height: 162px; overflow: visible; }
+.lineChart { min-height: 152px; padding: 0 9px 3px; }
+.lineChart svg { display: block; width: 100%; height: 148px; overflow: visible; }
 .gridLine { stroke: #d7e0ea; stroke-width: .9; stroke-dasharray: 3 3; }
 .verticalGridLine { stroke: #e3e9ef; stroke-width: .75; stroke-dasharray: 3 4; }
 .axisLabel, .dateLabel { fill: #53657b; font-family: inherit; font-size: 9.5px; font-weight: 620; }
@@ -40,7 +40,7 @@
 
 .empty { display: grid; min-height: 145px; place-items: center; color: #7d8999; font-size: .61rem; text-align: center; }
 
-.summaryBody { display: grid; min-height: 193px; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: 10px; padding: 11px; }
+.summaryBody { display: grid; min-height: 177px; grid-template-columns: 82px minmax(0, 1fr); align-items: center; gap: 8px; padding: 9px; }
 .summaryRing { --attendance-progress: 0%; display: grid; width: 82px; height: 82px; place-items: center; border-radius: 50%; background: conic-gradient(#347ddc var(--attendance-progress), #edf1f4 0); }
 .summaryRing::before { content: ''; grid-area: 1 / 1; width: 58px; height: 58px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 1px #edf1f3; }
 .summaryRing > div { z-index: 1; display: grid; grid-area: 1 / 1; justify-items: center; }
