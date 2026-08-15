@@ -614,6 +614,24 @@ export class RrhhController {
     }
   };
 
+  consultarTendenciaAsistencia = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveOptionalSedeScope(req, req.query.sede_id);
+      const data = await this.attendanceDashboardService.getTrend(
+        siteId,
+        req.query.desde,
+        req.query.hasta,
+        companyScope(req),
+      );
+      return res.json({ ok: true, data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudo consultar la tendencia de asistencia.',
+      });
+    }
+  };
+
   listarIncidencias = async (req: AuthRequest, res: Response) => {
     try {
       const siteId = resolveOptionalSedeScope(req, req.query.sede_id ?? req.params.sedeId);

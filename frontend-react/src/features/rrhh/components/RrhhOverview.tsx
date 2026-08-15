@@ -22,9 +22,10 @@ import { getApiErrorMessage } from '../../../core/api/errors';
 import { showToast } from '../../../core/utils/toast';
 import { LiveLocationPanel } from '../../gps/LiveLocationPanel';
 import { rrhhService } from '../rrhh.service';
-import type { AbsenceWorkflows, AttendanceDashboard, AttendanceDashboardEmployee, Employee } from '../types';
+import type { AbsenceWorkflows, AttendanceDashboard, AttendanceDashboardEmployee, AttendanceTrendPoint, Employee } from '../types';
 import styles from '../Rrhh.module.css';
 import { summarizeSitePerformance } from './overview-domain';
+import { WorkforceAnalytics } from './WorkforceAnalytics';
 
 function businessToday() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -34,6 +35,12 @@ function businessDateLabel(date: string) {
   const value = new Date(`${date}T12:00:00-05:00`);
   const label = new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(value);
   return label.charAt(0).toLocaleUpperCase('es') + label.slice(1);
+}
+
+function shiftDate(date: string, days: number) {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
 }
 
 function clock(value: string | null) {
@@ -65,6 +72,7 @@ type Props = { siteId: number | null; employees: Employee[] };
 export function RrhhOverview({ siteId, employees }: Props) {
   const navigate = useNavigate();
   const [attendance, setAttendance] = useState<AttendanceDashboard | null>(null);
+  const [trend, setTrend] = useState<AttendanceTrendPoint[]>([]);
   const [workflows, setWorkflows] = useState<AbsenceWorkflows | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -74,12 +82,15 @@ export function RrhhOverview({ siteId, employees }: Props) {
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true); setError(null);
     try {
-      const [attendanceData, workflowData] = await Promise.all([
-        rrhhService.getAttendanceDashboard(siteId, businessToday(), signal),
+      const today = businessToday();
+      const [attendanceData, workflowData, trendData] = await Promise.all([
+        rrhhService.getAttendanceDashboard(siteId, today, signal),
         rrhhService.getAbsenceWorkflows(siteId, signal),
+        rrhhService.getAttendanceTrend(siteId, shiftDate(today, -6), today, signal),
       ]);
       setAttendance(attendanceData);
       setWorkflows(workflowData);
+      setTrend(trendData);
     } catch (loadError) { if (!axios.isCancel(loadError)) setError(loadError); }
     finally { if (!signal?.aborted) setLoading(false); }
   }, [siteId]);
@@ -172,6 +183,8 @@ export function RrhhOverview({ siteId, employees }: Props) {
       </tbody></table></div>
       {(attendance?.employees.length ?? 0) > 8 && <footer className={styles.executiveTableFooter}><span>Mostrando 8 de {attendance?.employees.length} colaboradores</span><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa <ArrowRight /></button></footer>}
     </article>
+
+    <WorkforceAnalytics trend={trend} attendance={attendance} employees={employees} />
 
     <section className={styles.executiveAnalysis}>
       <div className={styles.executiveMap}><LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} /></div>

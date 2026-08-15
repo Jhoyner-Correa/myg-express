@@ -1,0 +1,43 @@
+.grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(270px, .82fr) minmax(280px, .9fr); gap: 12px; }
+.card { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: 13px; background: #fff; box-shadow: var(--shadow-sm); }
+.card > header { display: flex; min-height: 51px; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 13px; border-bottom: 1px solid var(--border-default); }
+.card > header > div:first-child { display: flex; align-items: center; gap: 8px; }
+.card > header > div:first-child > span { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 7px; background: #eaf3ff; color: #2d70c9; }
+.card > header svg { width: 14px; }
+.card h2 { margin: 0; color: #253246; font-size: .69rem; font-weight: 730; }
+.legend { display: flex; align-items: center; gap: 5px; color: #68778c; font-size: .53rem; white-space: nowrap; }
+.legend i { width: 13px; height: 2px; margin-left: 5px; }
+.blue { background: #347ddc; }.orange { background: #e79a27; }
+
+.lineChart { min-height: 178px; padding: 8px 10px 5px; }
+.lineChart svg { display: block; width: 100%; height: 164px; overflow: visible; }
+.gridLine { stroke: #e7edf2; stroke-width: 1; }
+.axisLabel, .dateLabel { fill: #77869a; font-family: inherit; font-size: 8px; }
+.attendanceLine, .tardinessLine { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.attendanceLine { stroke: #347ddc; stroke-width: 2.2; }
+.tardinessLine { stroke: #e79a27; stroke-width: 1.7; }
+.attendancePoint { fill: #fff; stroke: #347ddc; stroke-width: 2; }
+.tardinessPoint { fill: #fff; stroke: #e79a27; stroke-width: 1.7; }
+
+.donutBody { display: grid; grid-template-columns: 122px minmax(0, 1fr); min-height: 178px; align-items: center; gap: 14px; padding: 14px; }
+.donut { --donut-background: #edf1f4; display: grid; width: 112px; height: 112px; place-items: center; border-radius: 50%; background: var(--donut-background); }
+.donut::before { content: ''; grid-area: 1 / 1; width: 76px; height: 76px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 1px #edf1f3; }
+.donut > div { z-index: 1; display: grid; grid-area: 1 / 1; justify-items: center; }
+.donut strong { color: #253246; font-size: 1.12rem; line-height: 1; }
+.donut span { margin-top: 4px; color: #7b8797; font-size: .53rem; }
+.donutBody ul { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.donutBody li { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; align-items: center; gap: 7px; color: #596a7e; font-size: .57rem; }
+.donutBody li > i { width: 7px; height: 7px; border-radius: 50%; }
+.donutBody li strong { color: #253246; font-size: .6rem; }
+.donutBody li small { color: #7d8999; font-size: .5rem; font-weight: 560; }
+
+.barList { display: grid; min-height: 178px; align-content: center; gap: 11px; padding: 15px 17px; }
+.barList > div:not(.empty) { display: grid; grid-template-columns: minmax(78px, .75fr) minmax(90px, 1.4fr) 25px; align-items: center; gap: 9px; }
+.barList span { overflow: hidden; color: #53657a; font-size: .57rem; text-overflow: ellipsis; white-space: nowrap; }
+.barList > div > div { height: 9px; overflow: hidden; border-radius: 2px; background: #edf2f7; }
+.barList i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #4f8bd7, #2f6fc4); }
+.barList strong { color: #253246; font-size: .61rem; text-align: right; }
+.empty { display: grid; min-height: 145px; place-items: center; color: #7d8999; font-size: .61rem; text-align: center; }
+
+@media (max-width: 1200px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.card:first-child { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; }.card:first-child { grid-column: auto; }.card > header { align-items: flex-start; flex-direction: column; }.lineChart { overflow-x: auto; }.lineChart svg { min-width: 500px; }.donutBody { grid-template-columns: 1fr; justify-items: center; }.donutBody ul { width: min(100%, 250px); } }

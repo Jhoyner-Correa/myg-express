@@ -80,6 +80,37 @@ function validateDate(value: unknown): string {
 }
 
 export class AttendanceDashboardService {
+  async getTrend(siteId: number | null, requestedFrom: unknown, requestedUntil: unknown, companyId: number | null) {
+    const from = validateDate(requestedFrom);
+    const until = validateDate(requestedUntil);
+    const start = Date.parse(`${from}T12:00:00Z`);
+    const end = Date.parse(`${until}T12:00:00Z`);
+    const totalDays = Math.floor((end - start) / 86_400_000) + 1;
+    if (totalDays < 1 || totalDays > 31) {
+      throw new Error('El rango de tendencia debe contener entre 1 y 31 días.');
+    }
+
+    const dates = Array.from({ length: totalDays }, (_, index) => new Date(start + index * 86_400_000).toISOString().slice(0, 10));
+    const dashboards = await Promise.all(dates.map(date => this.getDashboard(siteId, date, companyId)));
+    return dashboards.map(dashboard => {
+      const working = dashboard.employees.filter(item => item.status !== 'NO_LABORABLE');
+      const present = working.filter(item => ['PRESENTE', 'TARDANZA'].includes(item.status)).length;
+      const late = working.filter(item => item.status === 'TARDANZA').length;
+      const absences = working.filter(item => ['FALTA', 'SIN_REGISTRO'].includes(item.status)).length;
+      const authorized = working.filter(item => ['PERMISO', 'VACACIONES'].includes(item.status)).length;
+      return {
+        date: dashboard.date,
+        working_employees: working.length,
+        present,
+        late,
+        absences,
+        authorized_absences: authorized,
+        attendance_rate: working.length ? Math.round(present / working.length * 1000) / 10 : null,
+        tardiness_rate: working.length ? Math.round(late / working.length * 1000) / 10 : null,
+      };
+    });
+  }
+
   async getDashboard(siteId: number | null, requestedDate: unknown, companyId: number | null) {
     const date = validateDate(requestedDate);
     const [siteRows] = await pool.query<RowDataPacket[]>(

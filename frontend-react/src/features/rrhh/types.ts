@@ -165,6 +165,17 @@ export type AttendanceDashboard = {
   employees: AttendanceDashboardEmployee[];
 };
 
+export type AttendanceTrendPoint = {
+  date: string;
+  working_employees: number;
+  present: number;
+  late: number;
+  absences: number;
+  authorized_absences: number;
+  attendance_rate: number | null;
+  tardiness_rate: number | null;
+};
+
 export type BiometricContingency = {
   id: number;
   request_id: string;

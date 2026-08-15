@@ -60,6 +60,7 @@ router.put('/sedes/:sedeId/geocerca', requirePermission(PERMISSIONS.RRHH_MANAGE)
 router.post('/asistencias/marcar', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.marcarAsistencia);
 router.get('/asistencias/resumen', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.consultarResumenAsistencia);
 router.get('/asistencias/resumen/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.consultarResumenAsistencia);
+router.get('/asistencias/tendencia', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.consultarTendenciaAsistencia);
 router.get('/asistencias/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.consultarAsistenciasSede);
 router.put('/asistencias/correccion', requirePermission(PERMISSIONS.RRHH_MANAGE), rrhhController.corregirAsistencia);
 router.get('/contingencias', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarContingenciasMarcacion);

@@ -11,6 +11,7 @@ import type {
   ScheduleAssignment,
   WorkSchedule,
   AttendanceDashboard,
+  AttendanceTrendPoint,
   AbsenceWorkflows,
   AttendanceCorrectionInput,
   BiometricContingency,
@@ -103,6 +104,12 @@ export const rrhhService = {
       '/rrhh/asistencias/resumen',
       { params: { fecha: date, ...(siteId === null ? {} : { sede_id: siteId }) }, signal },
     ));
+  },
+  getAttendanceTrend(siteId: number | null, from: string, until: string, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<AttendanceTrendPoint[]>>(
+      '/rrhh/asistencias/tendencia',
+      { params: { desde: from, hasta: until, ...(siteId === null ? {} : { sede_id: siteId }) }, signal },
+    ), []);
   },
   getAbsenceWorkflows(siteId: number | null, signal?: AbortSignal) {
     return unwrapRequest(apiClient.get<ApiEnvelope<AbsenceWorkflows>>('/rrhh/incidencias', {
