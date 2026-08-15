@@ -64,7 +64,7 @@
 }
 
 .corporate .copy p { color: #718096; }
-.corporate .metadata { color: #52657d; }
+.corporate .metadata { min-width: 0; flex: 1; justify-content: flex-end; color: #52657d; }
 
 @media (max-width: 720px) {
   .header { padding-inline: var(--space-4); }

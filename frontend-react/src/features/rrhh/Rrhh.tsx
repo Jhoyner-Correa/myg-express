@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { Bell, BriefcaseBusiness, Building2, CalendarDays, ChevronDown, KeyRound, MapPin, Pencil, Search, UserCheck, UserPlus, Users } from 'lucide-react';
+import { BriefcaseBusiness, KeyRound, MapPin, Pencil, Search, UserCheck, UserPlus, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button/Button';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { PageLoader } from '../../components/ui/PageLoader/PageLoader';
@@ -14,6 +15,7 @@ import { AttendancePanel } from './components/AttendancePanel';
 import { AttendanceReportsPanel } from './components/AttendanceReportsPanel';
 import { ConfigurationPanel } from './components/ConfigurationPanel';
 import { EmployeeModal } from './components/EmployeeModal';
+import { RrhhExecutiveHeader } from './components/RrhhExecutiveHeader';
 import { RrhhOverview } from './components/RrhhOverview';
 import { rrhhService } from './rrhh.service';
 import type { Employee, EmployeeInput, RrhhCatalogs, ScheduleAssignment } from './types';
@@ -49,7 +51,8 @@ const SECTION_META: Record<RrhhSection, { title: string; subtitle: string }> = {
 };
 
 export function Rrhh({ section }: { section: RrhhSection }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const canManage = userHasPermission(user, PERMISSIONS.RRHH_MANAGE);
   const canConfigure = userHasPermission(user, PERMISSIONS.RRHH_CONFIGURE);
   const canViewAllSites = user?.alcance !== 'SEDE';
@@ -64,6 +67,7 @@ export function Rrhh({ section }: { section: RrhhSection }) {
   const [overviewAlertCount, setOverviewAlertCount] = useState(0);
   const [editing, setEditing] = useState<Employee | 'new' | null>(null);
   const [activating, setActivating] = useState<Employee | null>(null);
+  const overviewMonths = useMemo(() => monthOptions(businessMonth()), []);
 
   useEffect(() => {
     if (user?.alcance === 'SEDE' && user.sede_id) {
@@ -147,36 +151,21 @@ export function Rrhh({ section }: { section: RrhhSection }) {
   };
 
   const showScopePicker = section !== 'overview' && section !== 'configuration' && section !== 'schedules';
-  const overviewHeader = section === 'overview' ? <div className={styles.executiveHeaderTools}>
-    <label className={styles.headerSelect}>
-      <Building2 aria-hidden="true" />
-      <select aria-label="Alcance de sede" value={siteId ?? 'all'} onChange={event => setSiteId(event.target.value === 'all' ? null : Number(event.target.value))}>
-        {canViewAllSites && <option value="all">Todas las sedes</option>}
-        {catalogs.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}
-      </select>
-      <ChevronDown aria-hidden="true" />
-    </label>
-    <label className={styles.headerSelect}>
-      <CalendarDays aria-hidden="true" />
-      <select aria-label="Mes de la agenda" value={overviewMonth} onChange={event => setOverviewMonth(event.target.value)}>
-        {monthOptions(businessMonth()).map(month => <option key={month.key} value={month.key}>{month.label}</option>)}
-      </select>
-      <ChevronDown aria-hidden="true" />
-    </label>
-    <label className={styles.headerSearch}>
-      <Search aria-hidden="true" />
-      <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar empleados, documentos..." aria-label="Buscar en el resumen de Recursos Humanos" />
-    </label>
-    <button className={styles.headerNotifications} type="button" aria-label={`Atención requerida: ${overviewAlertCount} alertas`} onClick={() => document.getElementById('rrhh-attention-required')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>
-      <Bell aria-hidden="true" />
-      {overviewAlertCount > 0 && <span>{overviewAlertCount > 9 ? '9+' : overviewAlertCount}</span>}
-    </button>
-    <div className={styles.headerProfile} aria-label={`Sesión de ${user?.nombre ?? 'Administrador'}`}>
-      <span>{(user?.nombre ?? 'AD').split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join('').toLocaleUpperCase('es')}</span>
-      <div><strong>{user?.nombre ?? 'Administrador'}</strong><small>{user?.rol_label ?? user?.rol ?? 'Administrador general'}</small></div>
-      <ChevronDown aria-hidden="true" />
-    </div>
-  </div> : undefined;
+  const overviewHeader = section === 'overview' ? <RrhhExecutiveHeader
+    user={user}
+    sites={catalogs.sites}
+    canViewAllSites={canViewAllSites}
+    siteId={siteId}
+    month={overviewMonth}
+    months={overviewMonths}
+    query={query}
+    alertCount={overviewAlertCount}
+    onSiteChange={setSiteId}
+    onMonthChange={setOverviewMonth}
+    onQueryChange={setQuery}
+    onAlertsClick={() => document.getElementById('rrhh-attention-required')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+    onLogout={() => { logout(); navigate('/login', { replace: true }); }}
+  /> : undefined;
   return <main className={`main ${styles.page}`} id="main-content">
     <PageHeader icon={<Users />} title={SECTION_META[section].title} subtitle={SECTION_META[section].subtitle} metadata={overviewHeader ?? (section === 'configuration' || section === 'schedules' ? 'Alcance empresarial' : selectedSite?.name ?? (canViewAllSites ? 'Todas las sedes' : user?.sede_nombre ?? 'Sede operativa'))} tone={section === 'overview' ? 'corporate' : 'brand'} />
     <section className={styles.content}>

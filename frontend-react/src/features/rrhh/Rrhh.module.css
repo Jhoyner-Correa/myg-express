@@ -11,28 +11,6 @@
 .tabs .tabActive { color: #08783d; background: #edf8f1; box-shadow: inset 0 0 0 1px #d6eee0; }
 .sitePicker { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 12px; border: 1px solid var(--border-default); border-radius: 9px; background: var(--surface-card); color: var(--text-muted); }
 .sitePicker select { border: 0; outline: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: .78rem; font-weight: 650; }
-.executiveHeaderTools { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
-.headerSelect, .headerSearch, .headerNotifications, .headerProfile { min-height: 36px; border: 1px solid #dce4ee; border-radius: 8px; background: #fff; color: #526175; box-shadow: 0 1px 2px rgba(15, 23, 42, .025); }
-.headerSelect { display: flex; align-items: center; gap: 7px; padding: 0 9px; }
-.headerSelect > svg:first-child { width: 14px; height: 14px; color: #5e6f84; }
-.headerSelect > svg:last-child { width: 12px; height: 12px; color: #8693a4; pointer-events: none; }
-.headerSelect select { max-width: 132px; border: 0; outline: 0; appearance: none; background: transparent; color: #344156; font: inherit; font-size: .68rem; font-weight: 650; cursor: pointer; }
-.headerSearch { display: flex; width: clamp(190px, 16vw, 255px); align-items: center; gap: 8px; padding: 0 10px; background: #f9fafc; }
-.headerSearch:focus-within { border-color: #8aa9d4; background: #fff; box-shadow: 0 0 0 3px rgba(44, 107, 190, .08); }
-.headerSearch svg { width: 14px; height: 14px; color: #8592a4; }
-.headerSearch input { width: 100%; border: 0; outline: 0; background: transparent; color: #243146; font: inherit; font-size: .67rem; }
-.headerSearch input::placeholder { color: #9aa5b4; }
-.headerNotifications { position: relative; display: grid; width: 36px; flex: 0 0 36px; place-items: center; padding: 0; cursor: pointer; transition: border-color .18s ease, background-color .18s ease, color .18s ease; }
-.headerNotifications:hover { border-color: #a8b8cb; background: #f6f8fb; color: #244e85; }
-.headerNotifications svg { width: 16px; height: 16px; }
-.headerNotifications span { position: absolute; top: -5px; right: -5px; display: grid; min-width: 17px; height: 17px; place-items: center; padding: 0 4px; border: 2px solid #fff; border-radius: 99px; background: #ed3e4f; color: #fff; font-size: .52rem; font-weight: 800; }
-.headerProfile { display: flex; min-width: 188px; align-items: center; gap: 9px; padding: 4px 9px 4px 5px; border-color: transparent; background: transparent; box-shadow: none; }
-.headerProfile > span { display: grid; width: 29px; height: 29px; flex: 0 0 29px; place-items: center; border: 1px solid #d5dee9; border-radius: 50%; background: linear-gradient(145deg, #eef4fb, #dce7f5); color: #31557f; font-size: .61rem; font-weight: 800; }
-.headerProfile div { display: grid; min-width: 0; gap: 1px; }
-.headerProfile strong, .headerProfile small { overflow: hidden; max-width: 120px; text-overflow: ellipsis; white-space: nowrap; }
-.headerProfile strong { color: #1f2937; font-size: .68rem; font-weight: 720; }
-.headerProfile small { color: #8994a4; font-size: .57rem; font-weight: 550; }
-.headerProfile > svg { width: 12px; height: 12px; margin-left: auto; color: #8994a4; }
 .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border-default); border-radius: 13px; background: var(--surface-card); box-shadow: var(--shadow-sm); }
 .metrics article { display: flex; align-items: center; gap: 14px; min-height: 106px; padding: 18px 22px; }
 .metrics article + article { border-left: 1px solid var(--border-default); }
@@ -351,9 +329,6 @@
 @media (max-width: 1200px) {
   .executiveKpis { grid-template-columns: repeat(3, minmax(190px, 250px)); }
   .executiveSites { grid-column: auto; grid-row: auto; }
-  .headerSearch { width: 180px; }
-  .headerProfile { min-width: 40px; }
-  .headerProfile div, .headerProfile > svg { display: none; }
 }
 
 @media (max-width: 1800px) {
@@ -365,15 +340,10 @@
 @media (max-width: 900px) {
   .executiveKpis { grid-template-columns: repeat(2, minmax(190px, 250px)); }
   .executiveSites { grid-column: auto; }
-  .headerSearch { display: none; }
 }
 
 @media (max-width: 760px) {
   .executiveKpis { grid-template-columns: 1fr; }
-  .executiveHeaderTools { gap: 6px; }
-  .headerSelect { padding-inline: 7px; }
-  .headerSelect select { max-width: 92px; }
-  .headerProfile { display: none; }
   .executiveCardHeader { align-items: stretch; flex-direction: column; }
   .executiveActions { width: 100%; }
   .executiveActions > * { flex: 1; }

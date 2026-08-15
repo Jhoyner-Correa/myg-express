@@ -558,6 +558,7 @@ html.sidebar-collapsed-preload #sidebar-container {
   display: block;
   overflow: hidden;
   color: rgba(255, 255, 255, 0.94);
+  text-transform: capitalize;
   font-family: var(--sb-font);
   font-size: 12.6px;
   font-weight: 500;
