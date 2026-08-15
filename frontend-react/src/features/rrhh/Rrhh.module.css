@@ -250,8 +250,6 @@
 .executiveTableFooter button:hover, .executiveCardFooter button:hover { color: #1d4f91; }
 .executiveTableFooter svg, .executiveCardFooter svg { width: 13px; }
 
-.executiveAnalysis { display: grid; grid-template-columns: minmax(500px, 620px); gap: 12px; align-items: start; }
-.executiveMap { width: 100%; min-width: 0; }
 .executiveSites { grid-column: auto; }
 .executiveAgenda { min-width: 0; }
 .executiveAlertList { display: grid; align-content: start; }
@@ -350,7 +348,6 @@
 
 @media (max-width: 1200px) {
   .executiveKpis { grid-template-columns: repeat(3, minmax(190px, 250px)); }
-  .executiveAnalysis { grid-template-columns: 1fr; }
   .executiveSites { grid-column: auto; grid-row: auto; }
   .headerSearch { width: 180px; }
   .headerProfile { min-width: 40px; }
@@ -365,7 +362,6 @@
 
 @media (max-width: 900px) {
   .executiveKpis { grid-template-columns: repeat(2, minmax(190px, 250px)); }
-  .executiveAnalysis { grid-template-columns: 1fr; }
   .executiveSites { grid-column: auto; }
   .headerSearch { display: none; }
 }

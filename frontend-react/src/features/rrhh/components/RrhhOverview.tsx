@@ -243,11 +243,12 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
       </aside>
     </section>
 
-    <WorkforceAnalytics trend={trend} onOpenReport={() => navigate('/rrhh/reportes')} attentionPanel={attentionPanel} performancePanel={performancePanel} />
-
-    <section className={styles.executiveAnalysis}>
-      <div className={styles.executiveMap}><LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} /></div>
-
-    </section>
+    <WorkforceAnalytics
+      trend={trend}
+      onOpenReport={() => navigate('/rrhh/reportes')}
+      attentionPanel={attentionPanel}
+      performancePanel={performancePanel}
+      locationPanel={<LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} />}
+    />
   </div>;
 }

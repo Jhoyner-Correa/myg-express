@@ -8,6 +8,7 @@ type Props = {
   onOpenReport: () => void;
   attentionPanel: ReactNode;
   performancePanel: ReactNode;
+  locationPanel: ReactNode;
 };
 
 const CHART_LEFT = 36;
@@ -55,7 +56,7 @@ function shortDate(date: string) {
   return `${day.charAt(0).toUpperCase()}${day.slice(1)} ${value.getDate()}`;
 }
 
-export function WorkforceAnalytics({ trend, onOpenReport, attentionPanel, performancePanel }: Props) {
+export function WorkforceAnalytics({ trend, onOpenReport, attentionPanel, performancePanel, locationPanel }: Props) {
   const attendanceLines = pointSegments(trend, 'attendance_rate');
   const tardinessLines = pointSegments(trend, 'tardiness_rate');
 
@@ -78,6 +79,8 @@ export function WorkforceAnalytics({ trend, onOpenReport, attentionPanel, perfor
         {trend.map((item, index) => { const [weekday, day] = shortDate(item.date).split(' '); return <g key={item.date}>{item.attendance_rate !== null && <><circle cx={chartX(index, trend.length)} cy={chartY(item.attendance_rate)} r="4" className={styles.attendancePoint}><title>{item.attendance_rate}% de asistencia</title></circle><circle cx={chartX(index, trend.length)} cy={chartY(item.tardiness_rate ?? 0)} r="3.7" className={styles.tardinessPoint}><title>{item.tardiness_rate ?? 0}% de tardanzas</title></circle></>}<text x={chartX(index, trend.length)} y="151" textAnchor="middle" className={styles.dateLabel}><tspan x={chartX(index, trend.length)}>{weekday}</tspan><tspan x={chartX(index, trend.length)} dy="14" className={styles.dateNumber}>{day}</tspan></text></g>; })}
       </svg> : <div className={styles.empty}>Sin información semanal.</div>}</div>
     </article>
+
+    <div className={styles.locationSlot}>{locationPanel}</div>
 
   </section>;
 }
