@@ -1,7 +1,7 @@
-.grid { display: grid; width: 100%; grid-template-columns: minmax(340px, 380px) minmax(430px, 1fr) minmax(430px, 470px) minmax(250px, 280px); gap: 11px; justify-content: start; align-items: start; }
-.attentionSlot { min-width: 0; }
+.grid { display: grid; width: 100%; grid-template-columns: minmax(340px, 380px) minmax(430px, 1fr) minmax(430px, 470px) minmax(250px, 280px); grid-template-areas: "attention performance weekly summary"; gap: 11px; justify-content: start; align-items: start; }
+.attentionSlot { grid-area: attention; min-width: 0; }
 .attentionSlot > * { height: 100%; }
-.performanceSlot { min-width: 0; }
+.performanceSlot { grid-area: performance; min-width: 0; }
 .card { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: 13px; background: #fff; box-shadow: var(--shadow-sm); }
 .card > header { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 9px; padding: 6px 10px; border-bottom: 1px solid var(--border-default); }
 .card > header > div:first-child { display: flex; align-items: center; gap: 8px; }
@@ -11,6 +11,8 @@
 .card > header svg { width: 14px; }
 .card h2 { margin: 0; color: #253246; font-size: .69rem; font-weight: 730; }
 .card > header .violetIcon { color: #7543c5; background: #f1ebff; }
+.weeklyCard { grid-area: weekly; }
+.summaryCard { grid-area: summary; }
 .weeklyCard > header { min-height: 42px; padding: 7px 10px 2px; border-bottom: 0; }
 .weeklyCard > header > div:first-child > span { width: 30px; height: 30px; border-radius: 8px; background: #e7efff; color: #1767e8; }
 .weeklyCard > header > div:first-child > span svg { width: 16px; height: 16px; }
@@ -52,5 +54,6 @@
 .summaryBody li strong { color: #253246; font-size: .61rem; }
 .green { background: #13a65a; }.amber { background: #e6a128; }.gray { background: #9ba7b3; }.indigo { background: #347ddc; }
 
-@media (max-width: 1500px) { .grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); justify-content: stretch; } }
-@media (max-width: 760px) { .grid { grid-template-columns: 1fr; }.card > header { align-items: flex-start; flex-direction: column; }.lineChart { overflow-x: auto; }.lineChart svg { min-width: 500px; }.summaryBody { grid-template-columns: 1fr; justify-items: center; }.summaryBody ul { width: min(100%, 250px); } }
+@media (max-width: 1500px) { .grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.15fr) minmax(240px, 280px); grid-template-areas: "attention performance summary" "weekly weekly weekly"; justify-content: stretch; }.weeklyCard { width: min(100%, 470px); justify-self: start; } }
+@media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "attention performance" "summary weekly"; }.weeklyCard { width: 100%; } }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; grid-template-areas: "attention" "performance" "summary" "weekly"; }.weeklyCard { width: 100%; }.card > header { align-items: flex-start; flex-direction: column; }.lineChart { overflow-x: auto; }.lineChart svg { min-width: 500px; }.summaryBody { grid-template-columns: 1fr; justify-items: center; }.summaryBody ul { width: min(100%, 250px); } }

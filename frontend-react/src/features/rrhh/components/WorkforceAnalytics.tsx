@@ -86,7 +86,7 @@ export function WorkforceAnalytics({ trend, attendance, trackedEmployees, refres
       </svg> : <div className={styles.empty}>Sin información semanal.</div>}</div>
     </article>
 
-    <article className={styles.card}>
+    <article className={`${styles.card} ${styles.summaryCard}`}>
       <header><div><span className={styles.violetIcon}><UsersRound /></span><div><h2>Resumen del día</h2><p>Cobertura operativa actual</p></div></div><Button size="sm" variant="secondary" icon={<RefreshCw size={13} />} loading={refreshing} onClick={onRefresh}>Actualizar</Button></header>
       <div className={styles.summaryBody}>
         <div className={styles.summaryRing} style={{ '--attendance-progress': `${attendanceRate}%` } as CSSProperties}><div><strong>{attendanceRate}%</strong><span>Asistencia</span></div></div>
