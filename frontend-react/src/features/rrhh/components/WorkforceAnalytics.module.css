@@ -8,19 +8,23 @@
 .card > header svg { width: 14px; }
 .card h2 { margin: 0; color: #253246; font-size: .69rem; font-weight: 730; }
 .card > header .violetIcon { color: #7543c5; background: #f1ebff; }
-.legend { display: flex; align-items: center; gap: 5px; color: #68778c; font-size: .53rem; white-space: nowrap; }
-.legend i { width: 13px; height: 2px; margin-left: 5px; }
+.weeklyCard > header { min-height: 37px; padding: 12px 14px 2px; border-bottom: 0; }
+.weeklyCard > header h2 { font-size: .71rem; }
+.legend { display: flex; min-height: 22px; align-items: center; justify-content: center; gap: 18px; color: #68778c; font-size: .53rem; white-space: nowrap; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { display: inline-block; width: 17px; height: 2px; }
 .blue { background: #347ddc; }.orange { background: #e79a27; }
 
-.lineChart { min-height: 178px; padding: 8px 10px 5px; }
+.lineChart { min-height: 168px; padding: 0 10px 7px; }
 .lineChart svg { display: block; width: 100%; height: 164px; overflow: visible; }
-.gridLine { stroke: #e7edf2; stroke-width: 1; }
-.axisLabel, .dateLabel { fill: #77869a; font-family: inherit; font-size: 8px; }
+.gridLine { stroke: #e5ebf1; stroke-width: .9; }
+.verticalGridLine { stroke: #f0f3f6; stroke-width: .7; }
+.axisLabel, .dateLabel { fill: #6f7e91; font-family: inherit; font-size: 8px; font-weight: 520; }
 .attendanceLine, .tardinessLine { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.attendanceLine { stroke: #347ddc; stroke-width: 2.2; }
-.tardinessLine { stroke: #e79a27; stroke-width: 1.7; }
-.attendancePoint { fill: #fff; stroke: #347ddc; stroke-width: 2; }
-.tardinessPoint { fill: #fff; stroke: #e79a27; stroke-width: 1.7; }
+.attendanceLine { stroke: #347ddc; stroke-width: 2; }
+.tardinessLine { stroke: #e79a27; stroke-width: 1.8; }
+.attendancePoint { fill: #347ddc; stroke: #fff; stroke-width: 1; }
+.tardinessPoint { fill: #e79a27; stroke: #fff; stroke-width: 1; }
 
 .barList { display: grid; min-height: 178px; align-content: center; gap: 11px; padding: 15px 17px; }
 .barList > div:not(.empty) { display: grid; grid-template-columns: minmax(78px, .75fr) minmax(90px, 1.4fr) 25px; align-items: center; gap: 9px; }
