@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { BarChart3, MoreVertical, RefreshCw, UsersRound } from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
 import type { AttendanceDashboard, AttendanceTrendPoint, Employee } from '../types';
@@ -13,6 +13,7 @@ type Props = {
   refreshing: boolean;
   onRefresh: () => void;
   onOpenReport: () => void;
+  attentionPanel: ReactNode;
 };
 
 const CHART_LEFT = 36;
@@ -60,7 +61,7 @@ function shortDate(date: string) {
   return `${day.charAt(0).toUpperCase()}${day.slice(1)} ${value.getDate()}`;
 }
 
-export function WorkforceAnalytics({ trend, attendance, employees, trackedEmployees, refreshing, onRefresh, onOpenReport }: Props) {
+export function WorkforceAnalytics({ trend, attendance, employees, trackedEmployees, refreshing, onRefresh, onOpenReport, attentionPanel }: Props) {
   const summary = attendance?.summary;
   const attendanceRate = summary?.total_employees ? Math.round(summary.present / summary.total_employees * 100) : 0;
   const headcount = summarizeHeadcount(employees).slice(0, 6);
@@ -69,6 +70,8 @@ export function WorkforceAnalytics({ trend, attendance, employees, trackedEmploy
   const tardinessLines = pointSegments(trend, 'tardiness_rate');
 
   return <section className={styles.grid} aria-label="Analítica de Recursos Humanos">
+    <div className={styles.attentionSlot}>{attentionPanel}</div>
+
     <article className={`${styles.card} ${styles.weeklyCard}`}>
       <header><div><span><UsersRound /></span><h2>Asistencia semanal</h2></div><button type="button" className={styles.chartMenu} aria-label="Abrir reporte semanal" title="Abrir reporte semanal" onClick={onOpenReport}><MoreVertical /></button></header>
       <div className={styles.legend}><span><i className={styles.blue} />Asistencia (%)</span><span><i className={styles.orange} />Tardanzas</span></div>

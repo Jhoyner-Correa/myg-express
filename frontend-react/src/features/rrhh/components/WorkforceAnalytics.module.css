@@ -1,4 +1,6 @@
-.grid { display: grid; width: 100%; grid-template-columns: minmax(500px, 1.55fr) minmax(230px, .68fr) minmax(285px, .82fr); gap: 11px; justify-content: stretch; }
+.grid { display: grid; width: 100%; grid-template-columns: minmax(360px, 1.05fr) minmax(480px, 1.35fr) minmax(220px, .62fr) minmax(280px, .8fr); gap: 11px; justify-content: stretch; }
+.attentionSlot { min-width: 0; }
+.attentionSlot > * { height: 100%; }
 .card { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: 13px; background: #fff; box-shadow: var(--shadow-sm); }
 .card > header { display: flex; min-height: 51px; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 13px; border-bottom: 1px solid var(--border-default); }
 .card > header > div:first-child { display: flex; align-items: center; gap: 8px; }
@@ -55,5 +57,5 @@
 .summaryBody li strong { color: #253246; font-size: .61rem; }
 .green { background: #13a65a; }.amber { background: #e6a128; }.gray { background: #9ba7b3; }.indigo { background: #347ddc; }
 
-@media (max-width: 1250px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.weeklyCard { grid-column: 1 / -1; } }
+@media (max-width: 1500px) { .grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } }
 @media (max-width: 760px) { .grid { grid-template-columns: 1fr; }.card > header { align-items: flex-start; flex-direction: column; }.lineChart { overflow-x: auto; }.lineChart svg { min-width: 500px; }.summaryBody { grid-template-columns: 1fr; justify-items: center; }.summaryBody ul { width: min(100%, 250px); } }

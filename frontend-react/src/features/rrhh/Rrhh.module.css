@@ -169,7 +169,7 @@
 .attendanceTable { min-width: 1190px; }.attendanceTable td { height: 56px; }.scheduleCell strong { display: block; color: var(--text-primary); font-size: .7rem; font-weight: 650; }.scheduleCell small { display: block; margin-top: 2px; color: var(--text-muted); font-size: .62rem; }.muted { color: var(--text-muted); font-size: .68rem; }.clockCell { color: #334155 !important; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .attendanceStatus { display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary); font-size: .68rem; font-weight: 650; white-space: nowrap; }.attendanceStatus i { width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; }.attendancePRESENTE i { background: #10b869; }.attendanceTARDANZA i { background: #f59e0b; }.attendanceFALTA i { background: #ef4444; }.attendancePERMISO i { background: #3b82f6; }.attendanceVACACIONES i { background: #8b5cf6; }.attendanceSIN_REGISTRO i, .attendanceNO_LABORABLE i { background: #94a3b8; }
 .executiveDashboard { display: grid; gap: 14px; }
-.executiveKpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.executiveKpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
 
 .executiveCardHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 59px; padding: 11px 14px; border-bottom: 1px solid var(--border-default); }
 .executiveTitle { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -180,9 +180,9 @@
 .executiveTitle h2 { margin: 0; color: var(--text-primary); font-size: .78rem; font-weight: 720; }
 .executiveTitle p { margin: 3px 0 0; color: var(--text-muted); font-size: .6rem; }
 .executiveActions { display: flex; gap: 8px; }
-.executiveAttendanceTable { min-width: 990px; }
+.executiveAttendanceTable { min-width: 1130px; }
 .executiveAttendanceTable th { color: #68778d; }
-.executiveAttendanceTable td { height: 47px; padding-top: 5px; padding-bottom: 5px; }
+.executiveAttendanceTable td { height: 51px; padding-top: 6px; padding-bottom: 6px; }
 .executiveAttendanceTable .person > span { width: 28px; height: 28px; background: #eaf2ff; color: #245fae; font-size: .6rem; }
 .executiveTableFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; padding: 7px 14px; border-top: 1px solid var(--border-default); background: #fbfcfd; }
 .executiveTableFooter span { color: var(--text-muted); font-size: .61rem; }
@@ -190,11 +190,7 @@
 .executiveTableFooter button:hover, .executiveCardFooter button:hover { color: #1d4f91; }
 .executiveTableFooter svg, .executiveCardFooter svg { width: 13px; }
 
-.executivePriorityGrid { display: grid; grid-template-columns: minmax(360px, 1.02fr) minmax(420px, 1.18fr) minmax(250px, .72fr); gap: 12px; align-items: stretch; }
-.executivePriorityGrid > div { min-width: 0; }
-.executivePriorityGrid > div > * { height: 100%; }
-.executivePriorityAlerts > article, .executivePrioritySites > article { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
-.executiveOperations { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.executiveAnalysis { display: grid; grid-template-columns: minmax(500px, 1fr) minmax(350px, 430px) minmax(250px, 300px); gap: 12px; align-items: start; }
 .executiveMap { width: 100%; min-width: 0; }
 .executiveSites { grid-column: auto; }
 .executiveAgenda { min-width: 0; }
@@ -283,15 +279,13 @@
 
 @media (max-width: 1200px) {
   .executiveKpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .executivePriorityGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .executiveAgenda { grid-column: 1 / -1; }
+  .executiveAnalysis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .executiveSites { grid-column: auto; grid-row: auto; }
 }
 
 @media (max-width: 900px) {
   .executiveKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .executivePriorityGrid { grid-template-columns: 1fr; }
-  .executiveAgenda { grid-column: auto; }
+  .executiveAnalysis { grid-template-columns: 1fr; }
   .executiveSites { grid-column: auto; }
 }
 

@@ -111,8 +111,6 @@ export function RrhhOverview({ siteId, employees }: Props) {
   const trackedEmployees = employees.filter(employee => employee.estado === 'ACTIVO' && employee.tipoRastreo === 'CONTINUO').length;
   const summary = attendance?.summary;
   const attendanceRate = summary?.total_employees ? Math.round(summary.present / summary.total_employees * 100) : 0;
-  const absenceTotal = (summary?.without_record ?? 0) + (summary?.authorized_absence ?? 0);
-  const absenceRate = summary?.total_employees ? Math.round(absenceTotal / summary.total_employees * 100) : 0;
   const activeShare = employees.length ? Math.round(activeEmployees / employees.length * 100) : 0;
   const today = businessToday();
   const todayTrend = trend.find(point => point.date === today);
@@ -144,7 +142,7 @@ export function RrhhOverview({ siteId, employees }: Props) {
     const vacationAlerts = pendingVacations.map(item => ({ id: `vacation-${item.id}`, tone: 'info' as const, kind: 'request' as const, title: `Vacaciones de ${item.nombres} ${item.apellidos} por revisar`, site: item.sede_nombre, time: clock(item.created_at), target: '/rrhh/solicitudes' }));
     return [...attendanceAlerts, ...permissionAlerts, ...vacationAlerts];
   }, [attendance, pendingPermissions, pendingVacations]);
-  const displayedAlerts = showAllAlerts ? alerts : alerts.slice(0, 4);
+  const displayedAlerts = showAllAlerts ? alerts : alerts.slice(0, 5);
 
   const exportExcel = async () => {
     if (!attendance?.employees.length) { showToast('No hay información de asistencia para exportar.', 'warning'); return; }
@@ -180,13 +178,7 @@ export function RrhhOverview({ siteId, employees }: Props) {
   const attentionPanel = <article className={`${styles.card} ${styles.executiveAlerts}`}>
     <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><BellRing /></span><div><h2>Atención requerida</h2><p>Eventos que necesitan seguimiento.</p></div></div></header>
     <div className={styles.executiveAlertList}>{displayedAlerts.map(alert => <div className={styles.executiveAlertRow} key={alert.id}><i className={`${styles.alertPriority} ${styles[`priority${alert.tone}`]}`} /><span className={`${styles.alertIcon} ${styles[`alert${alert.tone}`]}`}>{alert.kind === 'request' ? <FileClock /> : alert.tone === 'critical' ? <UserX /> : <AlertTriangle />}</span><div className={styles.alertCopy}><strong>{alert.title}</strong></div><span className={styles.alertMeta}>{alert.site} · {alert.time}</span><button type="button" onClick={() => navigate(alert.target)}>Revisar</button></div>)}{!alerts.length && <div className={styles.executiveEmpty}><CheckCircle2 /><span>La operación no tiene alertas pendientes.</span></div>}</div>
-    {alerts.length > 4 && <footer className={styles.executiveAlertFooter}><button type="button" onClick={() => setShowAllAlerts(current => !current)}>{showAllAlerts ? 'Mostrar resumen' : `Ver todas las alertas (${alerts.length})`} <ArrowRight /></button></footer>}
-  </article>;
-
-  const sitePerformancePanel = <article className={`${styles.card} ${styles.executiveSites}`}>
-    <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><MapPin /></span><div><h2>Rendimiento por sede</h2><p>Asistencia y puntualidad del día.</p></div></div></header>
-    <div className={styles.tableWrap}><table className={styles.executiveSitesTable}><thead><tr><th>Sede</th><th>Personal</th><th>Asistencia</th><th>Tardanzas</th><th>Horas extra</th></tr></thead><tbody>{sitePerformance.map(site => <tr key={site.siteId}><td><i className={site.attendanceRate >= 90 ? styles.siteGood : site.attendanceRate >= 75 ? styles.siteWarning : styles.siteCritical} />{site.siteName}</td><td>{site.employees}</td><td><strong>{site.attendanceRate}%</strong></td><td>{site.late}</td><td>{Math.floor(site.overtimeMinutes / 60)} h {site.overtimeMinutes % 60} min</td></tr>)}{!sitePerformance.length && <tr><td colSpan={5}>Sin información por sede.</td></tr>}</tbody></table></div>
-    <footer className={styles.executiveCardFooter}><button type="button" onClick={() => navigate('/rrhh/reportes')}>Ver reporte completo por sede <ArrowRight /></button></footer>
+    {alerts.length > 5 && <footer className={styles.executiveAlertFooter}><button type="button" onClick={() => setShowAllAlerts(current => !current)}>{showAllAlerts ? 'Mostrar resumen' : `Ver todas las alertas (${alerts.length})`} <ArrowRight /></button></footer>}
   </article>;
 
   return <div className={styles.executiveDashboard}>
@@ -194,30 +186,32 @@ export function RrhhOverview({ siteId, employees }: Props) {
       <ExecutiveKpiCard label="Personal activo" value={activeEmployees} insight={`${activeShare}% del personal registrado`} context={`${employees.length} colaboradores en el alcance`} icon={<UsersRound />} tone="blue" onClick={() => navigate('/rrhh/personal')} />
       <ExecutiveKpiCard label="Asistencia" value={`${attendanceRate}%`} insight="Sin período comparable" context={`${summary?.present ?? 0} presentes hoy`} icon={<CalendarCheck2 />} tone="green" comparison={attendanceComparison === null ? undefined : { delta: attendanceComparison, suffix: ' p.p.' }} onClick={() => navigate('/rrhh/asistencia')} />
       <ExecutiveKpiCard label="Horas extra" value={`${Math.floor((summary?.overtime_minutes ?? 0) / 60)} h ${(summary?.overtime_minutes ?? 0) % 60} min`} insight={`${summary?.completed ?? 0} jornadas cerradas`} context="Tiempo adicional registrado hoy" icon={<TimerReset />} tone="violet" onClick={() => navigate('/rrhh/reportes')} />
-      <ExecutiveKpiCard label="Ausentismo" value={`${absenceRate}%`} insight={`${absenceTotal} ausencias registradas`} context={`${summary?.authorized_absence ?? 0} ausencias autorizadas`} icon={<UserX />} tone="red" onClick={() => navigate('/rrhh/asistencia')} />
       <ExecutiveKpiCard label="Tardanzas" value={summary?.late ?? 0} insight="Sin período comparable" context={`${summary?.on_time ?? 0} ingresos puntuales`} icon={<ClockAlert />} tone="orange" comparison={tardinessComparison === null ? undefined : { delta: tardinessComparison, lowerIsBetter: true }} onClick={() => navigate('/rrhh/asistencia')} />
       <ExecutiveKpiCard label="Atención requerida" value={pendingRequests + (summary?.without_record ?? 0)} insight={`${pendingRequests} solicitudes pendientes`} context="Incidencias que requieren revisión" icon={<BellRing />} tone="red" onClick={() => navigate('/rrhh/solicitudes')} />
     </section>
 
-    <section className={styles.executivePriorityGrid} aria-label="Decisiones y prioridades del día">
-      <div className={styles.executivePriorityAlerts}>{attentionPanel}</div>
-      <div className={styles.executivePrioritySites}>{sitePerformancePanel}</div>
-      <div className={styles.executiveAgenda}><AgendaPanel siteId={siteId} workflows={workflows} onOpenCalendar={() => navigate('/rrhh/horarios')} /></div>
-    </section>
-
-    <WorkforceAnalytics trend={trend} attendance={attendance} employees={employees} trackedEmployees={trackedEmployees} refreshing={loading} onRefresh={() => void load()} onOpenReport={() => navigate('/rrhh/reportes')} />
-
-    <section className={styles.executiveOperations} aria-label="Monitoreo operativo">
-      <div className={styles.executiveMap}><LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} /></div>
-    </section>
-
     <article className={`${styles.card} ${styles.executiveAttendance}`}>
-      <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><CalendarCheck2 /></span><div><h2>Asistencia del día</h2><p>{businessDateLabel(businessToday())}</p></div></div><div className={styles.executiveActions}><Button size="sm" variant="secondary" icon={<Download size={14} />} loading={exporting} onClick={() => void exportExcel()}>Exportar Excel</Button><Button size="sm" variant="corporate" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa</Button></div></header>
-      <div className={styles.tableWrap}><table className={`${styles.table} ${styles.executiveAttendanceTable}`}><thead><tr><th>Colaborador</th><th>Sede</th><th>Cargo</th><th>Entrada</th><th>Salida final</th><th>Estado</th><th>Tardanza</th><th>Horas extra</th></tr></thead><tbody>
-        {(attendance?.employees ?? []).slice(0, 6).map(item => <tr key={item.employee_id}><td><div className={styles.person}><span>{item.names.charAt(0)}{item.last_names.charAt(0)}</span><div><strong>{item.names} {item.last_names}</strong><small>{item.employee_code}</small></div></div></td><td>{item.site_name}</td><td>{item.job_role}</td><td className={styles.clockCell}>{clock(item.marks.entry)}</td><td className={styles.clockCell}>{clock(item.marks.exit)}</td><td><span className={`${styles.attendanceStatus} ${styles[`attendance${item.status}`]}`}><i />{STATUS_LABELS[item.status]}</span></td><td>{item.delay_minutes ? `${item.delay_minutes} min` : '—'}</td><td>{item.overtime_minutes ? `${item.overtime_minutes} min` : '—'}</td></tr>)}
-        {!attendance?.employees.length && <tr><td colSpan={8}><div className={styles.empty}>No hay personal dentro del alcance seleccionado.</div></td></tr>}
+      <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><CalendarCheck2 /></span><div><h2>Asistencia de hoy</h2><p>{businessDateLabel(businessToday())}</p></div></div><div className={styles.executiveActions}><Button size="sm" variant="secondary" icon={<Download size={14} />} loading={exporting} onClick={() => void exportExcel()}>Exportar Excel</Button><Button size="sm" variant="corporate" onClick={() => navigate('/rrhh/reportes')}>Ver reporte</Button></div></header>
+      <div className={styles.tableWrap}><table className={`${styles.table} ${styles.executiveAttendanceTable}`}><thead><tr><th>Colaborador</th><th>Cargo</th><th>Entrada</th><th>Salida almuerzo</th><th>Regreso</th><th>Salida final</th><th>Estado</th><th>Tardanza</th><th>Horas extra</th></tr></thead><tbody>
+        {(attendance?.employees ?? []).slice(0, 8).map(item => <tr key={item.employee_id}><td><div className={styles.person}><span>{item.names.charAt(0)}{item.last_names.charAt(0)}</span><div><strong>{item.names} {item.last_names}</strong><small>{item.site_name}</small></div></div></td><td>{item.job_role}</td><td className={styles.clockCell}>{clock(item.marks.entry)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_out)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_return)}</td><td className={styles.clockCell}>{clock(item.marks.exit)}</td><td><span className={`${styles.attendanceStatus} ${styles[`attendance${item.status}`]}`}><i />{STATUS_LABELS[item.status]}</span></td><td>{item.delay_minutes ? `${item.delay_minutes} min` : '—'}</td><td>{item.overtime_minutes ? `${item.overtime_minutes} min` : '—'}</td></tr>)}
+        {!attendance?.employees.length && <tr><td colSpan={9}><div className={styles.empty}>No hay personal dentro del alcance seleccionado.</div></td></tr>}
       </tbody></table></div>
-      <footer className={styles.executiveTableFooter}><span>Mostrando {Math.min(6, attendance?.employees.length ?? 0)} de {attendance?.employees.length ?? 0} colaboradores</span><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa <ArrowRight /></button></footer>
+      {(attendance?.employees.length ?? 0) > 8 && <footer className={styles.executiveTableFooter}><span>Mostrando 8 de {attendance?.employees.length} colaboradores</span><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa <ArrowRight /></button></footer>}
     </article>
+
+    <WorkforceAnalytics trend={trend} attendance={attendance} employees={employees} trackedEmployees={trackedEmployees} refreshing={loading} onRefresh={() => void load()} onOpenReport={() => navigate('/rrhh/reportes')} attentionPanel={attentionPanel} />
+
+    <section className={styles.executiveAnalysis}>
+      <div className={styles.executiveMap}><LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} /></div>
+
+      <article className={`${styles.card} ${styles.executiveSites}`}>
+        <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><MapPin /></span><div><h2>Rendimiento por sede</h2><p>Asistencia y puntualidad del día.</p></div></div></header>
+        <div className={styles.tableWrap}><table className={styles.executiveSitesTable}><thead><tr><th>Sede</th><th>Personal</th><th>Asistencia</th><th>Tardanzas</th><th>Horas extra</th></tr></thead><tbody>{sitePerformance.map(site => <tr key={site.siteId}><td><i className={site.attendanceRate >= 90 ? styles.siteGood : site.attendanceRate >= 75 ? styles.siteWarning : styles.siteCritical} />{site.siteName}</td><td>{site.employees}</td><td><strong>{site.attendanceRate}%</strong></td><td>{site.late}</td><td>{Math.floor(site.overtimeMinutes / 60)} h {site.overtimeMinutes % 60} min</td></tr>)}{!sitePerformance.length && <tr><td colSpan={5}>Sin información por sede.</td></tr>}</tbody></table></div>
+        <footer className={styles.executiveCardFooter}><button type="button" onClick={() => navigate('/rrhh/reportes')}>Ver reporte completo por sede <ArrowRight /></button></footer>
+      </article>
+
+      <div className={styles.executiveAgenda}><AgendaPanel siteId={siteId} workflows={workflows} onOpenCalendar={() => navigate('/rrhh/horarios')} /></div>
+
+    </section>
   </div>;
 }
