@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { BarChart3, MoreVertical, RefreshCw, UsersRound } from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
 import type { AttendanceDashboard, AttendanceTrendPoint, Employee } from '../types';
@@ -13,6 +13,7 @@ type Props = {
   refreshing: boolean;
   onRefresh: () => void;
   onOpenReport: () => void;
+  attentionPanel: ReactNode;
 };
 
 const CHART_LEFT = 36;
@@ -60,7 +61,7 @@ function shortDate(date: string) {
   return `${day.charAt(0).toUpperCase()}${day.slice(1)} ${value.getDate()}`;
 }
 
-export function WorkforceAnalytics({ trend, attendance, employees, trackedEmployees, refreshing, onRefresh, onOpenReport }: Props) {
+export function WorkforceAnalytics({ trend, attendance, employees, trackedEmployees, refreshing, onRefresh, onOpenReport, attentionPanel }: Props) {
   const summary = attendance?.summary;
   const attendanceRate = summary?.total_employees ? Math.round(summary.present / summary.total_employees * 100) : 0;
   const headcount = summarizeHeadcount(employees).slice(0, 6);
@@ -83,6 +84,8 @@ export function WorkforceAnalytics({ trend, attendance, employees, trackedEmploy
         {trend.map((item, index) => { const [weekday, day] = shortDate(item.date).split(' '); return <g key={item.date}>{item.attendance_rate !== null && <><circle cx={chartX(index, trend.length)} cy={chartY(item.attendance_rate)} r="4" className={styles.attendancePoint}><title>{item.attendance_rate}% de asistencia</title></circle><circle cx={chartX(index, trend.length)} cy={chartY(item.tardiness_rate ?? 0)} r="3.7" className={styles.tardinessPoint}><title>{item.tardiness_rate ?? 0}% de tardanzas</title></circle></>}<text x={chartX(index, trend.length)} y="151" textAnchor="middle" className={styles.dateLabel}><tspan x={chartX(index, trend.length)}>{weekday}</tspan><tspan x={chartX(index, trend.length)} dy="14" className={styles.dateNumber}>{day}</tspan></text></g>; })}
       </svg> : <div className={styles.empty}>Sin información semanal.</div>}</div>
     </article>
+
+    <div className={styles.attentionSlot}>{attentionPanel}</div>
 
     <article className={styles.card}>
       <header><div><span><BarChart3 /></span><h2>Dotación por sede</h2></div></header>
