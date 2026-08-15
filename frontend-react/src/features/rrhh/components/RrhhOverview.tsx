@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
   AlertTriangle,
@@ -10,7 +10,6 @@ import {
   Download,
   FileClock,
   MapPin,
-  RefreshCw,
   TimerReset,
   UserX,
   UsersRound,
@@ -193,7 +192,7 @@ export function RrhhOverview({ siteId, employees }: Props) {
       {(attendance?.employees.length ?? 0) > 8 && <footer className={styles.executiveTableFooter}><span>Mostrando 8 de {attendance?.employees.length} colaboradores</span><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa <ArrowRight /></button></footer>}
     </article>
 
-    <WorkforceAnalytics trend={trend} employees={employees} />
+    <WorkforceAnalytics trend={trend} attendance={attendance} employees={employees} trackedEmployees={trackedEmployees} refreshing={loading} onRefresh={() => void load()} />
 
     <section className={styles.executiveAnalysis}>
       <div className={styles.executiveMap}><LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} /></div>
@@ -209,10 +208,6 @@ export function RrhhOverview({ siteId, employees }: Props) {
         <footer className={styles.executiveCardFooter}><button type="button" onClick={() => navigate('/rrhh/reportes')}>Ver reporte completo por sede <ArrowRight /></button></footer>
       </article>
 
-      <article className={`${styles.card} ${styles.executiveSummary}`}>
-        <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><UsersRound /></span><div><h2>Resumen del día</h2><p>Cobertura operativa actual.</p></div></div><Button size="sm" variant="secondary" icon={<RefreshCw size={13} />} loading={loading} onClick={() => void load()}>Actualizar</Button></header>
-        <div className={styles.executiveRingArea}><div className={styles.executiveRing} style={{ '--attendance-progress': `${attendanceRate}%` } as CSSProperties}><div><strong>{attendanceRate}%</strong><span>Asistencia</span></div></div><ul><li><i className={styles.legendGreen} /><span>Con asistencia</span><strong>{summary?.present ?? 0}</strong></li><li><i className={styles.legendOrange} /><span>Tardanzas incluidas</span><strong>{summary?.late ?? 0}</strong></li><li><i className={styles.legendGray} /><span>Sin registrar</span><strong>{summary?.without_record ?? 0}</strong></li><li><i className={styles.legendBlue} /><span>Con rastreo GPS</span><strong>{trackedEmployees}</strong></li></ul></div>
-      </article>
     </section>
   </div>;
 }
