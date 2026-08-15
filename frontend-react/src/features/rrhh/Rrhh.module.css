@@ -263,7 +263,7 @@
 .priorityinfo { background: #347ddc; box-shadow: 0 0 0 3px rgba(52, 125, 220, .08); }
 .alertIcon { display: grid; grid-row: 1 / span 2; width: 25px; height: 25px; place-items: center; border-radius: 7px; }
 .alertIcon svg { width: 13px; }
-.alertcritical { color: #cf3340; background: #ffedef; }.alertwarning { color: #c86e08; background: #fff3e2; }.alertinfo { color: #2c6fc8; background: #eaf3ff; }
+.alertcritical { color: #cf3340; background: transparent; }.alertwarning { color: #c86e08; background: transparent; }.alertinfo { color: #2c6fc8; background: transparent; }
 .alertCopy { min-width: 0; grid-column: 3; grid-row: 1; }
 .alertCopy strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: #253246; font-size: .59rem; font-weight: 680; line-height: 1.25; }
 .alertMeta { grid-column: 3; grid-row: 2; overflow: hidden; color: #758399; font-size: .51rem; font-weight: 570; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
