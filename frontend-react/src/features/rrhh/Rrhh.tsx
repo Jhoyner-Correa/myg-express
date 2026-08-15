@@ -17,6 +17,7 @@ import { ConfigurationPanel } from './components/ConfigurationPanel';
 import { EmployeeModal } from './components/EmployeeModal';
 import { RrhhExecutiveHeader } from './components/RrhhExecutiveHeader';
 import { RrhhOverview } from './components/RrhhOverview';
+import type { ExecutiveAlert } from './components/executive-alerts';
 import { rrhhService } from './rrhh.service';
 import type { Employee, EmployeeInput, RrhhCatalogs, ScheduleAssignment } from './types';
 import styles from './Rrhh.module.css';
@@ -64,7 +65,7 @@ export function Rrhh({ section }: { section: RrhhSection }) {
   const [error, setError] = useState<unknown>(null);
   const [query, setQuery] = useState('');
   const [overviewMonth, setOverviewMonth] = useState(businessMonth);
-  const [overviewAlertCount, setOverviewAlertCount] = useState(0);
+  const [overviewAlerts, setOverviewAlerts] = useState<ExecutiveAlert[]>([]);
   const [editing, setEditing] = useState<Employee | 'new' | null>(null);
   const [activating, setActivating] = useState<Employee | null>(null);
   const overviewMonths = useMemo(() => monthOptions(businessMonth()), []);
@@ -129,7 +130,7 @@ export function Rrhh({ section }: { section: RrhhSection }) {
     if (error) return <div className={styles.errorState} role="alert"><p>{getApiErrorMessage(error, 'No se pudo cargar Recursos Humanos.')}</p><Button variant="secondary" onClick={() => void loadCatalogs()}>Reintentar</Button></div>;
     if (catalogs.sites.length === 0) return <div className={styles.errorState}>No hay sedes disponibles dentro de tu alcance.</div>;
     if ((section === 'configuration' || section === 'schedules') && configurationSiteId !== null) return <ConfigurationPanel view={section === 'schedules' ? 'schedules' : 'settings'} siteId={configurationSiteId} sites={catalogs.sites} roles={catalogs.roles} schedules={catalogs.schedules} canManage={canConfigure} onSiteChange={setConfigurationSiteId} onCatalogChanged={() => loadCatalogs()} />;
-    if (section === 'overview') return <RrhhOverview siteId={siteId} employees={employees} query={query} agendaMonth={overviewMonth} onAgendaMonthChange={setOverviewMonth} onAlertCountChange={setOverviewAlertCount} />;
+    if (section === 'overview') return <RrhhOverview siteId={siteId} employees={employees} query={query} agendaMonth={overviewMonth} onAgendaMonthChange={setOverviewMonth} onAlertsChange={setOverviewAlerts} />;
     if (section === 'attendance') return <AttendancePanel siteId={siteId} canManage={canManage} />;
     if (section === 'requests') return <AbsencePanel siteId={siteId} employees={employees} canManage={canManage} />;
     if (section === 'reports') return <AttendanceReportsPanel siteId={siteId} />;
@@ -159,10 +160,11 @@ export function Rrhh({ section }: { section: RrhhSection }) {
     month={overviewMonth}
     months={overviewMonths}
     query={query}
-    alertCount={overviewAlertCount}
+    alerts={overviewAlerts}
     onSiteChange={setSiteId}
     onMonthChange={setOverviewMonth}
     onQueryChange={setQuery}
+    onAlertSelect={target => navigate(target)}
     onAlertsClick={() => document.getElementById('rrhh-attention-required')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
     onLogout={() => { logout(); navigate('/login', { replace: true }); }}
   /> : undefined;

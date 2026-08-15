@@ -27,6 +27,7 @@ import { AgendaPanel } from './AgendaPanel';
 import { ATTENDANCE_STATUS_LABELS, formatAttendanceClock } from './attendance-formatters';
 import { DailySummaryCard } from './DailySummaryCard';
 import { ExecutiveAttendanceTable } from './ExecutiveAttendanceTable';
+import type { ExecutiveAlert } from './executive-alerts';
 import { ExecutiveKpiCard } from './ExecutiveKpiCard';
 import { summarizeSitePerformance } from './overview-domain';
 import { WorkforceAnalytics } from './WorkforceAnalytics';
@@ -47,25 +48,16 @@ function shiftDate(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
-type ExecutiveAlert = {
-  id: string;
-  tone: 'critical' | 'warning' | 'info';
-  kind: 'attendance' | 'request';
-  title: string;
-  site: string;
-  time: string;
-  target: string;
-};
 type Props = {
   siteId: number | null;
   employees: Employee[];
   query: string;
   agendaMonth: string;
   onAgendaMonthChange: (month: string) => void;
-  onAlertCountChange: (count: number) => void;
+  onAlertsChange: (alerts: ExecutiveAlert[]) => void;
 };
 
-export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMonthChange, onAlertCountChange }: Props) {
+export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMonthChange, onAlertsChange }: Props) {
   const navigate = useNavigate();
   const [attendance, setAttendance] = useState<AttendanceDashboard | null>(null);
   const [trend, setTrend] = useState<AttendanceTrendPoint[]>([]);
@@ -145,7 +137,7 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
     return (attendance?.employees ?? []).filter(item => `${item.names} ${item.last_names} ${item.employee_code} ${item.site_name} ${item.job_role}`.toLocaleLowerCase('es').includes(normalizedQuery));
   }, [attendance, normalizedQuery]);
 
-  useEffect(() => onAlertCountChange(alerts.length), [alerts.length, onAlertCountChange]);
+  useEffect(() => onAlertsChange(alerts), [alerts, onAlertsChange]);
 
   const exportExcel = async () => {
     if (!attendance?.employees.length) { showToast('No hay información de asistencia para exportar.', 'warning'); return; }

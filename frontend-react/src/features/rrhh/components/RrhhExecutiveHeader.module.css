@@ -31,11 +31,47 @@
 .searchControl button:hover { background: #eef2f7; color: #344b68; }
 .searchControl button svg { width: 13px; height: 13px; }
 
-.notificationButton { position: relative; display: grid; width: 38px; flex: 0 0 38px; place-items: center; padding: 0; cursor: pointer; }
+.notifications { position: relative; flex: 0 0 38px; }
+.notificationButton { position: relative; display: grid; width: 38px; place-items: center; padding: 0; cursor: pointer; }
 .notificationButton:hover { border-color: #a9bacd; background: #f6f9fc; color: #245b9f; }
+.notificationButton[aria-expanded='true'] { border-color: #9db4d0; background: #f4f8fd; color: #245b9f; box-shadow: 0 0 0 3px rgba(44, 107, 190, .08); }
 .notificationButton:focus-visible, .profileTrigger:focus-visible { outline: 3px solid rgba(44, 107, 190, .13); outline-offset: 1px; }
-.notificationButton svg { width: 16px; height: 16px; }
+.notificationButton > svg { width: 16px; height: 16px; }
+.notificationButton[data-active='true'][aria-expanded='false'] > svg { transform-origin: 50% 12%; animation: bellAlert 3.2s ease-in-out infinite; }
+.notificationButton[data-active='true'][aria-expanded='false']::after { content: ''; position: absolute; inset: 5px; border: 1px solid rgba(229, 62, 77, .24); border-radius: 50%; pointer-events: none; animation: alertPulse 2.4s ease-out infinite; }
 .notificationButton span { position: absolute; top: -6px; right: -5px; display: grid; min-width: 18px; height: 18px; place-items: center; padding: 0 4px; border: 2px solid #fff; border-radius: 99px; background: #e53e4d; color: #fff; font-size: .52rem; font-weight: 800; }
+
+.notificationPanel { position: absolute; z-index: 90; top: calc(100% + 9px); right: -6px; width: min(360px, calc(100vw - 28px)); overflow: hidden; border: 1px solid #d7e0ea; border-radius: 13px; background: #fff; box-shadow: 0 20px 50px rgba(23, 40, 62, .18); animation: panelEnter 160ms ease-out; }
+.notificationPanel::before { content: ''; position: absolute; top: -5px; right: 20px; width: 9px; height: 9px; border-top: 1px solid #d7e0ea; border-left: 1px solid #d7e0ea; background: #fff; transform: rotate(45deg); }
+.notificationHeader { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 15px 12px; border-bottom: 1px solid #e5ebf2; }
+.notificationHeader div { display: grid; gap: 2px; }
+.notificationHeader strong { color: #18273a; font-size: .76rem; font-weight: 750; }
+.notificationHeader small { color: #8794a5; font-size: .57rem; }
+.notificationHeader > span { padding: 4px 7px; border-radius: 99px; background: #fff1f2; color: #bd3340; font-size: .54rem; font-weight: 750; white-space: nowrap; }
+.notificationList { display: grid; max-height: 335px; overflow-y: auto; scrollbar-color: #c5d1df transparent; scrollbar-width: thin; }
+.notificationList::-webkit-scrollbar { width: 5px; }
+.notificationList::-webkit-scrollbar-thumb { border-radius: 99px; background: #c5d1df; }
+.notificationItem { display: grid; grid-template-columns: 31px minmax(0, 1fr) 14px; align-items: center; gap: 10px; min-height: 62px; padding: 9px 13px; border: 0; border-bottom: 1px solid #edf1f5; background: #fff; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background-color 150ms ease, padding-left 150ms ease; }
+.notificationItem:hover { padding-left: 16px; background: #f7f9fc; }
+.notificationItem:focus-visible { position: relative; z-index: 1; outline: 2px solid #6e9bd0; outline-offset: -2px; }
+.notificationItem > svg { width: 13px; height: 13px; color: #94a2b3; transition: color 150ms ease, transform 150ms ease; }
+.notificationItem:hover > svg { color: #2e65a9; transform: translateX(2px); }
+.alertIcon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; }
+.alertIcon svg { width: 14px; height: 14px; }
+.alertIcon.critical { background: #fff0f2; color: #dc3e4d; }
+.alertIcon.warning { background: #fff6e8; color: #d97706; }
+.alertIcon.info { background: #edf5ff; color: #3478c8; }
+.alertCopy { display: grid; min-width: 0; gap: 4px; }
+.alertCopy strong { overflow: hidden; color: #27374b; font-size: .62rem; font-weight: 680; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.alertCopy small { overflow: hidden; color: #8795a6; font-size: .55rem; text-overflow: ellipsis; white-space: nowrap; }
+.notificationEmpty { display: grid; justify-items: center; gap: 5px; padding: 28px 20px; text-align: center; }
+.notificationEmpty > span { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 50%; background: #edf6f2; color: #25825c; }
+.notificationEmpty svg { width: 16px; height: 16px; }
+.notificationEmpty strong { color: #2d3b4e; font-size: .7rem; }
+.notificationEmpty small { color: #8996a6; font-size: .58rem; }
+.notificationFooter { display: flex; width: 100%; align-items: center; justify-content: center; gap: 7px; padding: 11px 14px; border: 0; border-top: 1px solid #e5ebf2; background: #f8fafc; color: #275f9f; font: inherit; font-size: .62rem; font-weight: 720; cursor: pointer; transition: background-color 150ms ease, color 150ms ease; }
+.notificationFooter:hover { background: #eef4fb; color: #174c89; }
+.notificationFooter svg { width: 13px; height: 13px; }
 
 .profile { position: relative; }
 .profileTrigger { display: flex; min-width: 190px; align-items: center; gap: 9px; padding: 3px 8px 3px 4px; cursor: pointer; }
@@ -67,6 +103,9 @@
 .logoutButton svg { width: 15px; height: 15px; }
 
 @keyframes menuEnter { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes panelEnter { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes bellAlert { 0%, 82%, 100% { transform: rotate(0); } 86% { transform: rotate(11deg); } 90% { transform: rotate(-9deg); } 94% { transform: rotate(6deg); } 97% { transform: rotate(-3deg); } }
+@keyframes alertPulse { 0%, 65% { opacity: 0; transform: scale(.65); } 78% { opacity: .85; } 100% { opacity: 0; transform: scale(1.35); } }
 
 @media (max-width: 1180px) {
   .searchControl { display: none; }
@@ -80,4 +119,9 @@
   .profile { display: none; }
 }
 
-@media (prefers-reduced-motion: reduce) { .profileMenu { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .profileMenu,
+  .notificationPanel,
+  .notificationButton[data-active='true'][aria-expanded='false'] > svg,
+  .notificationButton[data-active='true'][aria-expanded='false']::after { animation: none; }
+}

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, Building2, CalendarDays, ChevronDown, LogOut, Search, ShieldCheck, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Bell, Building2, CalendarDays, ChevronDown, FileClock, LogOut, Search, ShieldCheck, UserX, X } from 'lucide-react';
 import type { UserSession } from '../../../core/auth/authState';
 import type { Site } from '../types';
+import type { ExecutiveAlert } from './executive-alerts';
 import styles from './RrhhExecutiveHeader.module.css';
 
 type MonthOption = { key: string; label: string };
@@ -14,10 +15,11 @@ type Props = {
   month: string;
   months: MonthOption[];
   query: string;
-  alertCount: number;
+  alerts: ExecutiveAlert[];
   onSiteChange: (siteId: number | null) => void;
   onMonthChange: (month: string) => void;
   onQueryChange: (query: string) => void;
+  onAlertSelect: (target: string) => void;
   onAlertsClick: () => void;
   onLogout: () => void;
 };
@@ -46,17 +48,21 @@ export function RrhhExecutiveHeader({
   month,
   months,
   query,
-  alertCount,
+  alerts,
   onSiteChange,
   onMonthChange,
   onQueryChange,
+  onAlertSelect,
   onAlertsClick,
   onLogout,
 }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const roleLabel = user?.rol_label || user?.rol || 'Administrador general';
+  const alertCount = alerts.length;
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
@@ -70,22 +76,26 @@ export function RrhhExecutiveHeader({
   }, []);
 
   useEffect(() => {
-    if (!profileOpen) return;
+    if (!profileOpen && !notificationsOpen) return;
 
-    const closeProfile = (event: PointerEvent) => {
+    const closeFloatingPanels = (event: PointerEvent) => {
       if (!profileRef.current?.contains(event.target as Node)) setProfileOpen(false);
+      if (!notificationsRef.current?.contains(event.target as Node)) setNotificationsOpen(false);
     };
     const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setProfileOpen(false);
+      if (event.key === 'Escape') {
+        setProfileOpen(false);
+        setNotificationsOpen(false);
+      }
     };
 
-    document.addEventListener('pointerdown', closeProfile);
+    document.addEventListener('pointerdown', closeFloatingPanels);
     document.addEventListener('keydown', closeWithEscape);
     return () => {
-      document.removeEventListener('pointerdown', closeProfile);
+      document.removeEventListener('pointerdown', closeFloatingPanels);
       document.removeEventListener('keydown', closeWithEscape);
     };
-  }, [profileOpen]);
+  }, [notificationsOpen, profileOpen]);
 
   return (
     <div className={styles.tools}>
@@ -121,16 +131,68 @@ export function RrhhExecutiveHeader({
           : <kbd aria-hidden="true">Ctrl K</kbd>}
       </label>
 
-      <button
-        className={styles.notificationButton}
-        type="button"
-        aria-label={`Atención requerida: ${alertCount} alertas`}
-        title="Ver atención requerida"
-        onClick={onAlertsClick}
-      >
-        <Bell aria-hidden="true" />
-        {alertCount > 0 && <span>{alertCount > 9 ? '9+' : alertCount}</span>}
-      </button>
+      <div className={styles.notifications} ref={notificationsRef}>
+        <button
+          className={styles.notificationButton}
+          data-active={alertCount > 0}
+          type="button"
+          aria-label={`Notificaciones: ${alertCount} pendientes`}
+          aria-haspopup="dialog"
+          aria-expanded={notificationsOpen}
+          title="Abrir notificaciones"
+          onClick={() => {
+            setNotificationsOpen(open => !open);
+            setProfileOpen(false);
+          }}
+        >
+          <Bell aria-hidden="true" />
+          {alertCount > 0 && <span aria-live="polite">{alertCount > 9 ? '9+' : alertCount}</span>}
+        </button>
+
+        {notificationsOpen && <section className={styles.notificationPanel} role="dialog" aria-label="Centro de notificaciones">
+          <header className={styles.notificationHeader}>
+            <div>
+              <strong>Notificaciones</strong>
+              <small>Seguimiento de Recursos Humanos</small>
+            </div>
+            <span>{alertCount} {alertCount === 1 ? 'pendiente' : 'pendientes'}</span>
+          </header>
+
+          <div className={styles.notificationList}>
+            {alerts.slice(0, 5).map(alert => <button
+              key={alert.id}
+              className={styles.notificationItem}
+              type="button"
+              onClick={() => {
+                setNotificationsOpen(false);
+                onAlertSelect(alert.target);
+              }}
+            >
+              <span className={`${styles.alertIcon} ${styles[alert.tone]}`} aria-hidden="true">
+                {alert.kind === 'request' ? <FileClock /> : alert.tone === 'warning' ? <AlertTriangle /> : <UserX />}
+              </span>
+              <span className={styles.alertCopy}>
+                <strong>{alert.title}</strong>
+                <small>{alert.site} · {alert.time}</small>
+              </span>
+              <ArrowRight aria-hidden="true" />
+            </button>)}
+            {alertCount === 0 && <div className={styles.notificationEmpty}>
+              <span><Bell aria-hidden="true" /></span>
+              <strong>Todo está al día</strong>
+              <small>No existen incidencias pendientes de revisión.</small>
+            </div>}
+          </div>
+
+          {alertCount > 0 && <button className={styles.notificationFooter} type="button" onClick={() => {
+            setNotificationsOpen(false);
+            onAlertsClick();
+          }}>
+            Ver todas las alertas
+            <ArrowRight aria-hidden="true" />
+          </button>}
+        </section>}
+      </div>
 
       <div className={styles.profile} ref={profileRef}>
         <button
@@ -139,7 +201,10 @@ export function RrhhExecutiveHeader({
           aria-haspopup="menu"
           aria-expanded={profileOpen}
           aria-label={profileOpen ? 'Cerrar menú de sesión' : 'Abrir menú de sesión'}
-          onClick={() => setProfileOpen(open => !open)}
+          onClick={() => {
+            setProfileOpen(open => !open);
+            setNotificationsOpen(false);
+          }}
         >
           <span className={styles.avatar}>{initials(user?.nombre)}<i aria-hidden="true" /></span>
           <span className={styles.profileCopy}>
