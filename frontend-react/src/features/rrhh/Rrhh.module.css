@@ -169,7 +169,7 @@
 .attendanceTable { min-width: 1190px; }.attendanceTable td { height: 56px; }.scheduleCell strong { display: block; color: var(--text-primary); font-size: .7rem; font-weight: 650; }.scheduleCell small { display: block; margin-top: 2px; color: var(--text-muted); font-size: .62rem; }.muted { color: var(--text-muted); font-size: .68rem; }.clockCell { color: #334155 !important; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .attendanceStatus { display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary); font-size: .68rem; font-weight: 650; white-space: nowrap; }.attendanceStatus i { width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; }.attendancePRESENTE i { background: #10b869; }.attendanceTARDANZA i { background: #f59e0b; }.attendanceFALTA i { background: #ef4444; }.attendancePERMISO i { background: #3b82f6; }.attendanceVACACIONES i { background: #8b5cf6; }.attendanceSIN_REGISTRO i, .attendanceNO_LABORABLE i { background: #94a3b8; }
 .executiveDashboard { display: grid; gap: 14px; }
-.executiveKpis { display: grid; grid-template-columns: repeat(5, minmax(190px, 230px)); gap: 10px; justify-content: start; }
+.executiveKpis { display: grid; grid-template-columns: repeat(5, minmax(190px, 240px)); gap: 10px; justify-content: start; }
 
 .executiveCardHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 59px; padding: 11px 14px; border-bottom: 1px solid var(--border-default); }
 .executiveTitle { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -180,7 +180,7 @@
 .executiveTitle h2 { margin: 0; color: var(--text-primary); font-size: .78rem; font-weight: 720; }
 .executiveTitle p { margin: 3px 0 0; color: var(--text-muted); font-size: .6rem; }
 .executiveActions { display: flex; gap: 8px; }
-.executiveAttendance { width: min(100%, 1190px); overflow: hidden; border-color: #dbe4ee; box-shadow: 0 4px 13px rgba(30, 50, 73, .07); }
+.executiveAttendance { width: min(100%, 1240px); overflow: hidden; border-color: #dbe4ee; box-shadow: 0 4px 13px rgba(30, 50, 73, .07); }
 .executiveAttendance .executiveCardHeader { min-height: 54px; padding: 9px 13px; background: #fff; }
 .executiveAttendance .executiveTitle > span { flex-basis: 29px; width: 29px; height: 29px; border-radius: 7px; }
 .executiveAttendance .executiveActions button { min-height: 31px; border-radius: 7px; font-size: .64rem; }
@@ -298,13 +298,13 @@
 @media (max-width: 760px) { .weeklyScope { width: 100%; margin-left: 47px; }.weeklyScope button { flex: 1; justify-content: center; }.weeklyContext { align-items: stretch; flex-direction: column; }.weeklyContext label { justify-content: space-between; }.weeklyDays { grid-template-columns: repeat(7, 150px); }.weeklyActions { align-items: stretch; flex-direction: column-reverse; }.calendarLegend { align-items: flex-start; flex-direction: column; gap: 7px; }.calendarLegend small { margin-left: 0; }.calendarList article { grid-template-columns: 36px minmax(0, 1fr) 30px; }.calendarScope { display: none; }.workDayNotice { align-items: flex-start; }.workDayNotice > small { display: none; } }
 
 @media (max-width: 1200px) {
-  .executiveKpis { grid-template-columns: repeat(3, minmax(190px, 230px)); }
+  .executiveKpis { grid-template-columns: repeat(3, minmax(190px, 240px)); }
   .executiveAnalysis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .executiveSites { grid-column: auto; grid-row: auto; }
 }
 
 @media (max-width: 900px) {
-  .executiveKpis { grid-template-columns: repeat(2, minmax(190px, 230px)); }
+  .executiveKpis { grid-template-columns: repeat(2, minmax(190px, 240px)); }
   .executiveAnalysis { grid-template-columns: 1fr; }
   .executiveSites { grid-column: auto; }
 }
