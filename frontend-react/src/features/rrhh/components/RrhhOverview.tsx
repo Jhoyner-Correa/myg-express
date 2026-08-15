@@ -20,11 +20,12 @@ import { PageLoader } from '../../../components/ui/PageLoader/PageLoader';
 import { getApiErrorMessage } from '../../../core/api/errors';
 import { showToast } from '../../../core/utils/toast';
 import { LiveLocationPanel } from '../../gps/LiveLocationPanel';
+import { exportAttendanceWorkbook } from '../reports/attendance-excel-report';
 import { rrhhService } from '../rrhh.service';
 import type { AbsenceWorkflows, AttendanceDashboard, AttendanceTrendPoint, Employee } from '../types';
 import styles from '../Rrhh.module.css';
 import { AgendaPanel } from './AgendaPanel';
-import { ATTENDANCE_STATUS_LABELS, formatAttendanceClock } from './attendance-formatters';
+import { formatAttendanceClock } from './attendance-formatters';
 import { DailySummaryCard } from './DailySummaryCard';
 import { ExecutiveAttendanceTable } from './ExecutiveAttendanceTable';
 import type { ExecutiveAlert } from './executive-alerts';
@@ -143,26 +144,11 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
     if (!attendance?.employees.length) { showToast('No hay información de asistencia para exportar.', 'warning'); return; }
     setExporting(true);
     try {
-      const XLSX = await import('xlsx');
-      const rows = attendance.employees.map(item => ({
-        Código: item.employee_code,
-        Colaborador: `${item.names} ${item.last_names}`,
-        Sede: item.site_name,
-        Cargo: item.job_role,
-        Entrada: formatAttendanceClock(item.marks.entry),
-        'Salida almuerzo': formatAttendanceClock(item.marks.lunch_out),
-        Regreso: formatAttendanceClock(item.marks.lunch_return),
-        'Salida final': formatAttendanceClock(item.marks.exit),
-        Estado: ATTENDANCE_STATUS_LABELS[item.status],
-        'Tardanza (min)': item.delay_minutes,
-        'Horas extra (min)': item.overtime_minutes,
-      }));
-      const workbook = XLSX.utils.book_new();
-      const sheet = XLSX.utils.json_to_sheet(rows);
-      sheet['!cols'] = [{ wch: 14 }, { wch: 28 }, { wch: 18 }, { wch: 20 }, ...Array.from({ length: 7 }, () => ({ wch: 17 }))];
-      XLSX.utils.book_append_sheet(workbook, sheet, 'Asistencia');
-      XLSX.writeFile(workbook, `asistencia-${businessToday()}.xlsx`);
-      showToast('Reporte de asistencia exportado.', 'success');
+      const scopeLabel = siteId === null
+        ? 'Todas las sedes'
+        : employees.find(employee => employee.sedeId === siteId)?.sedeNombre ?? attendance.employees[0]?.site_name ?? 'Sede seleccionada';
+      await exportAttendanceWorkbook({ attendance, trend, workflows, employees, scopeLabel });
+      showToast('Reporte analítico de asistencia exportado.', 'success');
     } catch (exportError) { showToast(getApiErrorMessage(exportError, 'No se pudo exportar el reporte.'), 'error'); }
     finally { setExporting(false); }
   };
