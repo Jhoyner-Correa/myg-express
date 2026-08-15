@@ -1,0 +1,16 @@
+.card { position: relative; display: grid; min-width: 0; min-height: 112px; align-content: center; justify-items: start; padding: 14px 56px 13px 15px; border: 1px solid var(--border-default); border-radius: 11px; background: #fff; box-shadow: var(--shadow-sm); font: inherit; text-align: left; cursor: pointer; transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
+.card:hover { border-color: #b8c8da; box-shadow: 0 7px 18px rgba(35, 54, 78, .09); transform: translateY(-1px); }
+.card:focus-visible { outline: 2px solid #75a7df; outline-offset: 2px; }
+.icon { position: absolute; top: 13px; right: 13px; display: grid; width: 36px; height: 36px; place-items: center; border-radius: 9px; }
+.icon svg { width: 18px; }
+.blue { color: #236fd5; background: #e8f2ff; }.green { color: #0b9850; background: #e7f8ee; }.orange { color: #d77a0a; background: #fff3e2; }.violet { color: #7543c5; background: #f1ebff; }.red { color: #d5424c; background: #ffedef; }
+.label { overflow: hidden; color: #46576c; font-size: .62rem; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
+.card > strong { display: block; max-width: 100%; margin: 5px 0 5px; overflow: hidden; color: #172235; font-size: 1.22rem; font-weight: 740; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.insight { display: flex; max-width: 100%; min-height: 14px; align-items: center; gap: 3px; overflow: hidden; font-size: .52rem; white-space: nowrap; }
+.insight svg { width: 10px; flex: 0 0 10px; }
+.insight b { overflow: hidden; font-weight: 690; text-overflow: ellipsis; }
+.insight em { overflow: hidden; color: #7b8796; font-style: normal; text-overflow: ellipsis; }
+.favorable { color: #13915a; }.unfavorable { color: #d3424c; }.neutral { color: #64748b; }
+.card small { display: block; max-width: 100%; margin-top: 5px; overflow: hidden; color: #7b8797; font-size: .52rem; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 760px) { .card { min-height: 106px; }.card > strong { font-size: 1.16rem; } }

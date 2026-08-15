@@ -170,14 +170,6 @@
 .attendanceStatus { display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary); font-size: .68rem; font-weight: 650; white-space: nowrap; }.attendanceStatus i { width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; }.attendancePRESENTE i { background: #10b869; }.attendanceTARDANZA i { background: #f59e0b; }.attendanceFALTA i { background: #ef4444; }.attendancePERMISO i { background: #3b82f6; }.attendanceVACACIONES i { background: #8b5cf6; }.attendanceSIN_REGISTRO i, .attendanceNO_LABORABLE i { background: #94a3b8; }
 .executiveDashboard { display: grid; gap: 14px; }
 .executiveKpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
-.executiveKpis article { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 98px; padding: 15px 16px; border: 1px solid var(--border-default); border-radius: 11px; background: var(--surface-card); box-shadow: var(--shadow-sm); }
-.executiveKpis article > div { min-width: 0; }
-.executiveKpis span { display: block; color: var(--text-secondary); font-size: .65rem; font-weight: 680; }
-.executiveKpis strong { display: block; margin: 4px 0 3px; overflow: hidden; color: var(--text-primary); font-size: 1.18rem; font-weight: 730; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
-.executiveKpis small { display: block; overflow: hidden; color: var(--text-muted); font-size: .57rem; text-overflow: ellipsis; white-space: nowrap; }
-.executiveKpis article > i { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border-radius: 9px; font-style: normal; }
-.executiveKpis article > i svg { width: 18px; }
-.kpiBlue { color: #246fd4; background: #eaf3ff; }.kpiGreen { color: #0b9850; background: #e7f8ee; }.kpiOrange { color: #d77a0a; background: #fff3e2; }.kpiViolet { color: #7543c5; background: #f1ebff; }.kpiRed { color: #d5424c; background: #ffedef; }
 
 .executiveCardHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 59px; padding: 11px 14px; border-bottom: 1px solid var(--border-default); }
 .executiveTitle { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -311,7 +303,6 @@
 
 @media (max-width: 760px) {
   .executiveKpis { grid-template-columns: 1fr; }
-  .executiveKpis article { min-height: 88px; }
   .executiveCardHeader { align-items: stretch; flex-direction: column; }
   .executiveActions { width: 100%; }
   .executiveActions > * { flex: 1; }
