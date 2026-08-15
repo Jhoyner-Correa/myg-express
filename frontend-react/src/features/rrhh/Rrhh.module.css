@@ -250,7 +250,7 @@
 .executiveTableFooter button:hover, .executiveCardFooter button:hover { color: #1d4f91; }
 .executiveTableFooter svg, .executiveCardFooter svg { width: 13px; }
 
-.executiveAnalysis { display: grid; grid-template-columns: minmax(500px, 840px); gap: 12px; align-items: start; }
+.executiveAnalysis { display: grid; grid-template-columns: minmax(500px, 720px); gap: 12px; align-items: start; }
 .executiveMap { width: 100%; min-width: 0; }
 .executiveSites { grid-column: auto; }
 .executiveAgenda { min-width: 0; }
