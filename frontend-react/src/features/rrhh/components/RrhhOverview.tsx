@@ -233,7 +233,7 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
       <div className={styles.executiveTopAgenda}><AgendaPanel siteId={siteId} workflows={workflows} month={agendaMonth} onMonthChange={onAgendaMonthChange} onOpenCalendar={() => navigate('/rrhh/horarios')} /></div>
     </section>
 
-    <WorkforceAnalytics trend={trend} attendance={attendance} employees={employees} trackedEmployees={trackedEmployees} refreshing={loading} onRefresh={() => void load()} onOpenReport={() => navigate('/rrhh/reportes')} attentionPanel={attentionPanel} />
+    <WorkforceAnalytics trend={trend} attendance={attendance} trackedEmployees={trackedEmployees} refreshing={loading} onRefresh={() => void load()} onOpenReport={() => navigate('/rrhh/reportes')} attentionPanel={attentionPanel} />
 
     <section className={styles.executiveAnalysis}>
       <div className={styles.executiveMap}><LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} /></div>

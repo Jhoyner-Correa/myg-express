@@ -1,4 +1,4 @@
-.grid { display: grid; width: 100%; grid-template-columns: minmax(370px, 430px) minmax(460px, 520px) minmax(220px, 250px) minmax(270px, 310px); gap: 11px; justify-content: start; align-items: start; }
+.grid { display: grid; width: 100%; grid-template-columns: minmax(370px, 430px) minmax(460px, 520px) minmax(270px, 310px); gap: 11px; justify-content: start; align-items: start; }
 .attentionSlot { min-width: 0; }
 .attentionSlot > * { height: 100%; }
 .card { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: 13px; background: #fff; box-shadow: var(--shadow-sm); }
@@ -37,12 +37,6 @@
 .attendancePoint { fill: #1767e8; stroke: #fff; stroke-width: 2; }
 .tardinessPoint { fill: #f27618; stroke: #fff; stroke-width: 2; }
 
-.barList { display: grid; min-height: 193px; align-content: center; gap: 9px; padding: 12px 14px; }
-.barList > div:not(.empty) { display: grid; grid-template-columns: minmax(78px, .75fr) minmax(90px, 1.4fr) 25px; align-items: center; gap: 9px; }
-.barList span { overflow: hidden; color: #53657a; font-size: .57rem; text-overflow: ellipsis; white-space: nowrap; }
-.barList > div > div { height: 9px; overflow: hidden; border-radius: 2px; background: #edf2f7; }
-.barList i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #4f8bd7, #2f6fc4); }
-.barList strong { color: #253246; font-size: .61rem; text-align: right; }
 .empty { display: grid; min-height: 145px; place-items: center; color: #7d8999; font-size: .61rem; text-align: center; }
 
 .summaryBody { display: grid; min-height: 193px; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: 10px; padding: 11px; }

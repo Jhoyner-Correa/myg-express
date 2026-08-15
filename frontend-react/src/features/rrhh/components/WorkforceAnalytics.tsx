@@ -1,14 +1,12 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { BarChart3, MoreVertical, RefreshCw, UsersRound } from 'lucide-react';
+import { MoreVertical, RefreshCw, UsersRound } from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
-import type { AttendanceDashboard, AttendanceTrendPoint, Employee } from '../types';
-import { summarizeHeadcount } from './analytics-domain';
+import type { AttendanceDashboard, AttendanceTrendPoint } from '../types';
 import styles from './WorkforceAnalytics.module.css';
 
 type Props = {
   trend: AttendanceTrendPoint[];
   attendance: AttendanceDashboard | null;
-  employees: Employee[];
   trackedEmployees: number;
   refreshing: boolean;
   onRefresh: () => void;
@@ -61,11 +59,9 @@ function shortDate(date: string) {
   return `${day.charAt(0).toUpperCase()}${day.slice(1)} ${value.getDate()}`;
 }
 
-export function WorkforceAnalytics({ trend, attendance, employees, trackedEmployees, refreshing, onRefresh, onOpenReport, attentionPanel }: Props) {
+export function WorkforceAnalytics({ trend, attendance, trackedEmployees, refreshing, onRefresh, onOpenReport, attentionPanel }: Props) {
   const summary = attendance?.summary;
   const attendanceRate = summary?.total_employees ? Math.round(summary.present / summary.total_employees * 100) : 0;
-  const headcount = summarizeHeadcount(employees).slice(0, 6);
-  const maxHeadcount = Math.max(1, ...headcount.map(item => item.total));
   const attendanceLines = pointSegments(trend, 'attendance_rate');
   const tardinessLines = pointSegments(trend, 'tardiness_rate');
 
@@ -85,11 +81,6 @@ export function WorkforceAnalytics({ trend, attendance, employees, trackedEmploy
         {tardinessLines.map((points, index) => <polyline key={`tardiness-${index}`} points={points.join(' ')} className={styles.tardinessLine} />)}
         {trend.map((item, index) => { const [weekday, day] = shortDate(item.date).split(' '); return <g key={item.date}>{item.attendance_rate !== null && <><circle cx={chartX(index, trend.length)} cy={chartY(item.attendance_rate)} r="4" className={styles.attendancePoint}><title>{item.attendance_rate}% de asistencia</title></circle><circle cx={chartX(index, trend.length)} cy={chartY(item.tardiness_rate ?? 0)} r="3.7" className={styles.tardinessPoint}><title>{item.tardiness_rate ?? 0}% de tardanzas</title></circle></>}<text x={chartX(index, trend.length)} y="151" textAnchor="middle" className={styles.dateLabel}><tspan x={chartX(index, trend.length)}>{weekday}</tspan><tspan x={chartX(index, trend.length)} dy="14" className={styles.dateNumber}>{day}</tspan></text></g>; })}
       </svg> : <div className={styles.empty}>Sin información semanal.</div>}</div>
-    </article>
-
-    <article className={styles.card}>
-      <header><div><span><BarChart3 /></span><h2>Dotación por sede</h2></div></header>
-      <div className={styles.barList}>{headcount.map(item => <div key={item.site}><span title={item.site}>{item.site}</span><div><i style={{ width: `${Math.max(5, item.total / maxHeadcount * 100)}%` }} /></div><strong>{item.total}</strong></div>)}{!headcount.length && <div className={styles.empty}>Sin personal activo registrado.</div>}</div>
     </article>
 
     <article className={styles.card}>
