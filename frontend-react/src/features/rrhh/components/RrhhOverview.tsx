@@ -202,13 +202,13 @@ export function RrhhOverview({ siteId, employees }: Props) {
     <section className={styles.executivePriorityGrid} aria-label="Decisiones y prioridades del día">
       <div className={styles.executivePriorityAlerts}>{attentionPanel}</div>
       <div className={styles.executivePrioritySites}>{sitePerformancePanel}</div>
-      <div className={styles.executiveAgenda}><AgendaPanel siteId={siteId} workflows={workflows} onOpenCalendar={() => navigate('/rrhh/horarios')} /></div>
     </section>
 
     <WorkforceAnalytics trend={trend} attendance={attendance} employees={employees} trackedEmployees={trackedEmployees} refreshing={loading} onRefresh={() => void load()} onOpenReport={() => navigate('/rrhh/reportes')} />
 
     <section className={styles.executiveOperations} aria-label="Monitoreo operativo">
       <div className={styles.executiveMap}><LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} /></div>
+      <div className={styles.executiveAgenda}><AgendaPanel siteId={siteId} workflows={workflows} onOpenCalendar={() => navigate('/rrhh/horarios')} /></div>
     </section>
 
     <article className={`${styles.card} ${styles.executiveAttendance}`}>
