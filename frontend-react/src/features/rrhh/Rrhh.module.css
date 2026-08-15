@@ -194,7 +194,7 @@
 .executiveTopGrid { display: grid; grid-template-columns: minmax(0, 1290px) minmax(260px, 300px); gap: 12px; align-items: stretch; }
 .executiveTopMain { display: grid; min-width: 0; gap: 10px; }
 .executiveTopAgenda { display: flex; min-width: 0; min-height: 0; }
-.executiveTopAgenda > * { flex: 1; height: 100%; }
+.executiveTopAgenda > * { flex: 1; height: auto; align-self: start; }
 .executiveKpis { display: grid; grid-template-columns: repeat(5, minmax(190px, 250px)); gap: 8px; justify-content: start; }
 
 .executiveCardHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 59px; padding: 11px 14px; border-bottom: 1px solid var(--border-default); }
