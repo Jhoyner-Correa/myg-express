@@ -190,7 +190,7 @@
 .executiveTableFooter button:hover, .executiveCardFooter button:hover { color: #1d4f91; }
 .executiveTableFooter svg, .executiveCardFooter svg { width: 13px; }
 
-.executiveAnalysis { display: grid; grid-template-columns: minmax(560px, 1.35fr) minmax(360px, .85fr); gap: 12px; align-items: start; }
+.executiveAnalysis { display: grid; grid-template-columns: minmax(560px, 1fr) minmax(360px, 480px); gap: 12px; align-items: start; }
 .executiveMap { width: 100%; min-width: 0; }
 .executiveSites { grid-column: auto; }
 .executiveAlertList { display: grid; align-content: start; }
