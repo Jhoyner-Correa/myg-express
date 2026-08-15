@@ -12,6 +12,7 @@ type Props = {
   onRefresh: () => void;
   onOpenReport: () => void;
   attentionPanel: ReactNode;
+  performancePanel: ReactNode;
 };
 
 const CHART_LEFT = 36;
@@ -59,7 +60,7 @@ function shortDate(date: string) {
   return `${day.charAt(0).toUpperCase()}${day.slice(1)} ${value.getDate()}`;
 }
 
-export function WorkforceAnalytics({ trend, attendance, trackedEmployees, refreshing, onRefresh, onOpenReport, attentionPanel }: Props) {
+export function WorkforceAnalytics({ trend, attendance, trackedEmployees, refreshing, onRefresh, onOpenReport, attentionPanel, performancePanel }: Props) {
   const summary = attendance?.summary;
   const attendanceRate = summary?.total_employees ? Math.round(summary.present / summary.total_employees * 100) : 0;
   const attendanceLines = pointSegments(trend, 'attendance_rate');
@@ -95,5 +96,7 @@ export function WorkforceAnalytics({ trend, attendance, trackedEmployees, refres
         </ul>
       </div>
     </article>
+
+    <div className={styles.performanceSlot}>{performancePanel}</div>
   </section>;
 }

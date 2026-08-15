@@ -1,6 +1,7 @@
-.grid { display: grid; width: 100%; grid-template-columns: minmax(370px, 430px) minmax(460px, 520px) minmax(270px, 310px); gap: 11px; justify-content: start; align-items: start; }
+.grid { display: grid; width: 100%; grid-template-columns: minmax(360px, 400px) minmax(440px, 480px) minmax(260px, 290px) minmax(390px, 1fr); gap: 11px; justify-content: start; align-items: start; }
 .attentionSlot { min-width: 0; }
 .attentionSlot > * { height: 100%; }
+.performanceSlot { min-width: 0; }
 .card { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: 13px; background: #fff; box-shadow: var(--shadow-sm); }
 .card > header { display: flex; min-height: 45px; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 11px; border-bottom: 1px solid var(--border-default); }
 .card > header > div:first-child { display: flex; align-items: center; gap: 8px; }

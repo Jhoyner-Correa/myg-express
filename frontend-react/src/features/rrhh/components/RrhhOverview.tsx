@@ -206,6 +206,12 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
     {alerts.length > 4 && <footer className={styles.executiveAlertFooter}><button type="button" onClick={() => setShowAllAlerts(current => !current)}>{showAllAlerts ? 'Mostrar resumen' : `Ver todas las alertas (${alerts.length})`} <ArrowRight /></button></footer>}
   </article>;
 
+  const performancePanel = <article className={`${styles.card} ${styles.executiveSites} ${styles.executiveSitesCompact}`}>
+    <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><MapPin /></span><div><h2>Rendimiento por sede</h2><p>Asistencia y puntualidad del día.</p></div></div></header>
+    <div className={styles.tableWrap}><table className={styles.executiveSitesTable}><thead><tr><th>Sede</th><th>Personal</th><th>Asistencia</th><th>Tardanzas</th><th>Horas extra</th></tr></thead><tbody>{sitePerformance.map(site => <tr key={site.siteId}><td><i className={site.attendanceRate >= 90 ? styles.siteGood : site.attendanceRate >= 75 ? styles.siteWarning : styles.siteCritical} />{site.siteName}</td><td>{site.employees}</td><td><strong>{site.attendanceRate}%</strong></td><td>{site.late}</td><td>{Math.floor(site.overtimeMinutes / 60)} h {site.overtimeMinutes % 60} min</td></tr>)}{!sitePerformance.length && <tr><td colSpan={5}>Sin información por sede.</td></tr>}</tbody></table></div>
+    <footer className={styles.executiveCardFooter}><button type="button" onClick={() => navigate('/rrhh/reportes')}>Ver reporte completo por sede <ArrowRight /></button></footer>
+  </article>;
+
   return <div className={styles.executiveDashboard}>
     <section className={styles.executiveTopGrid} aria-label="Resumen operativo y agenda">
       <div className={styles.executiveTopMain}>
@@ -233,16 +239,10 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
       <div className={styles.executiveTopAgenda}><AgendaPanel siteId={siteId} workflows={workflows} month={agendaMonth} onMonthChange={onAgendaMonthChange} onOpenCalendar={() => navigate('/rrhh/horarios')} /></div>
     </section>
 
-    <WorkforceAnalytics trend={trend} attendance={attendance} trackedEmployees={trackedEmployees} refreshing={loading} onRefresh={() => void load()} onOpenReport={() => navigate('/rrhh/reportes')} attentionPanel={attentionPanel} />
+    <WorkforceAnalytics trend={trend} attendance={attendance} trackedEmployees={trackedEmployees} refreshing={loading} onRefresh={() => void load()} onOpenReport={() => navigate('/rrhh/reportes')} attentionPanel={attentionPanel} performancePanel={performancePanel} />
 
     <section className={styles.executiveAnalysis}>
       <div className={styles.executiveMap}><LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} /></div>
-
-      <article className={`${styles.card} ${styles.executiveSites}`}>
-        <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><MapPin /></span><div><h2>Rendimiento por sede</h2><p>Asistencia y puntualidad del día.</p></div></div></header>
-        <div className={styles.tableWrap}><table className={styles.executiveSitesTable}><thead><tr><th>Sede</th><th>Personal</th><th>Asistencia</th><th>Tardanzas</th><th>Horas extra</th></tr></thead><tbody>{sitePerformance.map(site => <tr key={site.siteId}><td><i className={site.attendanceRate >= 90 ? styles.siteGood : site.attendanceRate >= 75 ? styles.siteWarning : styles.siteCritical} />{site.siteName}</td><td>{site.employees}</td><td><strong>{site.attendanceRate}%</strong></td><td>{site.late}</td><td>{Math.floor(site.overtimeMinutes / 60)} h {site.overtimeMinutes % 60} min</td></tr>)}{!sitePerformance.length && <tr><td colSpan={5}>Sin información por sede.</td></tr>}</tbody></table></div>
-        <footer className={styles.executiveCardFooter}><button type="button" onClick={() => navigate('/rrhh/reportes')}>Ver reporte completo por sede <ArrowRight /></button></footer>
-      </article>
 
     </section>
   </div>;
