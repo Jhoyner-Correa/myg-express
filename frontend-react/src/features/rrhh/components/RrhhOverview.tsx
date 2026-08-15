@@ -183,11 +183,11 @@ export function RrhhOverview({ siteId, employees }: Props) {
 
   return <div className={styles.executiveDashboard}>
     <section className={styles.executiveKpis} aria-label="Indicadores principales">
-      <ExecutiveKpiCard label="Personal activo" value={activeEmployees} insight={`${activeShare}% del personal registrado`} context={`${employees.length} colaboradores en el alcance`} icon={<UsersRound />} tone="blue" onClick={() => navigate('/rrhh/personal')} />
-      <ExecutiveKpiCard label="Asistencia" value={`${attendanceRate}%`} insight="Sin período comparable" context={`${summary?.present ?? 0} presentes hoy`} icon={<CalendarCheck2 />} tone="green" comparison={attendanceComparison === null ? undefined : { delta: attendanceComparison, suffix: ' p.p.' }} onClick={() => navigate('/rrhh/asistencia')} />
-      <ExecutiveKpiCard label="Horas extra" value={`${Math.floor((summary?.overtime_minutes ?? 0) / 60)} h ${(summary?.overtime_minutes ?? 0) % 60} min`} insight={`${summary?.completed ?? 0} jornadas cerradas`} context="Tiempo adicional registrado hoy" icon={<TimerReset />} tone="violet" onClick={() => navigate('/rrhh/reportes')} />
-      <ExecutiveKpiCard label="Tardanzas" value={summary?.late ?? 0} insight="Sin período comparable" context={`${summary?.on_time ?? 0} ingresos puntuales`} icon={<ClockAlert />} tone="orange" comparison={tardinessComparison === null ? undefined : { delta: tardinessComparison, lowerIsBetter: true }} onClick={() => navigate('/rrhh/asistencia')} />
-      <ExecutiveKpiCard label="Atención requerida" value={pendingRequests + (summary?.without_record ?? 0)} insight={`${pendingRequests} solicitudes pendientes`} context="Incidencias que requieren revisión" icon={<BellRing />} tone="red" onClick={() => navigate('/rrhh/solicitudes')} />
+      <ExecutiveKpiCard label="Personal activo" value={activeEmployees} insight={`${activeShare}% del personal registrado`} context={`${employees.length} colaboradores en el alcance`} icon={<UsersRound />} tone="blue" />
+      <ExecutiveKpiCard label="Asistencia" value={`${attendanceRate}%`} insight="Sin período comparable" context={`${summary?.present ?? 0} presentes hoy`} icon={<CalendarCheck2 />} tone="green" comparison={attendanceComparison === null ? undefined : { delta: attendanceComparison, suffix: ' p.p.' }} />
+      <ExecutiveKpiCard label="Horas extra" value={`${Math.floor((summary?.overtime_minutes ?? 0) / 60)} h ${(summary?.overtime_minutes ?? 0) % 60} min`} insight={`${summary?.completed ?? 0} jornadas cerradas`} context="Tiempo adicional registrado hoy" icon={<TimerReset />} tone="violet" />
+      <ExecutiveKpiCard label="Tardanzas" value={summary?.late ?? 0} insight="Sin período comparable" context={`${summary?.on_time ?? 0} ingresos puntuales`} icon={<ClockAlert />} tone="orange" comparison={tardinessComparison === null ? undefined : { delta: tardinessComparison, lowerIsBetter: true }} />
+      <ExecutiveKpiCard label="Atención requerida" value={pendingRequests + (summary?.without_record ?? 0)} insight={`${pendingRequests} solicitudes pendientes`} context="Incidencias que requieren revisión" icon={<BellRing />} tone="red" />
     </section>
 
     <article className={`${styles.card} ${styles.executiveAttendance}`}>

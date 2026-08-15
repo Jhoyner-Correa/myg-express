@@ -2,48 +2,39 @@
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: 126px;
+  min-height: 106px;
   align-content: center;
   justify-items: start;
-  padding: 17px 68px 16px 18px;
+  padding: 12px 58px 11px 15px;
   border: 1px solid #dfe6ee;
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 3px 10px rgba(30, 50, 73, .075);
   font: inherit;
   text-align: left;
-  cursor: pointer;
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  cursor: default;
 }
-
-.card:hover {
-  border-color: #c6d2df;
-  box-shadow: 0 9px 22px rgba(30, 50, 73, .11);
-  transform: translateY(-2px);
-}
-
-.card:focus-visible { outline: 2px solid #75a7df; outline-offset: 2px; }
 
 .icon {
   position: absolute;
-  top: 17px;
-  right: 17px;
+  top: 12px;
+  right: 13px;
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   place-items: center;
   border-radius: 10px;
   box-shadow: 0 4px 10px rgba(31, 59, 91, .12);
 }
 
-.icon svg { width: 21px; height: 21px; stroke-width: 2; }
+.icon svg { width: 18px; height: 18px; stroke-width: 2; }
 .blue { color: #fff; background: #2f80ed; }.green { color: #fff; background: #0ca968; }.orange { color: #fff; background: #f59a23; }.violet { color: #fff; background: #8b50d8; }.red { color: #fff; background: #ed5260; }
 
 .label {
   max-width: 100%;
   overflow: hidden;
   color: #35445a;
-  font-size: .7rem;
+  font-size: .66rem;
   font-weight: 650;
   letter-spacing: -.01em;
   text-overflow: ellipsis;
@@ -53,10 +44,10 @@
 .card > strong {
   display: block;
   max-width: 100%;
-  margin: 7px 0 8px;
+  margin: 5px 0 6px;
   overflow: hidden;
   color: #111b2c;
-  font-size: 1.52rem;
+  font-size: 1.34rem;
   font-weight: 720;
   letter-spacing: -.035em;
   line-height: .95;
@@ -83,7 +74,7 @@
 .card small {
   display: block;
   max-width: 100%;
-  margin-top: 6px;
+  margin-top: 4px;
   overflow: hidden;
   color: #6f7d90;
   font-size: .58rem;
@@ -93,6 +84,6 @@
 }
 
 @media (max-width: 760px) {
-  .card { min-height: 118px; }
-  .card > strong { font-size: 1.42rem; }
+  .card { min-height: 104px; }
+  .card > strong { font-size: 1.3rem; }
 }

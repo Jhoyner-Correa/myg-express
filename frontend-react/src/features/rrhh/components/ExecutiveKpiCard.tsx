@@ -16,7 +16,6 @@ type Props = {
   icon: ReactNode;
   tone: 'blue' | 'green' | 'orange' | 'violet' | 'red';
   comparison?: Comparison;
-  onClick: () => void;
 };
 
 function formatDelta(value: number, suffix = '') {
@@ -24,12 +23,12 @@ function formatDelta(value: number, suffix = '') {
   return `${normalized > 0 ? '+' : ''}${normalized}${suffix}`;
 }
 
-export function ExecutiveKpiCard({ label, value, context, insight, icon, tone, comparison, onClick }: Props) {
+export function ExecutiveKpiCard({ label, value, context, insight, icon, tone, comparison }: Props) {
   const favorable = comparison ? comparison.lowerIsBetter ? comparison.delta < 0 : comparison.delta > 0 : false;
   const unfavorable = comparison ? comparison.lowerIsBetter ? comparison.delta > 0 : comparison.delta < 0 : false;
   const TrendIcon = comparison?.delta === 0 ? Minus : comparison && comparison.delta > 0 ? TrendingUp : TrendingDown;
 
-  return <button type="button" className={styles.card} onClick={onClick} aria-label={`${label}: ${String(value)}`}>
+  return <article className={styles.card} aria-label={`${label}: ${String(value)}`}>
     <span className={`${styles.icon} ${styles[tone]}`}>{icon}</span>
     <span className={styles.label}>{label}</span>
     <strong>{value}</strong>
@@ -39,5 +38,5 @@ export function ExecutiveKpiCard({ label, value, context, insight, icon, tone, c
       {comparison && <em>vs último día laborable</em>}
     </span>
     <small>{context}</small>
-  </button>;
+  </article>;
 }
