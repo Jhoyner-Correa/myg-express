@@ -127,7 +127,7 @@ export function AgendaPanel({ siteId, workflows, onOpenCalendar }: Props) {
   }, [events, month, workflows]);
 
   const markedDates = useMemo(() => new Set(cells.flatMap(cell => cell && entries.some(entry => entry.start <= cell.date && entry.end >= cell.date) ? [cell.date] : [])), [cells, entries]);
-  const upcoming = entries.filter(entry => entry.end >= today).slice(0, 3);
+  const upcoming = entries.filter(entry => entry.end >= today).slice(0, 2);
 
   return <article className={styles.card}>
     <header><div><CalendarDays /><h2>Agenda y próximos eventos</h2></div></header>
