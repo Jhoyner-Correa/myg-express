@@ -56,11 +56,11 @@
 .notificationItem:focus-visible { position: relative; z-index: 1; outline: 2px solid #6e9bd0; outline-offset: -2px; }
 .notificationItem > svg { width: 13px; height: 13px; color: #94a2b3; transition: color 150ms ease, transform 150ms ease; }
 .notificationItem:hover > svg { color: #2e65a9; transform: translateX(2px); }
-.alertIcon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; }
+.alertIcon { display: grid; width: 30px; height: 30px; place-items: center; }
 .alertIcon svg { width: 14px; height: 14px; }
-.alertIcon.critical { background: #fff0f2; color: #dc3e4d; }
-.alertIcon.warning { background: #fff6e8; color: #d97706; }
-.alertIcon.info { background: #edf5ff; color: #3478c8; }
+.alertIcon.critical { color: #dc3e4d; }
+.alertIcon.warning { color: #d97706; }
+.alertIcon.info { color: #3478c8; }
 .alertCopy { display: grid; min-width: 0; gap: 4px; }
 .alertCopy strong { overflow: hidden; color: #27374b; font-size: .62rem; font-weight: 680; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .alertCopy small { overflow: hidden; color: #8795a6; font-size: .55rem; text-overflow: ellipsis; white-space: nowrap; }
