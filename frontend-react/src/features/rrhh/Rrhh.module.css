@@ -207,6 +207,17 @@
 .executiveAttendanceTable .clockCell { color: #40536c !important; font-size: .66rem; }
 .executiveAttendanceTable .attendanceStatus { justify-content: center; color: #26364b; font-size: .64rem; font-weight: 670; }
 .executiveAttendanceTable .attendanceStatus i { width: 5px; height: 5px; }
+.attendanceTableShell { position: relative; min-width: 0; }
+.executiveAttendanceScroll { max-height: 280px; overflow: auto; scrollbar-color: #9aacc0 transparent; scrollbar-width: thin; }
+.executiveAttendanceScroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.executiveAttendanceScroll::-webkit-scrollbar-track { background: transparent; }
+.executiveAttendanceScroll::-webkit-scrollbar-thumb { border: 1px solid transparent; border-radius: 999px; background: #9aacc0; background-clip: padding-box; }
+.executiveAttendanceScroll::-webkit-scrollbar-thumb:hover { background: #73879e; background-clip: padding-box; }
+.executiveAttendanceScroll .executiveAttendanceTable thead th { position: sticky; z-index: 3; top: 0; box-shadow: 0 1px 0 #dfe6ee; }
+.attendanceScrollHint { position: absolute; z-index: 4; bottom: 8px; left: 50%; display: inline-flex; min-height: 27px; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #c7d5e5; border-radius: 999px; background: rgba(255,255,255,.96); box-shadow: 0 5px 14px rgba(31,50,73,.14); color: #52657c; font-size: .56rem; font-weight: 680; pointer-events: none; transform: translateX(-50%); backdrop-filter: blur(4px); }
+.attendanceScrollHint svg { width: 13px; height: 13px; color: #2867af; animation: attendanceScrollCue 1.15s ease-in-out infinite; }
+@keyframes attendanceScrollCue { 0%, 100% { transform: translateY(-1px); } 50% { transform: translateY(3px); } }
+@media (prefers-reduced-motion: reduce) { .attendanceScrollHint svg { animation: none; } }
 .executiveTableFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; padding: 7px 14px; border-top: 1px solid var(--border-default); background: #fbfcfd; }
 .executiveTableFooter span { color: var(--text-muted); font-size: .61rem; }
 .executiveTableFooter button, .executiveCardFooter button { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: #285f9f; font: inherit; font-size: .62rem; font-weight: 680; cursor: pointer; }

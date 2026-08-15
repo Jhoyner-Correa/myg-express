@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type UIEvent } from 'react';
 import axios from 'axios';
 import {
   AlertTriangle,
@@ -6,6 +6,7 @@ import {
   BellRing,
   CalendarCheck2,
   CheckCircle2,
+  ChevronDown,
   ClockAlert,
   Download,
   FileClock,
@@ -78,7 +79,13 @@ export function RrhhOverview({ siteId, employees }: Props) {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
+  const [showAttendanceScrollHint, setShowAttendanceScrollHint] = useState(false);
   const [error, setError] = useState<unknown>(null);
+
+  const handleAttendanceScroll = (event: UIEvent<HTMLDivElement>) => {
+    const viewport = event.currentTarget;
+    setShowAttendanceScrollHint(viewport.scrollTop + viewport.clientHeight < viewport.scrollHeight - 4);
+  };
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true); setError(null);
@@ -112,6 +119,10 @@ export function RrhhOverview({ siteId, employees }: Props) {
   const summary = attendance?.summary;
   const attendanceRate = summary?.total_employees ? Math.round(summary.present / summary.total_employees * 100) : 0;
   const activeShare = employees.length ? Math.round(activeEmployees / employees.length * 100) : 0;
+
+  useEffect(() => {
+    setShowAttendanceScrollHint((attendance?.employees.length ?? 0) > 5);
+  }, [attendance?.employees.length]);
   const today = businessToday();
   const todayTrend = trend.find(point => point.date === today);
   const previousWorkingDay = [...trend].reverse().find(point => point.date < today && point.working_employees > 0);
@@ -194,11 +205,14 @@ export function RrhhOverview({ siteId, employees }: Props) {
 
         <article className={`${styles.card} ${styles.executiveAttendance}`}>
           <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><CalendarCheck2 /></span><div><h2>Asistencia de hoy</h2><p>{businessDateLabel(businessToday())}</p></div></div><div className={styles.executiveActions}><Button size="sm" variant="secondary" icon={<Download size={14} />} loading={exporting} onClick={() => void exportExcel()}>Exportar Excel</Button><Button size="sm" variant="corporate" onClick={() => navigate('/rrhh/reportes')}>Ver reporte</Button></div></header>
-          <div className={styles.tableWrap}><table className={`${styles.table} ${styles.executiveAttendanceTable}`} aria-label="Asistencia de hoy"><thead><tr><th>Colaborador</th><th>Cargo</th><th>Entrada</th><th>Salida almuerzo</th><th>Regreso</th><th>Salida final</th><th>Estado</th><th>Tardanza</th><th>Horas extra</th></tr></thead><tbody>
-            {(attendance?.employees ?? []).slice(0, 8).map(item => <tr key={item.employee_id}><td><div className={styles.person}><span>{item.names.charAt(0)}{item.last_names.charAt(0)}</span><div><strong>{item.names} {item.last_names}</strong><small>{item.site_name}</small></div></div></td><td>{item.job_role}</td><td className={styles.clockCell}>{clock(item.marks.entry)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_out)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_return)}</td><td className={styles.clockCell}>{clock(item.marks.exit)}</td><td><span className={`${styles.attendanceStatus} ${styles[`attendance${item.status}`]}`}><i />{STATUS_LABELS[item.status]}</span></td><td>{item.delay_minutes ? `${item.delay_minutes} min` : '—'}</td><td>{item.overtime_minutes ? `${item.overtime_minutes} min` : '—'}</td></tr>)}
-            {!attendance?.employees.length && <tr><td colSpan={9}><div className={styles.empty}>No hay personal dentro del alcance seleccionado.</div></td></tr>}
-          </tbody></table></div>
-          {(attendance?.employees.length ?? 0) > 8 && <footer className={styles.executiveTableFooter}><span>Mostrando 8 de {attendance?.employees.length} colaboradores</span><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa <ArrowRight /></button></footer>}
+          <div className={styles.attendanceTableShell}>
+            <div className={`${styles.tableWrap} ${styles.executiveAttendanceScroll}`} onScroll={handleAttendanceScroll}><table className={`${styles.table} ${styles.executiveAttendanceTable}`} aria-label="Asistencia de hoy"><thead><tr><th>Colaborador</th><th>Cargo</th><th>Entrada</th><th>Salida almuerzo</th><th>Regreso</th><th>Salida final</th><th>Estado</th><th>Tardanza</th><th>Horas extra</th></tr></thead><tbody>
+              {(attendance?.employees ?? []).map(item => <tr key={item.employee_id}><td><div className={styles.person}><span>{item.names.charAt(0)}{item.last_names.charAt(0)}</span><div><strong>{item.names} {item.last_names}</strong><small>{item.site_name}</small></div></div></td><td>{item.job_role}</td><td className={styles.clockCell}>{clock(item.marks.entry)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_out)}</td><td className={styles.clockCell}>{clock(item.marks.lunch_return)}</td><td className={styles.clockCell}>{clock(item.marks.exit)}</td><td><span className={`${styles.attendanceStatus} ${styles[`attendance${item.status}`]}`}><i />{STATUS_LABELS[item.status]}</span></td><td>{item.delay_minutes ? `${item.delay_minutes} min` : '—'}</td><td>{item.overtime_minutes ? `${item.overtime_minutes} min` : '—'}</td></tr>)}
+              {!attendance?.employees.length && <tr><td colSpan={9}><div className={styles.empty}>No hay personal dentro del alcance seleccionado.</div></td></tr>}
+            </tbody></table></div>
+            {showAttendanceScrollHint && <div className={styles.attendanceScrollHint} aria-hidden="true"><span>{Math.max(0, (attendance?.employees.length ?? 0) - 5)} colaboradores más</span><ChevronDown /></div>}
+          </div>
+          {(attendance?.employees.length ?? 0) > 8 && <footer className={styles.executiveTableFooter}><span>{attendance?.employees.length} colaboradores en la vista</span><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa <ArrowRight /></button></footer>}
         </article>
       </div>
 
