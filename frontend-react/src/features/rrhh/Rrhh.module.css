@@ -281,8 +281,15 @@
 
 .executiveSites { min-width: 0; }
 .executiveSitesCompact .executiveCardHeader { min-height: 45px; padding: 7px 11px; }
-.executiveSitesCompact .executiveSitesTable th { padding: 7px 9px; }
-.executiveSitesCompact .executiveSitesTable td { height: 35px; padding: 5px 9px; }
+.executiveSitesCompact .tableWrap { overflow-x: hidden; }
+.executiveSitesCompact .executiveSitesTable { table-layout: fixed; }
+.executiveSitesCompact .executiveSitesTable th { padding: 7px 6px; line-height: 1.2; white-space: normal; }
+.executiveSitesCompact .executiveSitesTable th:first-child { width: 29%; }
+.executiveSitesCompact .executiveSitesTable th:nth-child(2) { width: 14%; }
+.executiveSitesCompact .executiveSitesTable th:nth-child(3) { width: 18%; }
+.executiveSitesCompact .executiveSitesTable th:nth-child(4) { width: 17%; }
+.executiveSitesCompact .executiveSitesTable th:nth-child(5) { width: 22%; }
+.executiveSitesCompact .executiveSitesTable td { height: 35px; padding: 5px 6px; overflow: hidden; text-overflow: ellipsis; }
 .executiveSitesCompact .executiveCardFooter { min-height: 31px; padding: 6px 10px; }
 .executiveSitesTable { width: 100%; border-collapse: collapse; }
 .executiveSitesTable th { padding: 9px 11px; border-bottom: 1px solid var(--border-default); background: #fbfcfd; color: #68778d; font-size: .55rem; font-weight: 730; letter-spacing: .04em; text-align: left; text-transform: uppercase; white-space: nowrap; }

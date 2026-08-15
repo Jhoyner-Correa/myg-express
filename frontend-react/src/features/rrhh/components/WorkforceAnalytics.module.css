@@ -1,4 +1,4 @@
-.grid { display: grid; width: 100%; grid-template-columns: minmax(360px, 400px) minmax(440px, 480px) minmax(260px, 290px) minmax(390px, 1fr); gap: 11px; justify-content: start; align-items: start; }
+.grid { display: grid; width: 100%; grid-template-columns: minmax(340px, 380px) minmax(430px, 460px) minmax(250px, 280px) minmax(440px, 1fr); gap: 11px; justify-content: start; align-items: start; }
 .attentionSlot { min-width: 0; }
 .attentionSlot > * { height: 100%; }
 .performanceSlot { min-width: 0; }
