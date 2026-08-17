@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowRight, Bell, Building2, CalendarDays, ChevronDown, FileClock, LogOut, Search, ShieldCheck, UserX, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Bell, Building2, CalendarDays, ChevronDown, ChevronRight, FileClock, Search, Settings, ShieldCheck, UserX, X } from 'lucide-react';
 import type { UserSession } from '../../../core/auth/authState';
 import type { Site } from '../types';
 import type { ExecutiveAlert } from './executive-alerts';
@@ -21,7 +21,7 @@ type Props = {
   onQueryChange: (query: string) => void;
   onAlertSelect: (target: string) => void;
   onAlertsClick: () => void;
-  onLogout: () => void;
+  onOpenProfile?: () => void;
 };
 
 function initials(name?: string) {
@@ -54,7 +54,7 @@ export function RrhhExecutiveHeader({
   onQueryChange,
   onAlertSelect,
   onAlertsClick,
-  onLogout,
+  onOpenProfile,
 }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -123,8 +123,8 @@ export function RrhhExecutiveHeader({
           type="search"
           value={query}
           onChange={event => onQueryChange(event.target.value)}
-          placeholder="Buscar empleados, documentos..."
-          aria-label="Buscar en el resumen de Recursos Humanos"
+          placeholder="Buscar en asistencia..."
+          aria-label="Buscar colaboradores en la asistencia del resumen"
         />
         {query
           ? <button type="button" aria-label="Limpiar búsqueda" onClick={() => { onQueryChange(''); searchRef.current?.focus(); }}><X /></button>
@@ -220,13 +220,24 @@ export function RrhhExecutiveHeader({
             <div><strong>{user?.nombre || 'Administrador'}</strong><small>@{user?.usuario || 'usuario'}</small></div>
           </header>
           <div className={styles.sessionDetails}>
-            <span><ShieldCheck aria-hidden="true" /><small>Rol</small><strong>{roleLabel}</strong></span>
-            <span><Building2 aria-hidden="true" /><small>Alcance</small><strong>{accessScope(user)}</strong></span>
+            <div className={styles.detailRow}>
+              <span className={styles.detailIcon}><ShieldCheck aria-hidden="true" /></span>
+              <small>Rol</small>
+              <strong>{roleLabel}</strong>
+            </div>
+            <div className={styles.detailRow}>
+              <span className={styles.detailIcon}><Building2 aria-hidden="true" /></span>
+              <small>Alcance</small>
+              <strong>{accessScope(user)}</strong>
+            </div>
           </div>
-          <button className={styles.logoutButton} type="button" role="menuitem" onClick={onLogout}>
-            <LogOut aria-hidden="true" />
-            Cerrar sesión
-          </button>
+          <div className={styles.menuActions}>
+            <button className={styles.profileSettingsButton} type="button" role="menuitem" onClick={() => { setProfileOpen(false); onOpenProfile?.(); }}>
+              <span className={styles.actionIcon}><Settings aria-hidden="true" /></span>
+              <span>Configuración de mi perfil</span>
+              <ChevronRight aria-hidden="true" />
+            </button>
+          </div>
         </div>}
       </div>
     </div>

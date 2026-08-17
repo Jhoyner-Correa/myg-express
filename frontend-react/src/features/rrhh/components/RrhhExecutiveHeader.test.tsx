@@ -37,7 +37,6 @@ function renderHeader(overrides: Partial<ComponentProps<typeof RrhhExecutiveHead
     onQueryChange: vi.fn(),
     onAlertSelect: vi.fn(),
     onAlertsClick: vi.fn(),
-    onLogout: vi.fn(),
     ...overrides,
   };
   render(<RrhhExecutiveHeader {...props} />);
@@ -71,11 +70,17 @@ describe('RrhhExecutiveHeader', () => {
     expect(props.onQueryChange).toHaveBeenCalledWith('');
   });
 
-  it('muestra los datos de sesión y permite cerrarla', () => {
-    const props = renderHeader();
+  it('expone una búsqueda con alcance coherente para asistencia', () => {
+    renderHeader();
+    expect(screen.getByRole('searchbox', { name: 'Buscar colaboradores en la asistencia del resumen' }))
+      .toHaveAttribute('placeholder', 'Buscar en asistencia...');
+  });
+
+  it('muestra los datos de sesión y abre la configuración de perfil', () => {
+    const props = renderHeader({ onOpenProfile: vi.fn() });
     fireEvent.click(screen.getByRole('button', { name: 'Abrir menú de sesión' }));
     expect(screen.getByRole('menu')).toHaveTextContent('Toda la empresa');
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Cerrar sesión' }));
-    expect(props.onLogout).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('menuitem', { name: /Configuración de mi perfil/i }));
+    expect(props.onOpenProfile).toHaveBeenCalledOnce();
   });
 });

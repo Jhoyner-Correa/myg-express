@@ -61,7 +61,10 @@ export class AuthService {
         sede_id: access.siteId,
         sede_ids: access.siteIds,
         sede_nombre: access.siteName || 'Administración Central',
-        permisos: access.permissions
+        permisos: access.permissions,
+        estado: user.estado,
+        ultimo_acceso_at: user.ultimoAccesoAt?.toISOString() ?? null,
+        password_actualizado_at: user.passwordActualizadoAt?.toISOString() ?? null,
       }
     };
   }
@@ -81,8 +84,17 @@ export class AuthService {
     passwordActual: string,
     nuevoPassword?: string
   ): Promise<Usuario> {
-    if (!nombre || !usuario) {
+    const normalizedName = String(nombre || '').trim();
+    const normalizedUsername = String(usuario || '').trim();
+
+    if (!normalizedName || !normalizedUsername) {
       throw new Error('Nombre y usuario son obligatorios');
+    }
+    if (normalizedName.length < 2 || normalizedName.length > 120) {
+      throw new Error('El nombre debe tener entre 2 y 120 caracteres');
+    }
+    if (!/^[A-Za-z0-9._-]{3,50}$/.test(normalizedUsername)) {
+      throw new Error('El usuario debe tener entre 3 y 50 caracteres y solo usar letras, números, punto, guion o guion bajo');
     }
 
     const user = await this.usuarioRepository.buscarPorId(id);
@@ -91,27 +103,34 @@ export class AuthService {
     }
 
     let nuevoPasswordHash: string | undefined = undefined;
+    const credentialsChanged = normalizedUsername !== user.usuario || Boolean(nuevoPassword);
 
-    if (nuevoPassword) {
-      if (nuevoPassword.length < 6) {
-        throw new Error('La nueva contraseña debe tener al menos 6 caracteres');
-      }
+    if (credentialsChanged) {
       if (!passwordActual) {
-        throw new Error('Ingresa tu contraseña actual para cambiarla');
+        throw new Error('Ingresa tu contraseña actual para modificar tus credenciales');
       }
-
       const passwordOk = await bcrypt.compare(passwordActual, user.passwordHash);
       if (!passwordOk) {
         throw new Error('La contraseña actual no es correcta');
       }
+    }
 
-      nuevoPasswordHash = await bcrypt.hash(nuevoPassword, 10);
+    if (nuevoPassword) {
+      const strongPassword = nuevoPassword.length >= 12
+        && /[a-z]/.test(nuevoPassword)
+        && /[A-Z]/.test(nuevoPassword)
+        && /\d/.test(nuevoPassword)
+        && /[^A-Za-z0-9]/.test(nuevoPassword);
+      if (!strongPassword) {
+        throw new Error('La nueva contraseña debe tener al menos 12 caracteres, mayúscula, minúscula, número y símbolo');
+      }
+      nuevoPasswordHash = await bcrypt.hash(nuevoPassword, 12);
     }
 
     const exito = await this.usuarioRepository.actualizarPerfil(
       id,
-      nombre,
-      usuario,
+      normalizedName,
+      normalizedUsername,
       nuevoPasswordHash
     );
 

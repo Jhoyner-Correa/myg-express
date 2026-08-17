@@ -5,41 +5,55 @@
 .notificationButton,
 .profileTrigger {
   min-height: 38px;
-  border: 1px solid #d9e2ed;
+  border: 1px solid #cbd5e1;
   border-radius: 9px;
-  background: #fff;
-  color: #53647a;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, .025);
+  background: #ffffff;
+  color: #334155;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
 }
 
 .selectControl { display: flex; align-items: center; gap: 7px; padding: 0 9px; }
-.selectControl > svg:first-child { width: 14px; height: 14px; color: #60738a; }
-.selectControl > svg:last-child { width: 12px; height: 12px; color: #8b98a8; pointer-events: none; }
-.selectControl select { max-width: 135px; border: 0; outline: 0; appearance: none; background: transparent; color: #34445a; font: inherit; font-size: .68rem; font-weight: 670; cursor: pointer; }
-.selectControl:hover { border-color: #aebfd2; background: #fbfcfe; }
-.selectControl:focus-within { border-color: #7599c7; box-shadow: 0 0 0 3px rgba(44, 107, 190, .08); }
+.selectControl > svg:first-child { width: 14px; height: 14px; color: #2563eb; }
+.selectControl > svg:last-child { width: 12px; height: 12px; color: #64748b; pointer-events: none; }
+.selectControl select { max-width: 135px; border: 0; outline: 0; appearance: none; background: transparent; color: #0f172a; font: inherit; font-size: .68rem; font-weight: 750; cursor: pointer; }
+.selectControl:hover { border-color: #94a3b8; background: #f8fafc; }
+.selectControl:focus-within { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
 
-.searchControl { display: flex; width: clamp(220px, 18vw, 285px); align-items: center; gap: 8px; padding: 0 8px 0 10px; background: #f8fafc; }
-.searchControl:focus-within { border-color: #7599c7; background: #fff; box-shadow: 0 0 0 3px rgba(44, 107, 190, .08); }
-.searchControl > svg { width: 14px; height: 14px; flex: 0 0 auto; color: #8492a5; }
-.searchControl input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #243348; font: inherit; font-size: .67rem; }
+.searchControl { display: flex; width: clamp(220px, 18vw, 285px); align-items: center; gap: 8px; padding: 0 8px 0 10px; background: #ffffff; }
+.searchControl:focus-within { border-color: #2563eb; background: #ffffff; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+.searchControl > svg { width: 14px; height: 14px; flex: 0 0 auto; color: #64748b; }
+.searchControl input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #0f172a; font: inherit; font-size: .68rem; font-weight: 600; }
 .searchControl input::-webkit-search-cancel-button { display: none; }
-.searchControl input::placeholder { color: #9aa6b6; }
-.searchControl kbd { padding: 2px 5px; border: 1px solid #dce4ed; border-bottom-color: #cbd6e2; border-radius: 5px; background: #fff; color: #8794a5; font-family: inherit; font-size: .51rem; font-weight: 650; white-space: nowrap; }
-.searchControl button { display: grid; width: 23px; height: 23px; flex: 0 0 23px; place-items: center; padding: 0; border: 0; border-radius: 5px; background: transparent; color: #8391a3; cursor: pointer; }
-.searchControl button:hover { background: #eef2f7; color: #344b68; }
+.searchControl input::placeholder { color: #64748b; }
+.searchControl kbd { padding: 2px 5px; border: 1px solid #cbd5e1; border-radius: 5px; background: #f8fafc; color: #475569; font-family: inherit; font-size: .52rem; font-weight: 700; white-space: nowrap; }
+.searchControl button { display: grid; width: 23px; height: 23px; flex: 0 0 23px; place-items: center; padding: 0; border: 0; border-radius: 5px; background: transparent; color: #64748b; cursor: pointer; }
+.searchControl button:hover { background: #f1f5f9; color: #0f172a; }
 .searchControl button svg { width: 13px; height: 13px; }
 
 .notifications { position: relative; flex: 0 0 38px; }
-.notificationButton { position: relative; display: grid; width: 38px; place-items: center; padding: 0; cursor: pointer; }
-.notificationButton:hover { border-color: #a9bacd; background: #f6f9fc; color: #245b9f; }
-.notificationButton[aria-expanded='true'] { border-color: #9db4d0; background: #f4f8fd; color: #245b9f; box-shadow: 0 0 0 3px rgba(44, 107, 190, .08); }
-.notificationButton:focus-visible, .profileTrigger:focus-visible { outline: 3px solid rgba(44, 107, 190, .13); outline-offset: 1px; }
-.notificationButton > svg { width: 16px; height: 16px; }
+.notificationButton {
+  position: relative;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 50% !important;
+  background: #f8fafc;
+  color: #334155;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+.notificationButton:hover { border-color: #cbd5e1; background: #eff6ff; color: #2563eb; }
+.notificationButton[aria-expanded='true'] { border-color: #2563eb; background: #eff6ff; color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+.notificationButton:focus-visible, .profileTrigger:focus-visible { outline: 3px solid rgba(37, 99, 235, 0.15); outline-offset: 1px; }
+.notificationButton > svg { width: 17px; height: 17px; stroke-width: 2.1; }
 .notificationButton[data-active='true'][aria-expanded='false'] > svg { transform-origin: 50% 12%; animation: bellAlert 3.2s ease-in-out infinite; }
-.notificationButton[data-active='true'][aria-expanded='false']::after { content: ''; position: absolute; inset: 5px; border: 1px solid rgba(229, 62, 77, .24); border-radius: 50%; pointer-events: none; animation: alertPulse 2.4s ease-out infinite; }
-.notificationButton span { position: absolute; top: -6px; right: -5px; display: grid; min-width: 18px; height: 18px; place-items: center; padding: 0 4px; border: 2px solid #fff; border-radius: 99px; background: #e53e4d; color: #fff; font-size: .52rem; font-weight: 800; }
+.notificationButton[data-active='true'][aria-expanded='false']::after { content: ''; position: absolute; inset: 2px; border: 1.5px solid rgba(239, 68, 68, 0.3); border-radius: 50%; pointer-events: none; animation: alertPulse 2.4s ease-out infinite; }
+.notificationButton span { position: absolute; top: -3px; right: -3px; display: grid; min-width: 18px; height: 18px; place-items: center; padding: 0 4px; border: 2px solid #ffffff; border-radius: 999px; background: #ef4444; color: #ffffff; font-size: .55rem; font-weight: 800; box-shadow: 0 2px 5px rgba(239, 68, 68, 0.35); }
 
 .notificationPanel { position: absolute; z-index: 90; top: calc(100% + 9px); right: -6px; width: min(360px, calc(100vw - 28px)); overflow: hidden; border: 1px solid #d7e0ea; border-radius: 13px; background: #fff; box-shadow: 0 20px 50px rgba(23, 40, 62, .18); animation: panelEnter 160ms ease-out; }
 .notificationPanel::before { content: ''; position: absolute; top: -5px; right: 20px; width: 9px; height: 9px; border-top: 1px solid #d7e0ea; border-left: 1px solid #d7e0ea; background: #fff; transform: rotate(45deg); }
@@ -74,33 +88,43 @@
 .notificationFooter svg { width: 13px; height: 13px; }
 
 .profile { position: relative; }
-.profileTrigger { display: flex; min-width: 190px; align-items: center; gap: 9px; padding: 3px 8px 3px 4px; cursor: pointer; }
-.profileTrigger:hover, .profileTrigger[aria-expanded='true'] { border-color: #b5c5d7; background: #f9fbfd; box-shadow: 0 4px 12px rgba(33, 55, 82, .07); }
-.avatar, .menuAvatar { display: grid; place-items: center; border: 1px solid #d3deea; border-radius: 50%; background: linear-gradient(145deg, #edf3fa, #dce7f4); color: #31567f; font-weight: 800; }
-.avatar { position: relative; width: 30px; height: 30px; flex: 0 0 30px; font-size: .59rem; }
-.avatar i { position: absolute; right: -1px; bottom: 0; width: 7px; height: 7px; border: 2px solid #fff; border-radius: 50%; background: #18a664; }
+.profileTrigger { display: flex; min-width: 180px; align-items: center; gap: 9px; padding: 4px 8px 4px 4px; border: 0; border-radius: 10px; background: transparent; box-shadow: none; cursor: pointer; transition: all 160ms ease; }
+.profileTrigger:hover { background: #f8fafc; }
+.profileTrigger[aria-expanded='true'] { background: #eff6ff; }
+.avatar, .menuAvatar { display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 1px solid #bfdbfe; color: #1e40af; font-weight: 800; }
+.avatar { position: relative; width: 32px; height: 32px; flex: 0 0 32px; font-size: .64rem; }
+.avatar i { position: absolute; right: -1px; bottom: 0; width: 8px; height: 8px; border: 2px solid #ffffff; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.18); }
 .profileCopy { display: grid; min-width: 0; flex: 1; gap: 1px; text-align: left; }
-.profileCopy strong, .profileCopy small { overflow: hidden; max-width: 125px; text-overflow: ellipsis; white-space: nowrap; }
-.profileCopy strong { color: #1e2d40; font-size: .68rem; font-weight: 720; text-transform: capitalize; }
-.profileCopy small { color: #8491a2; font-size: .56rem; font-weight: 560; }
-.profileTrigger > svg { width: 12px; height: 12px; color: #8996a7; transition: transform 160ms ease; }
+.profileCopy strong, .profileCopy small { overflow: hidden; max-width: 130px; text-overflow: ellipsis; white-space: nowrap; }
+.profileCopy strong { color: #0f172a; font-size: .72rem; font-weight: 800; letter-spacing: -0.01em; }
+.profileCopy small { color: #475569; font-size: .59rem; font-weight: 600; }
+.profileTrigger > svg { width: 14px; height: 14px; color: #475569; transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1); }
 .profileTrigger > .rotated { transform: rotate(180deg); }
 
-.profileMenu { position: absolute; z-index: 80; top: calc(100% + 9px); right: 0; width: 255px; overflow: hidden; border: 1px solid #d8e1eb; border-radius: 12px; background: #fff; box-shadow: 0 18px 45px rgba(25, 42, 64, .16); animation: menuEnter 150ms ease-out; }
-.profileMenu::before { content: ''; position: absolute; top: -5px; right: 20px; width: 9px; height: 9px; border-top: 1px solid #d8e1eb; border-left: 1px solid #d8e1eb; background: #fff; transform: rotate(45deg); }
-.profileMenu header { display: flex; align-items: center; gap: 10px; padding: 14px; border-bottom: 1px solid #e7ecf2; }
-.menuAvatar { width: 36px; height: 36px; flex: 0 0 36px; font-size: .65rem; }
-.profileMenu header div { display: grid; min-width: 0; gap: 2px; }
-.profileMenu header strong { overflow: hidden; color: #1d2b3d; font-size: .73rem; font-weight: 730; text-overflow: ellipsis; text-transform: capitalize; white-space: nowrap; }
-.profileMenu header small { color: #8592a3; font-size: .6rem; }
-.sessionDetails { display: grid; gap: 9px; padding: 12px 14px; }
-.sessionDetails span { display: grid; grid-template-columns: 22px 58px minmax(0, 1fr); align-items: center; gap: 5px; }
-.sessionDetails svg { width: 14px; height: 14px; color: #5d7796; }
-.sessionDetails small { color: #8a97a7; font-size: .58rem; }
-.sessionDetails strong { overflow: hidden; color: #35465b; font-size: .61rem; font-weight: 660; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
-.logoutButton { display: flex; width: 100%; align-items: center; gap: 9px; padding: 11px 14px; border: 0; border-top: 1px solid #e7ecf2; background: #fbfcfd; color: #b33440; font: inherit; font-size: .65rem; font-weight: 680; cursor: pointer; }
-.logoutButton:hover { background: #fff5f6; color: #982834; }
-.logoutButton svg { width: 15px; height: 15px; }
+.profileMenu { position: absolute; z-index: 80; top: calc(100% + 9px); right: 0; width: 285px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff; box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.10); animation: menuEnter 150ms ease-out; }
+.profileMenu::before { content: ''; position: absolute; top: -5px; right: 22px; width: 9px; height: 9px; border-top: 1px solid #e2e8f0; border-left: 1px solid #e2e8f0; background: #ffffff; transform: rotate(45deg); }
+.profileMenu header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #f1f5f9; background: #ffffff; }
+.menuAvatar { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border: 1px solid #dbeafe; border-radius: 50%; background: #eff6ff; color: #1e40af; font-size: .88rem; font-weight: 600; }
+.profileMenu header div { display: grid; min-width: 0; gap: 1px; }
+.profileMenu header strong { overflow: hidden; color: #0f172a; font-size: .86rem; font-weight: 700; letter-spacing: -0.01em; text-overflow: ellipsis; white-space: nowrap; }
+.profileMenu header small { color: #64748b; font-size: .70rem; font-weight: 400; }
+
+.sessionDetails { display: grid; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #f1f5f9; }
+.detailRow { display: flex; align-items: center; gap: 10px; }
+.detailIcon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; background: #eff6ff; color: #2563eb; }
+.detailIcon svg { width: 15px; height: 15px; }
+.detailRow small { color: #64748b; font-size: .72rem; font-weight: 400; white-space: nowrap; }
+.detailRow strong { margin-left: auto; color: #0f172a; font-size: .72rem; font-weight: 550; text-align: right; white-space: nowrap; }
+
+.menuActions { display: grid; gap: 2px; padding: 8px 10px; background: #ffffff; }
+.profileSettingsButton { display: flex; width: 100%; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; font: inherit; font-size: .72rem; font-weight: 500; cursor: pointer; transition: all 140ms ease; }
+.profileSettingsButton { color: #2563eb; }
+.profileSettingsButton:hover { background: #eff6ff; color: #1d4ed8; }
+.actionIcon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; }
+.actionIcon { background: #eff6ff; color: #2563eb; }
+.actionIcon svg { width: 15px; height: 15px; }
+.profileSettingsButton > span:nth-child(2) { flex: 1; text-align: left; }
+.profileSettingsButton > svg { width: 14px; height: 14px; color: #2563eb; }
 
 @keyframes menuEnter { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes panelEnter { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -108,15 +132,31 @@
 @keyframes alertPulse { 0%, 65% { opacity: 0; transform: scale(.65); } 78% { opacity: .85; } 100% { opacity: 0; transform: scale(1.35); } }
 
 @media (max-width: 1180px) {
-  .searchControl { display: none; }
+  .searchControl { width: clamp(150px, 17vw, 210px); }
+  .searchControl kbd { display: none; }
   .profileTrigger { min-width: 160px; }
 }
 
+@media (max-width: 1050px) {
+  .tools { width: 100%; justify-content: flex-start; }
+  .searchControl { width: auto; min-width: 180px; flex: 1 1 240px; }
+}
+
 @media (max-width: 760px) {
-  .tools { gap: 6px; }
+  .tools { width: 100%; flex-wrap: wrap; gap: 6px; }
   .selectControl { padding-inline: 7px; }
   .selectControl select { max-width: 92px; }
-  .profile { display: none; }
+  .searchControl { order: 5; width: 100%; flex: 1 0 100%; }
+  .profileTrigger { min-width: auto; padding: 3px; }
+  .profileCopy,
+  .profileTrigger > svg { display: none; }
+  .profileMenu { position: fixed; top: 66px; right: 12px; width: min(285px, calc(100vw - 24px)); }
+}
+
+@media (max-width: 560px) {
+  .selectControl { min-width: 0; flex: 1 1 0; }
+  .selectControl select { width: 100%; max-width: 88px; }
+  .notificationPanel { position: fixed; top: 66px; right: 12px; width: min(360px, calc(100vw - 24px)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

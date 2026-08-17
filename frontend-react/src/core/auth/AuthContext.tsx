@@ -60,6 +60,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
   };
 
+  const updateUser = (updated: Partial<UserSession>) => {
+    setUser(current => {
+      if (!current) return current;
+      const next = { ...current, ...updated };
+      localStorage.setItem('user', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -70,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAuthenticated = !!token;
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, isAuthenticated }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, updateUser, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );

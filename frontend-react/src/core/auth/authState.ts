@@ -13,6 +13,9 @@ export type UserSession = {
   sede_ids?: number[];
   sede_nombre?: string;
   permisos?: string[];
+  estado?: 'activo' | 'inactivo';
+  ultimo_acceso_at?: string | null;
+  password_actualizado_at?: string | null;
 };
 
 export type AuthContextType = {
@@ -21,6 +24,7 @@ export type AuthContextType = {
   loading: boolean;
   login: (token: string, user: UserSession) => void;
   logout: () => void;
+  updateUser?: (updated: Partial<UserSession>) => void;
   isAuthenticated: boolean;
 };
 

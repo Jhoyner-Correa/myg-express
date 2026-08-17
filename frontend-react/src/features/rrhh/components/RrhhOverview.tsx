@@ -11,6 +11,7 @@ import {
   FileClock,
   MapPin,
   TimerReset,
+  TrendingUp,
   UserX,
   UsersRound,
 } from 'lucide-react';
@@ -180,7 +181,7 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
         </section>
 
         <article className={`${styles.card} ${styles.executiveAttendance}`}>
-          <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><CalendarCheck2 /></span><div><h2>Asistencia de hoy</h2><p>{businessDateLabel(businessToday())}</p></div></div><div className={styles.executiveActions}><Button size="sm" variant="secondary" icon={<Download size={14} />} loading={exporting} onClick={() => void exportExcel()}>Exportar Excel</Button><Button size="sm" variant="corporate" onClick={() => navigate('/rrhh/reportes')}>Ver reporte</Button></div></header>
+          <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><CalendarCheck2 /></span><div><h2>Asistencia de hoy</h2><p className={styles.executiveSubtitle}><span className={styles.subtitleDot} />{businessDateLabel(businessToday())}</p></div></div><div className={styles.executiveActions}><Button size="sm" variant="secondary" icon={<Download size={14} />} loading={exporting} onClick={() => void exportExcel()}>Exportar Excel</Button><Button size="sm" variant="corporate" icon={<TrendingUp size={14} />} onClick={() => navigate('/rrhh/reportes')}>Ver reporte</Button></div></header>
           <ExecutiveAttendanceTable
             employees={visibleAttendance}
             emptyMessage={normalizedQuery ? 'No encontramos colaboradores con esa búsqueda.' : 'No hay personal dentro del alcance seleccionado.'}

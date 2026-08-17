@@ -2,14 +2,14 @@
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: 84px;
+  min-height: 86px;
   align-content: center;
   justify-items: start;
-  padding: 9px 50px 8px 12px;
-  border: 1px solid #dfe6ee;
+  padding: 10px 48px 9px 14px;
+  border: 1px solid #cbd5e1;
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 3px 10px rgba(30, 50, 73, .075);
+  background: #ffffff;
+  box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.06);
   font: inherit;
   text-align: left;
   cursor: default;
@@ -17,32 +17,37 @@
 }
 
 .card:hover {
-  border-color: #bfcddd;
-  box-shadow: 0 7px 18px rgba(30, 50, 73, .11);
-  transform: translateY(-1px);
+  border-color: #94a3b8;
+  box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.12);
+  transform: translateY(-2px);
 }
 
 .icon {
   position: absolute;
-  top: 9px;
-  right: 10px;
+  top: 12px;
+  right: 14px;
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   place-items: center;
-  border-radius: 10px;
-  box-shadow: 0 4px 10px rgba(31, 59, 91, .12);
+  background: transparent;
+  border: 0;
 }
 
-.icon svg { width: 16px; height: 16px; stroke-width: 2; }
-.blue { color: #fff; background: #2f80ed; }.green { color: #fff; background: #0ca968; }.orange { color: #fff; background: #f59a23; }.violet { color: #fff; background: #8b50d8; }.red { color: #fff; background: #ed5260; }
+.icon svg { width: 26px; height: 26px; stroke-width: 2.2; }
+
+.blue { color: #2563eb; }
+.green { color: #059669; }
+.orange { color: #d97706; }
+.violet { color: #7c3aed; }
+.red { color: #dc2626; }
 
 .label {
   max-width: 100%;
   overflow: hidden;
-  color: #35445a;
-  font-size: .66rem;
-  font-weight: 650;
+  color: #334155;
+  font-size: .68rem;
+  font-weight: 750;
   letter-spacing: -.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -51,12 +56,12 @@
 .card > strong {
   display: block;
   max-width: 100%;
-  margin: 3px 0 4px;
+  margin: 4px 0 5px;
   overflow: hidden;
-  color: #111b2c;
-  font-size: 1.2rem;
-  font-weight: 720;
-  letter-spacing: -.035em;
+  color: #0f172a;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -.03em;
   line-height: .95;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -65,27 +70,27 @@
 .insight {
   display: flex;
   max-width: 100%;
-  min-height: 13px;
+  min-height: 14px;
   align-items: center;
   gap: 4px;
   overflow: hidden;
-  font-size: .58rem;
+  font-size: .6rem;
   white-space: nowrap;
 }
 
-.insight svg { width: 11px; height: 11px; flex: 0 0 11px; stroke-width: 2.2; }
-.insight b { overflow: hidden; font-weight: 680; text-overflow: ellipsis; }
-.insight em { overflow: hidden; color: #778497; font-style: normal; font-weight: 500; text-overflow: ellipsis; }
-.favorable { color: #10945a; }.unfavorable { color: #d63f4b; }.neutral { color: #68778b; }
+.insight svg { width: 12px; height: 12px; flex: 0 0 12px; stroke-width: 2.3; }
+.insight b { overflow: hidden; font-weight: 750; text-overflow: ellipsis; }
+.insight em { overflow: hidden; color: #475569; font-style: normal; font-weight: 600; text-overflow: ellipsis; }
+.favorable { color: #059669; }.unfavorable { color: #dc2626; }.neutral { color: #334155; }
 
 .card small {
   display: block;
   max-width: 100%;
   margin-top: 2px;
   overflow: hidden;
-  color: #6f7d90;
-  font-size: .58rem;
-  font-weight: 500;
+  color: #475569;
+  font-size: .6rem;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

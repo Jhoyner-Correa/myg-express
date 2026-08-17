@@ -23,6 +23,7 @@ WORKDIR /app/backend
 COPY --from=backend-builder --chown=node:node /app/backend/package*.json ./
 COPY --from=backend-builder --chown=node:node /app/backend/node_modules ./node_modules
 COPY --from=backend-builder --chown=node:node /app/backend/dist ./dist
+COPY --from=backend-builder --chown=node:node /app/backend/migrations ./migrations
 COPY --from=frontend-builder --chown=node:node /app/frontend-react/dist /app/frontend-react/dist
 
 RUN mkdir -p /app/backend/storage && chown -R node:node /app/backend/storage

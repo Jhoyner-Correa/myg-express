@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { BriefcaseBusiness, KeyRound, MapPin, Pencil, Search, UserCheck, UserPlus, Users } from 'lucide-react';
+import { BriefcaseBusiness, KeyRound, MapPin, Pencil, Search, User, UserCheck, UserPlus, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button/Button';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
@@ -8,7 +8,9 @@ import { PageLoader } from '../../components/ui/PageLoader/PageLoader';
 import { getApiErrorMessage } from '../../core/api/errors';
 import { useAuth } from '../../core/auth/authState';
 import { PERMISSIONS, userHasPermission } from '../../core/auth/permissions';
+import { updateProfile, type ProfileUpdateInput } from '../../core/auth/profile.service';
 import { showToast } from '../../core/utils/toast';
+import { ProfileModal } from '../../components/ui/ProfileModal/ProfileModal';
 import { AbsencePanel } from './components/AbsencePanel';
 import { ActivationModal } from './components/ActivationModal';
 import { AttendancePanel } from './components/AttendancePanel';
@@ -28,6 +30,18 @@ function businessMonth() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit' }).format(new Date());
 }
 
+function getOverviewTitle(name?: string) {
+  const hour = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Lima',
+    hour: '2-digit',
+    hour12: false,
+  }).format(new Date()));
+  const greeting = hour < 12 ? '¡Buenos días' : hour < 19 ? '¡Buenas tardes' : '¡Buenas noches';
+  const firstName = name ? name.trim().split(/\s+/)[0] : '';
+  const formattedName = firstName ? firstName.charAt(0).toLocaleUpperCase('es') + firstName.slice(1).toLocaleLowerCase('es') : '';
+  return formattedName ? `${greeting}, ${formattedName}!` : `${greeting}!`;
+}
+
 function monthOptions(centerMonth: string) {
   const center = new Date(`${centerMonth}-01T12:00:00Z`);
   return Array.from({ length: 13 }, (_, index) => {
@@ -42,7 +56,7 @@ function monthOptions(centerMonth: string) {
 export type RrhhSection = 'overview' | 'people' | 'attendance' | 'requests' | 'schedules' | 'reports' | 'configuration';
 
 const SECTION_META: Record<RrhhSection, { title: string; subtitle: string }> = {
-  overview: { title: 'Resumen de Recursos Humanos', subtitle: 'Indicadores corporativos y prioridades operativas' },
+  overview: { title: 'Resumen de Recursos Humanos', subtitle: 'Aquí tienes el resumen de Recursos Humanos de hoy' },
   people: { title: 'Personal', subtitle: 'Directorio, cargos y acceso móvil de colaboradores' },
   attendance: { title: 'Asistencia', subtitle: 'Marcaciones y cumplimiento de jornada' },
   requests: { title: 'Solicitudes', subtitle: 'Permisos, vacaciones y decisiones administrativas' },
@@ -52,7 +66,7 @@ const SECTION_META: Record<RrhhSection, { title: string; subtitle: string }> = {
 };
 
 export function Rrhh({ section }: { section: RrhhSection }) {
-  const { user, logout } = useAuth();
+  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
   const canManage = userHasPermission(user, PERMISSIONS.RRHH_MANAGE);
   const canConfigure = userHasPermission(user, PERMISSIONS.RRHH_CONFIGURE);
@@ -68,6 +82,13 @@ export function Rrhh({ section }: { section: RrhhSection }) {
   const [overviewAlerts, setOverviewAlerts] = useState<ExecutiveAlert[]>([]);
   const [editing, setEditing] = useState<Employee | 'new' | null>(null);
   const [activating, setActivating] = useState<Employee | null>(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+
+  const saveProfile = async (input: ProfileUpdateInput) => {
+    const updatedUser = await updateProfile(input);
+    updateUser?.(updatedUser);
+    return updatedUser;
+  };
   const overviewMonths = useMemo(() => monthOptions(businessMonth()), []);
 
   useEffect(() => {
@@ -133,7 +154,7 @@ export function Rrhh({ section }: { section: RrhhSection }) {
     if (section === 'overview') return <RrhhOverview siteId={siteId} employees={employees} query={query} agendaMonth={overviewMonth} onAgendaMonthChange={setOverviewMonth} onAlertsChange={setOverviewAlerts} />;
     if (section === 'attendance') return <AttendancePanel siteId={siteId} canManage={canManage} />;
     if (section === 'requests') return <AbsencePanel siteId={siteId} employees={employees} canManage={canManage} />;
-    if (section === 'reports') return <AttendanceReportsPanel siteId={siteId} />;
+    if (section === 'reports') return <AttendanceReportsPanel siteId={siteId} employees={employees} />;
 
     return <>
       <div className={styles.metrics}>
@@ -166,10 +187,10 @@ export function Rrhh({ section }: { section: RrhhSection }) {
     onQueryChange={setQuery}
     onAlertSelect={target => navigate(target)}
     onAlertsClick={() => document.getElementById('rrhh-attention-required')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-    onLogout={() => { logout(); navigate('/login', { replace: true }); }}
+    onOpenProfile={() => setProfileModalOpen(true)}
   /> : undefined;
   return <main className={`main ${styles.page}`} id="main-content">
-    <PageHeader icon={<Users />} title={SECTION_META[section].title} subtitle={SECTION_META[section].subtitle} metadata={overviewHeader ?? (section === 'configuration' || section === 'schedules' ? 'Alcance empresarial' : selectedSite?.name ?? (canViewAllSites ? 'Todas las sedes' : user?.sede_nombre ?? 'Sede operativa'))} tone={section === 'overview' ? 'corporate' : 'brand'} />
+    <PageHeader icon={section === 'overview' ? <User /> : <Users />} title={section === 'overview' ? getOverviewTitle(user?.nombre) : SECTION_META[section].title} subtitle={SECTION_META[section].subtitle} metadata={overviewHeader ?? (section === 'configuration' || section === 'schedules' ? 'Alcance empresarial' : selectedSite?.name ?? (canViewAllSites ? 'Todas las sedes' : user?.sede_nombre ?? 'Sede operativa'))} tone={section === 'overview' ? 'corporate' : 'brand'} />
     <section className={styles.content}>
       {section !== 'overview' && <div className={styles.headingRow}>
         <div className={styles.sectionContext}><span>Recursos Humanos</span><strong>{SECTION_META[section].title}</strong></div>
@@ -182,5 +203,6 @@ export function Rrhh({ section }: { section: RrhhSection }) {
     </section>
     <EmployeeModal open={editing !== null} siteId={siteId} employee={editing === 'new' ? null : editing} sites={catalogs.sites} roles={catalogs.roles} schedules={catalogs.schedules} onClose={() => setEditing(null)} onSave={saveEmployee} />
     <ActivationModal employee={activating} onClose={() => setActivating(null)} />
+    <ProfileModal open={profileModalOpen} user={user} onClose={() => setProfileModalOpen(false)} onSave={saveProfile} />
   </main>;
 }

@@ -47,7 +47,7 @@ function EmployeeRow({ employee }: { employee: AttendanceDashboardEmployee }) {
     <tr>
       <td>
         <div className={styles.person}>
-          <span aria-hidden="true"><UserRound /></span>
+          <span className={styles.avatarPill} aria-hidden="true"><UserRound /></span>
           <div><strong title={`${employee.names} ${employee.last_names}`}>{employee.names} {employee.last_names}</strong></div>
         </div>
       </td>

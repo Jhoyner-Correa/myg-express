@@ -32,7 +32,7 @@ export function DailySummaryCard({ attendance, trackedEmployees, refreshing, onR
       <ul>
         <li><i className={styles.green} /><span>Con asistencia</span><strong>{summary?.present ?? 0}</strong></li>
         <li><i className={styles.amber} /><span>Tardanzas incluidas</span><strong>{summary?.late ?? 0}</strong></li>
-        <li><i className={styles.gray} /><span>Sin registrar</span><strong>{summary?.without_record ?? 0}</strong></li>
+        <li><i className={styles.purple} /><span>Sin registrar</span><strong>{summary?.without_record ?? 0}</strong></li>
         <li><i className={styles.indigo} /><span>Con rastreo GPS</span><strong>{trackedEmployees}</strong></li>
       </ul>
     </div>

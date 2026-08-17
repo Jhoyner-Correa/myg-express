@@ -8,7 +8,7 @@
     "dev:worker": "ts-node-dev --respawn --transpile-only src/worker.ts",
     "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "npm run clean && tsc",
-    "test": "npm run build && node --test test/authorization.test.js test/time.test.js test/savarScanDomain.test.js test/deliveryDomain.test.js test/urbanoRouteDomain.test.js test/noticeImportDomain.test.js test/attendancePolicy.test.js test/mobileSignature.test.js test/employeePolicy.test.js test/attendanceDashboard.test.js test/rrhhIncidents.test.js test/schedulePolicy.test.js test/workCalendarPolicy.test.js",
+    "test": "npm run build && node --test test/authorization.test.js test/time.test.js test/savarScanDomain.test.js test/deliveryDomain.test.js test/urbanoRouteDomain.test.js test/noticeImportDomain.test.js test/attendancePolicy.test.js test/mobileSignature.test.js test/employeePolicy.test.js test/attendanceDashboard.test.js test/rrhhIncidents.test.js test/schedulePolicy.test.js test/workCalendarPolicy.test.js test/authProfile.test.js",
     "test:authorization": "npm run build && node --test test/authorization.test.js test/time.test.js",
     "db:preflight": "npm run build && node dist/scripts/checkDatabaseIntegrity.js",
     "db:migrate": "npm run build && node dist/scripts/runMigrations.js",

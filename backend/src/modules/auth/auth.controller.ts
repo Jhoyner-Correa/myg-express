@@ -2,7 +2,17 @@ import { Request, Response } from 'express';
 import { loadAccessContext } from '../../core/auth/accessControl';
 import { AuthService } from './auth.service';
 
-function publicUser(user: { id: number; nombre: string; usuario: string }, access: Awaited<ReturnType<typeof loadAccessContext>>) {
+function publicUser(
+  user: {
+    id: number;
+    nombre: string;
+    usuario: string;
+    estado: 'activo' | 'inactivo';
+    ultimoAccesoAt: Date | null;
+    passwordActualizadoAt: Date | null;
+  },
+  access: Awaited<ReturnType<typeof loadAccessContext>>,
+) {
   return {
     id: user.id,
     nombre: user.nombre,
@@ -16,6 +26,9 @@ function publicUser(user: { id: number; nombre: string; usuario: string }, acces
     sede_ids: access.siteIds,
     sede_nombre: access.siteName || 'Administración Central',
     permisos: access.permissions,
+    estado: user.estado,
+    ultimo_acceso_at: user.ultimoAccesoAt?.toISOString() ?? null,
+    password_actualizado_at: user.passwordActualizadoAt?.toISOString() ?? null,
   };
 }
 
