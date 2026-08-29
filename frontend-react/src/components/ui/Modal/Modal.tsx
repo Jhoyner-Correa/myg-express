@@ -7,6 +7,9 @@ type ModalProps = {
   open: boolean;
   title: string;
   description?: string;
+  icon?: ReactNode;
+  iconVariant?: 'panel' | 'plain';
+  headerAccessory?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
   onClose: () => void;
@@ -14,7 +17,7 @@ type ModalProps = {
   className?: string;
 };
 
-export function Modal({ open, title, description, children, footer, onClose, maxWidth = 560, className = '' }: ModalProps) {
+export function Modal({ open, title, description, icon, iconVariant = 'panel', headerAccessory, children, footer, onClose, maxWidth = 560, className = '' }: ModalProps) {
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLElement>(null);
@@ -56,7 +59,8 @@ export function Modal({ open, title, description, children, footer, onClose, max
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', onKeyDown);
     window.requestAnimationFrame(() => {
-      const initialFocus = dialog?.querySelector<HTMLElement>('[autofocus], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
+      const initialFocus = dialog?.querySelector<HTMLElement>('[autofocus]')
+        || dialog?.querySelector<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
       (initialFocus || dialog)?.focus();
     });
     return () => {
@@ -83,13 +87,19 @@ export function Modal({ open, title, description, children, footer, onClose, max
         style={{ maxWidth }}
       >
         <header className={styles.header}>
-          <div>
-            <h2 id={titleId}>{title}</h2>
-            {description && <p id={descriptionId}>{description}</p>}
+          <div className={styles.heading}>
+            {icon && <span className={[styles.icon, iconVariant === 'plain' ? styles.iconPlain : ''].filter(Boolean).join(' ')} aria-hidden="true">{icon}</span>}
+            <div>
+              <h2 id={titleId}>{title}</h2>
+              {description && <p id={descriptionId}>{description}</p>}
+            </div>
           </div>
-          <button className={styles.close} type="button" aria-label="Cerrar" onClick={onClose}>
-            <X aria-hidden="true" />
-          </button>
+          <div className={styles.headerActions}>
+            {headerAccessory}
+            <button className={styles.close} type="button" aria-label="Cerrar" onClick={onClose}>
+              <X aria-hidden="true" />
+            </button>
+          </div>
         </header>
         <div className={styles.body}>{children}</div>
         {footer && <footer className={styles.footer}>{footer}</footer>}

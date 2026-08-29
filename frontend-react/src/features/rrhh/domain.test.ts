@@ -3,13 +3,18 @@ import { buildWeeklyAssignments, validateEmployeeInput, validateWorkCalendarInpu
 import type { EmployeeInput, WorkCalendarInput } from './types';
 
 const validEmployee: EmployeeInput = {
-  codigo_empleado: 'MYG-001', sede_id: 2, cargo_id: 1, dni: '12345678', nombres: 'Carlos',
-  apellidos: 'Ramírez', sexo: 'M', telefono: '999888777', email: 'carlos@myg.pe',
+  sede_id: 2, cargo_id: 1, dni: '12345678', ruc: '20601030013', nombres: 'Carlos',
+  apellidos: 'Ramírez', sexo: 'M', telefono: '999888777', email: 'carlos@myg.pe', direccion: 'Av. Principal 123',
   fecha_ingreso: '2026-08-13', tipo_rastreo: 'SOLO_MARCACION', estado: 'ACTIVO', observaciones: '',
 };
 
 describe('RR. HH. domain', () => {
   it('valida un empleado completo', () => expect(validateEmployeeInput(validEmployee)).toBeNull());
+  it('permite registrar un empleado sin correo', () => expect(validateEmployeeInput({ ...validEmployee, email: '' })).toBeNull());
+  it('considera un correo en blanco como no informado', () => expect(validateEmployeeInput({ ...validEmployee, email: '   ' })).toBeNull());
+  it('permite registrar un empleado sin RUC', () => expect(validateEmployeeInput({ ...validEmployee, ruc: '' })).toBeNull());
+  it('rechaza un RUC con dígito verificador incorrecto', () => expect(validateEmployeeInput({ ...validEmployee, ruc: '20601030014' })).toContain('RUC'));
+  it('exige una dirección domiciliaria', () => expect(validateEmployeeInput({ ...validEmployee, direccion: ' ' })).toContain('dirección'));
   it('exige una sede concreta al registrar personal', () => expect(validateEmployeeInput({ ...validEmployee, sede_id: 0 })).toContain('sede'));
   it('rechaza documentos inválidos', () => expect(validateEmployeeInput({ ...validEmployee, dni: '12A' })).toContain('dígitos'));
   it('construye una semana ordenada y sin duplicados', () => {

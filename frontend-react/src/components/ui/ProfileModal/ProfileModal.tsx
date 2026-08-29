@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Building2, Check, CheckCircle2, Eye, EyeOff, KeyRound, Lock, Pencil, ShieldCheck, User, UserCheck, UserCog, X } from 'lucide-react';
+import { Building2, Camera, Check, CheckCircle2, Eye, EyeOff, KeyRound, Lock, Pencil, ShieldCheck, Trash2, User, UserCheck, UserCog, X } from 'lucide-react';
 import { getApiErrorMessage } from '../../../core/api/errors';
 import type { UserSession } from '../../../core/auth/authState';
 import type { ProfileUpdateInput } from '../../../core/auth/profile.service';
+import { resolveUserAvatar } from '../../../core/auth/user-avatar';
 import { showToast } from '../../../core/utils/toast';
 import { Button } from '../Button/Button';
 import styles from './ProfileModal.module.css';
@@ -13,6 +14,8 @@ type Props = {
   user: UserSession | null;
   onClose: () => void;
   onSave: (input: ProfileUpdateInput) => Promise<UserSession>;
+  onPhotoUpload?: (file: File) => Promise<UserSession>;
+  onPhotoDelete?: () => Promise<UserSession>;
 };
 
 function formatDisplayName(name?: string) {
@@ -24,18 +27,9 @@ function formatDisplayName(name?: string) {
     .join(' ');
 }
 
-function initials(name?: string) {
-  return (name || 'AD')
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(part => part.charAt(0))
-    .join('')
-    .toLocaleUpperCase('es');
-}
-
-export function ProfileModal({ open, user, onClose, onSave }: Props) {
+export function ProfileModal({ open, user, onClose, onSave, onPhotoUpload, onPhotoDelete }: Props) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [nombre, setNombre] = useState('');
   const [usuario, setUsuario] = useState('');
@@ -51,6 +45,7 @@ export function ProfileModal({ open, user, onClose, onSave }: Props) {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -180,9 +175,52 @@ export function ProfileModal({ open, user, onClose, onSave }: Props) {
   const roleLabel = user.rol_label || user.rol || 'Administrador general';
   const siteLabel = user.sede_nombre || (user.alcance === 'EMPRESA' ? 'Toda la empresa' : 'Sede asignada');
 
+  const handlePhotoSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !onPhotoUpload) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('La foto no debe superar los 2 MB.', 'warning');
+      return;
+    }
+    setPhotoBusy(true);
+    try {
+      await onPhotoUpload(file);
+      showToast('Foto de perfil actualizada.', 'success');
+    } catch (error) {
+      showToast(getApiErrorMessage(error, 'No se pudo actualizar la foto.'), 'error');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const removePhoto = async () => {
+    if (!onPhotoDelete || !user.foto) return;
+    setPhotoBusy(true);
+    try {
+      await onPhotoDelete();
+      showToast('Foto de perfil eliminada.', 'success');
+    } catch (error) {
+      showToast(getApiErrorMessage(error, 'No se pudo eliminar la foto.'), 'error');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const profileAvatar = () => <span className={styles.userHeroAvatar}>
+    <img src={resolveUserAvatar(user)} alt={user.foto ? 'Foto de perfil' : 'Avatar ejecutivo del perfil'} />
+  </span>;
+
   return createPortal(
     <div className={styles.overlay} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <div ref={modalRef} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="profile-modal-title" tabIndex={-1}>
+      <div
+        ref={modalRef}
+        className={`${styles.modal} ${!isEditing ? styles.profileViewModal : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-modal-title"
+        tabIndex={-1}
+      >
         <header className={styles.header}>
           <div className={styles.headerTitle}>
             <span className={styles.headerTitleIcon} aria-hidden="true"><UserCog /></span>
@@ -206,7 +244,11 @@ export function ProfileModal({ open, user, onClose, onSave }: Props) {
           <form onSubmit={handleSubmit}>
             <div className={styles.body}>
               <div className={styles.userHeroCard}>
-                <span className={styles.userHeroAvatar}>{initials(nombre || user.nombre)}</span>
+                <div className={styles.photoControl}>
+                  {profileAvatar()}
+                  {onPhotoUpload && <button type="button" className={styles.photoButton} disabled={photoBusy} aria-label="Cambiar foto de perfil" onClick={() => photoInputRef.current?.click()}><Camera /></button>}
+                  <input ref={photoInputRef} className={styles.photoInput} aria-label="Seleccionar foto de perfil" type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoSelection} />
+                </div>
                 <div className={styles.userHeroInfo}>
                   <div className={styles.userHeroName}>
                     <strong>{nombre || formatDisplayName(user.nombre)}</strong>
@@ -216,6 +258,7 @@ export function ProfileModal({ open, user, onClose, onSave }: Props) {
                     <span className={styles.userPill}><ShieldCheck /> {roleLabel}</span>
                     <span className={styles.userPill}><Building2 /> {siteLabel}</span>
                   </div>
+                  {user.foto && onPhotoDelete && <button type="button" className={styles.removePhotoButton} disabled={photoBusy} onClick={removePhoto}><Trash2 /> Quitar foto</button>}
                 </div>
               </div>
 
@@ -425,8 +468,8 @@ export function ProfileModal({ open, user, onClose, onSave }: Props) {
         ) : (
           <div>
             <div className={styles.body}>
-              <div className={styles.userHeroCard}>
-                <span className={styles.userHeroAvatar}>{initials(user.nombre)}</span>
+              <div className={`${styles.userHeroCard} ${styles.profileViewHero}`}>
+                {profileAvatar()}
                 <div className={styles.userHeroInfo}>
                   <div className={styles.userHeroName}>
                     <strong>{formatDisplayName(user.nombre)}</strong>

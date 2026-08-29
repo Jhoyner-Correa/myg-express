@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { BriefcaseBusiness, KeyRound, MapPin, Pencil, Search, User, UserCheck, UserPlus, Users } from 'lucide-react';
+import { CalendarClock, MapPin, User, Users, WalletCards } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button/Button';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
@@ -8,15 +8,16 @@ import { PageLoader } from '../../components/ui/PageLoader/PageLoader';
 import { getApiErrorMessage } from '../../core/api/errors';
 import { useAuth } from '../../core/auth/authState';
 import { PERMISSIONS, userHasPermission } from '../../core/auth/permissions';
-import { updateProfile, type ProfileUpdateInput } from '../../core/auth/profile.service';
+import { deleteProfilePhoto, updateProfile, updateProfilePhoto, type ProfileUpdateInput } from '../../core/auth/profile.service';
 import { showToast } from '../../core/utils/toast';
 import { ProfileModal } from '../../components/ui/ProfileModal/ProfileModal';
 import { AbsencePanel } from './components/AbsencePanel';
 import { ActivationModal } from './components/ActivationModal';
 import { AttendancePanel } from './components/AttendancePanel';
-import { AttendanceReportsPanel } from './components/AttendanceReportsPanel';
 import { ConfigurationPanel } from './components/ConfigurationPanel';
 import { EmployeeModal } from './components/EmployeeModal';
+import { PersonnelDirectory } from './components/PersonnelDirectory';
+import { PaymentsPanel } from './components/PaymentsPanel';
 import { RrhhExecutiveHeader } from './components/RrhhExecutiveHeader';
 import { RrhhOverview } from './components/RrhhOverview';
 import type { ExecutiveAlert } from './components/executive-alerts';
@@ -28,6 +29,19 @@ const emptyCatalogs: RrhhCatalogs = { sites: [], roles: [], schedules: [] };
 
 function businessMonth() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit' }).format(new Date());
+}
+
+function businessDate() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
+function dateInMonth(currentDate: string, month: string) {
+  const requestedDay = Number(currentDate.slice(8, 10));
+  const year = Number(month.slice(0, 4));
+  const monthNumber = Number(month.slice(5, 7));
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const candidate = `${month}-${String(Math.min(requestedDay, lastDay)).padStart(2, '0')}`;
+  return candidate > businessDate() ? businessDate() : candidate;
 }
 
 function getOverviewTitle(name?: string) {
@@ -42,18 +56,24 @@ function getOverviewTitle(name?: string) {
   return formattedName ? `${greeting}, ${formattedName}!` : `${greeting}!`;
 }
 
-function monthOptions(centerMonth: string) {
+function monthOptions(centerMonth: string, selectedMonth?: string) {
   const center = new Date(`${centerMonth}-01T12:00:00Z`);
-  return Array.from({ length: 13 }, (_, index) => {
+  const options = Array.from({ length: 61 }, (_, index) => {
     const value = new Date(center);
-    value.setUTCMonth(value.getUTCMonth() + index - 6);
+    value.setUTCMonth(value.getUTCMonth() + index - 48);
     const key = value.toISOString().slice(0, 7);
     const label = new Intl.DateTimeFormat('es-PE', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(value);
     return { key, label: label.charAt(0).toLocaleUpperCase('es') + label.slice(1) };
   });
+  if (selectedMonth && !options.some(option => option.key === selectedMonth)) {
+    const value = new Date(`${selectedMonth}-01T12:00:00Z`);
+    const label = new Intl.DateTimeFormat('es-PE', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(value);
+    options.push({ key: selectedMonth, label: label.charAt(0).toLocaleUpperCase('es') + label.slice(1) });
+  }
+  return options.sort((left, right) => right.key.localeCompare(left.key));
 }
 
-export type RrhhSection = 'overview' | 'people' | 'attendance' | 'requests' | 'schedules' | 'reports' | 'configuration';
+export type RrhhSection = 'overview' | 'people' | 'attendance' | 'requests' | 'schedules' | 'payments' | 'configuration';
 
 const SECTION_META: Record<RrhhSection, { title: string; subtitle: string }> = {
   overview: { title: 'Resumen de Recursos Humanos', subtitle: 'Aquí tienes el resumen de Recursos Humanos de hoy' },
@@ -61,7 +81,7 @@ const SECTION_META: Record<RrhhSection, { title: string; subtitle: string }> = {
   attendance: { title: 'Asistencia', subtitle: 'Marcaciones y cumplimiento de jornada' },
   requests: { title: 'Solicitudes', subtitle: 'Permisos, vacaciones y decisiones administrativas' },
   schedules: { title: 'Horarios y calendario', subtitle: 'Jornadas, semana laboral y días especiales' },
-  reports: { title: 'Reportes', subtitle: 'Consolidados operativos y exportación de asistencia' },
+  payments: { title: 'Pagos mensuales', subtitle: 'Honorarios, horas extras y depósitos bancarios' },
   configuration: { title: 'Configuración de RR. HH.', subtitle: 'Cargos y parámetros operativos por sede' },
 };
 
@@ -79,6 +99,7 @@ export function Rrhh({ section }: { section: RrhhSection }) {
   const [error, setError] = useState<unknown>(null);
   const [query, setQuery] = useState('');
   const [overviewMonth, setOverviewMonth] = useState(businessMonth);
+  const [attendanceDate, setAttendanceDate] = useState(businessDate);
   const [overviewAlerts, setOverviewAlerts] = useState<ExecutiveAlert[]>([]);
   const [editing, setEditing] = useState<Employee | 'new' | null>(null);
   const [activating, setActivating] = useState<Employee | null>(null);
@@ -89,7 +110,17 @@ export function Rrhh({ section }: { section: RrhhSection }) {
     updateUser?.(updatedUser);
     return updatedUser;
   };
-  const overviewMonths = useMemo(() => monthOptions(businessMonth()), []);
+  const saveProfilePhoto = async (file: File) => {
+    const updatedUser = await updateProfilePhoto(file);
+    updateUser?.(updatedUser);
+    return updatedUser;
+  };
+  const removeProfilePhoto = async () => {
+    const updatedUser = await deleteProfilePhoto();
+    updateUser?.(updatedUser);
+    return updatedUser;
+  };
+  const overviewMonths = useMemo(() => monthOptions(businessMonth(), overviewMonth), [overviewMonth]);
 
   useEffect(() => {
     if (user?.alcance === 'SEDE' && user.sede_id) {
@@ -126,15 +157,6 @@ export function Rrhh({ section }: { section: RrhhSection }) {
     return () => controller.abort();
   }, [loadEmployees, siteId]);
 
-  const filtered = useMemo(() => {
-    const term = query.trim().toLocaleLowerCase('es');
-    if (!term) return employees;
-    return employees.filter(employee => `${employee.nombres} ${employee.apellidos} ${employee.dni} ${employee.codigoEmpleado} ${employee.cargoNombre ?? ''} ${employee.sedeNombre ?? ''}`.toLocaleLowerCase('es').includes(term));
-  }, [employees, query]);
-  const activeCount = employees.filter(employee => employee.estado === 'ACTIVO').length;
-  const trackedCount = employees.filter(employee => employee.tipoRastreo === 'CONTINUO').length;
-  const selectedSite = catalogs.sites.find(site => site.id === siteId);
-
   const reload = useCallback(async () => { await loadEmployees(siteId); }, [loadEmployees, siteId]);
 
   const saveEmployee = async (input: EmployeeInput, assignments: ScheduleAssignment[], effectiveFrom: string) => {
@@ -152,57 +174,98 @@ export function Rrhh({ section }: { section: RrhhSection }) {
     if (catalogs.sites.length === 0) return <div className={styles.errorState}>No hay sedes disponibles dentro de tu alcance.</div>;
     if ((section === 'configuration' || section === 'schedules') && configurationSiteId !== null) return <ConfigurationPanel view={section === 'schedules' ? 'schedules' : 'settings'} siteId={configurationSiteId} sites={catalogs.sites} roles={catalogs.roles} schedules={catalogs.schedules} canManage={canConfigure} onSiteChange={setConfigurationSiteId} onCatalogChanged={() => loadCatalogs()} />;
     if (section === 'overview') return <RrhhOverview siteId={siteId} employees={employees} query={query} agendaMonth={overviewMonth} onAgendaMonthChange={setOverviewMonth} onAlertsChange={setOverviewAlerts} />;
-    if (section === 'attendance') return <AttendancePanel siteId={siteId} canManage={canManage} />;
-    if (section === 'requests') return <AbsencePanel siteId={siteId} employees={employees} canManage={canManage} />;
-    if (section === 'reports') return <AttendanceReportsPanel siteId={siteId} employees={employees} />;
-
-    return <>
-      <div className={styles.metrics}>
-        <article><span className={styles.metricBlue}><Users /></span><div><p>Personal registrado</p><strong>{employees.length}</strong><small>{selectedSite ? `En ${selectedSite.name}` : 'En toda la empresa'}</small></div></article>
-        <article><span className={styles.metricGreen}><UserCheck /></span><div><p>Colaboradores activos</p><strong>{activeCount}</strong><small>{employees.length ? Math.round(activeCount / employees.length * 100) : 0}% del personal</small></div></article>
-        <article><span className={styles.metricOrange}><BriefcaseBusiness /></span><div><p>Repartidores monitoreados</p><strong>{trackedCount}</strong><small>Con seguimiento continuo</small></div></article>
-      </div>
-      <article className={styles.card}>
-        <header className={styles.toolbar}><div><h2>Directorio de personal</h2><p>Gestiona los datos laborales y accesos a la aplicación móvil.</p></div><div className={styles.toolbarActions}><label className={styles.search}><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar colaborador..." /></label></div></header>
-        {loading ? <PageLoader compact label="Actualizando personal" /> : <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Colaborador</th><th>Sede</th><th>Documento</th><th>Cargo</th><th>Seguimiento</th><th>Estado</th><th aria-label="Acciones" /></tr></thead><tbody>
-          {filtered.map(employee => <tr key={employee.id}><td><div className={styles.person}><span>{employee.nombres.charAt(0)}{employee.apellidos.charAt(0)}</span><div><strong>{employee.nombres} {employee.apellidos}</strong><small>{employee.codigoEmpleado}</small></div></div></td><td>{employee.sedeNombre || selectedSite?.name || 'Sin sede'}</td><td>{employee.dni}</td><td>{employee.cargoNombre || 'Sin cargo'}</td><td>{employee.tipoRastreo === 'CONTINUO' ? 'Continuo' : employee.tipoRastreo === 'NINGUNO' ? 'Sin rastreo' : 'Solo marcación'}</td><td><span className={`${styles.status} ${styles[`status${employee.estado}`]}`}><i />{employee.estado === 'ACTIVO' ? 'Activo' : employee.estado === 'INACTIVO' ? 'Inactivo' : 'Suspendido'}</span></td><td><div className={styles.actions}>{canManage && <><button title="Editar colaborador" aria-label={`Editar a ${employee.nombres}`} onClick={() => setEditing(employee)}><Pencil /></button><button title="Generar acceso móvil" aria-label={`Generar acceso para ${employee.nombres}`} onClick={() => setActivating(employee)}><KeyRound /></button></>}</div></td></tr>)}
-          {!filtered.length && <tr><td colSpan={7}><div className={styles.empty}>{query ? 'No encontramos colaboradores con ese criterio.' : 'Aún no hay colaboradores registrados en este alcance.'}</div></td></tr>}
-        </tbody></table></div>}
-      </article>
-    </>;
+    if (section === 'attendance') return <AttendancePanel siteId={siteId} sites={catalogs.sites} canViewAllSites={canViewAllSites} canManage={canManage} employees={employees} date={attendanceDate} onSiteChange={setSiteId} onDateChange={setAttendanceDate} />;
+    if (section === 'requests') return <AbsencePanel
+      siteId={siteId}
+      sites={catalogs.sites}
+      employees={employees}
+      canManage={canManage}
+      canViewAllSites={canViewAllSites}
+      onSiteChange={setSiteId}
+    />;
+    if (section === 'payments') return <PaymentsPanel
+      month={overviewMonth}
+      siteId={siteId}
+      sites={catalogs.sites}
+      canManage={canManage}
+      onSiteChange={setSiteId}
+      onMonthChange={setOverviewMonth}
+    />;
+    return <PersonnelDirectory
+      employees={employees}
+      sites={catalogs.sites}
+      siteId={siteId}
+      query={query}
+      loading={loading}
+      canManage={canManage}
+      canViewAllSites={canViewAllSites}
+      onQueryChange={setQuery}
+      onSiteChange={setSiteId}
+      onAdd={() => setEditing('new')}
+      onEdit={setEditing}
+      onActivate={setActivating}
+      onRefresh={reload}
+    />;
   };
 
-  const showScopePicker = section !== 'overview' && section !== 'configuration' && section !== 'schedules';
-  const overviewHeader = section === 'overview' ? <RrhhExecutiveHeader
+  const showScopePicker = section !== 'overview' && section !== 'people' && section !== 'configuration' && section !== 'schedules' && section !== 'payments';
+  const executiveHeaderMonth = section === 'attendance' ? attendanceDate.slice(0, 7) : overviewMonth;
+  const executiveHeaderMonths = section === 'attendance'
+    ? overviewMonths.filter(option => option.key <= businessMonth())
+    : overviewMonths;
+  const executiveHeader = <RrhhExecutiveHeader
     user={user}
     sites={catalogs.sites}
     canViewAllSites={canViewAllSites}
     siteId={siteId}
-    month={overviewMonth}
-    months={overviewMonths}
+    month={executiveHeaderMonth}
+    months={executiveHeaderMonths}
     query={query}
     alerts={overviewAlerts}
     onSiteChange={setSiteId}
-    onMonthChange={setOverviewMonth}
+    onMonthChange={month => section === 'attendance' ? setAttendanceDate(current => dateInMonth(current, month)) : setOverviewMonth(month)}
     onQueryChange={setQuery}
     onAlertSelect={target => navigate(target)}
-    onAlertsClick={() => document.getElementById('rrhh-attention-required')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+    onAlertsClick={() => {
+      if (section !== 'overview') {
+        navigate('/rrhh/resumen');
+        return;
+      }
+      document.getElementById('rrhh-attention-required')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }}
     onOpenProfile={() => setProfileModalOpen(true)}
-  /> : undefined;
+    compact={section !== 'overview' && section !== 'attendance'}
+    showSite={section !== 'attendance' && section !== 'payments'}
+    showSearch={section !== 'attendance'}
+    showPeriod={section !== 'attendance'}
+  />;
   return <main className={`main ${styles.page}`} id="main-content">
-    <PageHeader icon={section === 'overview' ? <User /> : <Users />} title={section === 'overview' ? getOverviewTitle(user?.nombre) : SECTION_META[section].title} subtitle={SECTION_META[section].subtitle} metadata={overviewHeader ?? (section === 'configuration' || section === 'schedules' ? 'Alcance empresarial' : selectedSite?.name ?? (canViewAllSites ? 'Todas las sedes' : user?.sede_nombre ?? 'Sede operativa'))} tone={section === 'overview' ? 'corporate' : 'brand'} />
+    <PageHeader
+      icon={section === 'overview' ? <User /> : section === 'attendance' ? <CalendarClock /> : section === 'payments' ? <WalletCards /> : <Users />}
+      title={section === 'overview' ? getOverviewTitle(user?.nombre) : SECTION_META[section].title}
+      subtitle={SECTION_META[section].subtitle}
+      metadata={executiveHeader}
+      tone={section === 'overview' ? 'corporate' : section === 'people' ? 'blue' : 'brand'}
+      size={section === 'people' ? 'large' : 'default'}
+    />
     <section className={styles.content}>
-      {section !== 'overview' && <div className={styles.headingRow}>
+      {section !== 'overview' && section !== 'people' && section !== 'attendance' && section !== 'schedules' && section !== 'requests' && section !== 'payments' && <div className={styles.headingRow}>
         <div className={styles.sectionContext}><span>Recursos Humanos</span><strong>{SECTION_META[section].title}</strong></div>
         <div className={styles.headingActions}>
           {showScopePicker && <div className={styles.sitePicker}><MapPin size={15} /><select aria-label="Alcance de sede" value={siteId ?? 'all'} onChange={event => setSiteId(event.target.value === 'all' ? null : Number(event.target.value))}>{canViewAllSites && <option value="all">Todas las sedes</option>}{catalogs.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></div>}
-          {canManage && section === 'people' && <Button icon={<UserPlus size={16} />} onClick={() => setEditing('new')}>Registrar colaborador</Button>}
         </div>
       </div>}
       {renderContent()}
     </section>
     <EmployeeModal open={editing !== null} siteId={siteId} employee={editing === 'new' ? null : editing} sites={catalogs.sites} roles={catalogs.roles} schedules={catalogs.schedules} onClose={() => setEditing(null)} onSave={saveEmployee} />
-    <ActivationModal employee={activating} onClose={() => setActivating(null)} />
-    <ProfileModal open={profileModalOpen} user={user} onClose={() => setProfileModalOpen(false)} onSave={saveProfile} />
+    <ActivationModal employee={activating} onClose={() => setActivating(null)} onChanged={reload} />
+    <ProfileModal
+      open={profileModalOpen}
+      user={user}
+      onClose={() => setProfileModalOpen(false)}
+      onSave={saveProfile}
+      onPhotoUpload={saveProfilePhoto}
+      onPhotoDelete={removeProfilePhoto}
+    />
   </main>;
 }

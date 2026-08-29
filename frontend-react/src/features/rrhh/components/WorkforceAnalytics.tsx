@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react';
-import { MoreVertical, UsersRound } from 'lucide-react';
+import { UsersRound } from 'lucide-react';
 import type { AttendanceTrendPoint } from '../types';
 import styles from './WorkforceAnalytics.module.css';
 
 type Props = {
   trend: AttendanceTrendPoint[];
-  onOpenReport: () => void;
   attentionPanel: ReactNode;
   performancePanel: ReactNode;
   locationPanel: ReactNode;
@@ -56,7 +55,7 @@ function shortDate(date: string) {
   return `${day.charAt(0).toUpperCase()}${day.slice(1)} ${value.getDate()}`;
 }
 
-export function WorkforceAnalytics({ trend, onOpenReport, attentionPanel, performancePanel, locationPanel }: Props) {
+export function WorkforceAnalytics({ trend, attentionPanel, performancePanel, locationPanel }: Props) {
   const attendanceLines = pointSegments(trend, 'attendance_rate');
   const tardinessLines = pointSegments(trend, 'tardiness_rate');
 
@@ -66,7 +65,7 @@ export function WorkforceAnalytics({ trend, onOpenReport, attentionPanel, perfor
     <div className={styles.performanceSlot}>{performancePanel}</div>
 
     <article className={`${styles.card} ${styles.weeklyCard}`}>
-      <header><div><span><UsersRound /></span><h2>Asistencia semanal</h2></div><button type="button" className={styles.chartMenu} aria-label="Abrir reporte semanal" title="Abrir reporte semanal" onClick={onOpenReport}><MoreVertical /></button></header>
+      <header><div><span><UsersRound /></span><h2>Asistencia semanal</h2></div></header>
       <div className={styles.legend}><span><i className={styles.blue} />Asistencia (%)</span><span><i className={styles.orange} />Tardanzas</span></div>
       <div className={styles.lineChart}>{trend.length ? <svg viewBox="0 0 520 178" role="img" aria-label="Tendencia semanal de asistencia y tardanzas">
         <defs><linearGradient id="attendance-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#347ddc" stopOpacity=".2" /><stop offset="1" stopColor="#347ddc" stopOpacity=".015" /></linearGradient><linearGradient id="tardiness-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#f27618" stopOpacity=".16" /><stop offset="1" stopColor="#f27618" stopOpacity=".015" /></linearGradient></defs>

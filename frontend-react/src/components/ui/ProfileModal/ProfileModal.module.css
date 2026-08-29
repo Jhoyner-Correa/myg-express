@@ -12,7 +12,7 @@
 
 .modal {
   display: flex;
-  width: min(520px, 95vw);
+  width: min(640px, 95vw);
   max-height: calc(100vh - 32px);
   flex-direction: column;
   overflow: hidden;
@@ -92,74 +92,142 @@
 .body {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 22px;
+  gap: 18px;
+  padding: 24px 28px 26px;
   overflow-y: auto;
 }
 
 /* User Hero Banner */
 .userHeroCard {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 18px 20px;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.03);
+  justify-content: center;
+  gap: 11px;
+  padding: 4px 20px 24px;
+  border: 0;
+  border-bottom: 1px solid #e1e8f0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
 }
 
 .userHeroAvatar {
   display: grid;
-  width: 54px;
-  height: 54px;
-  flex: 0 0 54px;
+  width: 104px;
+  height: 104px;
+  flex: 0 0 104px;
   place-items: center;
-  border: 2px solid #ffffff;
+  border: 4px solid #ffffff;
   border-radius: 50%;
-  background: linear-gradient(135deg, #334155 0%, #0f172a 100%);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+  outline: 1px solid #cbd9e9;
+  background: #f5f8fc;
+  box-shadow: 0 12px 30px rgba(22, 50, 84, .16);
   color: #ffffff;
   font-size: 1.15rem;
   font-weight: 800;
+  overflow: hidden;
 }
+
+.userHeroAvatar img { width: 100%; height: 100%; object-fit: cover; }
+.photoControl { position: relative; display: grid; flex: 0 0 104px; place-items: center; }
+.photoButton { position: absolute; right: -3px; bottom: 2px; display: grid; width: 31px; height: 31px; place-items: center; border: 3px solid #fff; border-radius: 50%; background: #1f5da8; color: #fff; box-shadow: 0 4px 11px rgba(20, 67, 124, .28); cursor: pointer; }
+.photoButton svg { width: 14px; height: 14px; }
+.photoButton:disabled { cursor: wait; opacity: .65; }
+.photoInput { display: none; }
+.removePhotoButton { display: inline-flex; width: max-content; align-items: center; gap: 5px; margin-top: 3px; padding: 0; border: 0; background: transparent; color: #b42318; font-size: .68rem; font-weight: 650; cursor: pointer; }
+.removePhotoButton svg { width: 12px; height: 12px; }
 
 .userHeroInfo {
   display: flex;
   min-width: 0;
-  flex: 1;
+  width: 100%;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 5px;
 }
 
 .userHeroName {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  width: 100%;
 }
 
 .userHeroName strong {
-  overflow: hidden;
-  color: #0f172a;
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: -0.015em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: #101b2d;
+  font-size: 1.3rem;
+  font-weight: 650;
+  letter-spacing: -.022em;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .userHeroHandle {
-  color: #64748b;
-  font-size: 0.74rem;
-  font-weight: 500;
+  color: #5d6e84;
+  font-size: .82rem;
+  font-weight: 450;
 }
 
 .userHeroBadges {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  margin-top: 2px;
+  margin-top: 6px;
+}
+
+/* La vista ejecutiva tiene una composición propia. Mantener estas reglas
+   separadas evita que los estilos del formulario vuelvan a convertir el
+   encabezado del perfil en una fila horizontal. */
+.profileViewModal {
+  width: min(680px, 95vw);
+}
+
+.userHeroCard.profileViewHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 12px;
+  padding: 8px 24px 25px;
+  border: 0;
+  border-bottom: 1px solid #dce5ef;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+}
+
+.profileViewHero .userHeroAvatar {
+  width: 112px;
+  height: 112px;
+  flex-basis: 112px;
+  outline-color: #b9cce1;
+  background: #f4f7fb;
+  box-shadow: 0 14px 34px rgba(20, 52, 88, .17);
+}
+
+.profileViewHero .userHeroInfo {
+  width: min(100%, 560px);
+  align-items: center;
+  justify-self: center;
+}
+
+.profileViewHero .userHeroName,
+.profileViewHero .userHeroBadges {
+  justify-content: center;
+}
+
+.profileViewHero .userHeroName strong {
+  font-size: 1.4rem;
+  font-weight: 660;
+}
+
+.profileViewHero .userHeroHandle {
+  font-size: .84rem;
 }
 
 .userPill {
@@ -169,45 +237,49 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: #475569;
-  font-size: 0.68rem;
-  font-weight: 700;
+  color: #334962;
+  font-size: .72rem;
+  font-weight: 570;
 }
 
 .userPill svg {
   width: 12px;
   height: 12px;
-  color: #64748b;
+  color: #245f9f;
 }
 
 /* View Mode Details Grid */
 .viewSection {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .viewGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 10px 14px;
 }
 
 .viewCard {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid #f1f5f9;
-  border-radius: 12px;
-  background: #f8fafc;
-  transition: border-color 140ms ease, background-color 140ms ease;
+  min-height: 66px;
+  padding: 11px 13px;
+  border: 1px solid #e1e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
 .viewCard:hover {
-  border-color: #e2e8f0;
-  background: #ffffff;
+  border-color: #bdccdd;
+  box-shadow: 0 5px 14px rgba(24, 48, 78, .07);
+  transform: translateY(-1px);
 }
+
+.viewCard:last-child { grid-column: 1 / -1; }
 
 .viewCardIcon {
   display: grid;
@@ -215,9 +287,9 @@
   height: 34px;
   flex: 0 0 34px;
   place-items: center;
-  border-radius: 10px;
-  background: #f1f5f9;
-  color: #475569;
+  border-radius: 0;
+  background: transparent;
+  color: #2465ad;
 }
 
 .viewCardIcon svg {
@@ -226,7 +298,7 @@
 }
 
 .viewCardIconSuccess {
-  background: #ecfdf5;
+  background: transparent;
   color: #10b981;
 }
 
@@ -238,16 +310,16 @@
 }
 
 .viewCardText small {
-  color: #64748b;
-  font-size: 0.66rem;
-  font-weight: 600;
+  color: #718096;
+  font-size: .68rem;
+  font-weight: 500;
 }
 
 .viewCardText strong {
   overflow: hidden;
   color: #0f172a;
-  font-size: 0.78rem;
-  font-weight: 750;
+  font-size: .79rem;
+  font-weight: 620;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -485,7 +557,7 @@
   gap: 12px;
   padding: 16px 22px;
   border-top: 1px solid #f1f5f9;
-  background: #f8fafc;
+  background: #ffffff;
 }
 
 /* Elegant Slate Button Overrides */
@@ -520,8 +592,10 @@
   .headerCopy h2 { font-size: .95rem; }
   .headerCopy p { font-size: .68rem; }
   .body { gap: 16px; padding: 16px; }
-  .userHeroCard { align-items: flex-start; gap: 12px; padding: 14px; }
-  .userHeroAvatar { width: 46px; height: 46px; flex-basis: 46px; }
+  .userHeroCard { align-items: center; gap: 9px; padding: 2px 8px 18px; }
+  .userHeroAvatar { width: 86px; height: 86px; flex-basis: 86px; }
+  .photoControl { flex-basis: 86px; }
+  .userHeroName strong { font-size: 1.08rem; white-space: normal; }
   .viewGrid,
   .formGrid,
   .rulesList { grid-template-columns: 1fr; }

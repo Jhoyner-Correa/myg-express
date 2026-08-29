@@ -19,10 +19,6 @@
 .weeklyCard > header > div:first-child > span { width: 30px; height: 30px; border-radius: 8px; background: #e7efff; color: #1767e8; }
 .weeklyCard > header > div:first-child > span svg { width: 16px; height: 16px; }
 .weeklyCard > header h2 { color: #16243a; font-size: .78rem; font-weight: 740; letter-spacing: -.015em; }
-.chartMenu { display: grid; width: 30px; height: 30px; padding: 0; place-items: center; border: 0; border-radius: 7px; background: transparent; color: #8a97a8; cursor: pointer; }
-.chartMenu:hover { background: #f1f4f8; color: #53657a; }
-.chartMenu:focus-visible { outline: 2px solid #75a7df; outline-offset: 1px; }
-.chartMenu svg { width: 18px; height: 18px; }
 .legend { display: flex; min-height: 25px; align-items: center; justify-content: center; gap: 22px; color: #34445a; font-size: .59rem; font-weight: 580; white-space: nowrap; }
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
 .legend i { position: relative; display: inline-block; width: 27px; height: 2px; border-radius: 999px; }

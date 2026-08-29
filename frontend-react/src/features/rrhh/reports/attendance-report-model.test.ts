@@ -14,19 +14,23 @@ function fixture(): AttendanceReportInput {
       employees: [
         {
           employee_id: 1, site_id: 1, site_name: 'Chanchamayo', employee_code: 'MYG-01', names: 'Carlos', last_names: 'Ramírez', job_role: 'Repartidor', attendance_id: 1, status: 'PRESENTE', delay_minutes: 0, overtime_minutes: 35,
-          schedule: { name: 'Oficina', start_time: '09:00:00', end_time: '18:00:00', lunch_enabled: true, lunch_start_from: '13:00:00', lunch_start_until: '14:00:00', lunch_duration_minutes: 60, return_tolerance_minutes: 5 },
+          return_delay_minutes: 0, operational_status: 'JORNADA_COMPLETADA', next_action: 'NINGUNA', requires_attention: false, completed_marks: 4, expected_marks: 4,
+          schedule: { name: 'Oficina', start_time: '09:00:00', end_time: '18:00:00', tolerance_minutes: 10, lunch_enabled: true, lunch_start_from: '13:00:00', lunch_start_until: '14:00:00', lunch_duration_minutes: 60, return_tolerance_minutes: 5 },
           marks: { entry: '2026-08-15T08:55:00-05:00', lunch_out: '2026-08-15T13:00:00-05:00', lunch_return: '2026-08-15T14:00:00-05:00', exit: '2026-08-15T18:35:00-05:00' },
         },
         {
           employee_id: 2, site_id: 1, site_name: 'Chanchamayo', employee_code: 'MYG-02', names: 'María', last_names: 'López', job_role: 'Atención al cliente', attendance_id: 2, status: 'TARDANZA', delay_minutes: 18, overtime_minutes: 0, schedule: null,
+          return_delay_minutes: 0, operational_status: 'EN_JORNADA', next_action: 'MARCAR_SALIDA', requires_attention: false, completed_marks: 1, expected_marks: 2,
           marks: { entry: '2026-08-15T09:18:00-05:00', lunch_out: null, lunch_return: null, exit: null },
         },
         {
           employee_id: 3, site_id: 2, site_name: 'Satipo', employee_code: 'MYG-03', names: 'Ana', last_names: 'Torres', job_role: 'Administración', attendance_id: null, status: 'SIN_REGISTRO', delay_minutes: 0, overtime_minutes: 0, schedule: null,
+          return_delay_minutes: 0, operational_status: 'PENDIENTE_ENTRADA', next_action: 'MARCAR_ENTRADA', requires_attention: false, completed_marks: 0, expected_marks: 2,
           marks: { entry: null, lunch_out: null, lunch_return: null, exit: null },
         },
         {
           employee_id: 4, site_id: 2, site_name: 'Satipo', employee_code: 'MYG-04', names: 'Sofía', last_names: 'Martínez', job_role: 'Almacén', attendance_id: null, status: 'VACACIONES', delay_minutes: 0, overtime_minutes: 0, schedule: null,
+          return_delay_minutes: 0, operational_status: 'VACACIONES', next_action: 'NINGUNA', requires_attention: false, completed_marks: 0, expected_marks: 2,
           marks: { entry: null, lunch_out: null, lunch_return: null, exit: null },
         },
       ],
@@ -34,7 +38,7 @@ function fixture(): AttendanceReportInput {
     trend: [{ date: '2026-08-15', working_employees: 4, present: 2, late: 1, absences: 1, authorized_absences: 1, attendance_rate: 50, tardiness_rate: 25 }],
     workflows: null,
     employees: [
-      { id: 1, codigoEmpleado: 'MYG-01', sedeId: 1, cargoId: 1, dni: '12345678', nombres: 'Carlos', apellidos: 'Ramírez', sexo: 'M', telefono: null, email: null, fechaIngreso: '2026-01-01', tipoRastreo: 'CONTINUO', estado: 'ACTIVO', observaciones: null, sedeNombre: 'Chanchamayo' },
+      { id: 1, codigoEmpleado: 'MYG-01', sedeId: 1, cargoId: 1, dni: '12345678', ruc: null, nombres: 'Carlos', apellidos: 'Ramírez', sexo: 'M', telefono: null, email: null, direccion: 'Dirección de prueba', fechaIngreso: '2026-01-01', tipoRastreo: 'CONTINUO', estado: 'ACTIVO', observaciones: null, sedeNombre: 'Chanchamayo' },
     ],
     scopeLabel: 'Todas las sedes',
     generatedAt: new Date('2026-08-15T15:00:00Z'),
@@ -71,5 +75,8 @@ describe('reporte analítico de asistencia', () => {
     expect(workbook.getWorksheet('Resumen')?.getCell('C1').value).toBe('REPORTE EJECUTIVO DE ASISTENCIA');
     const file = await workbook.xlsx.writeBuffer();
     expect(file.byteLength).toBeGreaterThan(10_000);
-  }, 20_000);
+  // ExcelJS can take longer when the complete suite runs concurrently on CI.
+  // In isolation this test completes in under one second; this timeout only
+  // absorbs shared-runner contention and still detects a real hang.
+  }, 45_000);
 });

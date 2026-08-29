@@ -1,0 +1,70 @@
+.employeeDialog { border-color: #d6e0ec; border-radius: 15px; background: #f8fafc; box-shadow: 0 28px 85px rgba(10, 28, 52, .26); }
+.employeeForm { display: grid; gap: 14px; color: #17253a; }
+.formError { padding: 11px 13px; border: 1px solid #f3c7c7; border-left: 3px solid #dc3545; border-radius: 8px; background: #fff6f6; color: #9d2029; font-size: 11px; font-weight: 620; line-height: 1.45; }
+.formColumns { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); align-items: start; gap: 14px; }
+.formSection { min-width: 0; overflow: hidden; border: 1px solid #dce4ee; border-radius: 12px; background: #fff; box-shadow: 0 2px 7px rgba(21, 43, 70, .035); }
+.sectionHeader { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 10px 14px; border-bottom: 1px solid #e4eaf1; background: #f9fbfd; }
+.sectionHeader > span { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border: 1px solid #d5e3f6; border-radius: 9px; background: #eaf2ff; color: #2468c4; }
+.employmentSection .sectionHeader > span { border-color: #dfdaf5; background: #f1edff; color: #7048c7; }
+.scheduleSection .sectionHeader > span { border-color: #d5e6ef; background: #eaf6fa; color: #177a9d; }
+.sectionHeader svg { width: 16px; height: 16px; stroke-width: 2; }
+.sectionHeader h3 { margin: 0; color: #17243a; font-size: 12px; font-weight: 760; letter-spacing: -.012em; }
+.sectionHeader p { margin: 3px 0 0; color: #7b899b; font-size: 9.5px; font-weight: 480; line-height: 1.35; }
+.sectionBody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px 12px; padding: 15px; }
+.field { display: grid; min-width: 0; align-content: start; gap: 6px; }
+.wideField { grid-column: 1 / -1; }
+.fieldLabel { display: flex; min-height: 14px; align-items: center; gap: 5px; color: #42546b; font-size: 10px; font-weight: 700; letter-spacing: .012em; }
+.fieldLabel b { color: #d34451; font-size: 11px; font-weight: 750; }
+.fieldLabel i { padding: 2px 5px; border-radius: 4px; background: #f0f3f7; color: #7a899b; font-size: 8px; font-style: normal; font-weight: 650; letter-spacing: .025em; }
+.field input, .field select, .field textarea { width: 100%; min-width: 0; min-height: 40px; padding: 0 11px; border: 1px solid #ccd7e4; border-radius: 8px; outline: none; background: #fff; color: #182a40; font-family: inherit; font-size: 11.5px; font-weight: 500; transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+.field textarea { min-height: 72px; padding-block: 9px; line-height: 1.5; resize: vertical; }
+.field input::placeholder, .field textarea::placeholder { color: #a1adbc; font-weight: 450; }
+.field input:hover, .field select:hover, .field textarea:hover { border-color: #aebed0; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: #3b78c5; box-shadow: 0 0 0 3px rgba(45, 111, 196, .1); }
+.field select:disabled { cursor: not-allowed; background: #f3f6f9; color: #617086; opacity: 1; }
+.fieldHint { color: #7d8b9d; font-size: 9px; font-weight: 480; letter-spacing: 0; line-height: 1.4; }
+.dniLookupControl { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.dniLookupControl input { border-radius: 8px 0 0 8px; }
+.dniLookupControl button { display: inline-flex; min-width: 118px; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; border: 1px solid #2867b5; border-left: 0; border-radius: 0 8px 8px 0; background: #2b69b7; color: #fff; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; transition: background-color .16s ease, box-shadow .16s ease; }
+.dniLookupControl button:hover:not(:disabled) { background: #20589d; box-shadow: 0 3px 9px rgba(31, 85, 150, .2); }
+.dniLookupControl button:disabled { border-color: #bdcad8; background: #c8d2df; cursor: not-allowed; }
+.dniLookupControl button svg { width: 13px; height: 13px; }
+.lookupSpinner { animation: spin .8s linear infinite; }
+.dniLookupSuccess, .dniLookupWarning, .dniLookupError { display: flex; align-items: center; gap: 5px; font-size: 9px; font-weight: 620; line-height: 1.35; }
+.dniLookupSuccess { color: #117a50; }
+.dniLookupWarning { color: #9a6110; }
+.dniLookupError { color: #b62b37; }
+.dniLookupSuccess svg, .dniLookupWarning svg { width: 12px; height: 12px; flex: 0 0 12px; }
+.scheduleSection { width: 100%; }
+.scheduleBody { display: grid; gap: 12px; padding: 14px 15px 15px; }
+.scheduleControls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.inheritedScheduleNote { display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; border: 1px solid #d5e2f1; border-radius: 9px; background: #f5f8fc; }
+.inheritedScheduleNote > svg { width: 17px; height: 17px; flex: 0 0 17px; margin-top: 1px; color: #2c6dbd; }
+.inheritedScheduleNote div { display: grid; gap: 3px; }
+.inheritedScheduleNote strong { color: #284665; font-size: 10.5px; font-weight: 720; }
+.inheritedScheduleNote span { color: #718196; font-size: 9.5px; line-height: 1.4; }
+.weekdays { display: flex; flex-wrap: wrap; gap: 7px; margin: 0; padding: 11px 12px 12px; border: 1px solid #d9e2ec; border-radius: 9px; }
+.weekdays legend { padding: 0 6px; color: #53667c; font-size: 9.5px; font-weight: 700; }
+.weekdays label { position: relative; cursor: pointer; }
+.weekdays input { position: absolute; opacity: 0; pointer-events: none; }
+.weekdays span { display: inline-flex; min-height: 30px; align-items: center; padding: 0 10px; border: 1px solid #d8e1ec; border-radius: 7px; background: #fff; color: #65768a; font-size: 9.5px; font-weight: 650; transition: border-color .15s ease, background-color .15s ease, color .15s ease; }
+.weekdays input:checked + span { border-color: #7fa9df; background: #eaf3ff; color: #205fae; box-shadow: inset 0 0 0 1px rgba(37, 103, 188, .08); }
+.weekdays input:focus-visible + span { outline: 2px solid rgba(43, 105, 183, .28); outline-offset: 2px; }
+.auditNote { display: flex; align-items: center; gap: 7px; padding: 0 3px; color: #7c8999; font-size: 9px; line-height: 1.4; }
+.auditNote svg { width: 13px; height: 13px; flex: 0 0 13px; color: #6685a8; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 820px) {
+  .formColumns { grid-template-columns: 1fr; }
+  .scheduleControls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .sectionBody, .scheduleControls { grid-template-columns: 1fr; }
+  .wideField { grid-column: auto; }
+  .dniLookupControl { grid-template-columns: 1fr; gap: 7px; }
+  .dniLookupControl input, .dniLookupControl button { min-height: 40px; border: 1px solid #ccd7e4; border-radius: 8px; }
+  .dniLookupControl button { border-color: #2867b5; }
+  .sectionHeader { align-items: flex-start; }
+}

@@ -1,14 +1,19 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { BriefcaseBusiness, Clock3, MapPinned, Pencil, Plus, Power } from 'lucide-react';
+import {
+  BriefcaseBusiness, CalendarDays, CalendarRange, Clock3,
+  MapPinned, Pencil, Plus, Power, Utensils,
+} from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
 import { getApiErrorMessage } from '../../../core/api/errors';
 import { showToast } from '../../../core/utils/toast';
 import { rrhhService } from '../rrhh.service';
 import type { Geofence, JobRole, SchedulePolicyInput, Site, WorkSchedule } from '../types';
 import styles from '../Rrhh.module.css';
+import scheduleStyles from './ScheduleConfiguration.module.css';
 import { ScheduleEditorModal } from './ScheduleEditorModal';
 import { WorkCalendarManager } from './WorkCalendarManager';
 import { WeeklyScheduleManager } from './WeeklyScheduleManager';
+import { formatScheduleRange, formatScheduleTime } from './attendance-formatters';
 
 type Props = {
   view: 'schedules' | 'settings';
@@ -22,13 +27,22 @@ type Props = {
 };
 
 const emptyGeofence = { latitude: '', longitude: '', radius_meters: '50', maximum_accuracy_meters: '30' };
-function time(value: string | null) { return value ? value.slice(0, 5) : '—'; }
+type PlannerSection = 'JORNADAS' | 'SEMANA' | 'CALENDARIO';
+
+function formatScheduleDate(value: string) {
+  const date = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('es-PE', {
+    day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC',
+  }).format(date).replace('.', '');
+}
 
 export function ConfigurationPanel({ view, siteId, sites, roles, schedules, canManage, onSiteChange, onCatalogChanged }: Props) {
   const [geofence, setGeofence] = useState(emptyGeofence);
   const [role, setRole] = useState({ name: '', description: '', default_tracking_type: 'SOLO_MARCACION' as JobRole['default_tracking_type'] });
   const [scheduleEditor, setScheduleEditor] = useState<WorkSchedule | 'new' | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [plannerSection, setPlannerSection] = useState<PlannerSection>('JORNADAS');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -67,8 +81,8 @@ export function ConfigurationPanel({ view, siteId, sites, roles, schedules, canM
       else if (scheduleEditor) await rrhhService.updateSchedule(scheduleEditor.id, input);
       await onCatalogChanged();
       setScheduleEditor(null);
-      showToast(scheduleEditor === 'new' ? 'Horario creado correctamente.' : 'Nueva versión del horario guardada.', 'success');
-    } catch (error) { showToast(getApiErrorMessage(error, 'No se pudo guardar el horario.'), 'error'); }
+      showToast(scheduleEditor === 'new' ? 'Jornada creada correctamente.' : 'Nueva versión de la jornada guardada.', 'success');
+    } catch (error) { showToast(getApiErrorMessage(error, 'No se pudo guardar la jornada.'), 'error'); }
     finally { setSaving(null); }
   };
 
@@ -78,8 +92,8 @@ export function ConfigurationPanel({ view, siteId, sites, roles, schedules, canM
     try {
       await rrhhService.setScheduleStatus(schedule.id, status);
       await onCatalogChanged();
-      showToast(`Horario ${status === 'ACTIVO' ? 'activado' : 'desactivado'}.`, 'success');
-    } catch (error) { showToast(getApiErrorMessage(error, 'No se pudo cambiar el estado del horario.'), 'error'); }
+      showToast(`Jornada ${status === 'ACTIVO' ? 'activada' : 'desactivada'}.`, 'success');
+    } catch (error) { showToast(getApiErrorMessage(error, 'No se pudo cambiar el estado de la jornada.'), 'error'); }
     finally { setSaving(null); }
   };
 
@@ -100,21 +114,68 @@ export function ConfigurationPanel({ view, siteId, sites, roles, schedules, canM
       </section>
     </>}
 
-    {view === 'schedules' && <>
-      <section className={`${styles.configCard} ${styles.scheduleManager}`}>
-        <header><span><Clock3 /></span><div><h2>Jornadas de la empresa</h2><p>Políticas globales, versionadas y asignables a cualquier sede.</p></div>{canManage && <Button size="sm" icon={<Plus size={15} />} onClick={() => setScheduleEditor('new')}>Nuevo horario</Button>}</header>
-        <div className={styles.scheduleList}>
-          {schedules.map(item => <article key={item.id} className={item.status === 'INACTIVO' ? styles.scheduleInactive : ''}>
-            <div><div className={styles.scheduleName}><strong>{item.name}</strong><span><i />{item.status === 'ACTIVO' ? 'Activo' : 'Inactivo'}</span></div><p>{time(item.start_time)} – {time(item.end_time)} <b>·</b> tolerancia {item.tolerance_minutes} min</p><small>{item.lunch_enabled ? `Almuerzo ${time(item.lunch_start_from)}–${time(item.lunch_start_until)} · ${item.lunch_duration_minutes} min` : 'Sin marcaciones de almuerzo'}</small></div>
-            <div className={styles.scheduleValidity}><span>Versión {item.version}</span><small>Vigente desde {item.effective_from}</small></div>
-            {canManage && <div className={styles.scheduleActions}><button type="button" title="Crear una nueva versión" aria-label={`Editar ${item.name}`} onClick={() => setScheduleEditor(item)}><Pencil /></button><button type="button" disabled={saving === `status-${item.id}`} title={item.status === 'ACTIVO' ? 'Desactivar horario' : 'Activar horario'} aria-label={`${item.status === 'ACTIVO' ? 'Desactivar' : 'Activar'} ${item.name}`} onClick={() => void toggleSchedule(item)}><Power /></button></div>}
-          </article>)}
-          {!schedules.length && <div className={styles.smallEmpty}>Aún no hay jornadas configuradas.</div>}
-        </div>
-      </section>
-      <WeeklyScheduleManager siteId={siteId} sites={sites} schedules={schedules} canManage={canManage} />
-      <WorkCalendarManager siteId={siteId} sites={sites} schedules={schedules} canManage={canManage} />
-    </>}
+    {view === 'schedules' && <section className={scheduleStyles.plannerWorkspace} aria-label="Planificación laboral">
+      <nav className={scheduleStyles.plannerNav} aria-label="Secciones de planificación laboral">
+        <button type="button" className={plannerSection === 'JORNADAS' ? scheduleStyles.plannerNavActive : ''} aria-current={plannerSection === 'JORNADAS' ? 'page' : undefined} onClick={() => setPlannerSection('JORNADAS')}>
+          Jornadas
+        </button>
+        <button type="button" className={plannerSection === 'SEMANA' ? scheduleStyles.plannerNavActive : ''} aria-current={plannerSection === 'SEMANA' ? 'page' : undefined} onClick={() => setPlannerSection('SEMANA')}>
+          Semana laboral
+        </button>
+        <button type="button" className={plannerSection === 'CALENDARIO' ? scheduleStyles.plannerNavActive : ''} aria-current={plannerSection === 'CALENDARIO' ? 'page' : undefined} onClick={() => setPlannerSection('CALENDARIO')}>
+          Días especiales
+        </button>
+      </nav>
+
+      <div className={scheduleStyles.workspaceContent}>
+        {plannerSection === 'JORNADAS' && <section className={scheduleStyles.scheduleRegister}>
+          <header className={scheduleStyles.contentHeader}>
+            <div><h3>Registro de jornadas</h3><p>Cada jornada puede asignarse a varias sedes y días de la semana.</p></div>
+            {canManage && <Button size="sm" icon={<Plus size={15} />} onClick={() => setScheduleEditor('new')}>Nueva jornada</Button>}
+          </header>
+
+          <div className={scheduleStyles.scheduleTable} role="table" aria-label="Jornadas configuradas">
+            <div className={scheduleStyles.scheduleTableHead} role="row">
+              <span>Jornada</span><span>Horario</span><span>Almuerzo</span><span>Vigencia</span><span>Estado</span><span>Acciones</span>
+            </div>
+            {schedules.map(item => <div key={item.id} className={`${scheduleStyles.scheduleTableRow} ${item.status === 'INACTIVO' ? scheduleStyles.inactiveSchedule : ''}`} role="row">
+              <div className={scheduleStyles.scheduleName}><span><CalendarRange /></span><div><strong>{item.name}</strong><small>Jornada operativa</small></div></div>
+              <div className={scheduleStyles.scheduleTime}><Clock3 /><span><strong>{formatScheduleRange(item.start_time, item.end_time)}</strong><small>Tolerancia: {item.tolerance_minutes} min</small></span></div>
+              <div className={scheduleStyles.scheduleLunch}><Utensils /><span>{item.lunch_enabled ? <><strong>{formatScheduleTime(item.lunch_start_from)} – {formatScheduleTime(item.lunch_start_until)}</strong><small>Duración: {item.lunch_duration_minutes} min</small></> : <><strong>Sin control de almuerzo</strong><small>No aplica</small></>}</span></div>
+              <div className={scheduleStyles.scheduleValidity}><CalendarDays /><span><strong>{formatScheduleDate(item.effective_from)}</strong><small>{item.effective_until ? `Hasta ${formatScheduleDate(item.effective_until)}` : 'Sin fecha de término'}</small></span></div>
+              <span className={item.status === 'ACTIVO' ? scheduleStyles.activeStatus : scheduleStyles.inactiveStatus}><i />{item.status === 'ACTIVO' ? 'Activa' : 'Inactiva'}</span>
+              <div className={scheduleStyles.scheduleActions}>
+                {canManage && <>
+                  <button
+                    type="button"
+                    className={`${scheduleStyles.scheduleActionButton} ${scheduleStyles.scheduleEditAction}`}
+                    data-tooltip="Editar jornada"
+                    aria-label={`Editar ${item.name}`}
+                    onClick={() => setScheduleEditor(item)}
+                  >
+                    <Pencil />
+                  </button>
+                  <button
+                    type="button"
+                    className={`${scheduleStyles.scheduleActionButton} ${item.status === 'ACTIVO' ? scheduleStyles.scheduleDeactivateAction : scheduleStyles.scheduleActivateAction}`}
+                    data-tooltip={item.status === 'ACTIVO' ? 'Desactivar jornada' : 'Activar jornada'}
+                    aria-label={`${item.status === 'ACTIVO' ? 'Desactivar' : 'Activar'} ${item.name}`}
+                    disabled={saving === `status-${item.id}`}
+                    onClick={() => void toggleSchedule(item)}
+                  >
+                    <Power />
+                  </button>
+                </>}
+              </div>
+            </div>)}
+            {!schedules.length && <div className={scheduleStyles.catalogEmpty}><CalendarDays /><strong>No hay jornadas configuradas</strong><span>Crea la primera jornada para definir la semana laboral.</span></div>}
+          </div>
+        </section>}
+
+        {plannerSection === 'SEMANA' && <WeeklyScheduleManager siteId={siteId} sites={sites} schedules={schedules} canManage={canManage} onSiteChange={onSiteChange} />}
+        {plannerSection === 'CALENDARIO' && <WorkCalendarManager siteId={siteId} sites={sites} schedules={schedules} canManage={canManage} onSiteChange={onSiteChange} />}
+      </div>
+    </section>}
 
     <ScheduleEditorModal schedule={scheduleEditor} saving={saving === 'schedule'} onClose={() => setScheduleEditor(null)} onSave={saveSchedule} />
   </div>;

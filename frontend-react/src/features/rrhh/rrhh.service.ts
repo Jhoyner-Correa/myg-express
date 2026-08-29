@@ -4,7 +4,10 @@ import { unwrapApiData } from '../../core/api/types';
 import type {
   ActivationCredentials,
   Employee,
+  EmployeeOperationalProfile,
+  EmployeeStatus,
   EmployeeInput,
+  DniLookupResult,
   Geofence,
   JobRole,
   RrhhCatalogs,
@@ -14,11 +17,18 @@ import type {
   AttendanceTrendPoint,
   AbsenceWorkflows,
   AttendanceCorrectionInput,
+  AttendanceDetail,
+  EmployeeAttendanceReport,
+  EmployeeAttendanceReportMode,
   BiometricContingency,
   SchedulePolicyInput,
   WorkCalendarEvent,
   WorkCalendarInput,
+  HolidayProposal,
+  HolidayProposalDecisionInput,
+  HolidaySyncResult,
   WeeklySchedulePolicy,
+  ServicePaymentDashboard, ServicePaymentEmployeeLedger, ServicePaymentHistory,
 } from './types';
 
 async function unwrapRequest<T>(request: Promise<{ data: ApiEnvelope<T> }>, fallback?: T) {
@@ -41,8 +51,43 @@ export const rrhhService = {
   updateEmployee(employeeId: number, input: EmployeeInput) {
     return unwrapRequest(apiClient.put<ApiEnvelope<Employee>>(`/rrhh/empleados/${employeeId}`, input));
   },
-  createActivation(employeeId: number) {
-    return unwrapRequest(apiClient.post<ApiEnvelope<ActivationCredentials>>(`/rrhh/empleados/${employeeId}/activacion-dispositivo`));
+  uploadEmployeePhoto(employeeId: number, photo: File) {
+    const formData = new FormData();
+    formData.append('photo', photo);
+    return unwrapRequest(apiClient.put<ApiEnvelope<Employee>>(
+      `/rrhh/empleados/${employeeId}/foto`, formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    ));
+  },
+  deleteEmployeePhoto(employeeId: number) {
+    return unwrapRequest(apiClient.delete<ApiEnvelope<Employee>>(`/rrhh/empleados/${employeeId}/foto`));
+  },
+  lookupDni(dni: string) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<DniLookupResult>>('/rrhh/identidad/dni/consultar', { dni }));
+  },
+  createActivation(employeeId: number, password: string, replaceExistingDevice = false) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<ActivationCredentials>>(
+      `/rrhh/empleados/${employeeId}/activacion-dispositivo`,
+      { password, replace_existing_device: replaceExistingDevice },
+    ));
+  },
+  getEmployeeOperationalProfile(employeeId: number, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<EmployeeOperationalProfile>>(
+      `/rrhh/empleados/${employeeId}/perfil-operativo`, { signal },
+    ));
+  },
+  setEmployeeStatus(employeeId: number, status: EmployeeStatus, reason: string) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<{
+      status: EmployeeStatus;
+      previous_status: EmployeeStatus;
+      mobile_access_revoked: boolean;
+      unchanged: boolean;
+    }>>(`/rrhh/empleados/${employeeId}/estado`, { status, reason }));
+  },
+  revokeEmployeeDevice(employeeId: number, reason: string) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<never>>(
+      `/rrhh/empleados/${employeeId}/revocar-dispositivo`, { motivo: reason },
+    ));
   },
   getGeofence(siteId: number, signal?: AbortSignal) {
     return unwrapRequest(apiClient.get<ApiEnvelope<Geofence | null>>(`/rrhh/sedes/${siteId}/geocerca`, { signal }), null);
@@ -89,6 +134,21 @@ export const rrhhService = {
   cancelWorkCalendarEvent(eventId: number) {
     return unwrapRequest(apiClient.patch<ApiEnvelope<WorkCalendarEvent>>(`/rrhh/calendario/${eventId}/cancelar`));
   },
+  getHolidayProposals(year: number, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<HolidayProposal[]>>('/rrhh/calendario/propuestas', {
+      params: { anio: year }, signal,
+    }), []);
+  },
+  syncHolidayProposals(year: number) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<HolidaySyncResult>>(
+      '/rrhh/calendario/propuestas/sincronizar', { year },
+    ));
+  },
+  decideHolidayProposal(proposalId: number, input: HolidayProposalDecisionInput) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<HolidayProposal>>(
+      `/rrhh/calendario/propuestas/${proposalId}/decision`, input,
+    ));
+  },
   getEmployeeSchedule(employeeId: number, date?: string) {
     return unwrapRequest(apiClient.get<ApiEnvelope<ScheduleAssignment[]>>(
       `/rrhh/empleados/${employeeId}/horario`, { params: date ? { fecha: date } : undefined },
@@ -116,11 +176,34 @@ export const rrhhService = {
       params: siteId === null ? undefined : { sede_id: siteId }, signal,
     }));
   },
+  async getPermissionEvidence(id: number, siteId: number) {
+    const response = await apiClient.get<Blob>(`/rrhh/permisos/${id}/sustento`, {
+      params: { sede_id: siteId },
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+  async getAttendanceJustificationEvidence(id: number, siteId: number) {
+    const response = await apiClient.get<Blob>(`/rrhh/justificaciones/${id}/sustento`, {
+      params: { sede_id: siteId },
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+  resolveAttendanceJustification(
+    id: number,
+    input: { sede_id: number; decision: 'APROBADA' | 'RECHAZADA'; comment: string },
+  ) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<{ id: number }>>(`/rrhh/justificaciones/${id}/resolver`, input));
+  },
   createPermission(input: { sede_id: number; employee_id: number; type: string; start_at: string; end_at: string; reason: string }) {
     return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number }>>('/rrhh/permisos', input));
   },
   resolvePermission(id: number, input: { sede_id: number; decision: 'APROBADO' | 'RECHAZADO'; comment: string }) {
     return unwrapRequest(apiClient.patch<ApiEnvelope<{ id: number }>>(`/rrhh/permisos/${id}/resolver`, input));
+  },
+  cancelPermission(id: number, input: { sede_id: number; reason: string }) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<{ id: number }>>(`/rrhh/permisos/${id}/cancelar`, input));
   },
   createVacation(input: { sede_id: number; employee_id: number; start_date: string; end_date: string; reason: string }) {
     return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number; days: number }>>('/rrhh/vacaciones', input));
@@ -128,13 +211,65 @@ export const rrhhService = {
   resolveVacation(id: number, input: { sede_id: number; decision: 'APROBADA' | 'RECHAZADA'; comment: string }) {
     return unwrapRequest(apiClient.patch<ApiEnvelope<{ id: number }>>(`/rrhh/vacaciones/${id}/resolver`, input));
   },
+  cancelVacation(id: number, input: { sede_id: number; reason: string }) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<{ id: number }>>(`/rrhh/vacaciones/${id}/cancelar`, input));
+  },
   correctAttendance(input: AttendanceCorrectionInput) {
     return unwrapRequest(apiClient.put<ApiEnvelope<{ correction_id: number; attendance_id: number }>>('/rrhh/asistencias/correccion', input));
+  },
+  getAttendanceDetail(siteId: number, employeeId: number, date: string, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<AttendanceDetail>>('/rrhh/asistencias/detalle', {
+      params: { sede_id: siteId, empleado_id: employeeId, fecha: date }, signal,
+    }));
+  },
+  getEmployeeAttendanceReport(
+    siteId: number,
+    employeeId: number,
+    view: EmployeeAttendanceReportMode,
+    date: string,
+    signal?: AbortSignal,
+  ) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<EmployeeAttendanceReport>>(
+      `/rrhh/asistencias/empleado/${employeeId}/reporte`,
+      { params: { sede_id: siteId, vista: view, fecha: date }, signal },
+    ));
+  },
+  reviewOvertime(requestId: number, input: {
+    sede_id: number;
+    decision: 'APROBAR' | 'RECHAZAR';
+    approved_minutes?: number;
+    comment: string;
+  }) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<{
+      id: number; status: 'APROBADO' | 'RECHAZADO'; detected_minutes: number; approved_minutes: number | null;
+    }>>(`/rrhh/sobretiempo/${requestId}/resolver`, input));
+  },
+  async getOvertimeEvidence(requestId: number, siteId: number) {
+    const response = await apiClient.get<Blob>(`/rrhh/sobretiempo/${requestId}/sustento`, {
+      params: { sede_id: siteId },
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+  reviewAttendanceIncident(input: {
+    sede_id: number;
+    employee_id: number;
+    date: string;
+    incident_type: string;
+    comment: string;
+  }) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number }>>('/rrhh/asistencias/incidencias/resolver', input));
   },
   getBiometricContingencies(siteId: number | null, signal?: AbortSignal) {
     return unwrapRequest(apiClient.get<ApiEnvelope<BiometricContingency[]>>(
       '/rrhh/contingencias',
       { params: { estado: 'PENDIENTE', ...(siteId === null ? {} : { sede_id: siteId }) }, signal },
+    ), []);
+  },
+  getBiometricContingencyHistory(siteId: number | null, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<BiometricContingency[]>>(
+      '/rrhh/contingencias',
+      { params: { estado: 'TODAS', ...(siteId === null ? {} : { sede_id: siteId }) }, signal },
     ), []);
   },
   resolveBiometricContingency(id: number, input: { sede_id: number; decision: 'APROBAR' | 'RECHAZAR'; comment: string }) {
@@ -150,5 +285,52 @@ export const rrhhService = {
       signal,
     });
     return response.data;
+  },
+  getServicePayments(month: string, siteId: number | null, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<ServicePaymentDashboard>>('/rrhh/pagos', {
+      params: { periodo: month, ...(siteId === null ? {} : { sede_id: siteId }) }, signal,
+    }));
+  },
+  getServicePaymentHistory(year: number, siteId: number | null, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<ServicePaymentHistory>>('/rrhh/pagos/historial', {
+      params: { anio: year, ...(siteId === null ? {} : { sede_id: siteId }) }, signal,
+    }));
+  },
+  getEmployeePaymentLedger(employeeId: number, month: string, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<ServicePaymentEmployeeLedger>>(
+      `/rrhh/pagos/empleados/${employeeId}/expediente`, { params: { periodo: month }, signal },
+    ));
+  },
+  addEmployeePaymentNote(employeeId: number, input: { month: string; note: string; reference_amount?: number | null }) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number }>>(`/rrhh/pagos/empleados/${employeeId}/notas`, input));
+  },
+  cancelEmployeePaymentNote(noteId: number, reason: string) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<{ id: number; status: string }>>(`/rrhh/pagos/notas/${noteId}/anular`, { reason }));
+  },
+  savePaymentAgreement(employeeId: number, input: Record<string, unknown>) {
+    return unwrapRequest(apiClient.put<ApiEnvelope<{ id: number }>>(`/rrhh/pagos/empleados/${employeeId}/acuerdo`, input));
+  },
+  createPaymentMovement(input: Record<string, unknown>) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number }>>('/rrhh/pagos/movimientos', input));
+  },
+  createEmployeeLoan(input: Record<string, unknown>) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number }>>('/rrhh/pagos/prestamos', input));
+  },
+  generatePaymentPeriod(month: string) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number; collaborators: number }>>('/rrhh/pagos/periodos/generar', { periodo: month }));
+  },
+  transitionPaymentPeriod(periodId: number, action: 'ENVIAR_REVISION' | 'DEVOLVER_BORRADOR' | 'APROBAR' | 'CERRAR', reason?: string) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number; status: string }>>(`/rrhh/pagos/periodos/${periodId}/transicion`, { action, reason }));
+  },
+  createPaymentBatch(periodId: number) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number; code: string; payments: number; total: number }>>(`/rrhh/pagos/periodos/${periodId}/lotes`));
+  },
+  registerHonorReceipt(liquidationId: number, input: { series: string; number: string; issued_at: string; amount: number }) {
+    return unwrapRequest(apiClient.put<ApiEnvelope<{ id: number }>>(`/rrhh/pagos/liquidaciones/${liquidationId}/recibo`, input));
+  },
+  markServicePaymentPaid(liquidationId: number, operationNumber: string) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number; status: string }>>(`/rrhh/pagos/liquidaciones/${liquidationId}/deposito`, {
+      operation_number: operationNumber,
+    }));
   },
 };

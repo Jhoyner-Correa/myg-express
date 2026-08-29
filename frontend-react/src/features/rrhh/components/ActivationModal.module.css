@@ -1,0 +1,63 @@
+.activationIntro { display: grid; justify-items: center; padding: 8px 12px 6px; text-align: center; }
+.activationIcon { display: grid; width: 54px; height: 54px; margin-bottom: 16px; place-items: center; border: 1px solid #d6e4f5; border-radius: 50%; color: #2469c5; background: #f5f9ff; box-shadow: 0 8px 22px rgba(28, 91, 173, .1); }
+.activationIcon svg { width: 23px; height: 23px; stroke-width: 1.75; }
+.replacementIcon { display: grid; width: 54px; height: 54px; margin-bottom: 14px; place-items: center; border: 1px solid #f1d7bb; border-radius: 50%; color: #a85b13; background: #fffaf4; box-shadow: 0 8px 22px rgba(153, 80, 13, .08); }
+.replacementIcon svg { width: 23px; height: 23px; stroke-width: 1.75; }
+.activationIntro > h3 { margin: 0 0 6px; color: #15243a; font-size: .92rem; font-weight: 760; letter-spacing: -.015em; }
+.activationIntro > p { max-width: 360px; margin: 0; color: #445269; font-size: .78rem; font-weight: 520; line-height: 1.65; }
+.passwordField { display: grid; width: min(100%, 360px); gap: 7px; margin-top: 18px; text-align: left; }
+.passwordField > span { color: #263750; font-size: .69rem; font-weight: 720; }
+.passwordField > small { color: #748296; font-size: .63rem; line-height: 1.4; }
+.passwordControl { display: grid; grid-template-columns: 18px minmax(0, 1fr) 30px; align-items: center; gap: 9px; min-height: 42px; padding: 0 7px 0 12px; border: 1px solid #cbd7e5; border-radius: 9px; background: #fff; box-shadow: 0 1px 2px rgba(15, 38, 67, .04); transition: border-color 140ms ease, box-shadow 140ms ease; }
+.passwordControl:focus-within { border-color: #5f7fa7; box-shadow: 0 0 0 3px rgba(52, 99, 154, .1); }
+.passwordControl > svg { width: 16px; height: 16px; color: #526b89; }
+.passwordControl input { min-width: 0; height: 40px; border: 0; outline: 0; background: transparent; color: #16263a; font: inherit; font-size: .78rem; font-weight: 600; }
+.passwordControl button { display: grid; width: 30px; height: 30px; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: #60728a; cursor: pointer; }
+.passwordControl button:hover { background: #f1f5f9; color: #1d4f87; }
+.passwordControl button svg { width: 15px; height: 15px; }
+.credentials { display: grid; gap: 0; overflow: hidden; border: 1px solid #dbe4ef; border-radius: 11px; background: #fff; }
+.credentialsHeading { display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 10px 14px; border-bottom: 1px solid #e5ebf2; background: #f8faff; }
+.credentialsHeading > svg { width: 19px; height: 19px; color: #2469c5; }
+.credentialsHeading > div { display: grid; gap: 2px; }
+.credentialsHeading strong { color: #18263a; font-family: inherit; font-size: .75rem; font-weight: 750; letter-spacing: 0; }
+.credentialsHeading span { color: #8290a3; font-size: .62rem; font-weight: 540; }
+.credentialRow { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 56px; padding: 9px 14px; border-bottom: 1px solid #edf1f5; }
+.credentialRow > div { display: grid; min-width: 0; gap: 4px; }
+.credentialRow small { color: #7e8b9d; font-size: .62rem; font-weight: 680; letter-spacing: .035em; text-transform: uppercase; }
+.credentialRow strong { overflow-wrap: anywhere; color: #17263b; font-family: var(--font-mono); font-size: .82rem; font-weight: 740; letter-spacing: .035em; }
+.credentialIcon { display: grid; width: 29px; height: 29px; place-items: center; color: #256bd1; }
+.credentialIcon svg { width: 16px; height: 16px; stroke-width: 1.8; }
+.passwordIcon { color: #7651c5; }
+.codeIcon { color: #cf7915; }
+.expiry { display: grid; grid-template-columns: 24px auto 1fr; align-items: center; gap: 8px; min-height: 54px; padding: 10px 14px; color: #2866b6; background: #f7faff; }
+.expiry > svg { width: 17px; height: 17px; }
+.expiry > div { display: grid; gap: 2px; }
+.expiry span { color: #718096; font-size: .6rem; font-weight: 650; text-transform: uppercase; }
+.expiry strong { color: #205ba8; font-family: var(--font-mono); font-size: .78rem; letter-spacing: .045em; }
+.expiry p { justify-self: end; margin: 0; color: #7b8798; font-size: .63rem; line-height: 1.4; text-align: right; }
+.expired { color: #c13a4c; background: #fff7f8; }
+.expired strong { color: #bd3547; }
+.activeAccess { display: grid; gap: 14px; }
+.activeAccessHero { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 13px; padding: 4px 2px 2px; }
+.activeAccessIcon { display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid #bfe2d0; border-radius: 50%; color: #15824d; background: #f3fbf7; }
+.activeAccessIcon svg { width: 22px; height: 22px; stroke-width: 1.8; }
+.activeAccessHero > div { display: grid; gap: 2px; }
+.activeAccessHero small { color: #17804d; font-size: .58rem; font-weight: 800; letter-spacing: .11em; }
+.activeAccessHero h3 { margin: 0; color: #15243a; font-size: .92rem; font-weight: 760; letter-spacing: -.015em; }
+.activeAccessHero p { max-width: 370px; margin: 2px 0 0; color: #66758a; font-size: .69rem; line-height: 1.45; }
+.deviceSummary { display: grid; overflow: hidden; border: 1px solid #dce4ed; border-radius: 11px; background: #fff; }
+.deviceSummary > div { display: grid; grid-template-columns: 25px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 52px; padding: 9px 13px; border-bottom: 1px solid #edf1f5; }
+.deviceSummary > div:last-child { border-bottom: 0; }
+.deviceSummary svg { width: 17px; height: 17px; color: #395b82; stroke-width: 1.75; }
+.deviceSummary span { display: grid; min-width: 0; gap: 2px; }
+.deviceSummary small { color: #7d899a; font-size: .59rem; font-weight: 660; letter-spacing: .025em; text-transform: uppercase; }
+.deviceSummary strong { overflow: hidden; color: #25354a; font-size: .72rem; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
+.activeAccessNotice { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 9px; padding: 10px 12px; border-left: 2px solid #3b628d; color: #53647a; background: #f7f9fc; }
+.activeAccessNotice svg { width: 16px; height: 16px; margin-top: 1px; color: #355c88; }
+.activeAccessNotice p { margin: 0; font-size: .66rem; line-height: 1.5; }
+.activeAccessNotice strong { color: #253b57; font-weight: 740; }
+.replacementWarning { display: flex; width: min(100%, 360px); align-items: flex-start; gap: 8px; margin-top: 13px; padding: 9px 11px; color: #8a4e19; background: #fff9f2; text-align: left; }
+.replacementWarning svg { width: 15px; height: 15px; flex: 0 0 auto; margin-top: 1px; }
+.replacementWarning span { font-size: .65rem; font-weight: 590; line-height: 1.45; }
+.formError { margin-top: 14px; padding: 10px 12px; border-left: 3px solid #d13b4d; color: #a62c3a; background: #fff6f7; font-size: .72rem; line-height: 1.45; }
+@media (max-width: 520px) { .expiry { grid-template-columns: 22px 1fr; } .expiry p { grid-column: 1 / -1; justify-self: start; text-align: left; } }

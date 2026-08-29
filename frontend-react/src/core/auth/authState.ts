@@ -4,6 +4,7 @@ export type UserSession = {
   id: number;
   nombre: string;
   usuario: string;
+  foto?: string | null;
   rol: string;
   rol_label?: string;
   tipo_usuario?: 'SISTEMA' | 'EMPRESA';

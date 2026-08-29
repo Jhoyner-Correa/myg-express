@@ -16,6 +16,15 @@ const user: UserSession = {
 };
 
 describe('ProfileModal', () => {
+  it('permite cargar una foto mediante el contrato de perfil', async () => {
+    const onPhotoUpload = vi.fn().mockResolvedValue({ ...user, foto: '/storage/users/profile-photos/test.jpg' });
+    render(<ProfileModal open user={user} onClose={vi.fn()} onSave={vi.fn()} onPhotoUpload={onPhotoUpload} />);
+    fireEvent.click(screen.getByRole('button', { name: /Editar informaci/i }));
+    const file = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'perfil.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('Seleccionar foto de perfil'), { target: { files: [file] } });
+    await waitFor(() => expect(onPhotoUpload).toHaveBeenCalledWith(file));
+  });
+
   it('guarda el perfil mediante el contrato del backend sin fabricar un correo', async () => {
     const onSave = vi.fn().mockResolvedValue({ ...user, nombre: 'Renzo Morales' });
     render(<ProfileModal open user={user} onClose={vi.fn()} onSave={onSave} />);

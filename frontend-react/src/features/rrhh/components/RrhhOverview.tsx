@@ -11,7 +11,6 @@ import {
   FileClock,
   MapPin,
   TimerReset,
-  TrendingUp,
   UserX,
   UsersRound,
 } from 'lucide-react';
@@ -26,7 +25,7 @@ import { rrhhService } from '../rrhh.service';
 import type { AbsenceWorkflows, AttendanceDashboard, AttendanceTrendPoint, Employee } from '../types';
 import styles from '../Rrhh.module.css';
 import { AgendaPanel } from './AgendaPanel';
-import { formatAttendanceClock } from './attendance-formatters';
+import { formatAttendanceClock, formatDurationMinutes } from './attendance-formatters';
 import { DailySummaryCard } from './DailySummaryCard';
 import { ExecutiveAttendanceTable } from './ExecutiveAttendanceTable';
 import type { ExecutiveAlert } from './executive-alerts';
@@ -123,7 +122,7 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
         id: `attendance-${item.employee_id}`,
         tone: item.status === 'TARDANZA' ? 'warning' as const : 'critical' as const,
         kind: 'attendance' as const,
-        title: item.status === 'TARDANZA' ? `${item.names} ${item.last_names} registró ${item.delay_minutes} min de tardanza` : item.status === 'FALTA' ? `${item.names} ${item.last_names} figura como falta` : `${item.names} ${item.last_names} no registró su entrada`,
+        title: item.status === 'TARDANZA' ? `${item.names} ${item.last_names} registró ${formatDurationMinutes(item.delay_minutes)} de tardanza` : item.status === 'FALTA' ? `${item.names} ${item.last_names} figura como falta` : `${item.names} ${item.last_names} no registró su entrada`,
         site: item.site_name,
         time: item.marks.entry === null ? 'Hoy' : formatAttendanceClock(item.marks.entry),
         target: '/rrhh/asistencia',
@@ -166,7 +165,7 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
   const performancePanel = <article className={`${styles.card} ${styles.executiveSites} ${styles.executiveSitesCompact}`}>
     <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><MapPin /></span><div><h2>Rendimiento por sede</h2><p>Asistencia y puntualidad del día.</p></div></div></header>
     <div className={styles.tableWrap}><table className={styles.executiveSitesTable}><thead><tr><th>Sede</th><th>Personal</th><th>Asistencia</th><th>Tardanzas</th><th>Horas extra</th></tr></thead><tbody>{sitePerformance.map(site => <tr key={site.siteId}><td><i className={site.attendanceRate >= 90 ? styles.siteGood : site.attendanceRate >= 75 ? styles.siteWarning : styles.siteCritical} />{site.siteName}</td><td>{site.employees}</td><td><strong>{site.attendanceRate}%</strong></td><td>{site.late}</td><td>{Math.floor(site.overtimeMinutes / 60)} h {site.overtimeMinutes % 60} min</td></tr>)}{!sitePerformance.length && <tr><td colSpan={5}>Sin información por sede.</td></tr>}</tbody></table></div>
-    <footer className={styles.executiveCardFooter}><button type="button" onClick={() => navigate('/rrhh/reportes')}>Ver reporte completo por sede <ArrowRight /></button></footer>
+    <footer className={styles.executiveCardFooter}><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver control de asistencia <ArrowRight /></button></footer>
   </article>;
 
   return <div className={styles.executiveDashboard}>
@@ -175,15 +174,16 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
         <section className={styles.executiveKpis} aria-label="Indicadores principales">
           <ExecutiveKpiCard label="Personal activo" value={activeEmployees} insight={`${activeShare}% del personal registrado`} context={`${employees.length} colaboradores en el alcance`} icon={<UsersRound />} tone="blue" />
           <ExecutiveKpiCard label="Asistencia" value={`${attendanceRate}%`} insight="Sin período comparable" context={`${summary?.present ?? 0} presentes hoy`} icon={<CalendarCheck2 />} tone="green" comparison={attendanceComparison === null ? undefined : { delta: attendanceComparison, suffix: ' p.p.' }} />
-          <ExecutiveKpiCard label="Horas extra" value={`${Math.floor((summary?.overtime_minutes ?? 0) / 60)} h ${(summary?.overtime_minutes ?? 0) % 60} min`} insight={`${summary?.completed ?? 0} jornadas cerradas`} context="Tiempo adicional registrado hoy" icon={<TimerReset />} tone="violet" />
+          <ExecutiveKpiCard label="Horas extra" value={formatDurationMinutes(summary?.overtime_minutes ?? 0)} insight={`${summary?.completed ?? 0} jornadas cerradas`} context="Tiempo adicional registrado hoy" icon={<TimerReset />} tone="violet" />
           <ExecutiveKpiCard label="Tardanzas" value={summary?.late ?? 0} insight="Sin período comparable" context={`${summary?.on_time ?? 0} ingresos puntuales`} icon={<ClockAlert />} tone="orange" comparison={tardinessComparison === null ? undefined : { delta: tardinessComparison, lowerIsBetter: true }} />
           <ExecutiveKpiCard label="Atención requerida" value={pendingRequests + (summary?.without_record ?? 0)} insight={`${pendingRequests} solicitudes pendientes`} context="Incidencias que requieren revisión" icon={<BellRing />} tone="red" />
         </section>
 
         <article className={`${styles.card} ${styles.executiveAttendance}`}>
-          <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><CalendarCheck2 /></span><div><h2>Asistencia de hoy</h2><p className={styles.executiveSubtitle}><span className={styles.subtitleDot} />{businessDateLabel(businessToday())}</p></div></div><div className={styles.executiveActions}><Button size="sm" variant="secondary" icon={<Download size={14} />} loading={exporting} onClick={() => void exportExcel()}>Exportar Excel</Button><Button size="sm" variant="corporate" icon={<TrendingUp size={14} />} onClick={() => navigate('/rrhh/reportes')}>Ver reporte</Button></div></header>
+          <header className={styles.executiveCardHeader}><div className={styles.executiveTitle}><span><CalendarCheck2 /></span><div><h2>Asistencia de hoy</h2><p className={styles.executiveSubtitle}><span className={styles.subtitleDot} />{businessDateLabel(businessToday())}</p></div></div><div className={styles.executiveActions}><Button size="sm" variant="secondary" icon={<Download size={14} />} loading={exporting} onClick={() => void exportExcel()}>Exportar Excel</Button></div></header>
           <ExecutiveAttendanceTable
             employees={visibleAttendance}
+            directoryEmployees={employees}
             emptyMessage={normalizedQuery ? 'No encontramos colaboradores con esa búsqueda.' : 'No hay personal dentro del alcance seleccionado.'}
           />
           {(attendance?.employees.length ?? 0) > 8 && <footer className={styles.executiveTableFooter}><span>{attendance?.employees.length} colaboradores en la vista</span><button type="button" onClick={() => navigate('/rrhh/asistencia')}>Ver asistencia completa <ArrowRight /></button></footer>}
@@ -198,7 +198,6 @@ export function RrhhOverview({ siteId, employees, query, agendaMonth, onAgendaMo
 
     <WorkforceAnalytics
       trend={trend}
-      onOpenReport={() => navigate('/rrhh/reportes')}
       attentionPanel={attentionPanel}
       performancePanel={performancePanel}
       locationPanel={<LiveLocationPanel sites={gpsSites} onOpenFullMap={() => navigate('/rrhh/gps')} />}

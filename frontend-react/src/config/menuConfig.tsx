@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  BarChart3,
   CalendarCheck2,
   CalendarClock,
   ClipboardList,
@@ -8,6 +7,7 @@ import {
   MapPinned,
   Settings2,
   UsersRound,
+  WalletCards,
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -123,8 +123,8 @@ export const sidebarMenuConfig: MenuItem[] = [
       { title: 'Asistencia', path: '/rrhh/asistencia', permission: 'rrhh.ver', icon: <CalendarCheck2 aria-hidden="true" /> },
       { title: 'Solicitudes', path: '/rrhh/solicitudes', permission: 'rrhh.ver', icon: <ClipboardList aria-hidden="true" /> },
       { title: 'Horarios y calendario', path: '/rrhh/horarios', permission: 'rrhh.ver', icon: <CalendarClock aria-hidden="true" /> },
+      { title: 'Pagos mensuales', path: '/rrhh/pagos', permission: 'rrhh.ver', icon: <WalletCards aria-hidden="true" /> },
       { title: 'Rastreo GPS', path: '/rrhh/gps', permission: 'gps.ver', icon: <MapPinned aria-hidden="true" /> },
-      { title: 'Reportes', path: '/rrhh/reportes', permission: 'rrhh.ver', icon: <BarChart3 aria-hidden="true" /> },
       { title: 'Configuración', path: '/rrhh/configuracion', permission: 'rrhh.ver', icon: <Settings2 aria-hidden="true" /> },
     ],
   },

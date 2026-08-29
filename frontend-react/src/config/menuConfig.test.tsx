@@ -13,8 +13,8 @@ describe('sidebarMenuConfig', () => {
       '/rrhh/asistencia',
       '/rrhh/solicitudes',
       '/rrhh/horarios',
+      '/rrhh/pagos',
       '/rrhh/gps',
-      '/rrhh/reportes',
       '/rrhh/configuracion',
     ]);
     expect(new Set(paths).size).toBe(paths?.length);

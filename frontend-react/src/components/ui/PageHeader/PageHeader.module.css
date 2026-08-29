@@ -89,6 +89,27 @@
 
 .corporate .metadata { min-width: 0; flex: 1; justify-content: flex-end; color: #52657d; }
 
+.blue .icon {
+  background: #eaf2ff;
+  color: #1f67c6;
+  box-shadow: 0 4px 12px rgb(31 103 198 / 0.1);
+}
+
+.blue .copy h1 { color: #13233a; }
+.blue .metadata { color: #52657d; }
+
+.large {
+  min-height: 78px;
+  padding-block: 13px;
+}
+
+.large .identity { gap: 14px; }
+.large .icon { width: 44px; height: 44px; border-radius: 12px; }
+.large .icon svg { width: 22px; height: 22px; }
+.large .copy h1 { font-size: 1.32rem; font-weight: 780; letter-spacing: -0.03em; }
+.large .copy p { margin-top: 2px; font-size: .8rem; font-weight: 520; }
+.large .metadata { font-size: .78rem; }
+
 @media (max-width: 1050px) {
   .corporate { align-items: flex-start; flex-direction: column; }
   .corporate .metadata { display: flex; width: 100%; justify-content: flex-start; }

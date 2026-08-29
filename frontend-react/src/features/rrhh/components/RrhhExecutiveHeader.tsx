@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowRight, Bell, Building2, CalendarDays, ChevronDown, ChevronRight, FileClock, Search, Settings, ShieldCheck, UserX, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { AlertTriangle, ArrowRight, Bell, Building2, CalendarDays, ChevronDown, ChevronRight, CircleHelp, FileClock, Search, Settings, ShieldCheck, UserX, X } from 'lucide-react';
 import type { UserSession } from '../../../core/auth/authState';
+import { resolveUserAvatar } from '../../../core/auth/user-avatar';
 import type { Site } from '../types';
 import type { ExecutiveAlert } from './executive-alerts';
 import styles from './RrhhExecutiveHeader.module.css';
@@ -22,16 +24,19 @@ type Props = {
   onAlertSelect: (target: string) => void;
   onAlertsClick: () => void;
   onOpenProfile?: () => void;
+  compact?: boolean;
+  showSite?: boolean;
+  showSearch?: boolean;
+  showPeriod?: boolean;
 };
 
-function initials(name?: string) {
-  return (name || 'AD')
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(part => part.charAt(0))
-    .join('')
-    .toLocaleUpperCase('es');
+function displayName(name?: string) {
+  const normalizedName = name?.trim();
+  if (!normalizedName) return 'Administrador';
+
+  return normalizedName
+    .toLocaleLowerCase('es')
+    .replace(/(^|[\s'-])\p{L}/gu, letter => letter.toLocaleUpperCase('es'));
 }
 
 function accessScope(user: UserSession | null) {
@@ -55,13 +60,22 @@ export function RrhhExecutiveHeader({
   onAlertSelect,
   onAlertsClick,
   onOpenProfile,
+  compact = false,
+  showSite = true,
+  showSearch = true,
+  showPeriod = true,
 }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const helpRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const roleLabel = user?.rol_label || user?.rol || 'Administrador general';
+  const userDisplayName = displayName(user?.nombre);
+  const userAvatar = resolveUserAvatar(user);
   const alertCount = alerts.length;
 
   useEffect(() => {
@@ -76,16 +90,18 @@ export function RrhhExecutiveHeader({
   }, []);
 
   useEffect(() => {
-    if (!profileOpen && !notificationsOpen) return;
+    if (!profileOpen && !notificationsOpen && !helpOpen) return;
 
     const closeFloatingPanels = (event: PointerEvent) => {
-      if (!profileRef.current?.contains(event.target as Node)) setProfileOpen(false);
+      if (!profileRef.current?.contains(event.target as Node) && !profileMenuRef.current?.contains(event.target as Node)) setProfileOpen(false);
       if (!notificationsRef.current?.contains(event.target as Node)) setNotificationsOpen(false);
+      if (!helpRef.current?.contains(event.target as Node)) setHelpOpen(false);
     };
     const closeWithEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setProfileOpen(false);
         setNotificationsOpen(false);
+        setHelpOpen(false);
       }
     };
 
@@ -95,28 +111,37 @@ export function RrhhExecutiveHeader({
       document.removeEventListener('pointerdown', closeFloatingPanels);
       document.removeEventListener('keydown', closeWithEscape);
     };
-  }, [notificationsOpen, profileOpen]);
+  }, [helpOpen, notificationsOpen, profileOpen]);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [profileOpen]);
 
   return (
-    <div className={styles.tools}>
-      <label className={styles.selectControl} title="Filtrar por sede">
+    <div className={styles.tools} data-compact={compact || undefined}>
+      {!compact && <>
+      {showSite && <label className={styles.selectControl} title="Filtrar por sede">
         <Building2 aria-hidden="true" />
         <select aria-label="Alcance de sede" value={siteId ?? 'all'} onChange={event => onSiteChange(event.target.value === 'all' ? null : Number(event.target.value))}>
           {canViewAllSites && <option value="all">Todas las sedes</option>}
           {sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}
         </select>
         <ChevronDown aria-hidden="true" />
-      </label>
+      </label>}
 
-      <label className={styles.selectControl} title="Cambiar periodo">
+      {showPeriod && <label className={styles.selectControl} title="Cambiar periodo">
         <CalendarDays aria-hidden="true" />
         <select aria-label="Mes de la agenda" value={month} onChange={event => onMonthChange(event.target.value)}>
           {months.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
         </select>
         <ChevronDown aria-hidden="true" />
-      </label>
+      </label>}
 
-      <label className={styles.searchControl}>
+      {showSearch && <label className={styles.searchControl}>
         <Search aria-hidden="true" />
         <input
           ref={searchRef}
@@ -129,7 +154,8 @@ export function RrhhExecutiveHeader({
         {query
           ? <button type="button" aria-label="Limpiar búsqueda" onClick={() => { onQueryChange(''); searchRef.current?.focus(); }}><X /></button>
           : <kbd aria-hidden="true">Ctrl K</kbd>}
-      </label>
+      </label>}
+      </>}
 
       <div className={styles.notifications} ref={notificationsRef}>
         <button
@@ -143,10 +169,15 @@ export function RrhhExecutiveHeader({
           onClick={() => {
             setNotificationsOpen(open => !open);
             setProfileOpen(false);
+            setHelpOpen(false);
           }}
         >
           <Bell aria-hidden="true" />
-          {alertCount > 0 && <span aria-live="polite">{alertCount > 9 ? '9+' : alertCount}</span>}
+          {alertCount > 0 && (
+            <span className={styles.notificationCount} aria-live="polite">
+              {alertCount > 9 ? '9+' : alertCount}
+            </span>
+          )}
         </button>
 
         {notificationsOpen && <section className={styles.notificationPanel} role="dialog" aria-label="Centro de notificaciones">
@@ -194,6 +225,39 @@ export function RrhhExecutiveHeader({
         </section>}
       </div>
 
+      <div className={styles.help} ref={helpRef}>
+        <button
+          className={styles.helpButton}
+          type="button"
+          aria-label="Abrir ayuda de Recursos Humanos"
+          aria-haspopup="dialog"
+          aria-expanded={helpOpen}
+          title="Ayuda"
+          onClick={() => {
+            setHelpOpen(open => !open);
+            setNotificationsOpen(false);
+            setProfileOpen(false);
+          }}
+        >
+          <CircleHelp aria-hidden="true" />
+        </button>
+
+        {helpOpen && <section className={styles.helpPanel} role="dialog" aria-label="Ayuda de Recursos Humanos">
+          <header>
+            <span><CircleHelp aria-hidden="true" /></span>
+            <div>
+              <strong>Ayuda de Recursos Humanos</strong>
+              <small>Accesos rápidos del panel</small>
+            </div>
+          </header>
+          <div className={styles.helpItems}>
+            <div><Search aria-hidden="true" /><span><strong>Buscar información</strong><small>Presiona Ctrl K desde cualquier sección.</small></span></div>
+            <div><Building2 aria-hidden="true" /><span><strong>Cambiar alcance</strong><small>Filtra la información por sede.</small></span></div>
+            <div><CalendarDays aria-hidden="true" /><span><strong>Cambiar periodo</strong><small>Selecciona el mes que deseas revisar.</small></span></div>
+          </div>
+        </section>}
+      </div>
+
       <div className={styles.profile} ref={profileRef}>
         <button
           className={styles.profileTrigger}
@@ -204,20 +268,35 @@ export function RrhhExecutiveHeader({
           onClick={() => {
             setProfileOpen(open => !open);
             setNotificationsOpen(false);
+            setHelpOpen(false);
           }}
         >
-          <span className={styles.avatar}>{initials(user?.nombre)}<i aria-hidden="true" /></span>
+          <span className={styles.avatar}><img src={userAvatar} alt="" /></span>
           <span className={styles.profileCopy}>
-            <strong>{user?.nombre || 'Administrador'}</strong>
+            <strong>{userDisplayName}</strong>
             <small>{roleLabel}</small>
           </span>
           <ChevronDown className={profileOpen ? styles.rotated : ''} aria-hidden="true" />
         </button>
 
-        {profileOpen && <div className={styles.profileMenu} role="menu">
+        {profileOpen && createPortal(<>
+          <button
+            className={styles.profileBackdrop}
+            type="button"
+            aria-label="Cerrar menú de perfil"
+            onClick={() => setProfileOpen(false)}
+          />
+          <div ref={profileMenuRef} className={styles.profileMenu} role="menu">
           <header>
-            <span className={styles.menuAvatar}>{initials(user?.nombre)}</span>
-            <div><strong>{user?.nombre || 'Administrador'}</strong><small>@{user?.usuario || 'usuario'}</small></div>
+            <span className={styles.menuAvatar}><img src={userAvatar} alt="" /></span>
+            <div className={styles.menuIdentity}>
+              <strong>{userDisplayName}</strong>
+              <small>@{user?.usuario || 'usuario'}</small>
+              <span className={styles.roleBadge}>
+                <ShieldCheck aria-hidden="true" />
+                {roleLabel}
+              </span>
+            </div>
           </header>
           <div className={styles.sessionDetails}>
             <div className={styles.detailRow}>
@@ -238,7 +317,8 @@ export function RrhhExecutiveHeader({
               <ChevronRight aria-hidden="true" />
             </button>
           </div>
-        </div>}
+          </div>
+        </>, document.body)}
       </div>
     </div>
   );

@@ -14,7 +14,13 @@ function attendanceRow(siteId: number, siteName: string, status: AttendanceDashb
     attendance_id: null,
     status,
     delay_minutes: status === 'TARDANZA' ? 10 : 0,
+    return_delay_minutes: 0,
     overtime_minutes: overtimeMinutes,
+    operational_status: status === 'SIN_REGISTRO' ? 'PENDIENTE_ENTRADA' : status === 'VACACIONES' ? 'VACACIONES' : status === 'PERMISO' ? 'PERMISO' : status === 'FALTA' ? 'FALTA' : 'EN_JORNADA',
+    next_action: status === 'SIN_REGISTRO' ? 'MARCAR_ENTRADA' : 'NINGUNA',
+    requires_attention: status === 'FALTA',
+    completed_marks: 0,
+    expected_marks: 2,
     schedule: null,
     marks: { entry: null, lunch_out: null, lunch_return: null, exit: null },
   };

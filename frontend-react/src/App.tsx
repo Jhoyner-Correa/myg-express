@@ -75,8 +75,9 @@ export const AppContent: React.FC = () => {
           <Route path="rrhh/asistencia" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="attendance" /></ProtectedRoute>} />
           <Route path="rrhh/solicitudes" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="requests" /></ProtectedRoute>} />
           <Route path="rrhh/horarios" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="schedules" /></ProtectedRoute>} />
+          <Route path="rrhh/pagos" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="payments" /></ProtectedRoute>} />
           <Route path="rrhh/gps" element={<ProtectedRoute permission="gps.ver"><Gps /></ProtectedRoute>} />
-          <Route path="rrhh/reportes" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="reports" /></ProtectedRoute>} />
+          <Route path="rrhh/reportes/*" element={<Navigate to="/rrhh/asistencia" replace />} />
           <Route path="rrhh/configuracion" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="configuration" /></ProtectedRoute>} />
           <Route path="gps" element={<Navigate to="/rrhh/gps" replace />} />
           <Route path="admin" element={<ProtectedRoute permission="admin.panel.ver"><Admin /></ProtectedRoute>} />
