@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
 import { AuthRequest } from '../../../core/middlewares/authMiddleware';
-import { cleanSavarText, MAX_SAVAR_IMPORT_ROWS, parseSavarImportRows, savarSedeScope } from '../domain/savarScanDomain';
+import { cleanSavarCode, cleanSavarText, MAX_SAVAR_IMPORT_ROWS, parseSavarImportRows, savarSedeScope } from '../domain/savarScanDomain';
 
 const IMPORT_CHUNK_SIZE = 500;
 const MAX_LIST_ROWS = 500;
@@ -66,7 +66,7 @@ async function recordIncident(
 }
 
 export const procesarEscaneo = async (req: AuthRequest, res: Response) => {
-  const code = cleanSavarText(req.body?.codigo, 100);
+  const code = cleanSavarCode(req.body?.codigo);
   const activeLot = cleanSavarText(req.body?.lote_activo, 120);
   if (!code || !activeLot) {
     return res.status(400).json({ ok: false, message: 'El código y el lote activo son obligatorios.' });

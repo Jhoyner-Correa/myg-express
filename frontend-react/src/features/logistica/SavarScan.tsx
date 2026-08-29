@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { AlertTriangle, Barcode, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/Button/Button';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
@@ -70,15 +70,8 @@ export const SavarScan: React.FC = () => {
   const [missingQuery, setMissingQuery] = useState('');
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const scanTimeoutRef = useRef<number | null>(null);
   const scanningRef = useRef(false);
-  const strokeIntervalsRef = useRef<number[]>([]);
-  const lastKeyTimeRef = useRef(0);
   const audioReadyRef = useRef(false);
-
-  useEffect(() => () => {
-    if (scanTimeoutRef.current !== null) window.clearTimeout(scanTimeoutRef.current);
-  }, []);
 
   const focusScanner = useCallback(() => window.requestAnimationFrame(() => inputRef.current?.focus()), []);
   const resetScanner = useCallback(() => {
@@ -151,34 +144,13 @@ export const SavarScan: React.FC = () => {
   }, [activeLotName, canManage, focusScanner, reloadLots, setHistory]);
 
   const trackScannerKey = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      if (scanTimeoutRef.current) window.clearTimeout(scanTimeoutRef.current);
-      strokeIntervalsRef.current = [];
-      void processScan(scanInput);
-      return;
-    }
-    const now = Date.now();
-    if (lastKeyTimeRef.current) {
-      strokeIntervalsRef.current = [...strokeIntervalsRef.current.slice(-4), now - lastKeyTimeRef.current];
-    }
-    lastKeyTimeRef.current = now;
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    void processScan(scanInput);
   };
 
   const updateScanInput = (value: string) => {
     setScanInput(value);
-    if (scanTimeoutRef.current) window.clearTimeout(scanTimeoutRef.current);
-    const code = value.trim();
-    if (!code) return;
-    if (/^SE\d{11}$/i.test(code) || code.length === 13) {
-      strokeIntervalsRef.current = [];
-      void processScan(code);
-      return;
-    }
-    if (strokeIntervalsRef.current.length >= 3) {
-      const average = strokeIntervalsRef.current.reduce((sum, interval) => sum + interval, 0) / strokeIntervalsRef.current.length;
-      if (average < 45) scanTimeoutRef.current = window.setTimeout(() => void processScan(code), 150);
-    }
   };
 
   const openImport = () => {

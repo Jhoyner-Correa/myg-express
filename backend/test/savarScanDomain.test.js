@@ -2,11 +2,18 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  cleanSavarCode,
   cleanSavarText,
   MAX_SAVAR_IMPORT_ROWS,
   parseSavarImportRows,
   savarSedeScope
 } = require('../dist/modules/logistica/domain/savarScanDomain');
+
+test('normaliza caracteres de control enviados por lectores de códigos', () => {
+  assert.equal(cleanSavarCode('\tSE123\r\n'), 'SE123');
+  assert.equal(cleanSavarCode('  ABC-123  '), 'ABC-123');
+  assert.equal(cleanSavarCode(null), '');
+});
 
 test('limpia y limita texto recibido por SAVAR SCAN', () => {
   assert.equal(cleanSavarText('  ABC-123  ', 100), 'ABC-123');

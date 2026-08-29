@@ -31,6 +31,13 @@ export function cleanSavarText(value: unknown, maxLength: number): string {
   return String(value ?? '').trim().slice(0, maxLength);
 }
 
+export function cleanSavarCode(value: unknown, maxLength = 100): string {
+  return String(value ?? '')
+    .replace(/[\r\n\t]/g, '')
+    .trim()
+    .slice(0, maxLength);
+}
+
 export function parseSavarImportRows(value: unknown): SavarImportResult {
   if (!Array.isArray(value)) return { rows: [], duplicates: 0, invalid: 0 };
 
@@ -46,7 +53,7 @@ export function parseSavarImportRows(value: unknown): SavarImportResult {
 
     const item = raw as Record<string, unknown>;
     const parsed: SavarImportedPackage = {
-      codigo: cleanSavarText(item.codigo ?? item.codigo_paquete, 100),
+      codigo: cleanSavarCode(item.codigo ?? item.codigo_paquete),
       consignado: cleanSavarText(item.consignado, 255),
       direccion: cleanSavarText(item.direccion, 255),
       telefono: cleanSavarText(item.telefono, 50) || null,
