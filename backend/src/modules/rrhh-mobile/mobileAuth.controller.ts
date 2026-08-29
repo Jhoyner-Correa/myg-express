@@ -7,13 +7,28 @@ import { MobileAuthService, mobileAuthCode, mobileAuthStatus } from './mobileAut
 export class MobileAuthController {
   constructor(private authService: MobileAuthService) {}
 
-  activate = async (req: Request, res: Response) => {
+  preActivate = async (req: Request, res: Response) => {
     try {
-      const result = await this.authService.activateDevice({
+      const result = await this.authService.verifyActivation({
         identifier: String(req.body.identifier || ''),
         password: String(req.body.password || ''),
         activationCode: String(req.body.activation_code || ''),
         installationId: String(req.body.installation_id || ''),
+      });
+      return res.json({ ok: true, data: result });
+    } catch (error) {
+      return res.status(mobileAuthStatus(error)).json({
+        ok: false,
+        code: mobileAuthCode(error),
+        message: error instanceof Error ? error.message : 'No se pudieron verificar las credenciales.',
+      });
+    }
+  };
+
+  activate = async (req: Request, res: Response) => {
+    try {
+      const result = await this.authService.activateDevice({
+        enrollmentToken: String(req.body.enrollment_token || ''),
         publicKey: String(req.body.public_key || ''),
         brand: req.body.brand,
         model: req.body.model,
@@ -44,11 +59,11 @@ export class MobileAuthController {
       if (!req.employee) return res.status(401).json({ ok: false, code: 'AUTH_REQUIRED' });
       const currentPassword = String(req.body.current_password || '');
       const newPassword = String(req.body.new_password || '');
-      if (newPassword.length < 12 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+      if (newPassword.length < 4 || newPassword.length > 64 || /\s/.test(newPassword)) {
         return res.status(400).json({
           ok: false,
-          code: 'WEAK_PASSWORD',
-          message: 'La nueva contrasena debe tener 12 caracteres, mayuscula, minuscula y numero.',
+          code: 'INVALID_PASSWORD',
+          message: 'La nueva contrasena debe tener entre 4 y 64 caracteres y no contener espacios.',
         });
       }
       const [rows]: any = await pool.query('SELECT password_hash FROM personal_acceso_app WHERE empleado_id = ? LIMIT 1', [req.employee.id]);

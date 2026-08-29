@@ -2,12 +2,23 @@ import fs from 'fs';
 import path from 'path';
 import { RowDataPacket } from 'mysql2/promise';
 import { pool } from '../core/database/database';
+import { executeMigrationStatement } from './migrationSql';
 
 const MIGRATION_ID = '012_access_model';
 const LOCK_NAME = 'myg_access_model';
 
 type CountRow = RowDataPacket & { total: number };
 type LockRow = RowDataPacket & { acquired: number };
+
+async function columnExists(tableName: string, columnName: string): Promise<boolean> {
+  const [[row]] = await pool.query<CountRow[]>(
+    `SELECT COUNT(*) total
+       FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+    [tableName, columnName],
+  );
+  return Number(row.total) > 0;
+}
 
 function migrationStatements(): string[] {
   const source = fs.readFileSync(
@@ -36,12 +47,15 @@ async function assertPreflight(): Promise<void> {
       WHERE rol = 'EncargadoOficina' AND sede_id IS NULL`],
     ['roles no reconocidos', `SELECT COUNT(*) total FROM usuarios
       WHERE rol NOT IN ('SysAdmin', 'AdminEmpresa', 'EncargadoOficina')`],
-    ['permisos JSON inválidos', `SELECT COUNT(*) total FROM usuarios
-      WHERE permisos IS NOT NULL AND (JSON_VALID(permisos) = 0 OR JSON_TYPE(permisos) <> 'ARRAY')`],
     ['cuentas SysAdmin inconsistentes', `SELECT COUNT(*) total FROM usuarios
       WHERE (rol = 'SysAdmin' AND es_superadmin <> 1)
          OR (rol <> 'SysAdmin' AND es_superadmin = 1)`],
   ];
+
+  if (await columnExists('usuarios', 'permisos')) {
+    checks.push(['permisos JSON inválidos', `SELECT COUNT(*) total FROM usuarios
+      WHERE permisos IS NOT NULL AND (JSON_VALID(permisos) = 0 OR JSON_TYPE(permisos) <> 'ARRAY')`]);
+  }
 
   for (const [label, sql] of checks) {
     const [[row]] = await pool.query<CountRow[]>(sql);
@@ -83,10 +97,15 @@ async function main(): Promise<void> {
     }
 
     await assertPreflight();
+    const hasLegacyPermissions = await columnExists('usuarios', 'permisos');
     for (const statement of migrationStatements()) {
+      if (!hasLegacyPermissions && /\busuario\.permisos\b/i.test(statement)) {
+        console.log('Sin permisos JSON heredados: no se requiere migrar excepciones por usuario.');
+        continue;
+      }
       const constraintName = /ADD\s+CONSTRAINT\s+([a-zA-Z0-9_]+)/i.exec(statement)?.[1];
       if (constraintName && await constraintExists(constraintName)) continue;
-      await pool.query(statement);
+      await executeMigrationStatement(pool, statement);
     }
 
     await pool.query('INSERT INTO schema_migrations (id) VALUES (?)', [MIGRATION_ID]);

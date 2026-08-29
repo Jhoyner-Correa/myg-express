@@ -35,7 +35,7 @@ export class MobileAttendanceController {
         return res.status(403).json({
           ok: false,
           code: 'PASSWORD_CHANGE_REQUIRED',
-          message: 'Cambia la contrasena temporal antes de consultar la jornada.',
+          message: 'Actualiza tu contrasena antes de consultar la jornada.',
         });
       }
       return res.json({ ok: true, data: await this.queryService.today(req.employee.id) });
@@ -49,6 +49,35 @@ export class MobileAttendanceController {
     }
   };
 
+  history = async (req: MobileAuthRequest, res: Response) => {
+    try {
+      if (!req.employee) return res.status(401).json({ ok: false, code: 'AUTH_REQUIRED' });
+      if (req.employee.requiresPasswordChange) {
+        return res.status(403).json({
+          ok: false,
+          code: 'PASSWORD_CHANGE_REQUIRED',
+          message: 'Actualiza tu contrasena antes de consultar el historial.',
+        });
+      }
+      const month = String(req.query.month || '');
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+        return res.status(400).json({
+          ok: false,
+          code: 'INVALID_MONTH',
+          message: 'El mes solicitado no es valido.',
+        });
+      }
+      return res.json({ ok: true, data: await this.queryService.history(req.employee.id, month) });
+    } catch (error) {
+      console.error('[RRHH Mobile] Error consultando historial:', error);
+      return res.status(500).json({
+        ok: false,
+        code: 'ATTENDANCE_HISTORY_ERROR',
+        message: 'No se pudo consultar el historial de asistencia.',
+      });
+    }
+  };
+
   createChallenge = async (req: MobileAuthRequest, res: Response) => {
     try {
       if (!req.employee) return res.status(401).json({ ok: false, code: 'AUTH_REQUIRED' });
@@ -56,7 +85,7 @@ export class MobileAttendanceController {
         return res.status(403).json({
           ok: false,
           code: 'PASSWORD_CHANGE_REQUIRED',
-          message: 'Cambia la contrasena temporal antes de marcar asistencia.',
+          message: 'Actualiza tu contrasena antes de marcar asistencia.',
         });
       }
       if (!isClockType(req.body.tipo)) {
@@ -103,7 +132,7 @@ export class MobileAttendanceController {
     try {
       if (!req.employee) return res.status(401).json({ ok: false, code: 'AUTH_REQUIRED' });
       if (req.employee.requiresPasswordChange) {
-        return res.status(403).json({ ok: false, code: 'PASSWORD_CHANGE_REQUIRED', message: 'Debes cambiar la contrasena temporal.' });
+        return res.status(403).json({ ok: false, code: 'PASSWORD_CHANGE_REQUIRED', message: 'Debes actualizar tu contrasena.' });
       }
 
       const payload: SignedClockPayload = {
@@ -196,7 +225,7 @@ export class MobileAttendanceController {
     try {
       if (!req.employee) return res.status(401).json({ ok: false, code: 'AUTH_REQUIRED' });
       if (req.employee.requiresPasswordChange) {
-        return res.status(403).json({ ok: false, code: 'PASSWORD_CHANGE_REQUIRED', message: 'Debes cambiar la contrasena temporal.' });
+        return res.status(403).json({ ok: false, code: 'PASSWORD_CHANGE_REQUIRED', message: 'Debes actualizar tu contrasena.' });
       }
       if (!req.file) {
         return res.status(422).json({ ok: false, code: 'SELFIE_REQUIRED', message: 'Debes tomar una selfie para solicitar la revision.' });

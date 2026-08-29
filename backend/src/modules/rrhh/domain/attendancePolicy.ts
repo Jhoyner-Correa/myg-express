@@ -1,4 +1,4 @@
-import { ClockType } from './Marcacion';
+import { ClockTimingClassification, ClockType } from './Marcacion';
 
 export type AttendanceRuleCode =
   | 'REQUEST_ID_INVALID'
@@ -13,6 +13,7 @@ export type AttendanceRuleCode =
   | 'INVALID_CAPTURE_TIME'
   | 'NON_WORKING_DAY'
   | 'SCHEDULE_NOT_ASSIGNED'
+  | 'CLOCK_NOT_YET_AVAILABLE'
   | 'GPS_ACCURACY_REQUIRED'
   | 'GPS_ACCURACY_INSUFFICIENT'
   | 'OUTSIDE_GEOFENCE';
@@ -29,6 +30,139 @@ export class AttendanceRuleError extends Error {
 }
 
 const CLOCK_TYPES: ClockType[] = ['ENTRADA', 'SALIDA_ALMUERZO', 'REGRESO', 'SALIDA'];
+
+export type AttendanceWindowSchedule = {
+  startTime: string;
+  endTime: string;
+  toleranceMinutes: number;
+  lunchEnabled: boolean;
+  lunchStartFrom: string | null;
+  lunchDurationMinutes: number;
+  returnToleranceMinutes: number;
+  entryOpenBeforeMinutes: number;
+  lunchOpenBeforeMinutes: number;
+  returnOpenBeforeMinutes: number;
+  exitOpenBeforeMinutes: number;
+  overtimeThresholdMinutes: number;
+};
+
+export type ClockActionState = {
+  type: ClockType;
+  state: 'COMPLETED' | 'BLOCKED_SEQUENCE' | 'UPCOMING' | 'AVAILABLE';
+  enabled: boolean;
+  scheduledTime: string;
+  availableFrom: string;
+  minutesUntil: number;
+};
+
+function clockMinutes(value: string): number {
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(String(value).trim());
+  if (!match) throw new Error('Hora de horario invalida');
+  return (Number(match[1]) * 60) + Number(match[2]);
+}
+
+function clockText(minutes: number): string {
+  const bounded = Math.max(0, Math.min(1439, minutes));
+  return `${String(Math.floor(bounded / 60)).padStart(2, '0')}:${String(bounded % 60).padStart(2, '0')}:00`;
+}
+
+export function scheduledClockMinutes(type: ClockType, schedule: AttendanceWindowSchedule): number {
+  if (type === 'ENTRADA') return clockMinutes(schedule.startTime);
+  if (type === 'SALIDA') return clockMinutes(schedule.endTime);
+  if (!schedule.lunchEnabled || !schedule.lunchStartFrom) {
+    throw new AttendanceRuleError('LUNCH_NOT_CONFIGURED', 'El horario no tiene almuerzo configurado.', 409);
+  }
+  const lunchStart = clockMinutes(schedule.lunchStartFrom);
+  return type === 'SALIDA_ALMUERZO' ? lunchStart : lunchStart + schedule.lunchDurationMinutes;
+}
+
+function openingMinutes(type: ClockType, schedule: AttendanceWindowSchedule): number {
+  if (type === 'ENTRADA') return schedule.entryOpenBeforeMinutes;
+  if (type === 'SALIDA_ALMUERZO') return schedule.lunchOpenBeforeMinutes;
+  if (type === 'REGRESO') return schedule.returnOpenBeforeMinutes;
+  return schedule.exitOpenBeforeMinutes;
+}
+
+export function buildClockActions(
+  recorded: ClockType[],
+  schedule: AttendanceWindowSchedule,
+  currentMinutes: number,
+): ClockActionState[] {
+  const sequenceAllowed = allowedNextClockTypes(recorded, schedule.lunchEnabled);
+  const visible = schedule.lunchEnabled ? CLOCK_TYPES : ['ENTRADA', 'SALIDA'] as ClockType[];
+  return visible.map(type => {
+    const scheduled = scheduledClockMinutes(type, schedule);
+    const available = Math.max(0, scheduled - openingMinutes(type, schedule));
+    const completed = recorded.includes(type);
+    const inSequence = sequenceAllowed.includes(type);
+    const enabled = inSequence && currentMinutes >= available;
+    return {
+      type,
+      state: completed ? 'COMPLETED' : !inSequence ? 'BLOCKED_SEQUENCE' : enabled ? 'AVAILABLE' : 'UPCOMING',
+      enabled,
+      scheduledTime: clockText(scheduled),
+      availableFrom: clockText(available),
+      minutesUntil: enabled ? 0 : Math.max(0, available - currentMinutes),
+    };
+  });
+}
+
+export function assertClockTimeWindow(
+  recorded: ClockType[],
+  requested: ClockType,
+  schedule: AttendanceWindowSchedule,
+  currentMinutes: number,
+): void {
+  const action = buildClockActions(recorded, schedule, currentMinutes).find(value => value.type === requested);
+  if (!action || action.state === 'BLOCKED_SEQUENCE') return;
+  if (!action.enabled) {
+    throw new AttendanceRuleError(
+      'CLOCK_NOT_YET_AVAILABLE',
+      `Esta marcacion se habilita a las ${action.availableFrom.slice(0, 5)}.`,
+      409,
+    );
+  }
+}
+
+export function classifyClockTiming(
+  type: ClockType,
+  currentMinutes: number,
+  schedule: AttendanceWindowSchedule,
+): { scheduledMinutes: number; differenceMinutes: number; classification: ClockTimingClassification } {
+  const scheduledMinutes = scheduledClockMinutes(type, schedule);
+  const differenceMinutes = currentMinutes - scheduledMinutes;
+  let classification: ClockTimingClassification = 'PUNTUAL';
+  if (type === 'ENTRADA') {
+    classification = differenceMinutes < 0 ? 'ANTICIPADA'
+      : differenceMinutes > schedule.toleranceMinutes ? 'TARDANZA' : 'PUNTUAL';
+  } else if (type === 'REGRESO') {
+    classification = differenceMinutes < 0 ? 'ANTICIPADA'
+      : differenceMinutes > schedule.returnToleranceMinutes ? 'TARDANZA' : 'PUNTUAL';
+  } else if (type === 'SALIDA_ALMUERZO') {
+    classification = differenceMinutes < 0 ? 'ANTICIPADA' : differenceMinutes > 0 ? 'DEMORADA' : 'PUNTUAL';
+  } else {
+    classification = differenceMinutes < 0 ? 'SALIDA_ANTICIPADA'
+      : differenceMinutes >= schedule.overtimeThresholdMinutes ? 'SOBRETIEMPO_CANDIDATO' : 'PUNTUAL';
+  }
+  return { scheduledMinutes, differenceMinutes, classification };
+}
+
+export function resolveEntryAttendance(
+  currentMinutes: number,
+  schedule: AttendanceWindowSchedule,
+): {
+  status: 'PRESENTE' | 'TARDANZA';
+  delayMinutes: number;
+  timing: ReturnType<typeof classifyClockTiming>;
+} {
+  const timing = classifyClockTiming('ENTRADA', currentMinutes, schedule);
+  const late = timing.classification === 'TARDANZA';
+  return {
+    status: late ? 'TARDANZA' : 'PRESENTE',
+    delayMinutes: late ? Math.max(0, timing.differenceMinutes) : 0,
+    timing,
+  };
+}
 
 export function isClockType(value: unknown): value is ClockType {
   return typeof value === 'string' && CLOCK_TYPES.includes(value as ClockType);

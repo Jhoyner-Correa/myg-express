@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { RowDataPacket } from 'mysql2/promise';
 import { pool } from '../core/database/database';
+import { executeMigrationStatements } from './migrationSql';
 
 type LockRow = RowDataPacket & { acquired: number };
 const LOCK_NAME = 'myg_rrhh_incident_workflows';
@@ -18,7 +19,7 @@ async function main() {
   const [[lock]] = await pool.query<LockRow[]>('SELECT GET_LOCK(?, 15) AS acquired', [LOCK_NAME]);
   if (Number(lock?.acquired) !== 1) throw new Error('No se pudo adquirir el candado de migración RR. HH.');
   try {
-    for (const statement of loadStatements()) await pool.query(statement);
+    await executeMigrationStatements(pool, loadStatements());
     console.log('Migración 007 de incidencias RR. HH. completada.');
   } finally {
     await pool.query('SELECT RELEASE_LOCK(?)', [LOCK_NAME]);

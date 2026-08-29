@@ -1,7 +1,9 @@
 import { pool } from '../../core/database/database';
 import { readdir, rm, stat } from 'fs/promises';
 import path from 'path';
-import whatsappMediaStorage from '../whatsapp/media/whatsappMediaStorage';
+import { cleanupExpiredAttendanceEvidence } from '../../modules/rrhh/services/AttendanceEvidenceRetentionService';
+import { SELFIE_RETENTION_DAYS } from '../../modules/rrhh/domain/selfieRetentionPolicy';
+import { attendanceDailyClosureService } from '../../modules/rrhh/services/AttendanceDailyClosureService';
 
 type CleanupStats = {
   jobsRemoved: number;
@@ -9,6 +11,11 @@ type CleanupStats = {
   logsRemoved: number;
   sessionsRemoved: number;
   mediaFilesRemoved: number;
+  rrhhExpiredSelfieRequests: number;
+  rrhhEvidenceFilesRemoved: number;
+  rrhhAttendanceDaysProcessed: number;
+  rrhhAttendanceAbsencesCreated: number;
+  gpsHistoryPointsRemoved: number;
 };
 
 type CleanupSnapshot = CleanupStats & {
@@ -26,6 +33,11 @@ class DatabaseCleanupService {
     logsRemoved: 0,
     sessionsRemoved: 0,
     mediaFilesRemoved: 0,
+    rrhhExpiredSelfieRequests: 0,
+    rrhhEvidenceFilesRemoved: 0,
+    rrhhAttendanceDaysProcessed: 0,
+    rrhhAttendanceAbsencesCreated: 0,
+    gpsHistoryPointsRemoved: 0,
     lastRunAt: null,
     lastStatus: 'idle',
     lastError: null
@@ -36,6 +48,10 @@ class DatabaseCleanupService {
   private readonly logsRetentionDays = Number(process.env.WHATSAPP_LOG_RETENTION_DAYS || 30);
   private readonly sessionsRetentionDays = Number(process.env.WHATSAPP_SESSION_RETENTION_DAYS || 30);
   private readonly mediaRetentionDays = Number(process.env.WHATSAPP_MEDIA_RETENTION_DAYS || 14);
+  private readonly gpsHistoryRetentionDays = Math.min(
+    365,
+    Math.max(7, Number(process.env.GPS_HISTORY_RETENTION_DAYS || 90) || 90),
+  );
 
   start() {
     if (!this.enabled || this.timer) return;
@@ -61,7 +77,10 @@ class DatabaseCleanupService {
       retentionDays: {
         jobs: this.jobsRetentionDays,
         logs: this.logsRetentionDays,
-        sessions: this.sessionsRetentionDays
+        sessions: this.sessionsRetentionDays,
+        pendingSelfies: SELFIE_RETENTION_DAYS.pending,
+        rejectedSelfies: SELFIE_RETENTION_DAYS.rejected,
+        gpsHistory: this.gpsHistoryRetentionDays,
       },
       ...this.lastSnapshot
     };
@@ -74,7 +93,12 @@ class DatabaseCleanupService {
         orphanAvisosRemoved: 0,
         logsRemoved: 0,
         sessionsRemoved: 0,
-        mediaFilesRemoved: 0
+        mediaFilesRemoved: 0,
+        rrhhExpiredSelfieRequests: 0,
+        rrhhEvidenceFilesRemoved: 0,
+        rrhhAttendanceDaysProcessed: 0,
+        rrhhAttendanceAbsencesCreated: 0,
+        gpsHistoryPointsRemoved: 0,
       };
     }
 
@@ -88,10 +112,18 @@ class DatabaseCleanupService {
       const logsRemoved = await this.cleanupOldLogs();
       const sessionsRemoved = await this.cleanupOldInactiveSessions();
       const mediaFilesRemoved = await this.cleanupUnusedMediaFiles();
+      const rrhhEvidence = await cleanupExpiredAttendanceEvidence();
+      const rrhhAttendance = await attendanceDailyClosureService.closePendingDays().catch(error => {
+        console.error('[cleanup] No se pudo ejecutar el cierre diario de asistencia:', error);
+        return { processed_days: 0, absences_created: 0, incomplete_shifts: 0 };
+      });
+      const gpsHistoryPointsRemoved = await this.cleanupOldGpsHistory();
 
-      if (jobsRemoved || orphanAvisosRemoved || logsRemoved || sessionsRemoved || mediaFilesRemoved) {
+      if (jobsRemoved || orphanAvisosRemoved || logsRemoved || sessionsRemoved || mediaFilesRemoved
+        || rrhhEvidence.expiredRequests || rrhhEvidence.filesRemoved || rrhhAttendance.absences_created
+        || gpsHistoryPointsRemoved) {
         console.log(
-          `[cleanup] jobs=${jobsRemoved} avisos_huerfanos=${orphanAvisosRemoved} logs=${logsRemoved} sesiones=${sessionsRemoved} media=${mediaFilesRemoved}`
+          `[cleanup] jobs=${jobsRemoved} avisos_huerfanos=${orphanAvisosRemoved} logs=${logsRemoved} sesiones=${sessionsRemoved} media=${mediaFilesRemoved} rrhh_solicitudes=${rrhhEvidence.expiredRequests} rrhh_selfies=${rrhhEvidence.filesRemoved} rrhh_dias=${rrhhAttendance.processed_days} rrhh_faltas=${rrhhAttendance.absences_created} gps_historial=${gpsHistoryPointsRemoved}`
         );
       }
 
@@ -101,12 +133,28 @@ class DatabaseCleanupService {
         logsRemoved,
         sessionsRemoved,
         mediaFilesRemoved,
+        rrhhExpiredSelfieRequests: rrhhEvidence.expiredRequests,
+        rrhhEvidenceFilesRemoved: rrhhEvidence.filesRemoved,
+        rrhhAttendanceDaysProcessed: rrhhAttendance.processed_days,
+        rrhhAttendanceAbsencesCreated: rrhhAttendance.absences_created,
+        gpsHistoryPointsRemoved,
         lastRunAt: new Date().toISOString(),
         lastStatus: 'ok',
         lastError: null
       };
 
-      return { jobsRemoved, orphanAvisosRemoved, logsRemoved, sessionsRemoved, mediaFilesRemoved };
+      return {
+        jobsRemoved,
+        orphanAvisosRemoved,
+        logsRemoved,
+        sessionsRemoved,
+        mediaFilesRemoved,
+        rrhhExpiredSelfieRequests: rrhhEvidence.expiredRequests,
+        rrhhEvidenceFilesRemoved: rrhhEvidence.filesRemoved,
+        rrhhAttendanceDaysProcessed: rrhhAttendance.processed_days,
+        rrhhAttendanceAbsencesCreated: rrhhAttendance.absences_created,
+        gpsHistoryPointsRemoved,
+      };
     } catch (error) {
       console.error('Error en limpieza automatica de base de datos:', error);
       this.lastSnapshot = {
@@ -120,7 +168,12 @@ class DatabaseCleanupService {
         orphanAvisosRemoved: 0,
         logsRemoved: 0,
         sessionsRemoved: 0,
-        mediaFilesRemoved: 0
+        mediaFilesRemoved: 0,
+        rrhhExpiredSelfieRequests: 0,
+        rrhhEvidenceFilesRemoved: 0,
+        rrhhAttendanceDaysProcessed: 0,
+        rrhhAttendanceAbsencesCreated: 0,
+        gpsHistoryPointsRemoved: 0,
       };
     } finally {
       this.running = false;
@@ -175,6 +228,17 @@ class DatabaseCleanupService {
          AND ad.id IS NULL
          AND ml.id IS NULL`,
       [this.sessionsRetentionDays]
+    );
+
+    return Number(result?.affectedRows || 0);
+  }
+
+  private async cleanupOldGpsHistory(): Promise<number> {
+    const cutoff = new Date(Date.now() - this.gpsHistoryRetentionDays * 24 * 60 * 60 * 1000);
+    const [result]: any = await pool.query(
+      `DELETE FROM personal_gps_historial
+       WHERE registrado_en < ?`,
+      [cutoff],
     );
 
     return Number(result?.affectedRows || 0);

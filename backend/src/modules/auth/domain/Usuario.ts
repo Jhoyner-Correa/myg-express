@@ -10,6 +10,7 @@ export interface Usuario {
   id: number;
   nombre: string;
   usuario: string;
+  foto: string | null;
   passwordHash: string;
   tipoUsuario: UserType;
   estado: UserStatus;

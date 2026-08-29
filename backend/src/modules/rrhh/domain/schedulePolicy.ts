@@ -10,6 +10,11 @@ export type SchedulePolicyInput = {
   lunchStartUntil: unknown;
   lunchDurationMinutes: unknown;
   returnToleranceMinutes: unknown;
+  entryOpenBeforeMinutes: unknown;
+  lunchOpenBeforeMinutes: unknown;
+  returnOpenBeforeMinutes: unknown;
+  exitOpenBeforeMinutes: unknown;
+  overtimeThresholdMinutes: unknown;
   effectiveFrom: unknown;
 };
 
@@ -23,6 +28,11 @@ export type NormalizedSchedulePolicy = {
   lunchStartUntil: string | null;
   lunchDurationMinutes: number;
   returnToleranceMinutes: number;
+  entryOpenBeforeMinutes: number;
+  lunchOpenBeforeMinutes: number;
+  returnOpenBeforeMinutes: number;
+  exitOpenBeforeMinutes: number;
+  overtimeThresholdMinutes: number;
   effectiveFrom: string;
 };
 
@@ -90,14 +100,14 @@ export function normalizeSchedulePolicy(input: SchedulePolicyInput): NormalizedS
   let lunchDurationMinutes = 0;
   let returnToleranceMinutes = 0;
   if (lunchEnabled) {
-    lunchStartFrom = clock(input.lunchStartFrom, 'El inicio de la ventana de almuerzo');
-    lunchStartUntil = clock(input.lunchStartUntil, 'El fin de la ventana de almuerzo');
-    lunchDurationMinutes = integer(input.lunchDurationMinutes, 'La duración del almuerzo', 15, 180);
+    lunchStartFrom = clock(input.lunchStartFrom, 'La salida al almuerzo');
+    lunchStartUntil = clock(input.lunchStartUntil, 'El regreso del almuerzo');
     returnToleranceMinutes = integer(input.returnToleranceMinutes, 'La tolerancia de regreso', 0, 120);
     const from = parseClockMinutes(lunchStartFrom);
     const until = parseClockMinutes(lunchStartUntil);
-    if (from < start || until < from || until + lunchDurationMinutes > end) {
-      throw new Error('La ventana y duración del almuerzo deben estar dentro de la jornada.');
+    lunchDurationMinutes = until - from;
+    if (from <= start || until >= end || lunchDurationMinutes < 15 || lunchDurationMinutes > 300) {
+      throw new Error('La salida y el regreso del almuerzo deben estar dentro de la jornada y definir un descanso de 15 minutos a 5 horas.');
     }
   }
 
@@ -111,6 +121,11 @@ export function normalizeSchedulePolicy(input: SchedulePolicyInput): NormalizedS
     lunchStartUntil,
     lunchDurationMinutes,
     returnToleranceMinutes,
+    entryOpenBeforeMinutes: integer(input.entryOpenBeforeMinutes ?? 60, 'La anticipacion de entrada', 0, 180),
+    lunchOpenBeforeMinutes: integer(input.lunchOpenBeforeMinutes ?? 30, 'La anticipacion de almuerzo', 0, 120),
+    returnOpenBeforeMinutes: integer(input.returnOpenBeforeMinutes ?? 30, 'La anticipacion de regreso', 0, 120),
+    exitOpenBeforeMinutes: integer(input.exitOpenBeforeMinutes ?? 30, 'La anticipacion de salida', 0, 180),
+    overtimeThresholdMinutes: integer(input.overtimeThresholdMinutes ?? 10, 'El umbral de sobretiempo', 1, 180),
     effectiveFrom: assertDateOnly(input.effectiveFrom),
   };
 }

@@ -7,21 +7,23 @@ const {
   weeklyScopePriority,
 } = require('../dist/modules/rrhh/domain/schedulePolicy');
 
-test('normaliza una jornada con ventana de almuerzo', () => {
+test('calcula la duración del almuerzo desde la salida y el regreso', () => {
   const policy = normalizeSchedulePolicy({
     name: 'Oficina Satipo', startTime: '08:00', endTime: '18:00', toleranceMinutes: 10,
-    lunchEnabled: true, lunchStartFrom: '13:00', lunchStartUntil: '13:30',
-    lunchDurationMinutes: 60, returnToleranceMinutes: 5, effectiveFrom: '2026-09-01',
+    lunchEnabled: true, lunchStartFrom: '13:00', lunchStartUntil: '14:30',
+    lunchDurationMinutes: 15, returnToleranceMinutes: 5, effectiveFrom: '2026-09-01',
   });
   assert.equal(policy.startTime, '08:00:00');
-  assert.equal(policy.lunchDurationMinutes, 60);
+  assert.equal(policy.lunchDurationMinutes, 90);
+  assert.equal(policy.entryOpenBeforeMinutes, 60);
+  assert.equal(policy.overtimeThresholdMinutes, 10);
   assert.equal(policy.effectiveFrom, '2026-09-01');
 });
 
 test('rechaza un almuerzo que termina fuera de la jornada', () => {
   assert.throws(() => normalizeSchedulePolicy({
     name: 'Horario inválido', startTime: '08:00', endTime: '14:00', toleranceMinutes: 0,
-    lunchEnabled: true, lunchStartFrom: '13:30', lunchStartUntil: '13:45',
+    lunchEnabled: true, lunchStartFrom: '13:30', lunchStartUntil: '14:30',
     lunchDurationMinutes: 60, returnToleranceMinutes: 0, effectiveFrom: '2026-09-01',
   }), /dentro de la jornada/);
 });

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { RowDataPacket } from 'mysql2/promise';
 import { pool } from '../core/database/database';
+import { executeMigrationStatement } from './migrationSql';
 
 const MIGRATION_ID = '010_rrhh_schedule_policies';
 const LOCK_NAME = 'myg_rrhh_schedule_policies';
@@ -62,7 +63,7 @@ async function main() {
     for (const statement of statements()) {
       const constraint = /ADD\s+CONSTRAINT\s+([a-zA-Z0-9_]+)/i.exec(statement)?.[1];
       if (constraint && await constraintExists(constraint)) continue;
-      await pool.query(statement);
+      await executeMigrationStatement(pool, statement);
     }
     await pool.query('INSERT INTO schema_migrations (id) VALUES (?)', [MIGRATION_ID]);
     console.log('Migración 010 de políticas de horario completada.');

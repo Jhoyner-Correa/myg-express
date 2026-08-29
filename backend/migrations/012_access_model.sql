@@ -180,9 +180,9 @@ CREATE TABLE IF NOT EXISTS usuario_asignaciones (
   CONSTRAINT fk_usuario_asignaciones_rol FOREIGN KEY (rol_id)
     REFERENCES roles(id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_usuario_asignaciones_empresa FOREIGN KEY (empresa_id)
-    REFERENCES empresas(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    REFERENCES empresas(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT fk_usuario_asignaciones_sede FOREIGN KEY (sede_id)
-    REFERENCES sedes(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    REFERENCES sedes(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT chk_usuario_asignacion_vigencia CHECK (vigente_hasta IS NULL OR vigente_hasta >= vigente_desde),
   CONSTRAINT chk_usuario_asignacion_alcance CHECK (
     (alcance = 'SISTEMA' AND empresa_id IS NULL AND sede_id IS NULL)

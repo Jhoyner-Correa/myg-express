@@ -8,9 +8,13 @@ import jwt from 'jsonwebtoken';
 import { IUsuarioRepository } from './repositories/IUsuarioRepository';
 import { Usuario } from './domain/Usuario';
 import { loadAccessContext } from '../../core/auth/accessControl';
+import { UserPhotoStorageService } from './services/UserPhotoStorageService';
 
 export class AuthService {
-  constructor(private usuarioRepository: IUsuarioRepository) {}
+  constructor(
+    private usuarioRepository: IUsuarioRepository,
+    private photoStorage = new UserPhotoStorageService(),
+  ) {}
 
   async login(usuario: string, password: string): Promise<{ token: string; user: any }> {
     if (!usuario || !password) {
@@ -53,6 +57,7 @@ export class AuthService {
         id: user.id,
         nombre: user.nombre,
         usuario: user.usuario,
+        foto: user.foto,
         rol: access.role,
         rol_label: access.roleLabel,
         tipo_usuario: access.type,
@@ -144,5 +149,29 @@ export class AuthService {
     }
 
     return usuarioActualizado;
+  }
+
+  async actualizarFotoPerfil(id: number, buffer: Buffer, mimeType: string): Promise<Usuario> {
+    const current = await this.obtenerPerfil(id);
+    const newPhotoUrl = await this.photoStorage.save(buffer, mimeType);
+    try {
+      if (!await this.usuarioRepository.actualizarFoto(id, newPhotoUrl)) {
+        throw new Error('No se pudo actualizar la foto del perfil');
+      }
+    } catch (error) {
+      await this.photoStorage.removeManaged(newPhotoUrl).catch(() => undefined);
+      throw error;
+    }
+    await this.photoStorage.removeManaged(current.foto).catch(() => undefined);
+    return this.obtenerPerfil(id);
+  }
+
+  async eliminarFotoPerfil(id: number): Promise<Usuario> {
+    const current = await this.obtenerPerfil(id);
+    if (!await this.usuarioRepository.actualizarFoto(id, null)) {
+      throw new Error('No se pudo eliminar la foto del perfil');
+    }
+    await this.photoStorage.removeManaged(current.foto).catch(() => undefined);
+    return this.obtenerPerfil(id);
   }
 }

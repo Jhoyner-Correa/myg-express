@@ -19,9 +19,9 @@ CREATE TABLE IF NOT EXISTS personal_horario_asignaciones (
   KEY idx_personal_hor_asig_horario (horario_id),
   KEY idx_personal_hor_asig_creador (creado_por),
   CONSTRAINT fk_personal_hor_asig_sede FOREIGN KEY (sede_id)
-    REFERENCES sedes(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    REFERENCES sedes(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT fk_personal_hor_asig_empleado FOREIGN KEY (empleado_id)
-    REFERENCES personal_empleados(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    REFERENCES personal_empleados(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT fk_personal_hor_asig_horario FOREIGN KEY (horario_id)
     REFERENCES personal_horarios(id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_personal_hor_asig_creador FOREIGN KEY (creado_por)

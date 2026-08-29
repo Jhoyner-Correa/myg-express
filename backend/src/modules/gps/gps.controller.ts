@@ -46,11 +46,11 @@ export class GpsController {
         latitud: Number(latitud),
         longitud: Number(longitud),
         velocidadKmh: Number(velocidad_kmh || 0),
-        precisionGps: precision_gps ? Number(precision_gps) : null,
-        altitud: altitud ? Number(altitud) : null,
-        rumbo: rumbo ? Number(rumbo) : null,
+        precisionGps: precision_gps === undefined || precision_gps === null ? null : Number(precision_gps),
+        altitud: altitud === undefined || altitud === null ? null : Number(altitud),
+        rumbo: rumbo === undefined || rumbo === null ? null : Number(rumbo),
         estadoMovimiento: (estado_movimiento as 'DETENIDO' | 'CAMINANDO' | 'VEHICULO') || 'DETENIDO',
-        porcentajeBateria: porcentaje_bateria ? Number(porcentaje_bateria) : null
+        porcentajeBateria: porcentaje_bateria === undefined || porcentaje_bateria === null ? null : Number(porcentaje_bateria)
       });
 
       return res.json({

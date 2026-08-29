@@ -8,6 +8,7 @@ const EXPECTED_COLUMNS = [
   'id',
   'nombre',
   'usuario',
+  'foto',
   'password_hash',
   'tipo_usuario',
   'estado',

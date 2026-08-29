@@ -4,12 +4,26 @@ const GENDERS = new Set(['M', 'F']);
 const TRACKING_TYPES = new Set(['NINGUNO', 'SOLO_MARCACION', 'CONTINUO']);
 const STATUSES = new Set(['ACTIVO', 'INACTIVO', 'SUSPENDIDO']);
 
-export function assertEmployeeDefinition(employee: Omit<Empleado, 'id'> | Empleado): void {
-  if (!/^[A-Za-z0-9-]{3,30}$/.test(employee.codigoEmpleado.trim())) {
+export function isValidPeruvianRuc(value: string): boolean {
+  if (!/^\d{11}$/.test(value)) return false;
+  const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const sum = weights.reduce((total, weight, index) => total + Number(value[index]) * weight, 0);
+  const remainder = 11 - (sum % 11);
+  const expectedDigit = remainder === 10 ? 0 : remainder === 11 ? 1 : remainder;
+  return expectedDigit === Number(value[10]);
+}
+
+type EmployeeDefinition = Omit<Empleado, 'id' | 'codigoEmpleado'> & { codigoEmpleado?: string };
+
+export function assertEmployeeDefinition(employee: EmployeeDefinition): void {
+  if (employee.codigoEmpleado !== undefined && !/^[A-Za-z0-9-]{3,30}$/.test(employee.codigoEmpleado.trim())) {
     throw new Error('El código del empleado debe tener entre 3 y 30 caracteres, sin espacios.');
   }
   if (!/^\d{8,12}$/.test(employee.dni.trim())) {
     throw new Error('El documento del empleado debe contener entre 8 y 12 dígitos.');
+  }
+  if (employee.ruc && !isValidPeruvianRuc(employee.ruc.trim())) {
+    throw new Error('El RUC debe contener 11 digitos y ser valido.');
   }
   if (employee.nombres.trim().length < 2 || employee.nombres.trim().length > 100
       || employee.apellidos.trim().length < 2 || employee.apellidos.trim().length > 100) {
@@ -30,5 +44,9 @@ export function assertEmployeeDefinition(employee: Omit<Empleado, 'id'> | Emplea
   }
   if (employee.telefono && !/^\+?\d{7,15}$/.test(employee.telefono)) {
     throw new Error('El teléfono del empleado debe contener entre 7 y 15 dígitos.');
+  }
+  const address = employee.direccion.trim();
+  if (address.length < 5 || address.length > 255) {
+    throw new Error('La direccion domiciliaria debe tener entre 5 y 255 caracteres.');
   }
 }

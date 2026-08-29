@@ -6,11 +6,10 @@ import { pool, runInTransaction } from '../../../core/database/database';
 import { businessDate } from '../../../core/utils/time';
 import { ClockType } from '../domain/Marcacion';
 import { AttendanceRuleError, assertClockTransition, isClockType, validateGeofence } from '../domain/attendancePolicy';
+import { pendingSelfieExpiresAt, rejectedSelfieExpiresAt } from '../domain/selfieRetentionPolicy';
 import { AsistenciaService } from './AsistenciaService';
-
-export const PRIVATE_SELFIE_ROOT = path.resolve(
-  process.env.RRHH_PRIVATE_EVIDENCE_DIR || path.join(process.cwd(), 'private-storage', 'rrhh-evidence'),
-);
+import { deleteAttendanceEvidenceNow, PRIVATE_SELFIE_ROOT } from './AttendanceEvidenceRetentionService';
+import { createEmployeeNotification } from '../../rrhh-mobile/mobileNotification.service';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ALLOWED_FAILURE_CODES = new Set([
@@ -46,7 +45,11 @@ type ContingencyRow = RowDataPacket & {
   revisado_en: Date | null;
   marcacion_id: number | null;
   expira_en: Date;
+  evidencia_estado: 'ACTIVA' | 'PENDIENTE_ELIMINACION' | 'ELIMINADA';
+  evidencia_eliminada_en: Date | null;
   created_at: Date;
+  sexo?: 'M' | 'F';
+  foto?: string | null;
 };
 
 export class ContingencyError extends Error {
@@ -67,6 +70,9 @@ export type CreateContingencyInput = {
 };
 
 function publicRow(row: ContingencyRow & Record<string, unknown>) {
+  const evidenceAvailable = row.evidencia_estado === 'ACTIVA'
+    && row.estado !== 'APROBADA'
+    && new Date(row.expira_en).getTime() > Date.now();
   return {
     id: Number(row.id),
     request_id: row.request_id,
@@ -86,10 +92,15 @@ function publicRow(row: ContingencyRow & Record<string, unknown>) {
     reviewed_at: row.revisado_en ? new Date(row.revisado_en).toISOString() : null,
     mark_id: row.marcacion_id === null ? null : Number(row.marcacion_id),
     expires_at: new Date(row.expira_en).toISOString(),
+    evidence_status: row.evidencia_estado,
+    evidence_deleted_at: row.evidencia_eliminada_en ? new Date(row.evidencia_eliminada_en).toISOString() : null,
+    evidence_available: evidenceAvailable,
     created_at: new Date(row.created_at).toISOString(),
     employee_code: row.codigo_empleado,
     employee_names: row.nombres,
     employee_last_names: row.apellidos,
+    employee_sex: row.sexo ?? 'M',
+    employee_photo: row.foto ?? null,
     job_role: row.cargo_nombre,
     site_name: row.sede_nombre,
   };
@@ -167,7 +178,7 @@ export class AttendanceContingencyService {
           throw new ContingencyError('Ya existe una marcacion pendiente de revision para hoy.', 'FALLBACK_ALREADY_PENDING', 409);
         }
 
-        const expiresAt = new Date(capturedAt.getTime() + 60 * 24 * 60 * 60 * 1000);
+        const expiresAt = pendingSelfieExpiresAt(capturedAt);
         const [result] = await connection.query<ResultSetHeader>(
           `INSERT INTO personal_solicitudes_marcacion (
             request_id, empleado_id, sede_id, dispositivo_id, tipo_marcacion,
@@ -211,6 +222,7 @@ export class AttendanceContingencyService {
     if (normalized !== 'TODAS') params.push(normalized);
     const [rows] = await pool.query<(ContingencyRow & Record<string, unknown>)[]>(
       `SELECT request.*, employee.codigo_empleado, employee.nombres, employee.apellidos,
+              employee.sexo, employee.foto,
               role.nombre AS cargo_nombre, site.nombre AS sede_nombre
          FROM personal_solicitudes_marcacion request
          INNER JOIN personal_empleados employee ON employee.id = request.empleado_id
@@ -252,14 +264,26 @@ export class AttendanceContingencyService {
     }
 
     if (normalizedDecision === 'RECHAZAR') {
-      const [update] = await pool.query<ResultSetHeader>(
-        `UPDATE personal_solicitudes_marcacion SET estado = 'RECHAZADA', revisado_por = ?,
-          comentario_revision = ?, revisado_en = NOW() WHERE id = ? AND estado = 'PENDIENTE'`,
-        [reviewerId, reviewComment, requestId],
-      );
-      if (update.affectedRows !== 1) {
-        throw new ContingencyError('La solicitud fue resuelta simultaneamente.', 'FALLBACK_ALREADY_RESOLVED', 409);
-      }
+      const reviewedAt = new Date();
+      const evidenceExpiresAt = rejectedSelfieExpiresAt(reviewedAt);
+      await runInTransaction(async connection => {
+        const [update] = await connection.query<ResultSetHeader>(
+          `UPDATE personal_solicitudes_marcacion SET estado = 'RECHAZADA', revisado_por = ?,
+            comentario_revision = ?, revisado_en = ?, expira_en = ?, evidencia_estado = 'ACTIVA'
+            WHERE id = ? AND estado = 'PENDIENTE'`,
+          [reviewerId, reviewComment, reviewedAt, evidenceExpiresAt, requestId],
+        );
+        if (update.affectedRows !== 1) {
+          throw new ContingencyError('La solicitud fue resuelta simultaneamente.', 'FALLBACK_ALREADY_RESOLVED', 409);
+        }
+        await createEmployeeNotification(connection, {
+          employeeId: Number(request.empleado_id), type: 'SELFIE_RECHAZADA',
+          title: 'Marcación no aprobada',
+          message: 'RR. HH. revisó tu verificación por selfie y no aprobó la marcación.',
+          priority: 'URGENTE', action: 'INICIO', referenceType: 'SELFIE', referenceId: requestId,
+          deduplicationKey: `SELFIE:${requestId}:RECHAZADA`,
+        });
+      });
       await this.auditResolution(request, reviewerId, 'RECHAZADA', reviewComment, ipAddress);
       return { id: requestId, status: 'RECHAZADA', mark_id: null };
     }
@@ -282,11 +306,13 @@ export class AttendanceContingencyService {
       ipAddress,
     });
     await runInTransaction(async connection => {
+      const approvedAt = new Date();
       const [update] = await connection.query<ResultSetHeader>(
         `UPDATE personal_solicitudes_marcacion SET estado = 'APROBADA', revisado_por = ?,
-          comentario_revision = ?, revisado_en = NOW(), marcacion_id = ?
+          comentario_revision = ?, revisado_en = ?, marcacion_id = ?, expira_en = ?,
+          evidencia_estado = 'PENDIENTE_ELIMINACION'
           WHERE id = ? AND estado = 'PENDIENTE'`,
-        [reviewerId, reviewComment, result.marcacion.id, requestId],
+        [reviewerId, reviewComment, approvedAt, result.marcacion.id, approvedAt, requestId],
       );
       if (update.affectedRows !== 1) throw new ContingencyError('La solicitud fue resuelta simultaneamente.', 'FALLBACK_ALREADY_RESOLVED', 409);
       await connection.query(
@@ -298,11 +324,24 @@ export class AttendanceContingencyService {
           expira_en = VALUES(expira_en), estado = 'ACTIVA', eliminada_en = NULL`,
         [
           result.marcacion.id, request.selfie_storage_key, request.selfie_sha256,
-          request.selfie_mime_type, request.selfie_bytes_size, request.capturada_en, request.expira_en,
+          request.selfie_mime_type, request.selfie_bytes_size, request.capturada_en, approvedAt,
         ],
       );
+      await createEmployeeNotification(connection, {
+        employeeId: Number(request.empleado_id), type: 'SELFIE_APROBADA',
+        title: 'Marcación aprobada',
+        message: 'RR. HH. verificó tu selfie y la marcación ya forma parte de tu asistencia.',
+        priority: 'INFO', action: 'HISTORIAL', referenceType: 'SELFIE', referenceId: requestId,
+        deduplicationKey: `SELFIE:${requestId}:APROBADA`,
+      });
     });
     await this.auditResolution(request, reviewerId, 'APROBADA', reviewComment, ipAddress);
+    try {
+      await deleteAttendanceEvidenceNow(requestId, 'APROBACION_COMPLETADA');
+    } catch (error) {
+      // La marcacion ya fue aprobada. El worker reintentara el borrado pendiente sin revertirla.
+      console.error(`[rrhh-evidence] No se pudo eliminar inmediatamente la evidencia ${requestId}:`, error);
+    }
     return { id: requestId, status: 'APROBADA', mark_id: result.marcacion.id };
   }
 
@@ -312,6 +351,13 @@ export class AttendanceContingencyService {
       [requestId, siteId],
     );
     if (!rows.length) throw new ContingencyError('Evidencia no encontrada.', 'EVIDENCE_NOT_FOUND', 404);
+    if (rows[0].evidencia_estado !== 'ACTIVA' || new Date(rows[0].expira_en).getTime() <= Date.now()) {
+      throw new ContingencyError(
+        'La evidencia fue eliminada segun la politica de privacidad.',
+        'EVIDENCE_EXPIRED',
+        410,
+      );
+    }
     const storageKey = path.basename(rows[0].selfie_storage_key);
     const absolutePath = path.resolve(PRIVATE_SELFIE_ROOT, storageKey);
     if (!absolutePath.startsWith(`${PRIVATE_SELFIE_ROOT}${path.sep}`)) {

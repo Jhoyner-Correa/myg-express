@@ -8,7 +8,19 @@ const {
   distanceMeters,
   validateGeofence,
   assertGeofenceDefinition,
+  buildClockActions,
+  assertClockTimeWindow,
+  classifyClockTiming,
+  resolveEntryAttendance,
 } = require('../dist/modules/rrhh/domain/attendancePolicy');
+
+const splitSchedule = {
+  startTime: '09:00:00', endTime: '19:00:00', toleranceMinutes: 0,
+  lunchEnabled: true, lunchStartFrom: '13:00:00', lunchDurationMinutes: 120,
+  returnToleranceMinutes: 0, entryOpenBeforeMinutes: 60,
+  lunchOpenBeforeMinutes: 30, returnOpenBeforeMinutes: 30,
+  exitOpenBeforeMinutes: 30, overtimeThresholdMinutes: 10,
+};
 
 test('la jornada exige entrada como primera marcacion', () => {
   assert.deepEqual(allowedNextClockTypes([]), ['ENTRADA']);
@@ -87,4 +99,55 @@ test('rechaza configuraciones de geocerca operativamente inseguras', () => {
     () => assertGeofenceDefinition({ latitude: -12, longitude: -75, radiusMeters: 2, maximumAccuracyMeters: 30 }),
     (error) => error instanceof AttendanceRuleError && error.code === 'GEOFENCE_NOT_CONFIGURED',
   );
+});
+
+test('activa cada marcacion en su ventana sin alterar la hora real', () => {
+  const atEight = buildClockActions([], splitSchedule, 8 * 60);
+  assert.equal(atEight.find(action => action.type === 'ENTRADA').enabled, true);
+  assert.equal(atEight.find(action => action.type === 'ENTRADA').scheduledTime, '09:00:00');
+
+  const beforeLunch = buildClockActions(['ENTRADA'], splitSchedule, (12 * 60) + 29);
+  assert.equal(beforeLunch.find(action => action.type === 'SALIDA_ALMUERZO').enabled, false);
+  assert.equal(beforeLunch.find(action => action.type === 'SALIDA').enabled, false);
+  assert.throws(
+    () => assertClockTimeWindow(['ENTRADA'], 'SALIDA', splitSchedule, 12 * 60),
+    error => error instanceof AttendanceRuleError && error.code === 'CLOCK_NOT_YET_AVAILABLE',
+  );
+});
+
+test('calcula regreso fijo, tardanza sin tolerancia y sobretiempo candidato', () => {
+  const entry = classifyClockTiming('ENTRADA', (9 * 60) + 1, splitSchedule);
+  assert.equal(entry.differenceMinutes, 1);
+  assert.equal(entry.classification, 'TARDANZA');
+
+  const lunch = classifyClockTiming('SALIDA_ALMUERZO', (13 * 60) + 5, splitSchedule);
+  assert.equal(lunch.differenceMinutes, 5);
+  assert.equal(lunch.classification, 'DEMORADA');
+
+  const returned = classifyClockTiming('REGRESO', (15 * 60) + 1, splitSchedule);
+  assert.equal(returned.differenceMinutes, 1);
+  assert.equal(returned.classification, 'TARDANZA');
+
+  const exit = classifyClockTiming('SALIDA', (19 * 60) + 10, splitSchedule);
+  assert.equal(exit.classification, 'SOBRETIEMPO_CANDIDATO');
+});
+
+test('resuelve presencia y tardanza desde el horario y la tolerancia', () => {
+  const withTolerance = { ...splitSchedule, toleranceMinutes: 10 };
+
+  assert.deepEqual(resolveEntryAttendance((8 * 60) + 30, withTolerance), {
+    status: 'PRESENTE',
+    delayMinutes: 0,
+    timing: { scheduledMinutes: 540, differenceMinutes: -30, classification: 'ANTICIPADA' },
+  });
+  assert.deepEqual(resolveEntryAttendance((9 * 60) + 8, withTolerance), {
+    status: 'PRESENTE',
+    delayMinutes: 0,
+    timing: { scheduledMinutes: 540, differenceMinutes: 8, classification: 'PUNTUAL' },
+  });
+  assert.deepEqual(resolveEntryAttendance((9 * 60) + 11, withTolerance), {
+    status: 'TARDANZA',
+    delayMinutes: 11,
+    timing: { scheduledMinutes: 540, differenceMinutes: 11, classification: 'TARDANZA' },
+  });
 });

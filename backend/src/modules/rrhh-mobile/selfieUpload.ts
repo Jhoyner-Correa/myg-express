@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { randomUUID } from 'crypto';
 import multer from 'multer';
-import { PRIVATE_SELFIE_ROOT } from '../rrhh/services/AttendanceContingencyService';
+import { PRIVATE_SELFIE_ROOT } from '../rrhh/services/AttendanceEvidenceRetentionService';
 
 fs.mkdirSync(PRIVATE_SELFIE_ROOT, { recursive: true });
 

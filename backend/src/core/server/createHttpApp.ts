@@ -4,6 +4,25 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
+const CSP_KEYWORDS = new Set([
+  'self',
+  'none',
+  'unsafe-inline',
+  'unsafe-eval',
+  'unsafe-hashes',
+  'strict-dynamic',
+  'report-sample',
+  'wasm-unsafe-eval'
+]);
+
+export function normalizeCspSource(source: string) {
+  const value = source.trim();
+  if (!value) return value;
+
+  const unquotedValue = value.replace(/^['"]|['"]$/g, '');
+  return CSP_KEYWORDS.has(unquotedValue) ? `'${unquotedValue}'` : value;
+}
+
 export function createHttpApp() {
   const app = express();
 
@@ -18,6 +37,9 @@ export function createHttpApp() {
       .filter(Boolean);
     return items.length ? items : fallback;
   };
+  const parseCspList = (value: string | undefined, fallback: string[]) => (
+    parseList(value, fallback).map(normalizeCspSource)
+  );
   const defaultCorsOrigins = isProduction ? [] : [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -30,36 +52,39 @@ export function createHttpApp() {
   if (isProduction && corsOrigins.length === 0) {
     console.warn('[Security] APP_CORS_ORIGINS no esta configurado. Solo se permitiran solicitudes same-origin/sin Origin.');
   }
-  const connectSrc = parseList(process.env.APP_CSP_CONNECT_SRC, [
-    "'self'",
+  const developmentConnectSources = [
     ...defaultCorsOrigins,
     'ws://localhost:3000',
     'ws://127.0.0.1:3000',
     'ws://localhost:3001',
     'ws://127.0.0.1:3001'
-  ]);
-  const scriptSrc = parseList(process.env.APP_CSP_SCRIPT_SRC, [
+  ];
+  const connectSrc = parseCspList(
+    process.env.APP_CSP_CONNECT_SRC,
+    ["'self'", ...(isProduction ? [] : developmentConnectSources)]
+  );
+  const scriptSrc = parseCspList(process.env.APP_CSP_SCRIPT_SRC, [
     "'self'",
     'https://cdn.jsdelivr.net',
     'https://cdnjs.cloudflare.com'
   ]);
-  const styleSrc = parseList(process.env.APP_CSP_STYLE_SRC, [
+  const styleSrc = parseCspList(process.env.APP_CSP_STYLE_SRC, [
     "'self'",
     "'unsafe-inline'",
     'https://fonts.googleapis.com'
   ]);
-  const fontSrc = parseList(process.env.APP_CSP_FONT_SRC, [
+  const fontSrc = parseCspList(process.env.APP_CSP_FONT_SRC, [
     "'self'",
     'https://fonts.gstatic.com',
     'data:'
   ]);
-  const imgSrc = parseList(process.env.APP_CSP_IMG_SRC, [
+  const imgSrc = parseCspList(process.env.APP_CSP_IMG_SRC, [
     "'self'",
     'data:',
     'blob:',
     'https://*.tile.openstreetmap.org'
   ]);
-  const mediaSrc = parseList(process.env.APP_CSP_MEDIA_SRC, [
+  const mediaSrc = parseCspList(process.env.APP_CSP_MEDIA_SRC, [
     "'self'",
     'data:',
     'blob:'
@@ -71,16 +96,7 @@ export function createHttpApp() {
     legacyHeaders: false,
     skip: (req) => {
       const url = (req.originalUrl || req.url || '').toLowerCase();
-      const ip = req.ip || '';
-      return (
-        url.includes('/webhook') ||
-        ip === '127.0.0.1' ||
-        ip === '::1' ||
-        ip === '::ffff:127.0.0.1' ||
-        ip.startsWith('172.') ||
-        ip.startsWith('192.168.') ||
-        ip.startsWith('10.')
-      );
+      return url.includes('/webhook');
     },
     message: {
       ok: false,
@@ -112,8 +128,10 @@ export function createHttpApp() {
         !origin || 
         corsOrigins.includes(origin) || 
         corsOrigins.includes('*') ||
-        origin.startsWith('http://localhost:') ||
-        origin.startsWith('http://127.0.0.1:')
+        (!isProduction && (
+          origin.startsWith('http://localhost:') ||
+          origin.startsWith('http://127.0.0.1:')
+        ))
       ) {
         callback(null, true);
         return;
@@ -122,7 +140,7 @@ export function createHttpApp() {
       callback(new Error(`Origen no permitido por CORS: ${origin}`));
     }
   }));
-  app.use(morgan('dev'));
+  app.use(morgan(isProduction ? 'combined' : 'dev'));
   app.use(express.json({ limit: '15mb' }));
   app.use(express.urlencoded({ extended: true, limit: '15mb' }));
   app.use('/api', apiLimiter);

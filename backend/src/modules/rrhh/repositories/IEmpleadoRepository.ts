@@ -9,9 +9,10 @@ export interface IEmpleadoRepository {
   buscarPorId(id: number): Promise<Empleado | null>;
   buscarPorCodigo(codigo: string): Promise<Empleado | null>;
   buscarPorDni(dni: string): Promise<Empleado | null>;
-  crear(empleado: Omit<Empleado, 'id'>): Promise<number>;
-  actualizar(id: number, datos: Partial<Omit<Empleado, 'id'>>): Promise<boolean>;
+  buscarPorRuc(ruc: string): Promise<Empleado | null>;
+  crearConCodigoAutomatico(empleado: Omit<Empleado, 'id' | 'codigoEmpleado'>): Promise<number>;
+  actualizar(id: number, datos: Partial<Omit<Empleado, 'id' | 'codigoEmpleado'>>): Promise<boolean>;
   listarPorSede(sedeId: number): Promise<(Empleado & { cargoNombre: string })[]>;
-  listarDirectorio(sedeId: number | null, companyId: number | null): Promise<(Empleado & { cargoNombre: string; sedeNombre: string })[]>;
+  listarDirectorio(sedeId: number | null, companyId: number | null): Promise<(Empleado & { cargoNombre: string; sedeNombre: string; accesoMovilActivo: boolean })[]>;
   eliminar(id: number): Promise<boolean>;
 }

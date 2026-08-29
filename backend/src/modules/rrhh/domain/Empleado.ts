@@ -13,11 +13,13 @@ export interface Empleado {
   sedeId: number;
   cargoId: number;
   dni: string;
+  ruc: string | null;
   nombres: string;
   apellidos: string;
   sexo: EmployeeGender;
   telefono: string | null;
   email: string | null;
+  direccion: string;
   foto: string | null;
   fechaIngreso: Date;
   fechaCese: Date | null;

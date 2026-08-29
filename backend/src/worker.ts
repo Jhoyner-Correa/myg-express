@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import { NextFunction, Request, Response } from 'express';
 
 import { pool } from './core/database/database';
@@ -11,8 +11,10 @@ import { createHttpApp } from './core/server/createHttpApp';
 import databaseCleanupService from './services/maintenance/databaseCleanupService';
 import { waQueue } from './queues/whatsapp.queue';
 import { whatsappWorker } from './workers/whatsapp.worker';
+import { validateRuntimeEnvironment } from './core/config/runtimeEnvironment';
+import { redisConnection } from './core/config/redis.config';
 
-dotenv.config();
+validateRuntimeEnvironment('worker');
 
 const app = createHttpApp();
 const PORT = Number(process.env.WHATSAPP_WORKER_PORT || 3001);
@@ -22,6 +24,7 @@ const requireWorkerDbLock = String(process.env.WHATSAPP_WORKER_REQUIRE_DB_LOCK |
 
 let workerLockAcquired = false;
 let shuttingDown = false;
+let httpServer: ReturnType<typeof app.listen> | null = null;
 
 async function acquireWorkerLock() {
   if (!requireWorkerDbLock) {
@@ -62,6 +65,13 @@ async function shutdownWorker(signal: string) {
 
   shuttingDown = true;
   console.log(`Apagando WhatsApp worker por ${signal}...`);
+
+  const forceExit = setTimeout(() => {
+    console.error('El worker no termino dentro del plazo de seguridad.');
+    process.exit(1);
+  }, 15_000);
+  forceExit.unref();
+
   try {
     await whatsappWorker.close();
   } catch (err: any) {
@@ -69,6 +79,16 @@ async function shutdownWorker(signal: string) {
   }
   databaseCleanupService.stop();
   await releaseWorkerLock();
+  await Promise.allSettled([
+    waQueue.close(),
+    pool.end(),
+    redisConnection.quit(),
+    new Promise<void>((resolve) => {
+      if (!httpServer) return resolve();
+      httpServer.close(() => resolve());
+    }),
+  ]);
+  clearTimeout(forceExit);
   process.exit(0);
 }
 
@@ -121,7 +141,7 @@ process.on('SIGTERM', () => {
 async function bootstrapWorker() {
   await acquireWorkerLock();
 
-  app.listen(PORT, HOST, async () => {
+  httpServer = app.listen(PORT, HOST, async () => {
     console.log(`WhatsApp worker corriendo en http://${HOST}:${PORT}`);
     console.log('Worker de BullMQ activo y escuchando cola de mensajes.');
     databaseCleanupService.start();

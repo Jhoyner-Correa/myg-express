@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { RowDataPacket } from 'mysql2/promise';
 import { pool } from '../core/database/database';
+import { executeMigrationStatements } from './migrationSql';
 
 const LOCK_NAME = 'myg_rrhh_mobile_foundation';
 
@@ -64,9 +65,7 @@ async function main() {
 
   try {
     await runPreflight();
-    for (const statement of loadStatements()) {
-      await pool.query(statement);
-    }
+    await executeMigrationStatements(pool, loadStatements());
 
     console.log('Migracion RR. HH. mobile foundation completada.');
     console.table({

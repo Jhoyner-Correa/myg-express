@@ -3,7 +3,13 @@ import { randomInt } from 'crypto';
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../core/database/database';
 import { assertSupportedDevicePublicKey } from '../rrhh/domain/mobileSignature';
-import { createMobileAccessToken, createRefreshToken, hashOpaqueToken } from './mobileTokens';
+import {
+  createMobileAccessToken,
+  createMobileEnrollmentToken,
+  createRefreshToken,
+  hashOpaqueToken,
+  verifyMobileEnrollmentToken,
+} from './mobileTokens';
 
 const SESSION_DAYS = 30;
 
@@ -32,11 +38,15 @@ type SessionRow = RowDataPacket & {
   expira_en: Date;
 };
 
-export interface ActivateDeviceInput {
+export interface VerifyActivationInput {
   identifier: string;
   password: string;
   activationCode: string;
   installationId: string;
+}
+
+export interface ActivateDeviceInput {
+  enrollmentToken: string;
   publicKey: string;
   brand?: string;
   model?: string;
@@ -45,9 +55,9 @@ export interface ActivateDeviceInput {
   ipAddress?: string | null;
 }
 
-function validateActivationInput(input: ActivateDeviceInput) {
-  if (!/^[A-Za-z0-9._-]{3,80}$/.test(input.identifier.trim())) {
-    throw new MobileAuthError('INVALID_INPUT', 'Usuario, DNI o codigo no valido.', 400);
+function validateActivationCredentials(input: VerifyActivationInput) {
+  if (!/^\d{8}$/.test(input.identifier.trim())) {
+    throw new MobileAuthError('INVALID_INPUT', 'El usuario asignado debe tener ocho digitos.', 400);
   }
   if (!input.password || input.password.length > 200) {
     throw new MobileAuthError('INVALID_INPUT', 'Contrasena no valida.', 400);
@@ -58,14 +68,21 @@ function validateActivationInput(input: ActivateDeviceInput) {
   if (!/^[A-Za-z0-9._:-]{16,255}$/.test(input.installationId)) {
     throw new MobileAuthError('INVALID_DEVICE', 'Identificador del dispositivo no valido.', 400);
   }
-  if (input.publicKey.length > 5000) {
+}
+
+function validateDeviceKey(publicKey: string) {
+  if (!publicKey || publicKey.length > 5000) {
     throw new MobileAuthError('INVALID_DEVICE_KEY', 'Clave publica no valida.', 400);
   }
   try {
-    assertSupportedDevicePublicKey(input.publicKey);
+    assertSupportedDevicePublicKey(publicKey);
   } catch (error) {
     throw new MobileAuthError('INVALID_DEVICE_KEY', error instanceof Error ? error.message : 'Clave publica no valida.', 400);
   }
+}
+
+export function isValidEmployeeAccessPassword(password: string): boolean {
+  return password.length >= 4 && password.length <= 64 && !/\s/.test(password);
 }
 
 function issueSession(employeeId: number, deviceId: number, sessionId: number, refreshToken: string) {
@@ -78,31 +95,64 @@ function issueSession(employeeId: number, deviceId: number, sessionId: number, r
 }
 
 export class MobileAuthService {
-  async createActivation(employeeId: number, creatorUserId: number, temporaryPassword?: string) {
+  async createActivation(
+    employeeId: number,
+    creatorUserId: number,
+    accessPassword: string,
+    replaceExistingDevice = false,
+  ) {
     const employee = await pool.query<RowDataPacket[]>(
       'SELECT id FROM personal_empleados WHERE id = ? AND estado = \'ACTIVO\' LIMIT 1',
       [employeeId],
     );
     if (!employee[0].length) throw new MobileAuthError('EMPLOYEE_NOT_FOUND', 'Empleado activo no encontrado.', 404);
 
-    const generatedPassword = temporaryPassword || `MyG-${randomInt(100000, 999999)}!`;
-    if (generatedPassword.length < 10) {
-      throw new MobileAuthError('WEAK_PASSWORD', 'La contrasena temporal debe tener al menos 10 caracteres.', 400);
+    if (!isValidEmployeeAccessPassword(accessPassword)) {
+      throw new MobileAuthError(
+        'INVALID_PASSWORD',
+        'La contrasena debe tener entre 4 y 64 caracteres y no contener espacios.',
+        400,
+      );
     }
     const activationCode = String(randomInt(10_000_000, 100_000_000));
-    const passwordHash = await bcrypt.hash(generatedPassword, 12);
+    const passwordHash = await bcrypt.hash(accessPassword, 12);
     const activationHash = hashOpaqueToken(activationCode);
 
     await runInTransaction(async connection => {
+      const [authorizedDevices] = await connection.query<RowDataPacket[]>(
+        `SELECT id FROM personal_dispositivos
+          WHERE empleado_id = ? AND estado = 'AUTORIZADO' FOR UPDATE`,
+        [employeeId],
+      );
+      if (authorizedDevices.length && !replaceExistingDevice) {
+        throw new MobileAuthError(
+          'MOBILE_ACCESS_ALREADY_ACTIVE',
+          'El colaborador ya tiene un celular autorizado. Usa el flujo de reemplazo de dispositivo.',
+          409,
+        );
+      }
+      if (authorizedDevices.length) {
+        await connection.query(
+          `UPDATE personal_dispositivos
+              SET estado = 'BLOQUEADO', revocado_por = ?, revocado_en = NOW(),
+                  motivo_revocacion = 'Reemplazo de celular solicitado por RR. HH.'
+            WHERE empleado_id = ? AND estado = 'AUTORIZADO'`,
+          [creatorUserId, employeeId],
+        );
+      }
       await connection.query(
         `INSERT INTO personal_acceso_app (empleado_id, password_hash, requiere_cambio_clave)
-         VALUES (?, ?, 1)
-         ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash), requiere_cambio_clave = 1,
+         VALUES (?, ?, 0)
+         ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash), requiere_cambio_clave = 0,
            token_actual = NULL, refresh_token = NULL`,
         [employeeId, passwordHash],
       );
       await connection.query(
         'UPDATE personal_activaciones_dispositivo SET usado_en = NOW() WHERE empleado_id = ? AND usado_en IS NULL',
+        [employeeId],
+      );
+      const [revokedSessions] = await connection.query<ResultSetHeader>(
+        'UPDATE personal_sesiones_app SET revocado_en = NOW() WHERE empleado_id = ? AND revocado_en IS NULL',
         [employeeId],
       );
       await connection.query(
@@ -114,28 +164,32 @@ export class MobileAuthService {
         `INSERT INTO personal_auditoria_eventos (
           tipo_evento, empleado_id, usuario_id, exitoso, codigo_resultado, metadata_json
         ) VALUES ('CREACION_ACTIVACION', ?, ?, 1, 'CREADA', ?)`,
-        [employeeId, creatorUserId, JSON.stringify({ expires_in_seconds: 900 })],
+        [employeeId, creatorUserId, JSON.stringify({
+          expires_in_seconds: 900,
+          revoked_sessions: revokedSessions.affectedRows,
+          replaced_devices: authorizedDevices.length,
+        })],
       );
     });
 
     return {
-      temporary_password: generatedPassword,
+      password: accessPassword,
       activation_code: activationCode,
       expires_in_seconds: 900,
     };
   }
 
-  async activateDevice(input: ActivateDeviceInput) {
-    validateActivationInput(input);
+  async verifyActivation(input: VerifyActivationInput) {
+    validateActivationCredentials(input);
     const [employeeRows] = await pool.query<EmployeeAccessRow[]>(
       `SELECT employee.id, employee.codigo_empleado, employee.dni, employee.nombres,
               employee.apellidos, employee.sede_id, employee.estado,
               access.password_hash, access.requiere_cambio_clave
          FROM personal_empleados employee
          INNER JOIN personal_acceso_app access ON access.empleado_id = employee.id
-        WHERE employee.codigo_empleado = ? OR employee.dni = ?
+        WHERE employee.dni = ?
         LIMIT 1`,
-      [input.identifier.trim(), input.identifier.trim()],
+      [input.identifier.trim()],
     );
     const employee = employeeRows[0];
     const passwordOk = employee ? await bcrypt.compare(input.password, employee.password_hash) : false;
@@ -143,14 +197,93 @@ export class MobileAuthService {
       throw new MobileAuthError('CREDENTIALS_INVALID', 'Credenciales incorrectas.', 401);
     }
 
-    const refreshToken = createRefreshToken();
     const activationHash = hashOpaqueToken(input.activationCode);
+    const [activationRows] = await pool.query<RowDataPacket[]>(
+      `SELECT id FROM personal_activaciones_dispositivo
+        WHERE empleado_id = ? AND codigo_hash = ? AND usado_en IS NULL AND expira_en > NOW()
+        LIMIT 1`,
+      [employee.id, activationHash],
+    );
+    if (!activationRows.length) {
+      throw new MobileAuthError('ACTIVATION_INVALID', 'El codigo de activacion es incorrecto o expiro.', 401);
+    }
+
+    const [authorizedRows] = await pool.query<RowDataPacket[]>(
+      `SELECT id, device_id FROM personal_dispositivos
+        WHERE empleado_id = ? AND estado = 'AUTORIZADO' LIMIT 1`,
+      [employee.id],
+    );
+    if (authorizedRows.length && authorizedRows[0].device_id !== input.installationId) {
+      throw new MobileAuthError('DEVICE_ALREADY_BOUND', 'El empleado ya tiene otro celular autorizado.', 409);
+    }
+
+    const [deviceOwnerRows] = await pool.query<RowDataPacket[]>(
+      'SELECT empleado_id FROM personal_dispositivos WHERE device_id = ? LIMIT 1',
+      [input.installationId],
+    );
+    if (deviceOwnerRows.length && Number(deviceOwnerRows[0].empleado_id) !== employee.id) {
+      throw new MobileAuthError('DEVICE_ALREADY_BOUND', 'Este celular pertenece a otro empleado.', 409);
+    }
+
+    return {
+      enrollment_token: createMobileEnrollmentToken(
+        employee.id,
+        Number(activationRows[0].id),
+        input.installationId,
+      ),
+      expires_in: 300,
+      employee: {
+        id: employee.id,
+        code: employee.codigo_empleado,
+        first_name: employee.nombres,
+        last_name: employee.apellidos,
+        sede_id: employee.sede_id,
+      },
+    };
+  }
+
+  async activateDevice(input: ActivateDeviceInput) {
+    validateDeviceKey(input.publicKey);
+    let enrollment: ReturnType<typeof verifyMobileEnrollmentToken>;
+    try {
+      enrollment = verifyMobileEnrollmentToken(input.enrollmentToken);
+    } catch {
+      throw new MobileAuthError(
+        'ENROLLMENT_EXPIRED',
+        'La verificacion vencio. Inicia nuevamente con tus credenciales.',
+        401,
+      );
+    }
+    const employeeId = Number(enrollment.sub);
+    const activationId = Number(enrollment.activation_id);
+    const installationId = String(enrollment.installation_id || '');
+    if (!Number.isInteger(employeeId) || !Number.isInteger(activationId)
+      || !/^[A-Za-z0-9._:-]{16,255}$/.test(installationId)) {
+      throw new MobileAuthError('ENROLLMENT_INVALID', 'Verificacion de dispositivo no valida.', 401);
+    }
+
+    const [employeeRows] = await pool.query<EmployeeAccessRow[]>(
+      `SELECT employee.id, employee.codigo_empleado, employee.dni, employee.nombres,
+              employee.apellidos, employee.sede_id, employee.estado,
+              access.password_hash, access.requiere_cambio_clave
+         FROM personal_empleados employee
+         INNER JOIN personal_acceso_app access ON access.empleado_id = employee.id
+        WHERE employee.id = ?
+        LIMIT 1`,
+      [employeeId],
+    );
+    const employee = employeeRows[0];
+    if (!employee || employee.estado !== 'ACTIVO') {
+      throw new MobileAuthError('CREDENTIALS_INVALID', 'El acceso del colaborador no esta activo.', 401);
+    }
+
+    const refreshToken = createRefreshToken();
     const result = await runInTransaction(async connection => {
       const [activationRows] = await connection.query<RowDataPacket[]>(
         `SELECT id FROM personal_activaciones_dispositivo
-          WHERE empleado_id = ? AND codigo_hash = ? AND usado_en IS NULL AND expira_en > NOW()
+          WHERE id = ? AND empleado_id = ? AND usado_en IS NULL AND expira_en > NOW()
           LIMIT 1 FOR UPDATE`,
-        [employee.id, activationHash],
+        [activationId, employee.id],
       );
       if (!activationRows.length) {
         throw new MobileAuthError('ACTIVATION_INVALID', 'El codigo de activacion es incorrecto o expiro.', 401);
@@ -161,13 +294,13 @@ export class MobileAuthService {
           WHERE empleado_id = ? AND estado = 'AUTORIZADO' LIMIT 1 FOR UPDATE`,
         [employee.id],
       );
-      if (authorizedRows.length && authorizedRows[0].device_id !== input.installationId) {
+      if (authorizedRows.length && authorizedRows[0].device_id !== installationId) {
         throw new MobileAuthError('DEVICE_ALREADY_BOUND', 'El empleado ya tiene otro celular autorizado.', 409);
       }
 
       const [deviceOwnerRows] = await connection.query<RowDataPacket[]>(
         'SELECT id, empleado_id FROM personal_dispositivos WHERE device_id = ? LIMIT 1 FOR UPDATE',
-        [input.installationId],
+        [installationId],
       );
       if (deviceOwnerRows.length && Number(deviceOwnerRows[0].empleado_id) !== employee.id) {
         throw new MobileAuthError('DEVICE_ALREADY_BOUND', 'Este celular pertenece a otro empleado.', 409);
@@ -189,7 +322,7 @@ export class MobileAuthService {
             empleado_id, device_id, clave_publica, algoritmo_clave, biometria_registrada_en,
             marca, modelo, version_android, version_app, estado, autorizado_en
           ) VALUES (?, ?, ?, 'ECDSA_P256_SHA256', NOW(), ?, ?, ?, ?, 'AUTORIZADO', NOW())`,
-          [employee.id, input.installationId, input.publicKey, input.brand || null, input.model || null, input.osVersion || null, input.appVersion || null],
+          [employee.id, installationId, input.publicKey, input.brand || null, input.model || null, input.osVersion || null, input.appVersion || null],
         );
         deviceId = deviceResult.insertId;
       }
@@ -207,7 +340,7 @@ export class MobileAuthService {
         `INSERT INTO personal_auditoria_eventos (
           tipo_evento, empleado_id, dispositivo_id, exitoso, codigo_resultado, ip_address, metadata_json
         ) VALUES ('ACTIVACION_DISPOSITIVO', ?, ?, 1, 'AUTORIZADO', ?, ?)`,
-        [employee.id, deviceId, input.ipAddress || null, JSON.stringify({ installation_id: input.installationId })],
+        [employee.id, deviceId, input.ipAddress || null, JSON.stringify({ installation_id: installationId })],
       );
 
       return { deviceId, sessionId: sessionResult.insertId };
@@ -215,7 +348,7 @@ export class MobileAuthService {
 
     return {
       ...issueSession(employee.id, result.deviceId, result.sessionId, refreshToken),
-      requires_password_change: Boolean(employee.requiere_cambio_clave),
+      requires_password_change: false,
       employee: {
         id: employee.id,
         code: employee.codigo_empleado,

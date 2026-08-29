@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import path from 'path';
 import fs from 'fs';
 import { NextFunction, Request, Response } from 'express';
@@ -22,6 +22,9 @@ import { createHttpApp } from './core/server/createHttpApp';
 import { verificarToken } from './core/middlewares/authMiddleware';
 import { PERMISSIONS } from './core/constants/permissions';
 import { requirePermission } from './core/middlewares/permissionMiddleware';
+import { validateRuntimeEnvironment } from './core/config/runtimeEnvironment';
+import { pool } from './core/database/database';
+import { redisConnection } from './core/config/redis.config';
 
 // BullMQ
 import { createBullBoard } from '@bull-board/api';
@@ -29,7 +32,7 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { waQueue } from './queues/whatsapp.queue';
 
-dotenv.config();
+validateRuntimeEnvironment('api');
 
 const app = createHttpApp();
 const PORT = Number(process.env.PORT || 3000);
@@ -70,12 +73,23 @@ app.get('/api', (_req, res) => {
   });
 });
 
-app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString()
-  });
+app.get('/api/health', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    const redisStatus = await redisConnection.ping();
+    res.json({
+      status: 'ok',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      dependencies: { database: 'ok', redis: redisStatus === 'PONG' ? 'ok' : 'degraded' },
+    });
+  } catch (error) {
+    console.error('[Health] Dependencia no disponible:', error);
+    res.status(503).json({
+      status: 'unavailable',
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 app.use('/storage', express.static(path.resolve(process.cwd(), 'storage')));
@@ -93,8 +107,33 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`API corriendo en http://${HOST}:${PORT}`);
 });
+
+let shuttingDown = false;
+async function shutdownApi(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`Apagando API por ${signal}...`);
+
+  const forceExit = setTimeout(() => {
+    console.error('La API no termino dentro del plazo de seguridad.');
+    process.exit(1);
+  }, 15_000);
+  forceExit.unref();
+
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  await Promise.allSettled([
+    waQueue.close(),
+    pool.end(),
+    redisConnection.quit(),
+  ]);
+  clearTimeout(forceExit);
+  process.exit(0);
+}
+
+process.on('SIGINT', () => void shutdownApi('SIGINT'));
+process.on('SIGTERM', () => void shutdownApi('SIGTERM'));
 
 export default app;

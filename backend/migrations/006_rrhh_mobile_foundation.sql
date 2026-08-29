@@ -149,7 +149,9 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
 SET @ddl = IF(
-  (SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS
+  (SELECT COUNT(*) FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'personal_auditoria_accesos') > 0
+  AND (SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS
     WHERE CONSTRAINT_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'fk_personal_auditoria_dispositivo') = 0,
   'ALTER TABLE personal_auditoria_accesos ADD CONSTRAINT fk_personal_auditoria_dispositivo FOREIGN KEY (dispositivo_id) REFERENCES personal_dispositivos(id) ON DELETE SET NULL ON UPDATE CASCADE',
   'SELECT 1'

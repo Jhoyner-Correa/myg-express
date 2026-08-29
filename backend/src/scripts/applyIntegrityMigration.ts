@@ -34,6 +34,14 @@ const indexes = [
   ['idx_marcaciones_asistencia_hora', `CREATE INDEX idx_marcaciones_asistencia_hora ON personal_marcaciones (asistencia_id,hora_marcacion)`]
 ] as const;
 
+async function tableExists(table: string): Promise<boolean> {
+  const [[row]]: any = await pool.query(
+    'SELECT COUNT(*) total FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',
+    [table],
+  );
+  return Number(row?.total || 0) > 0;
+}
+
 async function main() {
   const [[lock]]: any = await pool.query(`SELECT GET_LOCK('myg_integrity_migration', 10) acquired`);
   if (Number(lock?.acquired) !== 1) throw new Error('No se pudo adquirir el candado de migracion.');
@@ -48,6 +56,10 @@ async function main() {
       console.log(`OK foreign-key ${name}`);
     }
     for (const [name, ddl] of indexes) {
+      if (name === 'idx_marcaciones_asistencia_hora' && !(await tableExists('personal_marcaciones'))) {
+        console.log('SKIP idx_marcaciones_asistencia_hora: RR. HH. todavía no está instalado');
+        continue;
+      }
       const [[exists]]: any = await pool.query(
         `SELECT COUNT(*) total FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND INDEX_NAME=?`,
         [name]

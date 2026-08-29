@@ -1,4 +1,4 @@
--- Aislamiento multi-sede de SAVAR SCAN para MariaDB 10.4+.
+lo de personal el d-- Aislamiento multi-sede de SAVAR SCAN para MariaDB 10.4+.
 -- Ejecutar 003 primero. Si reporta lotes ambiguos, no aplicar hasta asignarlos manualmente.
 -- La migración es reejecutable y conserva los registros existentes.
 
@@ -101,3 +101,4 @@ DELIMITER ;
 
 CALL add_savar_fk_if_missing();
 DROP PROCEDURE add_savar_fk_if_missing;
+/*  */

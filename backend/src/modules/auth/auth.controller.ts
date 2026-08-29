@@ -7,6 +7,7 @@ function publicUser(
     id: number;
     nombre: string;
     usuario: string;
+    foto: string | null;
     estado: 'activo' | 'inactivo';
     ultimoAccesoAt: Date | null;
     passwordActualizadoAt: Date | null;
@@ -17,6 +18,7 @@ function publicUser(
     id: user.id,
     nombre: user.nombre,
     usuario: user.usuario,
+    foto: user.foto,
     rol: access.role,
     rol_label: access.roleLabel,
     tipo_usuario: access.type,
@@ -80,6 +82,27 @@ export class AuthController {
       if (error?.code === 'ER_DUP_ENTRY' || error?.message?.includes('ya esta en uso')) {
         return res.status(409).json({ ok: false, message: 'El usuario ya esta en uso' });
       }
+      return res.status(400).json({ ok: false, message: error.message });
+    }
+  };
+
+  actualizarFotoPerfil = async (req: any, res: Response) => {
+    try {
+      if (!req.file) return res.status(400).json({ ok: false, message: 'Selecciona una foto para continuar' });
+      const user = await this.authService.actualizarFotoPerfil(req.user?.id, req.file.buffer, req.file.mimetype);
+      const access = await loadAccessContext(user.id);
+      return res.json({ ok: true, message: 'Foto de perfil actualizada', user: publicUser(user, access) });
+    } catch (error: any) {
+      return res.status(Number(error?.statusCode) || 400).json({ ok: false, code: error?.code, message: error.message });
+    }
+  };
+
+  eliminarFotoPerfil = async (req: any, res: Response) => {
+    try {
+      const user = await this.authService.eliminarFotoPerfil(req.user?.id);
+      const access = await loadAccessContext(user.id);
+      return res.json({ ok: true, message: 'Foto de perfil eliminada', user: publicUser(user, access) });
+    } catch (error: any) {
       return res.status(400).json({ ok: false, message: error.message });
     }
   };

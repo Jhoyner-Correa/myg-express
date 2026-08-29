@@ -34,6 +34,11 @@ export type EffectiveSchedule = {
   lunchStartUntil: string | null;
   lunchDurationMinutes: number;
   returnToleranceMinutes: number;
+  entryOpenBeforeMinutes: number;
+  lunchOpenBeforeMinutes: number;
+  returnOpenBeforeMinutes: number;
+  exitOpenBeforeMinutes: number;
+  overtimeThresholdMinutes: number;
   effectiveFrom: string;
   effectiveUntil: string | null;
 };
@@ -51,6 +56,11 @@ type EffectiveScheduleRow = RowDataPacket & {
   salida_almuerzo_hasta: string | null;
   duracion_almuerzo_minutos: number;
   tolerancia_retorno_minutos: number;
+  entrada_habilitar_antes_minutos: number;
+  almuerzo_habilitar_antes_minutos: number;
+  regreso_habilitar_antes_minutos: number;
+  salida_habilitar_antes_minutos: number;
+  umbral_sobretiempo_minutos: number;
   vigente_desde: string | Date;
   vigente_hasta: string | Date | null;
 };
@@ -75,6 +85,11 @@ function publicSchedule(row: EffectiveScheduleRow): EffectiveSchedule {
     lunchStartUntil: row.salida_almuerzo_hasta ? String(row.salida_almuerzo_hasta) : null,
     lunchDurationMinutes: Number(row.duracion_almuerzo_minutos),
     returnToleranceMinutes: Number(row.tolerancia_retorno_minutos),
+    entryOpenBeforeMinutes: Number(row.entrada_habilitar_antes_minutos),
+    lunchOpenBeforeMinutes: Number(row.almuerzo_habilitar_antes_minutos),
+    returnOpenBeforeMinutes: Number(row.regreso_habilitar_antes_minutos),
+    exitOpenBeforeMinutes: Number(row.salida_habilitar_antes_minutos),
+    overtimeThresholdMinutes: Number(row.umbral_sobretiempo_minutos),
     effectiveFrom: dateOnly(row.vigente_desde)!,
     effectiveUntil: dateOnly(row.vigente_hasta),
   };
@@ -91,6 +106,9 @@ export async function findEffectiveScheduleVersion(
             version.tolerancia_entrada_minutos, version.almuerzo_habilitado,
             version.salida_almuerzo_desde, version.salida_almuerzo_hasta,
             version.duracion_almuerzo_minutos, version.tolerancia_retorno_minutos,
+            version.entrada_habilitar_antes_minutos, version.almuerzo_habilitar_antes_minutos,
+            version.regreso_habilitar_antes_minutos, version.salida_habilitar_antes_minutos,
+            version.umbral_sobretiempo_minutos,
             version.vigente_desde, version.vigente_hasta
        FROM personal_horarios schedule
        INNER JOIN personal_horario_versiones version
@@ -117,6 +135,9 @@ export async function findEffectiveSchedule(
             version.tolerancia_entrada_minutos, version.almuerzo_habilitado,
             version.salida_almuerzo_desde, version.salida_almuerzo_hasta,
             version.duracion_almuerzo_minutos, version.tolerancia_retorno_minutos,
+            version.entrada_habilitar_antes_minutos, version.almuerzo_habilitar_antes_minutos,
+            version.regreso_habilitar_antes_minutos, version.salida_habilitar_antes_minutos,
+            version.umbral_sobretiempo_minutos,
             version.vigente_desde, version.vigente_hasta
        FROM personal_empleados employee
        INNER JOIN personal_horario_asignaciones assignment
@@ -150,6 +171,9 @@ export class ScheduleService {
               version.tolerancia_entrada_minutos, version.almuerzo_habilitado,
               version.salida_almuerzo_desde, version.salida_almuerzo_hasta,
               version.duracion_almuerzo_minutos, version.tolerancia_retorno_minutos,
+              version.entrada_habilitar_antes_minutos, version.almuerzo_habilitar_antes_minutos,
+              version.regreso_habilitar_antes_minutos, version.salida_habilitar_antes_minutos,
+              version.umbral_sobretiempo_minutos,
               version.vigente_desde, version.vigente_hasta
          FROM personal_horarios schedule
          INNER JOIN personal_horario_versiones version ON version.id = (
@@ -173,6 +197,11 @@ export class ScheduleService {
       lunch_start_until: row.salida_almuerzo_hasta ? String(row.salida_almuerzo_hasta) : null,
       lunch_duration_minutes: Number(row.duracion_almuerzo_minutos),
       return_tolerance_minutes: Number(row.tolerancia_retorno_minutos),
+      entry_open_before_minutes: Number(row.entrada_habilitar_antes_minutos),
+      lunch_open_before_minutes: Number(row.almuerzo_habilitar_antes_minutos),
+      return_open_before_minutes: Number(row.regreso_habilitar_antes_minutos),
+      exit_open_before_minutes: Number(row.salida_habilitar_antes_minutos),
+      overtime_threshold_minutes: Number(row.umbral_sobretiempo_minutos),
       effective_from: dateOnly(row.vigente_desde),
       effective_until: dateOnly(row.vigente_hasta),
     }));
@@ -230,11 +259,17 @@ export class ScheduleService {
           `UPDATE personal_horario_versiones SET hora_entrada = ?, hora_salida = ?,
             tolerancia_entrada_minutos = ?, almuerzo_habilitado = ?,
             salida_almuerzo_desde = ?, salida_almuerzo_hasta = ?,
-            duracion_almuerzo_minutos = ?, tolerancia_retorno_minutos = ?, creado_por = ?
+            duracion_almuerzo_minutos = ?, tolerancia_retorno_minutos = ?,
+            entrada_habilitar_antes_minutos = ?, almuerzo_habilitar_antes_minutos = ?,
+            regreso_habilitar_antes_minutos = ?, salida_habilitar_antes_minutos = ?,
+            umbral_sobretiempo_minutos = ?, creado_por = ?
             WHERE id = ?`,
           [policy.startTime, policy.endTime, policy.toleranceMinutes, policy.lunchEnabled ? 1 : 0,
             policy.lunchStartFrom, policy.lunchStartUntil, policy.lunchDurationMinutes,
-            policy.returnToleranceMinutes, actorUserId, latest.id],
+            policy.returnToleranceMinutes,
+            policy.entryOpenBeforeMinutes, policy.lunchOpenBeforeMinutes,
+            policy.returnOpenBeforeMinutes, policy.exitOpenBeforeMinutes,
+            policy.overtimeThresholdMinutes, actorUserId, latest.id],
         );
         await connection.query(
           `UPDATE personal_horarios SET nombre = ?, hora_entrada = ?, hora_salida = ?,
@@ -502,11 +537,17 @@ export class ScheduleService {
         tolerancia_entrada_minutos, almuerzo_habilitado,
         salida_almuerzo_desde, salida_almuerzo_hasta,
         duracion_almuerzo_minutos, tolerancia_retorno_minutos,
+        entrada_habilitar_antes_minutos, almuerzo_habilitar_antes_minutos,
+        regreso_habilitar_antes_minutos, salida_habilitar_antes_minutos,
+        umbral_sobretiempo_minutos,
         vigente_desde, vigente_hasta, creado_por
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
       [scheduleId, version, policy.startTime, policy.endTime, policy.toleranceMinutes,
         policy.lunchEnabled ? 1 : 0, policy.lunchStartFrom, policy.lunchStartUntil,
-        policy.lunchDurationMinutes, policy.returnToleranceMinutes, policy.effectiveFrom, actorUserId],
+        policy.lunchDurationMinutes, policy.returnToleranceMinutes,
+        policy.entryOpenBeforeMinutes, policy.lunchOpenBeforeMinutes,
+        policy.returnOpenBeforeMinutes, policy.exitOpenBeforeMinutes,
+        policy.overtimeThresholdMinutes, policy.effectiveFrom, actorUserId],
     );
   }
 

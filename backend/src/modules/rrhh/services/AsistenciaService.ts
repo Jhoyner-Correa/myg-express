@@ -1,8 +1,8 @@
 import { RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
-import { businessClockMinutes, businessDate, businessIsoWeekday, parseClockMinutes } from '../../../core/utils/time';
+import { businessClockMinutes, businessDate, businessIsoWeekday } from '../../../core/utils/time';
 import { Asistencia } from '../domain/Asistencia';
-import { AttendanceRuleError, assertClockTransition, validateGeofence } from '../domain/attendancePolicy';
+import { AttendanceRuleError, assertClockTimeWindow, assertClockTransition, classifyClockTiming, resolveEntryAttendance, validateGeofence } from '../domain/attendancePolicy';
 import { ClockOrigin, ClockType, IdentityVerification, Marcacion } from '../domain/Marcacion';
 import { IAsistenciaRepository } from '../repositories/IAsistenciaRepository';
 import { IEmpleadoRepository } from '../repositories/IEmpleadoRepository';
@@ -149,19 +149,30 @@ export class AsistenciaService {
           schedule.lunchEnabled,
         );
 
+        const currentMinutes = businessClockMinutes(now);
+        assertClockTimeWindow(
+          recordedMarks.map(mark => mark.tipoMarcacion),
+          params.tipo,
+          schedule,
+          currentMinutes,
+        );
+        const timing = classifyClockTiming(params.tipo, currentMinutes, schedule);
+
         if (params.tipo === 'ENTRADA') {
-            const delayMinutes = Math.max(
-              0,
-              businessClockMinutes(now) - parseClockMinutes(schedule.startTime),
-            );
-            if (delayMinutes > schedule.toleranceMinutes) {
-              await this.asistenciaRepository.actualizar(asistencia.id, {
-                estadoAsistencia: 'TARDANZA',
-                minutosTardanza: delayMinutes,
-              }, connection);
-              asistencia.estadoAsistencia = 'TARDANZA';
-              asistencia.minutosTardanza = delayMinutes;
-            }
+          const entryResult = resolveEntryAttendance(currentMinutes, schedule);
+          await this.asistenciaRepository.actualizar(asistencia.id, {
+            estadoAsistencia: entryResult.status,
+            minutosTardanza: entryResult.delayMinutes,
+          }, connection);
+          asistencia.estadoAsistencia = entryResult.status;
+          asistencia.minutosTardanza = entryResult.delayMinutes;
+        } else if (params.tipo === 'REGRESO') {
+          const returnDelay = timing.differenceMinutes > schedule.returnToleranceMinutes
+            ? timing.differenceMinutes : 0;
+          await connection.query(
+            'UPDATE personal_asistencias SET minutos_tardanza_retorno = ? WHERE id = ?',
+            [returnDelay, asistencia.id],
+          );
         }
 
         const markId = await this.marcacionRepository.crear({
@@ -171,6 +182,9 @@ export class AsistenciaService {
           tipoMarcacion: params.tipo,
           origenMarcacion: params.origen,
           horaMarcacion: now,
+          horaProgramada: `${String(Math.floor(timing.scheduledMinutes / 60)).padStart(2, '0')}:${String(timing.scheduledMinutes % 60).padStart(2, '0')}:00`,
+          diferenciaProgramadaMinutos: timing.differenceMinutes,
+          clasificacionTiempo: timing.classification,
           latitud: params.latitud,
           longitud: params.longitud,
           precisionGps: params.precisionGps,
@@ -185,6 +199,28 @@ export class AsistenciaService {
           .find(mark => mark.id === markId);
         if (!created) throw new Error('No se pudo recuperar la marcacion registrada.');
 
+        const overtimeEvent = params.tipo === 'SALIDA_ALMUERZO'
+          && timing.differenceMinutes >= schedule.overtimeThresholdMinutes
+          ? 'ALMUERZO_DIFERIDO'
+          : params.tipo === 'SALIDA' && timing.classification === 'SOBRETIEMPO_CANDIDATO'
+            ? 'SALIDA_POSTERIOR'
+            : null;
+        if (overtimeEvent) {
+          await connection.query(
+            `INSERT INTO personal_sobretiempo_solicitudes (
+              asistencia_id, empleado_id, marcacion_id, tipo_evento,
+              minutos_detectados, umbral_aplicado_minutos
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              marcacion_id = VALUES(marcacion_id),
+              minutos_detectados = VALUES(minutos_detectados),
+              umbral_aplicado_minutos = VALUES(umbral_aplicado_minutos),
+              estado = IF(estado = 'PENDIENTE', 'PENDIENTE', estado)`,
+            [asistencia.id, empleado.id, markId, overtimeEvent,
+              timing.differenceMinutes, schedule.overtimeThresholdMinutes],
+          );
+        }
+
         await connection.query(
           `INSERT INTO personal_auditoria_eventos (
             tipo_evento, empleado_id, usuario_id, dispositivo_id, exitoso,
@@ -195,7 +231,13 @@ export class AsistenciaService {
             params.actorUsuarioId ?? null,
             params.dispositivoId,
             params.ipAddress ?? null,
-            JSON.stringify({ request_id: params.requestId, tipo: params.tipo }),
+            JSON.stringify({
+              request_id: params.requestId,
+              tipo: params.tipo,
+              hora_programada: created.horaProgramada,
+              diferencia_minutos: timing.differenceMinutes,
+              clasificacion: timing.classification,
+            }),
           ],
         );
         return { marcacion: created, asistencia, idempotentReplay: false };

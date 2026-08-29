@@ -1,10 +1,11 @@
 import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool } from '../../../../core/database/database';
-import { ClockOrigin, ClockType, IdentityVerification, Marcacion } from '../../domain/Marcacion';
+import { ClockOrigin, ClockTimingClassification, ClockType, IdentityVerification, Marcacion } from '../../domain/Marcacion';
 import { IMarcacionRepository } from '../IMarcacionRepository';
 
 const SELECT_COLUMNS = `id, request_id, asistencia_id, dispositivo_id, tipo_marcacion, origen_marcacion,
-  hora_marcacion, latitud, longitud, precision_gps, selfie_path, red_wifi, bluetooth,
+  hora_marcacion, hora_programada, diferencia_programada_minutos, clasificacion_tiempo,
+  latitud, longitud, precision_gps, selfie_path, red_wifi, bluetooth,
   dentro_de_radio, distancia_sede_metros, verificacion_identidad, created_at`;
 
 export class MySqlMarcacionRepository implements IMarcacionRepository {
@@ -17,6 +18,9 @@ export class MySqlMarcacionRepository implements IMarcacionRepository {
       tipoMarcacion: row.tipo_marcacion as ClockType,
       origenMarcacion: row.origen_marcacion as ClockOrigin,
       horaMarcacion: new Date(row.hora_marcacion),
+      horaProgramada: row.hora_programada === null ? null : String(row.hora_programada),
+      diferenciaProgramadaMinutos: row.diferencia_programada_minutos === null ? null : Number(row.diferencia_programada_minutos),
+      clasificacionTiempo: row.clasificacion_tiempo as ClockTimingClassification | null,
       latitud: Number(row.latitud),
       longitud: Number(row.longitud),
       precisionGps: row.precision_gps === null ? null : Number(row.precision_gps),
@@ -35,9 +39,10 @@ export class MySqlMarcacionRepository implements IMarcacionRepository {
     const [result] = await executor.query<ResultSetHeader>(
       `INSERT INTO personal_marcaciones (
         request_id, asistencia_id, dispositivo_id, tipo_marcacion, origen_marcacion,
-        hora_marcacion, latitud, longitud, precision_gps, selfie_path, red_wifi,
+        hora_marcacion, hora_programada, diferencia_programada_minutos, clasificacion_tiempo,
+        latitud, longitud, precision_gps, selfie_path, red_wifi,
         bluetooth, dentro_de_radio, distancia_sede_metros, verificacion_identidad
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         mark.requestId,
         mark.asistenciaId,
@@ -45,6 +50,9 @@ export class MySqlMarcacionRepository implements IMarcacionRepository {
         mark.tipoMarcacion,
         mark.origenMarcacion,
         mark.horaMarcacion,
+        mark.horaProgramada,
+        mark.diferenciaProgramadaMinutos,
+        mark.clasificacionTiempo,
         mark.latitud,
         mark.longitud,
         mark.precisionGps,

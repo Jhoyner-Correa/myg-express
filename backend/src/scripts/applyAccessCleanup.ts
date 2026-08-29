@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { RowDataPacket } from 'mysql2/promise';
 import { pool } from '../core/database/database';
+import { executeMigrationStatements } from './migrationSql';
 
 const MIGRATION_ID = '014_access_cleanup';
 const LOCK_NAME = 'myg_access_cleanup';
@@ -94,7 +95,7 @@ async function main(): Promise<void> {
     }
     await assertPreflight();
     await dropLegacyForeignKeys();
-    for (const statement of statements()) await pool.query(statement);
+    await executeMigrationStatements(pool, statements());
     await pool.query('INSERT INTO schema_migrations (id) VALUES (?)', [MIGRATION_ID]);
     console.log('Migración 014 completada: columnas heredadas retiradas de usuarios.');
   } finally {

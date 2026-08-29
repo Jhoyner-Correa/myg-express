@@ -16,9 +16,23 @@ const checks = [
   ['relaciones_entre_sedes', `SELECT COUNT(*) total FROM avisos_diarios a JOIN lotes_carga l ON l.id=a.lote_id LEFT JOIN whatsapp_sesiones w ON w.id=a.whatsapp_sesion_id LEFT JOIN plantillas p ON p.id=a.id_plantilla WHERE a.sede_id<>l.sede_id OR (w.id IS NOT NULL AND a.sede_id<>w.sede_id) OR (p.id IS NOT NULL AND p.sede_id IS NOT NULL AND a.sede_id<>p.sede_id)`]
 ] as const;
 
+async function tableExists(table: string): Promise<boolean> {
+  const [[row]]: any = await pool.query(
+    'SELECT COUNT(*) total FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',
+    [table],
+  );
+  return Number(row?.total || 0) > 0;
+}
+
 async function main() {
   let failures = 0;
   for (const [name, sql] of checks) {
+    // usuario_asignaciones pertenece al modelo corporativo de acceso y se crea
+    // más adelante. Una instalación heredada válida todavía no la contiene.
+    if (name === 'asignaciones_sede' && !(await tableExists('usuario_asignaciones'))) {
+      console.log('SKIP asignaciones_sede: se validará después de crear el modelo corporativo de acceso');
+      continue;
+    }
     const [[row]]: any = await pool.query(sql);
     const total = Number(row?.total || 0);
     if (total > 0) failures++;

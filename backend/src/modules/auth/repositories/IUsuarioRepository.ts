@@ -10,4 +10,5 @@ export interface IUsuarioRepository {
     usuario: string,
     passwordHash?: string
   ): Promise<boolean>;
+  actualizarFoto(id: number, foto: string | null): Promise<boolean>;
 }
