@@ -2,6 +2,8 @@
 
 MyG Express debe correr con procesos separados. La API no debe procesar la cola de WhatsApp dentro del mismo proceso.
 
+Antes de ejecutar esta guia, completa la puerta de control de [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md). Compilar correctamente no reemplaza la prueba de restauracion, la rotacion de secretos ni el piloto Android.
+
 ## Arquitectura recomendada
 
 - `api`: Express, frontend, autenticacion, rutas, consultas y endpoints.
@@ -19,26 +21,37 @@ Copia `backend/.env.example` a `backend/.env` y configura:
 ```env
 PORT=3000
 WHATSAPP_WORKER_PORT=3001
+NODE_ENV=production
 APP_TIME_ZONE=America/Lima
 DB_TIMEZONE=-05:00
+APP_TRUST_PROXY_HOPS=1
+APP_CORS_ORIGINS=https://tu-dominio.com
 
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=
+DB_USER=myg_app
+DB_PASSWORD=una_clave_exclusiva_y_larga
 DB_NAME=sistema_mensajeria
 
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 REDIS_DB=0
 
-JWT_SECRET=cambia_esto_por_un_secreto_seguro
+JWT_SECRET=secreto_aleatorio_de_32_bytes_o_mas
+PAYMENTS_DATA_ENCRYPTION_KEY=clave_independiente_de_32_bytes_o_mas
+URBANO_CREDENTIALS_SECRET=otra_clave_independiente_de_32_bytes_o_mas
 EVOLUTION_API_URL=http://localhost:8080
 EVOLUTION_API_APIKEY=tu_clave_api_global_de_evolution
 EVOLUTION_API_WEBHOOK_URL=http://host.docker.internal:3000/api/whatsapp/webhook
+
+JSON_PE_API_URL=https://api.json.pe/api
+JSON_PE_API_TOKEN=tu_token_privado_de_json_pe
+JSON_PE_TIMEOUT_MS=6000
 ```
 
 `APP_TIME_ZONE` define el calendario empresarial y `DB_TIMEZONE` fija cada sesion MySQL/MariaDB. Mantener ambos valores evita diferencias de cinco horas entre `DATETIME`, `TIMESTAMP`, asistencia y reportes diarios. En PM2 y Docker tambien se configura `TZ=America/Lima`.
+
+`JSON_PE_API_TOKEN` debe existir solo en `backend/.env`. Nunca lo publiques como variable `VITE_*` ni lo incluyas en el frontend.
 
 Si ejecutas API y worker dentro de Docker pero MariaDB esta en Windows/XAMPP o en el host, usa:
 

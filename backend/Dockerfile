@@ -26,7 +26,13 @@ COPY --from=backend-builder --chown=node:node /app/backend/dist ./dist
 COPY --from=backend-builder --chown=node:node /app/backend/migrations ./migrations
 COPY --from=frontend-builder --chown=node:node /app/frontend-react/dist /app/frontend-react/dist
 
-RUN mkdir -p /app/backend/storage && chown -R node:node /app/backend/storage
+RUN mkdir -p \
+      /app/backend/storage/rrhh/profile-photos \
+      /app/backend/storage/users/profile-photos \
+      /app/backend/private-storage/rrhh-evidence \
+      /app/backend/private-storage/rrhh-overtime \
+      /app/backend/private-storage/rrhh-permissions \
+    && chown -R node:node /app/backend/storage /app/backend/private-storage
 
 USER node
 EXPOSE 3000 3001

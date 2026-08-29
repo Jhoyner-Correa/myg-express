@@ -40,8 +40,11 @@ services:
       REDIS_HOST: redis-myg
       REDIS_PORT: 6379
       REDIS_CONNECTION_NAME: myg-express-api
+      RRHH_PRIVATE_EVIDENCE_DIR: /app/backend/private-storage/rrhh-evidence
+      RRHH_OVERTIME_EVIDENCE_DIR: /app/backend/private-storage/rrhh-overtime
+      RRHH_PERMISSION_EVIDENCE_DIR: /app/backend/private-storage/rrhh-permissions
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -77,12 +80,16 @@ services:
       REDIS_PORT: 6379
       REDIS_CONNECTION_NAME: myg-express-worker
       WHATSAPP_WORKER_REQUIRE_DB_LOCK: "true"
-    ports:
-      - "3001:3001"
+      RRHH_PRIVATE_EVIDENCE_DIR: /app/backend/private-storage/rrhh-evidence
+      RRHH_OVERTIME_EVIDENCE_DIR: /app/backend/private-storage/rrhh-overtime
+      RRHH_PERMISSION_EVIDENCE_DIR: /app/backend/private-storage/rrhh-permissions
+    expose:
+      - "3001"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./backend/storage:/app/backend/storage
+      - ./backend/private-storage:/app/backend/private-storage
     depends_on:
       redis-myg:
         condition: service_healthy
