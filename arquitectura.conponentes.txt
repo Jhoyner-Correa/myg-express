@@ -1,0 +1,102 @@
+ESTRUCTURA DEL PROYECTO QUE ESTAEA EN EL REPOSITORIO DE GITHUB
+
+.github/workflows
+-----------------
+Función:
+Automatización de GitHub Actions. Ejecuta pruebas, lint, compilaciones,
+controles de seguridad y validación del contenedor cuando se suben cambios.
+
+
+backend
+-------
+Función:
+Servidor principal del sistema. Contiene la API Express, reglas de negocio,
+autenticación, RR.HH., asistencia, pagos, GPS, migraciones y conexión con
+MariaDB/Redis.
+
+frontend-react
+--------------
+Función:
+Interfaz web administrativa desarrollada con React. Incluye el panel
+administrativo, gestión de personal, asistencia, solicitudes, horarios,
+pagos y GPS.
+
+
+docs
+----
+Función:
+Documentación de la arquitectura del sistema y reglas profesionales para
+trabajar con Git.
+
+
+ops
+---
+Función:
+Scripts operativos para respaldar la base de datos, probar restauraciones y
+desplegar versiones en el VPS.
+
+
+.dockerignore
+-------------
+Función:
+Evita copiar archivos innecesarios dentro de la imagen Docker, como
+node_modules, builds anteriores, Git y documentación. Reduce el peso de la
+imagen y mejora la seguridad.
+
+
+.gitattributes
+--------------
+Función:
+Normaliza los saltos de línea entre Windows y Linux e identifica imágenes y
+fuentes como archivos binarios. Evita cambios falsos o archivos dañados.
+
+
+.gitignore
+----------
+Función:
+Impide subir archivos locales, pesados o sensibles, como .env, claves,
+dependencias, APK, compilaciones, respaldos y archivos temporales.
+
+
+DEPLOY.md
+---------
+Función:
+Manual para desplegar correctamente una versión en el VPS. Incluye
+respaldo, migraciones, validaciones y procedimiento de rollback.
+
+
+PRODUCTION_READINESS.md
+-----------------------
+Función:
+Lista de verificaciones pendientes o necesarias antes de considerar el
+sistema listo para producción.
+
+
+README.md
+---------
+Función:
+Presentación principal del proyecto. Contiene la arquitectura, requisitos,
+instalación, comandos, pruebas y estructura del proyecto. Es normalmente
+el primer archivo que se consulta en GitHub.
+
+
+SECURITY.md
+-----------
+Función:
+Política de seguridad del proyecto. Define el manejo de credenciales,
+archivos privados, incidentes, respaldos y recomendaciones operativas.
+
+
+docker-compose.yml
+------------------
+Función:
+Define cómo ejecutar conjuntamente los servicios del backend mediante
+Docker.
+
+
+docker-compose.yml administra:
+- redis-myg: cola, caché y coordinación de procesos.
+- api: backend principal disponible internamente en el puerto 3000.
+- worker-whatsapp: proceso independiente para trabajos de WhatsApp.
+- Volúmenes persistentes para Redis, archivos públicos y evidencias privadas.
+- Verificaciones automáticas de salud y reinicio si algún servicio falla.
