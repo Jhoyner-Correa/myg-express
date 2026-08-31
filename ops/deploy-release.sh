@@ -55,9 +55,35 @@ if [[ -n "${EXPECTED_COMMIT}" && "${ACTUAL_COMMIT}" != "${EXPECTED_COMMIT}" ]]; 
   exit 1
 fi
 
+prepare_shared_link() {
+  local source_path="$1"
+  local target_path="$2"
+
+  if [[ -L "${target_path}" ]]; then
+    echo "El clon contiene un enlace inesperado: ${target_path}" >&2
+    exit 1
+  fi
+
+  if [[ -d "${target_path}" ]]; then
+    local unexpected_entry
+    unexpected_entry="$(find "${target_path}" -mindepth 1 -maxdepth 1 ! -name '.gitignore' -print -quit)"
+    if [[ -n "${unexpected_entry}" ]]; then
+      echo "No se reemplazara un directorio con contenido inesperado: ${target_path}" >&2
+      exit 1
+    fi
+    rm -f -- "${target_path}/.gitignore"
+    rmdir -- "${target_path}"
+  elif [[ -e "${target_path}" ]]; then
+    echo "El destino persistente ya existe y no es un directorio: ${target_path}" >&2
+    exit 1
+  fi
+
+  ln -s "${source_path}" "${target_path}"
+}
+
 ln -s "${SHARED_ROOT}/config/backend.env" "${PARTIAL_DIR}/backend/.env"
-ln -s "${SHARED_ROOT}/storage" "${PARTIAL_DIR}/backend/storage"
-ln -s "${SHARED_ROOT}/private-storage" "${PARTIAL_DIR}/backend/private-storage"
+prepare_shared_link "${SHARED_ROOT}/storage" "${PARTIAL_DIR}/backend/storage"
+prepare_shared_link "${SHARED_ROOT}/private-storage" "${PARTIAL_DIR}/backend/private-storage"
 if [[ -f "${SHARED_ROOT}/config/frontend.env.production" ]]; then
   ln -s "${SHARED_ROOT}/config/frontend.env.production" "${PARTIAL_DIR}/frontend-react/.env.production"
 fi
