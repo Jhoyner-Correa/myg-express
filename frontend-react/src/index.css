@@ -1,0 +1,9 @@
+@import './styles/tokens.css';
+
+/* Legacy styles are retained temporarily and removed screen by screen. */
+@import './css/style.css';
+@import './css/shared-ui.css';
+
+/* The global contract always wins over legacy page-level resets. */
+@import './styles/reset.css';
+@import './styles/globals.css';

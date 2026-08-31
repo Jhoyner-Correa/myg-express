@@ -1,0 +1,58 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend-react/.env
+frontend-react/.env.*
+!frontend-react/.env.example
+backend/storage/
+backend/private-storage/
+*.log
+.DS_Store
+
+# Build / cache
+coverage/
+.cache/
+.tmp/
+temp/
+
+# Windows / editors
+Thumbs.db
+.vscode/
+.idea/
+.agents/
+.codex/
+
+# Uploads / generated files
+backend/uploads/
+backend/tmp/
+
+# Credenciales y firmas
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+key.properties
+local.properties
+
+# Paquetes, respaldos y exportaciones generadas
+*.apk
+*.aab
+*.tar
+*.tar.gz
+*.zip
+*.bak
+*.dump
+*.xlsx
+*.csv
+
+# Local database dumps with real data
+*.sql
+!backend/migrations/*.sql
+!backend/seeds/*.sql

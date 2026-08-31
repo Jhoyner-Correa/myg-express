@@ -1,0 +1,79 @@
+name: Platform quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject generated files and credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden="$({ git ls-files \
+            | grep -E '(^|/)(node_modules|dist|build|coverage|storage|private-storage|uploads)/|(^|/)\.env($|\.)|\.(apk|aab|jks|keystore|p12|pfx|pem|key|dump|bak|tar|tar\.gz)$' \
+            | grep -v -E '(^|/)\.env\.example$|^backend/storage/\.gitignore$' || true; })"
+          if [[ -n "$forbidden" ]]; then
+            printf 'Archivos prohibidos encontrados:\n%s\n' "$forbidden" >&2
+            exit 1
+          fi
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm test
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend-react
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend-react/package-lock.json
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run lint
+      - run: npm run test:run
+      - run: npm run build
+
+  container:
+    needs: [repository-hygiene, backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          tags: myg-express-platform:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

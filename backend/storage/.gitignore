@@ -1,0 +1,4 @@
+﻿# Imágenes subidas por usuarios - no versionar en Git
+# La carpeta storage/ se mantiene en el repo vacía via .gitkeep
+whatsapp-media/**
+!whatsapp-media/**/.gitkeep

@@ -1,0 +1,1253 @@
+.modal { max-height:min(88vh,800px); }
+.modal {
+  --ledger-ink: #142033;
+  --ledger-text: #29384e;
+  --ledger-muted: #596a81;
+  --ledger-subtle: #738198;
+  --ledger-border: #cfd9e5;
+  --ledger-soft-border: #dce4ed;
+  --ledger-canvas: #f4f7fa;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  border-color: #c7d2df;
+  background: var(--ledger-canvas);
+  color: var(--ledger-text);
+}
+.content { display:grid; gap:16px; color:#17253a; }
+.identity { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:14px; padding:4px 2px 16px; border-bottom:1px solid #dbe3ed; }
+.identity>img { width:58px; height:58px; object-fit:cover; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 1px #cbd8e7,0 7px 18px rgba(22,47,78,.12); }
+.identityMain { min-width:0; }
+.identityMain>span { color:#2066b4; font-size:9px; font-weight:850; letter-spacing:.1em; }
+.identityMain h3 { margin:3px 0 0; color:#101c2d; font-size:18px; letter-spacing:-.025em; }
+.identityMain p { margin:3px 0 0; color:#65758c; font-size:11px; }
+.identityMeta { padding-left:22px; border-left:1px solid #d9e2ec; display:flex; flex-direction:column; align-items:flex-end; }
+.identityMeta span { color:#8190a5; font-size:9px; font-weight:750; text-transform:uppercase; letter-spacing:.06em; }
+.identityMeta strong { margin-top:3px; text-transform:capitalize; font-size:13px; }
+.identityMeta small { margin-top:4px; color:#708096; font-size:10px; }
+.amountStrip { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); border:1px solid #d8e2ed; border-radius:12px; overflow:hidden; background:#fff; }
+.metric { min-width:0; min-height:74px; padding:12px 13px; display:flex; align-items:center; gap:9px; border-right:1px solid #e1e7ef; }
+.metric:last-child { border-right:0; }
+.metric>span { width:29px; height:29px; display:grid; place-items:center; flex:none; color:#173f6c; }
+.metric>span svg { width:20px; height:20px; stroke-width:1.8; }
+.metric>div { min-width:0; display:flex; flex-direction:column; }
+.metric small { color:#6d7d93; font-size:9px; font-weight:700; }
+.metric strong { margin-top:3px; color:#132139; font-size:16px; white-space:nowrap; }
+.metric em { margin-top:2px; color:#8492a4; font-size:9px; font-style:normal; }
+.metric.violet>span{color:#7545c8}.metric.blue>span{color:#2372c8}.metric.amber>span{color:#c87812}.metric.green>span{color:#098b57}
+.metric.prominent { background:#f7fbf9; }
+.metric.prominent strong { color:#08794c; }
+.prorationSummary { min-height:62px; padding:10px 14px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; border:1px solid #cddbeb; border-left:3px solid #2369b1; border-radius:10px; background:#fff; }
+.prorationSummary>svg { width:21px; height:21px; color:#2369b1; stroke-width:1.9; }
+.prorationSummary>div { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.prorationSummary>div strong { color:#142943; font-size:11.5px; font-weight:800; }
+.prorationSummary>div span { color:#536980; font-size:10px; font-weight:560; }
+.prorationSummary dl { margin:0; display:flex; align-items:center; }
+.prorationSummary dl>div { min-width:118px; padding:0 12px; display:flex; flex-direction:column; gap:3px; border-left:1px solid #d9e2ec; }
+.prorationSummary dt { color:#697b91; font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:.035em; }
+.prorationSummary dd { margin:0; color:#172940; font-size:12px; font-weight:800; font-variant-numeric:tabular-nums; }
+.controlPanel { overflow:hidden; border:1px solid #d8e2ed; border-radius:12px; background:#fff; }
+.controlPanel>header { min-height:50px; padding:9px 13px; display:flex; align-items:center; justify-content:space-between; gap:14px; border-bottom:1px solid #e1e7ef; }
+.controlPanel>header>div { min-width:0; display:flex; align-items:center; gap:9px; }
+.controlPanel>header svg { width:18px; height:18px; flex:none; color:#1c609f; stroke-width:1.8; }
+.controlPanel>header div>span { min-width:0; display:flex; flex-direction:column; }
+.controlPanel>header strong { color:#17263c; font-size:11px; }
+.controlPanel>header small { margin-top:2px; color:#8290a3; font-size:9px; }
+.controlReady,.controlPending { flex:none; font-size:9px; font-weight:800; letter-spacing:.02em; }
+.controlReady { color:#08784d; }
+.controlPending { color:#a96108; }
+.controlGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
+.controlGrid article { min-width:0; min-height:62px; padding:9px 12px; display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:2px 9px; border-right:1px solid #e4e9f0; border-bottom:1px solid #e4e9f0; }
+.controlGrid article:nth-child(3n) { border-right:0; }
+.controlGrid article:nth-last-child(-n+3) { border-bottom:0; }
+.controlGrid article>svg { grid-row:1/3; width:17px; height:17px; color:#8a98aa; stroke-width:1.9; }
+.controlGrid article>span { min-width:0; display:flex; flex-direction:column; }
+.controlGrid article strong { color:#26374e; font-size:9.5px; }
+.controlGrid article small { margin-top:2px; overflow:hidden; color:#8693a5; font-size:8px; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
+.controlGrid article>b { grid-column:2; margin-top:2px; color:#77869a; font-size:8.5px; }
+.controlGrid .control_READY>svg,.controlGrid .control_READY>b { color:#0b8956; }
+.controlGrid .control_PENDING>svg,.controlGrid .control_PENDING>b { color:#c2720b; }
+.controlGrid .control_PENDING { background:#fffdf9; }
+.controlGrid .control_NOT_REQUIRED { background:#fafbfd; }
+.mainGrid { display:grid; grid-template-columns:minmax(0,1.85fr) minmax(285px,.8fr); gap:14px; }
+.calendarPanel,.attendanceSummary,.paymentStatus,.detailPanel,.notesPanel { border:1px solid #d8e2ed; border-radius:12px; background:#fff; overflow:hidden; }
+.sectionHeader { min-height:50px; padding:9px 13px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid #e0e7ef; }
+.sectionHeader>div:first-child { display:flex; align-items:center; gap:9px; }
+.sectionHeader svg,.sectionLabel svg { width:17px; height:17px; color:#1f6bc0; stroke-width:1.8; }
+.sectionHeader span { display:flex; flex-direction:column; }
+.sectionHeader strong { font-size:11px; }
+.sectionHeader small { margin-top:2px; color:#8390a3; font-size:9px; }
+.legend { display:flex; flex-direction:row!important; align-items:center; gap:10px; }
+.legend span { display:inline-flex; flex-direction:row; align-items:center; gap:4px; color:#718197; font-size:8px; }
+.legend span::before { content:""; width:6px; height:6px; border-radius:50%; background:#8796aa; }
+.legend .presentDot::before{background:#16a46d}.legend .lateDot::before{background:#e09519}.legend .absentDot::before{background:#dc4c58}.legend .justifiedDot::before{background:#397dd2}
+.calendarTitle { height:37px; display:grid; place-items:center; color:#17263c; font-size:12px; font-weight:800; text-transform:capitalize; background:#fafbfd; border-bottom:1px solid #e2e8f0; }
+.calendar { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); }
+.weekDay { height:27px; display:grid; place-items:center; color:#65768d; background:#f7f9fc; border-right:1px solid #e3e9f0; border-bottom:1px solid #e3e9f0; font-size:8px; font-weight:850; letter-spacing:.05em; }
+.weekDay:nth-child(7){border-right:0}
+.emptyDay,.day { min-height:62px; padding:6px; border-right:1px solid #e3e9f0; border-bottom:1px solid #e3e9f0; }
+.day:nth-child(7n),.emptyDay:nth-child(7n){border-right:0}.day:nth-last-child(-n+7),.emptyDay:nth-last-child(-n+7){border-bottom:0}
+.emptyDay { background:#fafbfd; }
+.day { position:relative; display:flex; flex-direction:column; gap:3px; background:#fff; }
+.day>span { color:#394b62; font-size:9px; font-weight:750; }
+.day strong { overflow:hidden; text-overflow:ellipsis; color:#66768d; font-size:8px; white-space:nowrap; }
+.day small { color:#9aa5b4; font-size:7.5px; }
+.day::after { content:""; position:absolute; top:7px; right:7px; width:5px; height:5px; border-radius:50%; background:transparent; }
+.day_PRESENTE::after{background:#15a26a}.day_PRESENTE strong{color:#08744b}.day_TARDANZA::after{background:#e29718}.day_TARDANZA strong{color:#ae6507}.day_FALTA::after{background:#dc4b58}.day_FALTA strong{color:#b73643}.day_PERMISO::after,.day_VACACIONES::after,.day_NO_LABORABLE::after{background:#3c7ed0}.day_PERMISO strong,.day_VACACIONES strong,.day_NO_LABORABLE strong{color:#245fa8}
+.sideColumn { display:grid; grid-template-rows:auto 1fr; gap:14px; }
+.sectionLabel { min-height:40px; padding:0 13px; display:flex; align-items:center; gap:8px; color:#1b2b42; font-size:10.5px; font-weight:800; border-bottom:1px solid #e0e7ef; }
+.summaryGrid { display:grid; grid-template-columns:repeat(2,1fr); }
+.summary { min-height:62px; padding:10px 12px; display:flex; flex-direction:column; border-right:1px solid #e5eaf0; border-bottom:1px solid #e5eaf0; }
+.summary:nth-child(2n){border-right:0}
+.summary strong{font-size:18px;color:#173e6b}.summary span{margin-top:2px;color:#74839a;font-size:9px}.summary.amber strong{color:#c87910}.summary.red strong{color:#c23e4a}.summary.blue strong{color:#286db9}
+.timeSummary { min-height:43px; padding:0 12px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.timeSummary span{display:flex;align-items:center;gap:6px;color:#66778e;font-size:9.5px}.timeSummary svg{width:14px;color:#657a95}.timeSummary strong{font-size:11px}
+.paymentStatus dl { margin:0; }
+.paymentStatus dl>div { min-height:43px; padding:7px 13px; display:grid; grid-template-columns:110px 1fr; align-items:center; gap:8px; border-bottom:1px solid #e5eaf0; }
+.paymentStatus dl>div:last-child{border-bottom:0}.paymentStatus dt{color:#7c899d;font-size:9px}.paymentStatus dd{margin:0;color:#26374e;font-size:9.5px;font-weight:750;text-align:right}
+.controlNotice { margin:0; min-height:54px; padding:10px 14px; display:flex; align-items:flex-start; gap:10px; border:0; border-left:3px solid #1d5fa7; border-radius:0; background:transparent; color:#253d59; line-height:1.45; }
+.controlNotice svg{width:18px;height:18px;flex:none;margin-top:1px;color:#1768b3;stroke-width:2.15}
+.controlNotice>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.controlNotice strong{color:#102d4d;font-size:10.75px;font-weight:800;letter-spacing:.01em}
+.controlNotice small{color:#465e78;font-size:10.25px;font-weight:550;line-height:1.5}
+.controlNotice small b{color:#153f6c;font-weight:800}
+.detailGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.concepts,.financialItems { display:flex; flex-direction:column; }
+.concepts>div,.financialItems>div { min-height:46px; padding:8px 13px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid #e5eaf0; }
+.concepts>div:last-child,.financialItems>div:last-child{border-bottom:0}.concepts span,.financialItems span{display:flex;flex-direction:column;min-width:0}.concepts strong,.financialItems strong{font-size:10px}.concepts small,.financialItems small{margin-top:3px;color:#8793a5;font-size:8.5px;text-transform:capitalize}.concepts b,.financialItems b{white-space:nowrap;color:#08794d;font-size:10px}.concepts .negative{color:#c1404c}
+.notesPanel>header { min-height:52px; padding:0 14px; display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:1px solid #dce4ed; }
+.notesPanel>header .sectionLabel{min-height:auto;padding:0;border:0}.notesHeading{display:flex;flex-direction:column;gap:2px}.notesHeading>small{padding-left:25px;color:#61738a;font-size:9px;font-weight:550}.noteCounter{display:flex;align-items:baseline;gap:4px;color:#607188;font-size:9px;white-space:nowrap}.noteCounter b{color:#14365d;font-size:13px;font-weight:800}
+.noteForm { padding:12px 14px; display:grid; grid-template-columns:minmax(0,1fr) 190px auto; align-items:end; gap:10px; background:#fff; border-bottom:1px solid #dce4ed; }
+.noteForm label { display:flex;flex-direction:column;gap:5px}.noteForm label>span{color:#3d536d;font-size:9px;font-weight:800;letter-spacing:.015em}.noteForm textarea,.noteForm input,.cancelForm input{box-sizing:border-box;width:100%;border:1px solid #bccbdd;border-radius:7px;background:#fff;color:#152a43;outline:0;font:600 10.5px inherit}.noteForm textarea{height:48px;resize:none;padding:9px 10px;line-height:1.4}.noteForm input,.cancelForm input{height:38px;padding:0 10px}.noteForm textarea::placeholder,.noteForm input::placeholder,.cancelForm input::placeholder{color:#8997a9;font-weight:500}.noteForm textarea:focus,.noteForm input:focus,.cancelForm input:focus{border-color:#2571c6;box-shadow:0 0 0 3px rgba(37,113,198,.1)}
+.notes { display:flex; flex-direction:column; }
+.notes article { position:relative; min-height:62px; padding:11px 14px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; border-bottom:1px solid #e2e8ef; background:#fff; }
+.notes article:last-child{border-bottom:0}.noteRecord{display:flex;align-items:flex-start;gap:9px;min-width:0;flex:1}.noteRecord>svg{width:17px;height:17px;flex:none;margin-top:2px;color:#216ab9;stroke-width:2}.noteData{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}.noteTopline{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.noteTopline>strong{color:#1b2f47;font-size:10.5px;font-weight:750;line-height:1.4}.noteTopline>span{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.035em}.noteTopline>span::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}.noteStatusActive{color:#12834c}.noteStatusCancelled{color:#b0444d}.noteData>small{color:#66788f;font-size:9px;font-weight:550}.noteData>small b{color:#354b65;font-weight:750}.referenceValue{width:max-content;color:#425b77;font-size:9px;font-weight:600}.referenceValue b{color:#173f6d;font-weight:800}.noteData>em{color:#9c3c46;font-size:9px;font-style:normal;font-weight:550}.noteData>em b{font-weight:800}.notes article>button{width:28px;height:28px;display:grid;place-items:center;flex:none;border:0;background:transparent;color:#bd3e4a;border-radius:6px;cursor:pointer}.notes article>button:hover{background:#fff0f1;color:#9f2532}.notes article>button svg{width:14px}.cancelledNote{background:#fbfcfd}.cancelledNote .noteTopline>strong{color:#647286;text-decoration:line-through;text-decoration-thickness:1px}
+.cancelForm { flex:1; display:grid!important; grid-template-columns:1fr auto auto; align-items:center!important; }
+.empty { min-height:72px; display:flex; align-items:center; justify-content:center; gap:8px; color:#8491a4; font-size:9.5px; }
+.empty svg{width:16px;height:16px}.feedback,.loading{min-height:420px;display:grid;place-content:center;justify-items:center;gap:9px;color:#718198;text-align:center}.feedback>svg{width:32px;color:#c64a54}.feedback strong{color:#26374e}.feedback span{font-size:11px}.loading span{width:28px;height:28px;border:2px solid #dae3ed;border-top-color:#246dc0;border-radius:50%;animation:spin .8s linear infinite}.loading p{font-size:11px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:650px){.prorationSummary{grid-template-columns:auto 1fr}.prorationSummary dl{grid-column:1/-1;width:100%}.prorationSummary dl>div{min-width:0;flex:1}}
+@media(max-width:950px){.amountStrip{grid-template-columns:repeat(2,1fr)}.metric:nth-child(2n){border-right:0}.metric:last-child{grid-column:1/-1}.controlGrid{grid-template-columns:repeat(2,1fr)}.controlGrid article:nth-child(3n){border-right:1px solid #e4e9f0}.controlGrid article:nth-child(2n){border-right:0}.controlGrid article:nth-last-child(-n+3){border-bottom:1px solid #e4e9f0}.controlGrid article:nth-last-child(-n+2){border-bottom:0}.mainGrid,.detailGrid{grid-template-columns:1fr}.sideColumn{grid-template-columns:repeat(2,1fr);grid-template-rows:auto}.noteForm{grid-template-columns:1fr 180px}.noteForm button{grid-column:1/-1;justify-self:end}.identityMeta{display:none}}
+@media(max-width:650px){.identity{grid-template-columns:auto 1fr}.identityMain h3{font-size:15px}.amountStrip{grid-template-columns:1fr}.metric{border-right:0;border-bottom:1px solid #e1e7ef}.metric:last-child{grid-column:auto;border-bottom:0}.controlPanel>header{align-items:flex-start;flex-direction:column}.controlGrid{grid-template-columns:1fr}.controlGrid article,.controlGrid article:nth-child(2n),.controlGrid article:nth-child(3n),.controlGrid article:nth-last-child(-n+2){border-right:0;border-bottom:1px solid #e4e9f0}.controlGrid article:last-child{border-bottom:0}.sideColumn{grid-template-columns:1fr}.sectionHeader{align-items:flex-start;flex-direction:column}.legend{flex-wrap:wrap}.emptyDay,.day{min-height:52px;padding:4px}.day strong{font-size:7px}.noteForm{grid-template-columns:1fr}.reference{grid-column:auto}.cancelForm{grid-template-columns:1fr auto!important}.cancelForm input{grid-column:1/-1}}
+
+/* Vista de trabajo contable: prioriza lectura, jerarquia y aprovechamiento del monitor. */
+@media (min-width: 951px) {
+  .modal > header {
+    padding: 20px 26px;
+  }
+
+  .modal > header h2 {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -.025em;
+  }
+
+  .modal > header p {
+    margin-top: 5px;
+    font-size: 12px;
+  }
+
+  .modal > div {
+    padding: 18px 24px 24px;
+  }
+
+  .modal > footer {
+    padding: 14px 24px;
+  }
+
+  .content {
+    gap: 18px;
+  }
+
+  .identity {
+    gap: 17px;
+    padding: 4px 3px 18px;
+  }
+
+  .identity > img {
+    width: 68px;
+    height: 68px;
+  }
+
+  .identityMain > span {
+    font-size: 10px;
+  }
+
+  .identityMain h3 {
+    margin-top: 5px;
+    font-size: 22px;
+    line-height: 1.15;
+  }
+
+  .identityMain p {
+    margin-top: 5px;
+    font-size: 13px;
+  }
+
+  .identityMeta span {
+    font-size: 10px;
+  }
+
+  .identityMeta strong {
+    font-size: 15px;
+  }
+
+  .identityMeta small {
+    font-size: 11px;
+  }
+
+  .metric {
+    min-height: 88px;
+    padding: 15px 16px;
+    gap: 12px;
+  }
+
+  .metric > span {
+    width: 34px;
+    height: 34px;
+  }
+
+  .metric > span svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .metric small {
+    font-size: 11px;
+  }
+
+  .metric strong {
+    margin-top: 5px;
+    font-size: 20px;
+    letter-spacing: -.015em;
+  }
+
+  .metric em {
+    margin-top: 3px;
+    font-size: 10.5px;
+  }
+
+  .controlPanel > header,
+  .sectionHeader {
+    min-height: 58px;
+    padding: 11px 16px;
+  }
+
+  .controlPanel > header svg,
+  .sectionHeader svg,
+  .sectionLabel svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .controlPanel > header strong,
+  .sectionHeader strong {
+    font-size: 13px;
+  }
+
+  .controlPanel > header small,
+  .sectionHeader small {
+    margin-top: 3px;
+    font-size: 10.5px;
+  }
+
+  .controlReady,
+  .controlPending {
+    font-size: 10.5px;
+  }
+
+  .controlGrid article {
+    min-height: 76px;
+    padding: 12px 15px;
+    gap: 3px 11px;
+  }
+
+  .controlGrid article > svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .controlGrid article strong {
+    font-size: 11.5px;
+  }
+
+  .controlGrid article small {
+    margin-top: 3px;
+    font-size: 10px;
+  }
+
+  .controlGrid article > b {
+    margin-top: 3px;
+    font-size: 10px;
+  }
+
+  .mainGrid {
+    grid-template-columns: minmax(0, 2fr) minmax(340px, .85fr);
+    gap: 16px;
+  }
+
+  .legend {
+    gap: 14px;
+  }
+
+  .legend span {
+    gap: 6px;
+    font-size: 10px;
+  }
+
+  .legend span::before {
+    width: 7px;
+    height: 7px;
+  }
+
+  .calendarTitle {
+    height: 42px;
+    font-size: 14px;
+  }
+
+  .weekDay {
+    height: 32px;
+    font-size: 9.5px;
+  }
+
+  .emptyDay,
+  .day {
+    min-height: 76px;
+    padding: 8px;
+  }
+
+  .day > span {
+    font-size: 10.5px;
+  }
+
+  .day strong {
+    font-size: 10px;
+  }
+
+  .day small {
+    font-size: 9px;
+  }
+
+  .day::after {
+    top: 9px;
+    right: 9px;
+    width: 6px;
+    height: 6px;
+  }
+
+  .sideColumn {
+    gap: 16px;
+  }
+
+  .sectionLabel {
+    min-height: 48px;
+    padding: 0 16px;
+    gap: 9px;
+    font-size: 12.5px;
+  }
+
+  .summary {
+    min-height: 75px;
+    padding: 13px 15px;
+  }
+
+  .summary strong {
+    font-size: 22px;
+  }
+
+  .summary span {
+    margin-top: 4px;
+    font-size: 10.5px;
+  }
+
+  .timeSummary {
+    min-height: 50px;
+    padding: 0 15px;
+  }
+
+  .timeSummary span {
+    font-size: 10.5px;
+  }
+
+  .timeSummary strong {
+    font-size: 12px;
+  }
+
+  .paymentStatus dl > div {
+    min-height: 51px;
+    padding: 9px 15px;
+    grid-template-columns: 125px 1fr;
+  }
+
+  .paymentStatus dt {
+    font-size: 10.5px;
+  }
+
+  .paymentStatus dd {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .controlNotice {
+    min-height: 43px;
+    padding: 10px 14px;
+    font-size: 10.5px;
+  }
+
+  .detailGrid {
+    gap: 16px;
+  }
+
+  .concepts > div,
+  .financialItems > div {
+    min-height: 56px;
+    padding: 10px 16px;
+  }
+
+  .concepts strong,
+  .financialItems strong {
+    font-size: 11.5px;
+    line-height: 1.35;
+  }
+
+  .concepts small,
+  .financialItems small {
+    font-size: 9.5px;
+  }
+
+  .concepts b,
+  .financialItems b {
+    font-size: 11.5px;
+  }
+
+  .notesPanel > header {
+    min-height: 48px;
+  }
+
+  .notesPanel > header > span,
+  .noteForm label > span {
+    font-size: 10px;
+  }
+
+  .noteForm {
+    padding: 14px 16px;
+    grid-template-columns: minmax(0, 1fr) 220px auto;
+    gap: 12px;
+  }
+
+  .noteForm textarea,
+  .noteForm input,
+  .cancelForm input {
+    font-size: 11.5px;
+  }
+
+  .noteForm textarea {
+    height: 58px;
+  }
+
+  .notes article {
+    min-height: 58px;
+    padding: 11px 16px;
+  }
+
+  .notes article strong {
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+
+  .notes article small,
+  .notes article em {
+    font-size: 9.5px;
+  }
+
+  .empty {
+    min-height: 84px;
+    font-size: 10.5px;
+  }
+}
+
+/* Acabado ejecutivo: contraste real sin aumentar innecesariamente la interfaz. */
+.modal > header,
+.modal > footer {
+  background: #fff;
+}
+
+.modal > header {
+  border-bottom-color: var(--ledger-border);
+}
+
+.modal > header h2,
+.identityMain h3,
+.metric strong,
+.controlPanel > header strong,
+.sectionHeader strong,
+.sectionLabel,
+.calendarTitle,
+.paymentStatus dd,
+.concepts strong,
+.financialItems strong,
+.notes article strong {
+  color: var(--ledger-ink);
+}
+
+.modal > header p,
+.identityMain p,
+.identityMeta small,
+.metric small,
+.metric em,
+.controlPanel > header small,
+.sectionHeader small,
+.legend span,
+.summary span,
+.paymentStatus dt,
+.concepts small,
+.financialItems small,
+.notes article small,
+.empty {
+  color: var(--ledger-muted);
+}
+
+.amountStrip,
+.controlPanel,
+.calendarPanel,
+.attendanceSummary,
+.paymentStatus,
+.detailPanel,
+.notesPanel {
+  border-color: var(--ledger-border);
+  background: #fff;
+  box-shadow: 0 4px 14px rgb(20 32 51 / 5%);
+}
+
+.controlPanel > header,
+.sectionHeader,
+.sectionLabel,
+.notesPanel > header,
+.paymentStatus dl > div,
+.concepts > div,
+.financialItems > div,
+.notes article {
+  border-color: var(--ledger-soft-border);
+}
+
+.controlGrid article {
+  border-color: var(--ledger-soft-border);
+}
+
+.controlGrid article strong {
+  color: #101d30;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.35;
+}
+
+.controlGrid article small {
+  color: #43556d;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.controlPanel > header small,
+.sectionHeader small {
+  color: #4b5e76;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.controlGrid .control_NOT_REQUIRED,
+.calendarTitle,
+.weekDay,
+.emptyDay,
+.noteForm {
+  background: #f7f9fc;
+}
+
+.weekDay {
+  color: #4d5f77;
+}
+
+.day > span {
+  color: #26384f;
+}
+
+.paymentStatus dd,
+.concepts b,
+.financialItems b,
+.timeSummary strong {
+  font-weight: 750;
+}
+
+.controlNotice {
+  background: transparent;
+  color: #3e526b;
+}
+
+.noteForm textarea,
+.noteForm input,
+.cancelForm input {
+  border-color: #bfcddd;
+  color: var(--ledger-ink);
+}
+
+@media (min-width: 951px) {
+  .modal > header h2 { font-size: 17px; }
+  .identityMain h3 { font-size: 20px; }
+  .identityMain p { font-size: 12px; }
+  .identityMeta strong { font-size: 14px; }
+  .metric { min-height: 82px; }
+  .metric small { font-size: 10px; }
+  .metric strong { font-size: 18px; }
+  .metric em { font-size: 10px; }
+  .controlPanel > header strong,
+  .sectionHeader strong { font-size: 12px; }
+  .controlPanel > header small,
+  .sectionHeader small { font-size: 10px; }
+  .controlGrid article { min-height: 70px; }
+  .controlGrid article strong { font-size: 11.5px; }
+  .controlGrid article small,
+  .controlGrid article > b { font-size: 9.5px; }
+  .calendarTitle { font-size: 13px; }
+  .emptyDay,
+  .day { min-height: 70px; }
+  .sectionLabel { font-size: 12px; }
+  .summary strong { font-size: 20px; }
+}
+
+/* Densidad final: expediente compacto para trabajo administrativo cotidiano. */
+@media (min-width: 951px) {
+  .modal > header {
+    padding: 16px 22px;
+  }
+
+  .modal > header h2 {
+    font-size: 16px;
+  }
+
+  .modal > header p {
+    margin-top: 3px;
+    font-size: 11px;
+  }
+
+  .modal > div {
+    padding: 14px 20px 18px;
+  }
+
+  .modal > footer {
+    padding: 11px 20px;
+  }
+
+  .content {
+    gap: 13px;
+  }
+
+  .identity {
+    gap: 14px;
+    padding-bottom: 14px;
+  }
+
+  .identity > img {
+    width: 58px;
+    height: 58px;
+  }
+
+  .identityMain h3 {
+    font-size: 18px;
+  }
+
+  .identityMain p {
+    font-size: 11px;
+  }
+
+  .identityMeta {
+    padding-left: 18px;
+  }
+
+  .identityMeta strong {
+    font-size: 13px;
+  }
+
+  .identityMeta small {
+    font-size: 10px;
+  }
+
+  .metric {
+    min-height: 70px;
+    padding: 11px 13px;
+    gap: 9px;
+  }
+
+  .metric > span {
+    width: 28px;
+    height: 28px;
+  }
+
+  .metric > span svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .metric small {
+    font-size: 9.5px;
+  }
+
+  .metric strong {
+    margin-top: 3px;
+    font-size: 16px;
+  }
+
+  .metric em {
+    font-size: 9.5px;
+  }
+
+  .controlPanel > header,
+  .sectionHeader {
+    min-height: 48px;
+    padding: 8px 13px;
+  }
+
+  .controlPanel > header strong,
+  .sectionHeader strong {
+    font-size: 11.5px;
+  }
+
+  .controlPanel > header small,
+  .sectionHeader small {
+    font-size: 9.5px;
+  }
+
+  .controlGrid article {
+    min-height: 60px;
+    padding: 9px 12px;
+    gap: 2px 8px;
+  }
+
+  .controlGrid article > svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .controlGrid article strong {
+    font-size: 10.5px;
+  }
+
+  .controlGrid article small,
+  .controlGrid article > b {
+    font-size: 9.5px;
+  }
+
+  .mainGrid,
+  .detailGrid {
+    gap: 13px;
+  }
+
+  .mainGrid {
+    grid-template-columns: minmax(0, 1.9fr) minmax(300px, .8fr);
+  }
+
+  .sideColumn {
+    gap: 13px;
+  }
+
+  .calendarTitle {
+    height: 34px;
+    font-size: 12px;
+  }
+
+  .weekDay {
+    height: 26px;
+    font-size: 8.5px;
+  }
+
+  .emptyDay,
+  .day {
+    min-height: 56px;
+    padding: 6px;
+  }
+
+  .day > span {
+    font-size: 9px;
+  }
+
+  .day strong {
+    font-size: 8.5px;
+  }
+
+  .day small {
+    font-size: 8px;
+  }
+
+  .sectionLabel {
+    min-height: 39px;
+    padding: 0 13px;
+    font-size: 10.5px;
+  }
+
+  .summary {
+    min-height: 58px;
+    padding: 9px 12px;
+  }
+
+  .summary strong {
+    font-size: 17px;
+  }
+
+  .summary span {
+    font-size: 9px;
+  }
+
+  .timeSummary {
+    min-height: 40px;
+    padding: 0 12px;
+  }
+
+  .timeSummary span,
+  .timeSummary strong {
+    font-size: 9.5px;
+  }
+
+  .paymentStatus dl > div {
+    min-height: 40px;
+    padding: 7px 12px;
+    grid-template-columns: 105px 1fr;
+  }
+
+  .paymentStatus dt {
+    font-size: 9.5px;
+  }
+
+  .paymentStatus dd {
+    font-size: 10px;
+  }
+
+  .controlNotice {
+    min-height: 35px;
+    padding: 8px 11px;
+    font-size: 9.5px;
+  }
+
+  .concepts > div,
+  .financialItems > div {
+    min-height: 44px;
+    padding: 8px 13px;
+  }
+
+  .concepts strong,
+  .financialItems strong,
+  .concepts b,
+  .financialItems b {
+    font-size: 10px;
+  }
+
+  .concepts small,
+  .financialItems small {
+    font-size: 9px;
+  }
+
+  .notesPanel > header {
+    min-height: 40px;
+  }
+
+  .noteForm {
+    padding: 10px 13px;
+    grid-template-columns: minmax(0, 1fr) 190px auto;
+    gap: 9px;
+  }
+
+  .noteForm textarea {
+    height: 46px;
+  }
+
+  .notes article {
+    min-height: 46px;
+    padding: 8px 13px;
+  }
+
+  .notes article strong {
+    font-size: 10px;
+  }
+
+  .notes article small,
+  .notes article em {
+    font-size: 9px;
+  }
+
+  .empty {
+    min-height: 62px;
+    font-size: 9.5px;
+  }
+}
+
+/* Calendario mensual legible: los estados se muestran como registros, no como puntos. */
+.calendar {
+  border-top: 0;
+  background: #fff;
+}
+
+.weekDay {
+  color: #334a70;
+  background: #eef2f7;
+  font-weight: 800;
+}
+
+.emptyDay {
+  background: #f8fafc;
+}
+
+.day {
+  gap: 5px;
+  background: #fff;
+  transition: background-color 140ms ease;
+}
+
+.day:hover {
+  background: #f8fafc;
+}
+
+.day > span {
+  align-self: flex-end;
+  color: #314a72;
+  font-weight: 700;
+}
+
+.day strong {
+  width: calc(100% + 14px);
+  min-height: 25px;
+  margin-inline: -7px;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #e9eef5;
+  color: #273951;
+  font-weight: 800;
+  letter-spacing: .015em;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.day small {
+  padding-inline: 3px;
+  color: #53657d;
+  font-weight: 650;
+  text-align: center;
+}
+
+.day::after {
+  display: none;
+}
+
+.day_PRESENTE strong {
+  background: #168a4a;
+  color: #fff;
+  box-shadow: none;
+}
+
+.day_TARDANZA strong {
+  background: #d97706;
+  color: #fff;
+  box-shadow: none;
+}
+
+.day_FALTA strong {
+  background: #d64555;
+  color: #fff;
+  box-shadow: none;
+}
+
+.day_PERMISO strong,
+.day_VACACIONES strong,
+.day_NO_LABORABLE strong {
+  background: #3274b9;
+  color: #fff;
+  box-shadow: none;
+}
+
+.dayJustified strong {
+  background: #2877b8;
+  color: #fff;
+}
+
+.dayJustificationPending strong {
+  outline: 2px solid #f3bf63;
+  outline-offset: -2px;
+}
+
+.pendingSummary {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:9px 12px;
+  border-top:1px solid #e2e8f0;
+  color:#8c5608;
+  font-size:10px;
+  font-weight:700;
+}
+
+@media (min-width: 951px) {
+  .weekDay {
+    height: 31px;
+    font-size: 9px;
+  }
+
+  .emptyDay,
+  .day {
+    min-height: 68px;
+    padding: 7px;
+  }
+
+  .day > span {
+    font-size: 9.5px;
+  }
+
+  .day strong {
+    font-size: 11px;
+  }
+
+  .day small {
+    font-size: 8.5px;
+  }
+}
+
+/* Densidad ejecutiva definitiva del expediente mensual. */
+@media (min-width: 951px) {
+  .modal > header {
+    padding: 13px 18px;
+  }
+
+  .modal > header h2 {
+    font-size: 15px;
+  }
+
+  .modal > header p {
+    margin-top: 2px;
+    font-size: 10px;
+  }
+
+  .modal > div {
+    padding: 11px 16px 14px;
+  }
+
+  .modal > footer {
+    padding: 9px 16px;
+  }
+
+  .content {
+    gap: 10px;
+  }
+
+  .identity {
+    gap: 12px;
+    padding: 2px 1px 11px;
+  }
+
+  .identity > img {
+    width: 50px;
+    height: 50px;
+  }
+
+  .identityMain > span,
+  .identityMeta span {
+    font-size: 8.5px;
+  }
+
+  .identityMain h3 {
+    margin-top: 3px;
+    font-size: 17px;
+  }
+
+  .identityMain p,
+  .identityMeta small {
+    margin-top: 3px;
+    font-size: 10px;
+  }
+
+  .identityMeta {
+    padding-left: 15px;
+  }
+
+  .identityMeta strong {
+    font-size: 12px;
+  }
+
+  .amountStrip {
+    border-radius: 10px;
+  }
+
+  .metric {
+    min-height: 61px;
+    padding: 9px 10px;
+    gap: 7px;
+  }
+
+  .metric > span {
+    width: 24px;
+    height: 24px;
+  }
+
+  .metric > span svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .metric small {
+    font-size: 8.5px;
+  }
+
+  .metric strong {
+    margin-top: 2px;
+    font-size: 15px;
+  }
+
+  .metric em {
+    margin-top: 1px;
+    font-size: 8.5px;
+  }
+
+  .prorationSummary {
+    min-height: 52px;
+    padding: 8px 11px;
+  }
+
+  .mainGrid {
+    grid-template-columns: minmax(0, 1.8fr) minmax(270px, .76fr);
+    gap: 10px;
+  }
+
+  .sideColumn,
+  .detailGrid {
+    gap: 10px;
+  }
+
+  .sectionHeader {
+    min-height: 42px;
+    padding: 7px 11px;
+  }
+
+  .sectionHeader strong {
+    font-size: 10.5px;
+  }
+
+  .sectionHeader small,
+  .legend span {
+    font-size: 8.5px;
+  }
+
+  .calendarTitle {
+    height: 31px;
+    font-size: 11px;
+  }
+
+  .weekDay {
+    height: 25px;
+    font-size: 8px;
+  }
+
+  .emptyDay,
+  .day {
+    min-height: 53px;
+    padding: 5px;
+  }
+
+  .day > span {
+    font-size: 8.5px;
+  }
+
+  .day strong {
+    width: calc(100% + 10px);
+    min-height: 21px;
+    margin-inline: -5px;
+    padding: 5px 6px;
+    font-size: 8.5px;
+  }
+
+  .day small {
+    font-size: 7.5px;
+  }
+
+  .sectionLabel {
+    min-height: 35px;
+    padding: 0 11px;
+    font-size: 10px;
+  }
+
+  .summary {
+    min-height: 51px;
+    padding: 7px 10px;
+  }
+
+  .summary strong {
+    font-size: 16px;
+  }
+
+  .summary span,
+  .paymentStatus dt,
+  .paymentStatus dd {
+    font-size: 8.5px;
+  }
+
+  .timeSummary {
+    min-height: 36px;
+    padding: 0 10px;
+  }
+
+  .timeSummary span,
+  .timeSummary strong {
+    font-size: 9px;
+  }
+
+  .paymentStatus dl > div {
+    min-height: 36px;
+    padding: 6px 10px;
+    grid-template-columns: 92px 1fr;
+  }
+
+  .controlNotice {
+    min-height: 32px;
+    padding: 6px 10px;
+  }
+
+  .controlNotice strong,
+  .controlNotice small {
+    font-size: 9px;
+  }
+
+  .concepts > div,
+  .financialItems > div {
+    min-height: 39px;
+    padding: 7px 11px;
+  }
+
+  .concepts strong,
+  .financialItems strong,
+  .concepts b,
+  .financialItems b {
+    font-size: 9.5px;
+  }
+
+  .concepts small,
+  .financialItems small {
+    font-size: 8px;
+  }
+
+  .notesPanel > header {
+    min-height: 36px;
+    padding-inline: 11px;
+  }
+
+  .noteForm {
+    padding: 8px 11px;
+    grid-template-columns: minmax(0, 1fr) 170px auto;
+    gap: 8px;
+  }
+
+  .noteForm textarea {
+    height: 42px;
+  }
+
+  .notes article {
+    min-height: 41px;
+    padding: 7px 11px;
+  }
+}

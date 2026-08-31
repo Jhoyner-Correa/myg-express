@@ -1,0 +1,289 @@
+.card {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 0 0 auto;
+}
+
+.headingIcon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-50);
+  color: var(--color-brand-700);
+}
+
+.heading h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: var(--route-font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.heading h2 span {
+  min-width: 24px;
+  padding: 2px 7px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.heading p {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: min(220px, 100%);
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+}
+
+.search:focus-within {
+  border-color: var(--color-brand-400);
+  box-shadow: var(--focus-ring);
+}
+
+.search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 11.5px;
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-subtle);
+}
+
+.filters > span {
+  margin-right: 2px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.filterChip {
+  padding: 4px 9px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--surface-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.activeFilter {
+  border-color: var(--color-brand-200);
+  background: var(--color-brand-50);
+  color: var(--color-brand-700);
+}
+
+.tableScroll {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--color-neutral-300) transparent;
+  scrollbar-width: thin;
+}
+
+.tableScroll::-webkit-scrollbar { width: 7px; height: 7px; }
+.tableScroll::-webkit-scrollbar-track { background: transparent; }
+.tableScroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--color-neutral-300);
+  background-clip: padding-box;
+}
+
+.tableScroll::-webkit-scrollbar-thumb:hover { background-color: var(--color-neutral-400); }
+
+.tableScroll:focus-visible {
+  outline: 2px solid var(--color-brand-400);
+  outline-offset: -2px;
+}
+
+.tableScroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--route-font-body);
+  font-size: 12px;
+}
+
+.tableScroll th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  font-family: var(--route-font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tableScroll td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--color-neutral-100);
+  color: var(--text-secondary);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.tableScroll tbody tr:hover { background: var(--surface-subtle); }
+.name { color: var(--text-primary) !important; font-weight: 500; }
+
+.rowNumber {
+  color: var(--color-neutral-400);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.phone {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+
+.status {
+  --status-color: var(--color-neutral-600);
+  --status-soft: var(--color-neutral-100);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  background: transparent;
+  color: var(--status-color);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.pending { --status-color: var(--color-warning); --status-soft: var(--color-warning-soft); }
+.processing, .sent { --status-color: var(--color-info); --status-soft: var(--color-info-soft); }
+.manual { --status-color: var(--color-brand-700); --status-soft: var(--color-brand-50); }
+.muted { --status-color: var(--color-neutral-600); --status-soft: var(--color-neutral-100); }
+.failed { --status-color: var(--color-danger); --status-soft: var(--color-danger-soft); }
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.actionsCell { width: 44px; text-align: right; }
+
+.deleteButton {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.deleteButton:hover { background: var(--color-danger-soft); color: var(--color-danger); }
+
+.empty {
+  height: 260px;
+  color: var(--text-muted) !important;
+  text-align: center;
+}
+
+.footer {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 8px 14px;
+  border-top: 1px solid var(--border-default);
+  color: var(--text-muted);
+  font-size: 0.67rem;
+}
+
+@container (max-width: 860px) {
+  .header { align-items: flex-start; flex-direction: column; }
+  .toolbar { justify-content: flex-start; width: 100%; }
+  .search { flex: 1 1 200px; }
+}
+
+@media (max-width: 1200px) {
+  .card {
+    height: min(620px, 70dvh);
+    min-height: 460px;
+  }
+}
+
+@container (max-width: 620px) {
+  .card { height: min(540px, 68dvh); min-height: 420px; }
+  .header { padding: var(--space-3); }
+  .toolbar { flex-wrap: wrap; }
+  .toolbar > button { flex: 1; }
+  .search { width: 100%; flex-basis: 100%; }
+}

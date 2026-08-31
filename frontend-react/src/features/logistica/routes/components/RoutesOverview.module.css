@@ -1,0 +1,98 @@
+.overview {
+  height: 160px;
+  display: grid;
+  grid-template-columns: 535px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  box-shadow: 0 2px 9px rgb(15 23 42 / 0.05);
+}
+
+.metrics {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  padding: 20px 8px 18px 6px;
+  border-right: 1px solid var(--border-default);
+}
+
+.metric {
+  --metric-color: var(--color-success);
+  --metric-soft: var(--color-success-soft);
+  min-width: 0;
+  min-height: 104px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-right: 1px solid var(--color-neutral-100);
+}
+.metric:last-child { border-right: 0; }
+.metric.info { --metric-color: var(--color-info); --metric-soft: var(--color-info-soft); }
+.metric.warning { --metric-color: var(--color-warning); --metric-soft: var(--color-warning-soft); }
+.metricAccent { display: none; }
+
+.metricIcon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  background: var(--metric-soft);
+  color: var(--metric-color);
+}
+.metricIcon svg { width: 24px; height: 24px; stroke-width: 1.85; }
+.metricContent { min-width: 0; display: flex; flex-direction: column; }
+.metricLabel { overflow: hidden; color: var(--text-secondary); font-size: 0.625rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.metricValueRow { min-height: 31px; display: flex; align-items: center; gap: 6px; }
+.metricValueRow strong { color: var(--text-primary); font-size: 1.5rem; font-weight: 700; letter-spacing: -0.035em; line-height: 1; font-variant-numeric: tabular-nums; }
+.metricBadge { padding: 2px 6px; border-radius: 999px; background: var(--metric-soft); color: var(--metric-color); font-size: 0.5625rem; font-weight: 600; }
+.metricContent small { overflow: hidden; color: var(--text-muted); font-size: 0.5625rem; font-weight: 400; line-height: 1.35; text-overflow: ellipsis; }
+
+.chartPanel { min-width: 0; display: flex; flex-direction: column; padding: 15px 16px 5px 14px; }
+.chartHeader { min-height: 18px; display: flex; align-items: center; }
+.chartTitle { display: flex; align-items: baseline; gap: 6px; }
+.eyebrow { color: var(--text-secondary); font-size: 0.5625rem; font-weight: 500; }
+.chartHeader h2 { color: var(--text-primary); font-size: 0.625rem; font-weight: 700; letter-spacing: -0.01em; }
+.chart { min-width: 0; height: 122px; }
+.chartSvg { width: 100%; height: 122px; overflow: visible; }
+.gridLine { stroke: #e9eef4; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.axisLabel { fill: #718096; font-family: var(--routes-font); font-size: 8px; font-weight: 500; }
+.chartLine { fill: none; stroke: var(--color-brand-600); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.25; vector-effect: non-scaling-stroke; }
+.chartPoint { fill: #fff; stroke: var(--color-brand-600); stroke-width: 2; vector-effect: non-scaling-stroke; }
+
+@container routes-content (min-width: 1400px) {
+  .overview { height: 184px; grid-template-columns: 600px minmax(0, 1fr); }
+  .metrics { padding-block: 22px; }
+  .metric { min-height: 122px; gap: 12px; padding-inline: 12px; }
+  .metricIcon { width: 58px; height: 58px; border-radius: 13px; }
+  .metricIcon svg { width: 26px; height: 26px; }
+  .metricLabel { font-size: 0.6875rem; }
+  .metricValueRow { min-height: 36px; }
+  .metricValueRow strong { font-size: 1.75rem; }
+  .metricBadge { font-size: 0.625rem; }
+  .metricContent small { font-size: 0.625rem; }
+  .chartPanel { padding: 17px 20px 7px 16px; }
+  .chartHeader { min-height: 20px; }
+  .eyebrow { font-size: 0.625rem; }
+  .chartHeader h2 { font-size: 0.6875rem; }
+  .chart, .chartSvg { height: 140px; }
+  .axisLabel { font-size: 8.75px; }
+}
+
+@container routes-content (max-width: 900px) {
+  .overview { height: auto; grid-template-columns: 1fr; }
+  .metrics { border-right: 0; border-bottom: 1px solid var(--border-default); }
+  .chartPanel { min-height: 150px; }
+}
+
+@container routes-content (max-width: 680px) {
+  .metrics { grid-template-columns: 1fr; padding: 8px 12px; }
+  .metric { min-height: 72px; border-right: 0; border-bottom: 1px solid var(--color-neutral-100); }
+  .metric:last-child { border-bottom: 0; }
+  .metricIcon { width: 44px; height: 44px; }
+  .chartPanel { padding-inline: 12px; }
+}
