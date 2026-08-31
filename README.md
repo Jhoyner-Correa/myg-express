@@ -10,13 +10,13 @@ Este repositorio contiene exclusivamente el sistema web y su API. La aplicación
 | --- | --- | --- |
 | `frontend-react/` | React, TypeScript y Vite | Interfaz administrativa |
 | `backend/` | Node.js, Express y TypeScript | API, dominio, persistencia y worker |
-| `backend/migrations/` | SQL para MariaDB | Evolución reproducible del esquema |
+| `backend/migrations/` | SQL para MySQL 8 / MariaDB 10.4+ | Esquema inicial y evolución reproducible |
 | `ops/` | Shell | Respaldo, restauración y operación |
 | `.github/workflows/` | GitHub Actions | Calidad y compilación verificable |
 
 ## Desarrollo local
 
-Requisitos: Node.js 20, MariaDB 10.4 o superior y Redis 7.
+Requisitos: Node.js 20, MySQL 8 o MariaDB 10.4+, y Redis 7.
 
 ```bash
 cd backend
@@ -54,11 +54,15 @@ Las migraciones productivas se ejecutan únicamente después de un respaldo rest
 
 ```bash
 cd backend
-npm run db:preflight
 npm run db:migrate
-npm run db:verify:access-model
 npm run db:verify:rrhh-schema
 ```
+
+`001_initial_schema.sql` construye una instalación nueva y vacía. Incluye únicamente
+la estructura y los catálogos técnicos de autorización; no copia usuarios, empleados
+ni información operativa del entorno local. Después de aplicarla no debe editarse:
+cada cambio futuro se incorpora como una nueva migración incremental `002_...sql`,
+`003_...sql`, etc.
 
 ## Flujo de entrega
 

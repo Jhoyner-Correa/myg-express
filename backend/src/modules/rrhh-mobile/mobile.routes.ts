@@ -21,6 +21,7 @@ import { receivePermissionEvidence } from './permissionEvidenceUpload';
 import { MobileAttendanceJustificationController } from './mobileAttendanceJustification.controller';
 import { MobileOvertimeController } from './mobileOvertime.controller';
 import { receiveOvertimeEvidence } from './overtimeEvidenceUpload';
+import { MobileVersionController } from './mobileVersion.controller';
 
 const router = Router();
 const activationLimiter = rateLimit({
@@ -56,6 +57,14 @@ const profileController = new MobileProfileController();
 const permissionRequestController = new MobilePermissionRequestController();
 const attendanceJustificationController = new MobileAttendanceJustificationController();
 const overtimeController = new MobileOvertimeController();
+const versionController = new MobileVersionController();
+const versionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, code: 'RATE_LIMITED', message: 'Demasiadas consultas de version.' },
+});
 const gpsLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 240,
@@ -103,6 +112,7 @@ const receiveSelfie = (req: Request, res: Response, next: NextFunction) => {
   });
 };
 
+router.get('/version-policy', versionLimiter, versionController.policy);
 router.post('/auth/pre-activate', activationLimiter, authController.preActivate);
 router.post('/auth/activate', activationLimiter, authController.activate);
 router.post('/auth/refresh', refreshLimiter, authController.refresh);

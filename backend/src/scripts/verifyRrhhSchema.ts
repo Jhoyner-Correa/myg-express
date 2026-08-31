@@ -14,6 +14,7 @@ const REQUIRED_TABLES = [
   'personal_calendario_laboral',
   'personal_sobretiempo_solicitudes',
   'personal_notificaciones_app',
+  'mobile_app_releases',
   'personal_auditoria_eventos',
   'personal_pago_acuerdos',
   'personal_pago_movimientos',
@@ -27,20 +28,7 @@ const REQUIRED_TABLES = [
   'personal_pago_notas',
 ] as const;
 
-const REQUIRED_MIGRATIONS = [
-  '029_rrhh_absence_cancellation',
-  '030_rrhh_mobile_notifications',
-  '031_rrhh_mobile_permission_requests',
-  '032_rrhh_schema_governance',
-  '033_rrhh_legacy_retirement',
-  '035_rrhh_service_payments',
-  '036_rrhh_payment_workflow',
-  '037_rrhh_payment_receipt_integrity',
-  '038_rrhh_payment_legacy_batches',
-  '039_rrhh_payment_employee_ledger',
-  '040_rrhh_payment_proration',
-  '041_rrhh_overtime_evidence',
-] as const;
+const REQUIRED_MIGRATIONS = ['001_initial_schema'] as const;
 
 const RETIRED_TABLES = [
   'personal_empleado_horarios',
@@ -90,13 +78,20 @@ async function main(): Promise<void> {
     fail('No existe schema_migrations; no se puede demostrar qué versión está desplegada.');
   } else {
     const [migrationRows] = await pool.query<RowDataPacket[]>(
-      'SELECT id FROM schema_migrations WHERE id IN (?)',
+      'SELECT id, checksum FROM schema_migrations WHERE id IN (?)',
       [[...REQUIRED_MIGRATIONS]],
     );
-    const applied = new Set(migrationRows.map(row => String(row.id)));
+    const applied = new Map(
+      migrationRows.map(row => [String(row.id), String(row.checksum || '')]),
+    );
     for (const migration of REQUIRED_MIGRATIONS) {
-      if (applied.has(migration)) ok(`Migración registrada: ${migration}`);
-      else fail(`La migración ${migration} no figura en schema_migrations.`);
+      if (!applied.has(migration)) {
+        fail(`La migración ${migration} no figura en schema_migrations.`);
+      } else if (!/^[a-f0-9]{64}$/.test(applied.get(migration) || '')) {
+        fail(`La migración ${migration} no tiene un checksum SHA-256 válido.`);
+      } else {
+        ok(`Migración registrada y verificada: ${migration}`);
+      }
     }
   }
 

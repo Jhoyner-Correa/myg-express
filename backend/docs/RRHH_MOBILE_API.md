@@ -30,7 +30,6 @@ Secuencia válida: `ENTRADA` → `SALIDA_ALMUERZO` → `REGRESO` → `SALIDA`. T
 
 ## Operación
 
-- Migración local/servidor: `npm run db:migrate:rrhh-foundation` dentro de `backend`.
-- Preflight manual: `migrations/005_rrhh_mobile_preflight.sql`.
-- Migración reproducible: `migrations/006_rrhh_mobile_foundation.sql`.
+- Preparación del esquema: `npm run db:migrate` dentro de `backend`.
+- Auditoría posterior: `npm run db:verify:rrhh-schema`.
 - Revocar teléfono: `POST /api/rrhh/empleados/:id/revocar-dispositivo` con `{ "motivo": "..." }`.

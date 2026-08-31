@@ -30,9 +30,11 @@ La base de datos se consolida de forma incremental. Las tablas históricas no se
 - Las migraciones ejecutadas se registran en `schema_migrations`.
 - Las correcciones, cancelaciones y decisiones administrativas conservan actor, fecha y motivo.
 
-## Tablas heredadas retiradas
+## Esquema inicial consolidado
 
-La migración `033_rrhh_legacy_retirement` conserva los datos operativos necesarios en las fuentes canónicas y elimina definitivamente `personal_empleado_horarios`, `personal_horas_extras`, `personal_notificaciones` y `personal_auditoria_accesos`. Desde ese punto, el auditor exige que esas tablas permanezcan ausentes.
+`001_initial_schema.sql` representa el modelo canónico completo para instalaciones nuevas. Las tablas heredadas `personal_empleado_horarios`, `personal_horas_extras`, `personal_notificaciones` y `personal_auditoria_accesos` no forman parte del esquema y el auditor exige que permanezcan ausentes.
+
+El baseline contiene estructura y catálogos técnicos, nunca datos de empresa, usuarios, colaboradores o asistencia. Una vez aplicado, su checksum queda registrado y toda evolución se realiza en un archivo incremental nuevo.
 
 ## Despliegue
 

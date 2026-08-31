@@ -69,9 +69,7 @@ npm --prefix "${PARTIAL_DIR}/frontend-react" run build
 
 (
   cd "${PARTIAL_DIR}/backend"
-  npm run db:preflight
   npm run db:migrate
-  npm run db:verify:access-model
   npm run db:verify:rrhh-schema
 )
 

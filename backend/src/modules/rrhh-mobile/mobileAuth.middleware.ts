@@ -23,6 +23,9 @@ type MobileIdentityRow = RowDataPacket & {
   requiere_cambio_clave: number;
 };
 
+const VERSION_SYNC_INTERVAL_MS = 15 * 60 * 1000;
+const lastVersionSyncByDevice = new Map<number, number>();
+
 export async function verifyMobileEmployee(req: MobileAuthRequest, res: Response, next: NextFunction) {
   try {
     const [scheme, token] = String(req.headers.authorization || '').split(' ');
@@ -83,5 +86,30 @@ async function attachMobileIdentity(
       publicKey: rows[0].clave_publica,
       requiresPasswordChange: Boolean(rows[0].requiere_cambio_clave),
     };
+    await synchronizeDeviceVersion(req, req.employee.deviceId);
     return next();
+}
+
+async function synchronizeDeviceVersion(req: Request, deviceId: number): Promise<void> {
+  const now = Date.now();
+  const lastSync = lastVersionSyncByDevice.get(deviceId) ?? 0;
+  if (now - lastSync < VERSION_SYNC_INTERVAL_MS) return;
+
+  const version = String(req.header('x-app-version') ?? '').trim();
+  const build = String(req.header('x-app-build') ?? '').trim();
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version) || !/^\d{1,10}$/.test(build)) return;
+
+  const appVersion = `${version}+${build}`.slice(0, 50);
+  try {
+    await pool.query(
+      `UPDATE personal_dispositivos
+          SET version_app = ?
+        WHERE id = ? AND (version_app IS NULL OR version_app <> ?)`,
+      [appVersion, deviceId, appVersion],
+    );
+    lastVersionSyncByDevice.set(deviceId, now);
+  } catch (error) {
+    // La telemetria de version nunca debe bloquear una operacion laboral.
+    console.warn('[RRHH Mobile] No se pudo sincronizar la version del dispositivo:', error);
+  }
 }

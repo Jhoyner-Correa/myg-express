@@ -85,12 +85,16 @@ El script:
 4. enlaza configuración y almacenamiento persistentes;
 5. instala dependencias de manera reproducible con `npm ci`;
 6. compila backend y frontend;
-7. ejecuta preflight, migraciones y verificadores;
+7. ejecuta migraciones y la auditoría del esquema;
 8. activa el release mediante un cambio atómico de symlink;
 9. recarga PM2;
 10. valida `/api/health` e intenta rollback del código si falla.
 
 Las migraciones deben seguir el patrón expand/contract para que el release anterior siga siendo compatible durante un rollback. Una migración destructiva requiere una ventana separada y un plan específico de restauración.
+
+En una instalación nueva, `001_initial_schema.sql` exige una base vacía y crea todo
+el modelo canónico sin datos operativos. En instalaciones ya inicializadas, el runner
+verifica el historial y el checksum antes de aplicar únicamente migraciones nuevas.
 
 ## 6. Verificación posterior
 

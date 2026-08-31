@@ -6,7 +6,7 @@ Este documento es una puerta de control. MyG Express no se considera listo solo 
 
 1. Congelar cambios funcionales y crear una etiqueta de version.
 2. Ejecutar `npm ci`, `npm audit --omit=dev --audit-level=high`, pruebas y compilacion en backend y frontend.
-3. Ejecutar `npm run db:preflight`, `npm run db:verify:rrhh-schema` y `npm run db:verify:access-model` contra una copia restaurada de la base real.
+3. Ejecutar `npm run db:migrate` y `npm run db:verify:rrhh-schema` contra una base temporal vacía o una copia restaurada compatible.
 4. Construir la imagen desde el commit etiquetado. No copiar `node_modules`, fuentes Flutter ni secretos al VPS.
 
 ## 2. Secretos y red
@@ -25,7 +25,7 @@ La API y el worker validan estas condiciones al arrancar y se detienen ante una 
 1. Crear un respaldo consistente con `ops/backup-mariadb.sh`, incluyendo `backend/storage` y `backend/private-storage`.
 2. Verificar checksum y ejecutar `ops/restore-drill-mariadb.sh` contra una base temporal terminada en `_restore_drill`.
 3. Aplicar `npm run db:migrate` una sola vez desde un proceso de mantenimiento.
-4. Repetir los tres verificadores antes de habilitar trafico.
+4. Repetir `npm run db:verify:rrhh-schema` antes de habilitar trafico.
 5. Conservar el respaldo previo fuera del mismo VPS.
 
 No se debe migrar si el respaldo no puede restaurarse. Las evidencias privadas, selfies pendientes y sustentos no deben servirse mediante Nginx como archivos estaticos.
@@ -54,7 +54,7 @@ El token del servicio GPS se cifra con Android Keystore; el servicio puede reanu
 La salida queda aprobada unicamente cuando:
 
 - CI y auditorias no tienen errores ni vulnerabilidades altas.
-- La base restaurada pasa preflight, migraciones y verificadores.
+- La base temporal pasa la migración inicial y la auditoría del esquema sin errores.
 - HTTPS, firewall, secretos y respaldos se verificaron desde el VPS.
 - El AAB esta firmado y el piloto movil completo no presenta bloqueos.
 - Existe un responsable de rollback y una ventana de monitoreo posterior al despliegue.
