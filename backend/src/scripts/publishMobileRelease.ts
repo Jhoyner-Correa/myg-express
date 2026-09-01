@@ -65,7 +65,7 @@ async function main(): Promise<void> {
     const [result] = await connection.execute<ResultSetHeader>(
       `INSERT INTO mobile_app_releases (
          plataforma, canal, version_name, build_number, minimum_supported_build,
-         estado, download_url, release_notes, checksum_sha256, published_at
+         estado, download_url, release_notes, checksum_sha256, publicado_en
        ) VALUES ('ANDROID', ?, ?, ?, ?, 'PUBLISHED', ?, ?, ?, CURRENT_TIMESTAMP)`,
       [channel, versionName, buildNumber, minimumSupportedBuild, downloadUrl, releaseNotes, checksum],
     );
