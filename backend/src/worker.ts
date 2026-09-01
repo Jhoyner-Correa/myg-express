@@ -7,7 +7,7 @@ import { verificarToken } from './core/middlewares/authMiddleware';
 import { requirePermission } from './core/middlewares/permissionMiddleware';
 import whatsappRoutes from './modules/logistica/routes/whatsappRoutes';
 import whatsappSesionesRoutes from './modules/logistica/routes/whatsappSesionesRoutes';
-import { createHttpApp } from './core/server/createHttpApp';
+import { CorsOriginError, createHttpApp } from './core/server/createHttpApp';
 import databaseCleanupService from './services/maintenance/databaseCleanupService';
 import { waQueue } from './queues/whatsapp.queue';
 import { whatsappWorker } from './workers/whatsapp.worker';
@@ -18,7 +18,7 @@ validateRuntimeEnvironment('worker');
 
 const app = createHttpApp();
 const PORT = Number(process.env.WHATSAPP_WORKER_PORT || 3001);
-const HOST = '0.0.0.0';
+const HOST = process.env.WORKER_HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0');
 const workerLockName = process.env.WHATSAPP_WORKER_LOCK_NAME || 'myg_express_whatsapp_worker';
 const requireWorkerDbLock = String(process.env.WHATSAPP_WORKER_REQUIRE_DB_LOCK || 'true').toLowerCase() !== 'false';
 
@@ -123,6 +123,15 @@ app.get('/', (_req, res) => {
 });
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof CorsOriginError) {
+    res.status(err.statusCode).json({
+      ok: false,
+      code: err.code,
+      error: err.message,
+    });
+    return;
+  }
+
   console.error(err);
   res.status(500).json({
     ok: false,

@@ -18,7 +18,7 @@ import savarScanRoutes from './modules/logistica/routes/savarScanRoutes';
 import rrhhRoutes from './modules/rrhh/rrhh.routes';
 import gpsRoutes from './modules/gps/gps.routes';
 import rrhhMobileRoutes from './modules/rrhh-mobile/mobile.routes';
-import { createHttpApp } from './core/server/createHttpApp';
+import { CorsOriginError, createHttpApp } from './core/server/createHttpApp';
 import { verificarToken } from './core/middlewares/authMiddleware';
 import { PERMISSIONS } from './core/constants/permissions';
 import { requirePermission } from './core/middlewares/permissionMiddleware';
@@ -36,7 +36,7 @@ validateRuntimeEnvironment('api');
 
 const app = createHttpApp();
 const PORT = Number(process.env.PORT || 3000);
-const HOST = '0.0.0.0';
+const HOST = process.env.API_HOST || (process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0');
 const frontendDir = path.resolve(__dirname, '../../frontend-react/dist');
 
 // Configurar Bull Board
@@ -69,7 +69,7 @@ app.get('/api', (_req, res) => {
   res.json({
     ok: true,
     mensaje: 'Sistema de mensajeria API funcionando correctamente',
-    version: '1.0.0'
+    version: '1.0.1'
   });
 });
 
@@ -100,6 +100,15 @@ app.get('*', (_req, res) => {
 });
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof CorsOriginError) {
+    res.status(err.statusCode).json({
+      ok: false,
+      code: err.code,
+      error: err.message,
+    });
+    return;
+  }
+
   console.error(err);
   res.status(500).json({
     ok: false,

@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const { validateRuntimeEnvironment } = require('../dist/core/config/runtimeEnvironment');
-const { normalizeCspSource } = require('../dist/core/server/createHttpApp');
+const { CorsOriginError, normalizeCspSource } = require('../dist/core/server/createHttpApp');
 
 const managedKeys = [
   'NODE_ENV',
@@ -42,6 +42,13 @@ test('normaliza palabras reservadas CSP provenientes del archivo de entorno', ()
   assert.equal(normalizeCspSource("'self'"), "'self'");
   assert.equal(normalizeCspSource('unsafe-inline'), "'unsafe-inline'");
   assert.equal(normalizeCspSource('https://cdn.jsdelivr.net'), 'https://cdn.jsdelivr.net');
+});
+
+test('clasifica un origen CORS rechazado como error HTTP 403 sin exponer el origen', () => {
+  const error = new CorsOriginError();
+  assert.equal(error.statusCode, 403);
+  assert.equal(error.code, 'CORS_ORIGIN_DENIED');
+  assert.equal(error.message, 'Origen no permitido');
 });
 
 test('rechaza una API de produccion con secretos debiles y CORS local', () => {

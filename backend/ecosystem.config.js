@@ -15,6 +15,7 @@ module.exports = {
         TZ: 'America/Lima',
         APP_TIME_ZONE: 'America/Lima',
         DB_TIMEZONE: '-05:00',
+        API_HOST: '127.0.0.1',
         PORT: 3000
       }
     },
@@ -31,6 +32,7 @@ module.exports = {
         TZ: 'America/Lima',
         APP_TIME_ZONE: 'America/Lima',
         DB_TIMEZONE: '-05:00',
+        WORKER_HOST: '127.0.0.1',
         WHATSAPP_WORKER_PORT: 3001
       }
     }

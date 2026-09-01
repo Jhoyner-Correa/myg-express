@@ -23,6 +23,16 @@ export function normalizeCspSource(source: string) {
   return CSP_KEYWORDS.has(unquotedValue) ? `'${unquotedValue}'` : value;
 }
 
+export class CorsOriginError extends Error {
+  readonly statusCode = 403;
+  readonly code = 'CORS_ORIGIN_DENIED';
+
+  constructor() {
+    super('Origen no permitido');
+    this.name = 'CorsOriginError';
+  }
+}
+
 export function createHttpApp() {
   const app = express();
 
@@ -137,7 +147,7 @@ export function createHttpApp() {
         return;
       }
       console.warn(`[CORS] Origen rechazado: "${origin}". Orígenes permitidos:`, corsOrigins);
-      callback(new Error(`Origen no permitido por CORS: ${origin}`));
+      callback(new CorsOriginError());
     }
   }));
   app.use(morgan(isProduction ? 'combined' : 'dev'));
