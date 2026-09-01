@@ -17,10 +17,11 @@ export class MobileOvertimeController {
       });
     } catch (error) {
       const known = error instanceof MobileOvertimeError || error instanceof OvertimeEvidenceError;
+      if (!known) console.error('[RRHH Mobile] Error registrando sobretiempo:', error);
       return res.status(known ? error.statusCode : 400).json({
         ok: false,
         code: known ? error.code : 'OVERTIME_REQUEST_ERROR',
-        message: error instanceof Error ? error.message : 'No se pudo registrar el sustento.',
+        message: known ? error.message : 'No se pudo registrar el sustento. Intenta nuevamente.',
       });
     }
   };

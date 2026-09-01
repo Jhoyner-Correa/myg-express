@@ -1,6 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../core/database/database';
-import { businessClockMinutes, businessDate, businessIsoWeekday } from '../../core/utils/time';
+import { businessClockMinutes, businessDate, businessIsoWeekday, parseClockMinutes } from '../../core/utils/time';
 import { findEffectiveSchedule } from '../rrhh/services/ScheduleService';
 import { resolveWorkDay } from '../rrhh/services/WorkCalendarService';
 import {
@@ -34,6 +34,13 @@ function normalizeComment(value: unknown) {
 function parseEvent(value: unknown): MobileOvertimeEvent {
   if (value === 'ALMUERZO_DIFERIDO' || value === 'SALIDA_POSTERIOR') return value;
   throw new MobileOvertimeError('INVALID_OVERTIME_EVENT', 'El tipo de sobretiempo no es válido.');
+}
+
+export function detectedOvertimeMinutes(nowMinutes: number, scheduledClock: string): number {
+  if (!Number.isInteger(nowMinutes) || nowMinutes < 0 || nowMinutes >= 1440) {
+    throw new MobileOvertimeError('INVALID_OVERTIME_CLOCK', 'No se pudo validar la hora actual.');
+  }
+  return Math.max(0, nowMinutes - parseClockMinutes(scheduledClock));
 }
 
 export class MobileOvertimeService {
@@ -93,11 +100,14 @@ export class MobileOvertimeService {
         const scheduledMinutes = event === 'ALMUERZO_DIFERIDO'
           ? schedule.lunchStartFrom
           : schedule.endTime;
-        if (event === 'ALMUERZO_DIFERIDO' && (!schedule.lunchEnabled || scheduledMinutes === null)) {
+        if (event === 'ALMUERZO_DIFERIDO' && !schedule.lunchEnabled) {
           throw new MobileOvertimeError('LUNCH_NOT_ENABLED', 'Tu jornada no controla salida a almuerzo.');
         }
+        if (scheduledMinutes === null) {
+          throw new MobileOvertimeError('OVERTIME_SCHEDULE_INVALID', 'La jornada no tiene una hora válida para calcular el sobretiempo.');
+        }
         const threshold = Math.max(0, schedule.overtimeThresholdMinutes);
-        const detected = Math.max(0, nowMinutes - Number(scheduledMinutes));
+        const detected = detectedOvertimeMinutes(nowMinutes, scheduledMinutes);
         if (detected < threshold) {
           throw new MobileOvertimeError(
             'OVERTIME_NOT_AVAILABLE',
