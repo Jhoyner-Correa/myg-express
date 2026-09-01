@@ -13,6 +13,7 @@ SHARED_ROOT="${SHARED_ROOT:-/var/www/myg-express-shared}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3000/api/health}"
 LOCK_FILE="${DEPLOY_LOCK_FILE:-${SHARED_ROOT}/deploy.lock}"
 EXPECTED_COMMIT="${EXPECTED_COMMIT:-}"
+WEB_GROUP="${WEB_GROUP:-www-data}"
 
 case "${RELEASE_REF}" in
   v[0-9]*.[0-9]*.[0-9]*|v[0-9]*.[0-9]*.[0-9]*-*) ;;
@@ -26,7 +27,8 @@ test -f "${BACKUP_FILE}"
 test -f "${BACKUP_FILE}.sha256"
 (cd "$(dirname "${BACKUP_FILE}")" && sha256sum -c "$(basename "${BACKUP_FILE}.sha256")")
 
-mkdir -p "${APP_ROOT}" "${SHARED_ROOT}/storage" "${SHARED_ROOT}/private-storage" "${SHARED_ROOT}/config"
+install -d -m 02750 -o root -g "${WEB_GROUP}" "${APP_ROOT}"
+mkdir -p "${SHARED_ROOT}/storage" "${SHARED_ROOT}/private-storage" "${SHARED_ROOT}/config"
 test -f "${SHARED_ROOT}/config/backend.env"
 
 exec 9>"${LOCK_FILE}"
@@ -102,6 +104,12 @@ npm --prefix "${PARTIAL_DIR}/frontend-react" run build
 printf '%s\n' "${ACTUAL_COMMIT}" > "${PARTIAL_DIR}/RELEASE_COMMIT"
 printf '%s\n' "${RELEASE_REF}" > "${PARTIAL_DIR}/RELEASE_VERSION"
 mv "${PARTIAL_DIR}" "${RELEASE_DIR}"
+
+# El código permanece propiedad de root; el grupo del servidor web obtiene
+# solo lectura/travesía para servir el frontend compilado. El bit setgid del
+# directorio de releases conserva este grupo en despliegues posteriores.
+chgrp -R "${WEB_GROUP}" "${RELEASE_DIR}"
+chmod -R g+rX "${RELEASE_DIR}"
 
 NEXT_LINK="${CURRENT_LINK}.next"
 ln -sfn "${RELEASE_DIR}" "${NEXT_LINK}"
