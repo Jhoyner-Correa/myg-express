@@ -14,8 +14,8 @@ const executiveAvatars: Record<ExecutiveAvatarVariant, string> = {
  * A user-uploaded photo always has priority over the corporate illustration.
  */
 export function resolveUserAvatar(
-  user: Pick<UserSession, 'foto'> | null | undefined,
+  user: Pick<UserSession, 'foto' | 'avatar_variant'> | null | undefined,
   fallback: ExecutiveAvatarVariant = 'male',
 ) {
-  return user?.foto?.trim() || executiveAvatars[fallback];
+  return user?.foto?.trim() || executiveAvatars[user?.avatar_variant ?? fallback];
 }

@@ -1,6 +1,6 @@
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { pool } from '../../../../core/database/database';
-import { Usuario, UserStatus, UserType } from '../../domain/Usuario';
+import { Usuario, UserAvatarVariant, UserStatus, UserType } from '../../domain/Usuario';
 import { IUsuarioRepository } from '../IUsuarioRepository';
 
 export class MySqlUsuarioRepository implements IUsuarioRepository {
@@ -10,6 +10,7 @@ export class MySqlUsuarioRepository implements IUsuarioRepository {
       nombre: row.nombre,
       usuario: row.usuario,
       foto: row.foto ?? null,
+      avatarVariant: row.avatar_variant as UserAvatarVariant,
       passwordHash: row.password_hash,
       tipoUsuario: row.tipo_usuario as UserType,
       estado: row.estado as UserStatus,
@@ -22,7 +23,7 @@ export class MySqlUsuarioRepository implements IUsuarioRepository {
 
   async buscarPorUsuario(username: string): Promise<Usuario | null> {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, nombre, usuario, foto, password_hash, tipo_usuario, estado,
+      `SELECT id, nombre, usuario, foto, avatar_variant, password_hash, tipo_usuario, estado,
               ultimo_acceso_at, password_actualizado_at, created_at, updated_at
          FROM usuarios WHERE usuario = ? LIMIT 1`,
       [username],
@@ -32,7 +33,7 @@ export class MySqlUsuarioRepository implements IUsuarioRepository {
 
   async buscarPorId(id: number): Promise<Usuario | null> {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, nombre, usuario, foto, password_hash, tipo_usuario, estado,
+      `SELECT id, nombre, usuario, foto, avatar_variant, password_hash, tipo_usuario, estado,
               ultimo_acceso_at, password_actualizado_at, created_at, updated_at
          FROM usuarios WHERE id = ? LIMIT 1`,
       [id],

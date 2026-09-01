@@ -33,6 +33,7 @@ type UserRow = RowDataPacket & {
   nombre: string;
   usuario: string;
   foto: string | null;
+  avatar_variant: 'male' | 'female';
   tipo_usuario: 'SISTEMA' | 'EMPRESA';
   estado: 'activo' | 'inactivo';
   ultimo_acceso_at: string | null;
@@ -52,6 +53,7 @@ export type SaveUserInput = {
   nombre: string;
   usuario: string;
   password?: string;
+  avatarVariant?: 'male' | 'female';
   roleCode: string;
   siteId?: number | null;
   estado?: 'activo' | 'inactivo';
@@ -83,6 +85,13 @@ function normalizeUsername(value: unknown): string {
   return normalizeText(value).toLowerCase();
 }
 
+function normalizeAvatarVariant(value: unknown): 'male' | 'female' {
+  const normalized = normalizeText(value).toLowerCase();
+  if (!normalized) return 'male';
+  if (normalized === 'male' || normalized === 'female') return normalized;
+  throw new AccessValidationError('Selecciona un avatar corporativo valido.');
+}
+
 function modulesFromCsv(value: string | null): Array<{ code: string; name: string }> {
   if (!value) return [];
   return value
@@ -99,6 +108,7 @@ function mapUser(row: UserRow) {
     name: row.nombre,
     username: row.usuario,
     foto: row.foto,
+    avatar_variant: row.avatar_variant,
     userType: row.tipo_usuario,
     status: row.estado,
     lastAccessAt: row.ultimo_acceso_at,
@@ -170,6 +180,7 @@ function validateInput(input: SaveUserInput, isCreate: boolean): SaveUserInput {
     nombre: normalizeText(input.nombre),
     usuario: normalizeUsername(input.usuario),
     password: input.password === undefined ? undefined : String(input.password),
+    avatarVariant: normalizeAvatarVariant(input.avatarVariant),
     roleCode: normalizeText(input.roleCode),
     estado: input.estado === 'inactivo' ? 'inactivo' as const : 'activo' as const,
     moduleCodes: Array.isArray(input.moduleCodes)
@@ -278,7 +289,7 @@ export class UserAccessAdminService {
          user.id,
          user.nombre,
          user.usuario,
-         user.foto,
+         user.foto, user.avatar_variant,
          user.tipo_usuario,
          user.estado,
          user.ultimo_acceso_at,
@@ -316,7 +327,7 @@ export class UserAccessAdminService {
         AND user_permission.permiso_id = permission.id
         AND (user_permission.vigente_hasta IS NULL OR user_permission.vigente_hasta >= NOW())
        GROUP BY
-         user.id, user.nombre, user.usuario, user.foto, user.tipo_usuario, user.estado,
+         user.id, user.nombre, user.usuario, user.foto, user.avatar_variant, user.tipo_usuario, user.estado,
          user.ultimo_acceso_at, user.password_actualizado_at, user.created_at,
          access_role.codigo, access_role.nombre, assignment.alcance,
          assignment.empresa_id, company.nombre_comercial, assignment.sede_id, site.nombre
@@ -479,9 +490,9 @@ export class UserAccessAdminService {
       const passwordHash = await bcrypt.hash(input.password!, 12);
       const [result] = await connection.query<ResultSetHeader>(
         `INSERT INTO usuarios
-           (nombre, usuario, password_hash, tipo_usuario, estado, password_actualizado_at)
-         VALUES (?, ?, ?, 'EMPRESA', ?, NOW())`,
-        [input.nombre, input.usuario, passwordHash, input.estado],
+           (nombre, usuario, foto, avatar_variant, password_hash, tipo_usuario, estado, password_actualizado_at)
+         VALUES (?, ?, NULL, ?, ?, 'EMPRESA', ?, NOW())`,
+        [input.nombre, input.usuario, input.avatarVariant ?? 'male', passwordHash, input.estado],
       );
       await connection.query(
         `INSERT INTO usuario_asignaciones
@@ -492,6 +503,7 @@ export class UserAccessAdminService {
       await syncModuleAccess(connection, result.insertId, role.id, input.moduleCodes);
       await audit(connection, context, 'USUARIO_CREADO', result.insertId, companyId, siteId, {
         role: role.codigo,
+        avatarVariant: input.avatarVariant,
         status: input.estado,
         modules: input.moduleCodes ?? 'ROLE_DEFAULT',
       });
@@ -526,9 +538,9 @@ export class UserAccessAdminService {
         role.tipo_alcance === ACCESS_SCOPES.SITE,
       );
 
-      const fields = ['nombre = ?', 'usuario = ?', "tipo_usuario = 'EMPRESA'", 'estado = ?'];
+      const fields = ['nombre = ?', 'usuario = ?', 'avatar_variant = ?', "tipo_usuario = 'EMPRESA'", 'estado = ?'];
       const params: Array<string | number | null> = [
-        input.nombre, input.usuario, input.estado ?? 'activo',
+        input.nombre, input.usuario, input.avatarVariant ?? 'male', input.estado ?? 'activo',
       ];
       if (input.password) {
         fields.push('password_hash = ?', 'password_actualizado_at = NOW()');
@@ -555,6 +567,7 @@ export class UserAccessAdminService {
       await syncModuleAccess(connection, userId, role.id, input.moduleCodes);
       await audit(connection, context, 'USUARIO_ACTUALIZADO', userId, companyId, siteId, {
         role: role.codigo,
+        avatarVariant: input.avatarVariant,
         status: input.estado,
         passwordChanged: Boolean(input.password),
         modules: input.moduleCodes ?? 'UNCHANGED',

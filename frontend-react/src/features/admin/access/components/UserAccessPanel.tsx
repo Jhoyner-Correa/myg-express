@@ -34,6 +34,7 @@ type UserForm = {
   name: string;
   username: string;
   password: string;
+  avatarVariant: 'male' | 'female';
   roleCode: string;
   siteId: string;
   status: SystemUserStatus;
@@ -44,6 +45,7 @@ const emptyForm: UserForm = {
   name: '',
   username: '',
   password: '',
+  avatarVariant: 'male',
   roleCode: 'EncargadoOficina',
   siteId: '',
   status: 'activo',
@@ -129,6 +131,7 @@ export function UserAccessPanel({ sites }: Props) {
       name: user.name,
       username: user.username,
       password: '',
+      avatarVariant: user.avatar_variant,
       roleCode: user.role.code,
       siteId: user.scope.siteId ? String(user.scope.siteId) : '',
       status: user.status,
@@ -176,6 +179,7 @@ export function UserAccessPanel({ sites }: Props) {
     const payload: SaveSystemUser = {
       nombre: form.name.trim(),
       usuario: form.username.trim(),
+      avatar_variant: form.avatarVariant,
       role_code: form.roleCode,
       sede_id: selectedRole.scopeType === 'SEDE' ? Number(form.siteId) : null,
       estado: form.status,
@@ -334,6 +338,29 @@ export function UserAccessPanel({ sites }: Props) {
                   }}>{managedRoles.map(role => <option value={role.code} key={role.code}>{role.name}</option>)}</select><small>{selectedRole?.description}</small></label>
                   <label>Sede<select value={form.siteId} disabled={selectedRole?.scopeType !== 'SEDE'} required={selectedRole?.scopeType === 'SEDE'} onChange={e => setForm(current => ({ ...current, siteId: e.target.value }))}><option value="">Seleccionar sede</option>{activeSites.map(site => <option key={site.id} value={site.id}>{site.nombre}</option>)}</select><small>{selectedRole?.scopeType === 'SEDE' ? 'Operará únicamente esta sede.' : 'El rol tiene alcance corporativo.'}</small></label>
                 </div>
+                <fieldset className={styles.avatarSelector}>
+                  <legend>Avatar corporativo</legend>
+                  <p>Se mostrará mientras la persona no cargue una fotografía propia.</p>
+                  <div>
+                    {(['female', 'male'] as const).map(variant => {
+                      const selected = form.avatarVariant === variant;
+                      return (
+                        <label key={variant} className={selected ? styles.avatarOptionActive : styles.avatarOption}>
+                          <input
+                            type="radio"
+                            name="avatar-variant"
+                            value={variant}
+                            checked={selected}
+                            onChange={() => setForm(current => ({ ...current, avatarVariant: variant }))}
+                          />
+                          <img src={resolveUserAvatar({ foto: null, avatar_variant: variant })} alt="" />
+                          <span><strong>{variant === 'female' ? 'Femenino' : 'Masculino'}</strong><small>Presentación visual del perfil</small></span>
+                          <CheckCircle2 aria-hidden="true" />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
                 <div className={styles.twoColumns}>
                   <label>Estado<select value={form.status} onChange={e => setForm(current => ({ ...current, status: e.target.value as SystemUserStatus }))}><option value="activo">Activo</option><option value="inactivo">Suspendido</option></select></label>
                   {!editing && <label>Contraseña inicial<input type="password" minLength={4} maxLength={72} required value={form.password} onChange={e => setForm(current => ({ ...current, password: e.target.value }))} placeholder="Mínimo 4 caracteres" /><small>Usa entre 4 y 72 caracteres.</small></label>}

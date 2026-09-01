@@ -5,6 +5,7 @@ export type UserSession = {
   nombre: string;
   usuario: string;
   foto?: string | null;
+  avatar_variant?: 'male' | 'female';
   rol: string;
   rol_label?: string;
   tipo_usuario?: 'SISTEMA' | 'EMPRESA';

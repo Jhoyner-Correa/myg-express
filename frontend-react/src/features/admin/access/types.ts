@@ -12,6 +12,7 @@ export type SystemUser = {
   name: string;
   username: string;
   foto: string | null;
+  avatar_variant: 'male' | 'female';
   userType: SystemUserType;
   status: SystemUserStatus;
   lastAccessAt: string | null;
@@ -62,6 +63,7 @@ export type SaveSystemUser = {
   nombre: string;
   usuario: string;
   password?: string;
+  avatar_variant: 'male' | 'female';
   role_code: string;
   sede_id: number | null;
   estado: SystemUserStatus;

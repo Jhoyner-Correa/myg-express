@@ -71,6 +71,21 @@
 .modalBody input:focus, .modalBody select:focus { border-color: #5b8fc3; box-shadow: 0 0 0 3px rgba(49, 106, 159, .1); }
 .modalBody select:disabled { color: #8b9993; background: #f5f7f6; }
 .modalBody label small { min-height: 13px; margin-top: 5px; display: block; color: #8b9993; font-size: 9.5px; font-weight: 450; letter-spacing: 0; line-height: 1.35; text-transform: none; }
+.avatarSelector { margin: 1px 0 15px; padding: 0; border: 0; }
+.avatarSelector legend { color: #52645c; font-size: 10px; font-weight: 700; letter-spacing: .025em; text-transform: uppercase; }
+.avatarSelector > p { margin: 5px 0 9px; color: #74847d; font-size: 10.5px; line-height: 1.4; }
+.avatarSelector > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.avatarOption, .avatarOptionActive { min-height: 58px; padding: 8px 11px; display: grid; align-items: center; grid-template-columns: 38px minmax(0, 1fr) 17px; gap: 10px; border: 1px solid #dbe3eb; border-radius: 10px; background: #fff; cursor: pointer; transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease; text-transform: none !important; }
+.avatarOption:hover { border-color: #aac1d8; background: #f8fafc; }
+.avatarOptionActive { border-color: #6f9cc8; background: #f1f6fb; box-shadow: 0 0 0 2px rgba(43, 105, 163, .08); }
+.avatarOption:focus-within, .avatarOptionActive:focus-within { outline: 0; box-shadow: 0 0 0 3px rgba(43, 105, 163, .14); }
+.avatarOption input, .avatarOptionActive input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.avatarOption img, .avatarOptionActive img { width: 38px; height: 38px; display: block; border: 1px solid #cedbe8; border-radius: 50%; background: #fff; object-fit: cover; object-position: center; }
+.avatarOption span, .avatarOptionActive span { min-width: 0; }
+.avatarOption strong, .avatarOptionActive strong { display: block; color: #24374d; font-size: 11px; font-weight: 700; letter-spacing: 0; }
+.avatarOption small, .avatarOptionActive small { margin-top: 2px !important; color: #718096 !important; font-size: 9.5px !important; }
+.avatarOption > svg, .avatarOptionActive > svg { color: #aebbc8; opacity: .45; }
+.avatarOptionActive > svg { color: #2369a8; opacity: 1; }
 .accountNotice { padding: 8px 0 0; display: flex; gap: 10px; border: 0; border-radius: 0; color: #65776f; background: transparent; font-size: 10.5px; }
 .accountNotice svg { flex: 0 0 auto; color: #316a9f; }
 .accountNotice strong { display: block; margin-bottom: 2px; color: #30463c; }
@@ -131,4 +146,4 @@
 .passwordSummary p { margin: 4px 0 0; color: #62736b; font-size: 10.5px; line-height: 1.45; }
 .passwordPolicy { margin: -5px 0 15px; color: #6c7d75; font-size: 10.5px; }
 
-@media (max-width: 680px) { .moduleSelector > div { grid-template-columns: 1fr; } }
+@media (max-width: 680px) { .moduleSelector > div, .avatarSelector > div { grid-template-columns: 1fr; } }

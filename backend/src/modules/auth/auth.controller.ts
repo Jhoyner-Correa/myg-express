@@ -9,6 +9,7 @@ async function publicUser(
     nombre: string;
     usuario: string;
     foto: string | null;
+    avatarVariant: 'male' | 'female';
     estado: 'activo' | 'inactivo';
     ultimoAccesoAt: Date | null;
     passwordActualizadoAt: Date | null;
@@ -21,6 +22,7 @@ async function publicUser(
     nombre: user.nombre,
     usuario: user.usuario,
     foto: user.foto,
+    avatar_variant: user.avatarVariant,
     rol: access.role,
     rol_label: access.roleLabel,
     tipo_usuario: access.type,

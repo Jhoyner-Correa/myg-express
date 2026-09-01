@@ -5,12 +5,14 @@
 
 export type UserStatus = 'activo' | 'inactivo';
 export type UserType = 'SISTEMA' | 'EMPRESA';
+export type UserAvatarVariant = 'male' | 'female';
 
 export interface Usuario {
   id: number;
   nombre: string;
   usuario: string;
   foto: string | null;
+  avatarVariant: UserAvatarVariant;
   passwordHash: string;
   tipoUsuario: UserType;
   estado: UserStatus;
