@@ -43,6 +43,7 @@ export type AccessRole = {
   description: string | null;
   permissionCount: number;
   managed: boolean;
+  modules: AccessModule[];
 };
 
 export type AccessCatalog = {
@@ -63,4 +64,10 @@ export type SaveSystemUser = {
   role_code: string;
   sede_id: number | null;
   estado: SystemUserStatus;
+  module_codes: string[];
+};
+
+export type ChangeSystemUserPassword = {
+  nueva_password: string;
+  password_actual?: string;
 };

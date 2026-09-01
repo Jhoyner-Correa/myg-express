@@ -5,6 +5,8 @@ import {
   ChevronRight,
   Clock3,
   Edit3,
+  Eye,
+  KeyRound,
   LockKeyhole,
   RefreshCw,
   ShieldCheck,
@@ -12,6 +14,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { useAuth } from '../../../../core/auth/authState';
 import { showConfirm, showToast } from '../../../../core/utils/toast';
 import { adminAccessService } from '../admin-access.service';
 import type {
@@ -33,6 +36,7 @@ type UserForm = {
   roleCode: string;
   siteId: string;
   status: SystemUserStatus;
+  moduleCodes: string[];
 };
 
 const emptyForm: UserForm = {
@@ -42,12 +46,14 @@ const emptyForm: UserForm = {
   roleCode: 'EncargadoOficina',
   siteId: '',
   status: 'activo',
+  moduleCodes: [],
 };
 
 const eventLabels: Record<string, string> = {
   USUARIO_CREADO: 'Usuario creado',
   USUARIO_ACTUALIZADO: 'Datos y alcance actualizados',
   USUARIO_SUSPENDIDO: 'Usuario suspendido',
+  USUARIO_PASSWORD_ACTUALIZADO: 'Contraseña actualizada',
 };
 
 function formatDateTime(value: string | null): string {
@@ -64,6 +70,7 @@ function initials(name: string): string {
 }
 
 export function UserAccessPanel({ sites }: Props) {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [catalog, setCatalog] = useState<AccessCatalog>({ company: null, roles: [] });
   const [loading, setLoading] = useState(true);
@@ -73,6 +80,8 @@ export function UserAccessPanel({ sites }: Props) {
   const [saving, setSaving] = useState(false);
   const [detail, setDetail] = useState<SystemUserDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [passwordTarget, setPasswordTarget] = useState<SystemUser | null>(null);
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
 
   const managedRoles = useMemo(() => catalog.roles.filter(role => role.managed), [catalog.roles]);
   const selectedRole = managedRoles.find(role => role.code === form.roleCode);
@@ -99,7 +108,11 @@ export function UserAccessPanel({ sites }: Props) {
   const openCreate = () => {
     const defaultRole = managedRoles.find(role => role.scopeType === 'SEDE') ?? managedRoles[0];
     setEditing(null);
-    setForm({ ...emptyForm, roleCode: defaultRole?.code ?? 'EncargadoOficina' });
+    setForm({
+      ...emptyForm,
+      roleCode: defaultRole?.code ?? 'EncargadoOficina',
+      moduleCodes: defaultRole?.modules.map(module => module.code) ?? [],
+    });
     setFormOpen(true);
   };
 
@@ -116,6 +129,7 @@ export function UserAccessPanel({ sites }: Props) {
       roleCode: user.role.code,
       siteId: user.scope.siteId ? String(user.scope.siteId) : '',
       status: user.status,
+      moduleCodes: user.access.modules.map(module => module.code),
     });
     setFormOpen(true);
   };
@@ -145,6 +159,7 @@ export function UserAccessPanel({ sites }: Props) {
       role_code: form.roleCode,
       sede_id: selectedRole.scopeType === 'SEDE' ? Number(form.siteId) : null,
       estado: form.status,
+      module_codes: form.moduleCodes,
       ...(form.password.trim() ? { password: form.password.trim() } : {}),
     };
     setSaving(true);
@@ -160,6 +175,34 @@ export function UserAccessPanel({ sites }: Props) {
       await load();
     } catch (error: any) {
       showToast(error.response?.data?.mensaje || 'No se pudo guardar el usuario.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openPassword = (user: SystemUser) => {
+    setPasswordTarget(user);
+    setPasswordForm({ current: '', next: '', confirm: '' });
+  };
+
+  const changePassword = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!passwordTarget) return;
+    if (passwordForm.next !== passwordForm.confirm) {
+      showToast('Las contraseñas nuevas no coinciden.', 'warning');
+      return;
+    }
+    setSaving(true);
+    try {
+      await adminAccessService.changePassword(passwordTarget.id, {
+        nueva_password: passwordForm.next,
+        password_actual: passwordForm.current,
+      });
+      showToast('Contraseña actualizada y registrada en auditoría.', 'success');
+      setPasswordTarget(null);
+      await load();
+    } catch (error: any) {
+      showToast(error.response?.data?.mensaje || 'No se pudo actualizar la contraseña.', 'error');
     } finally {
       setSaving(false);
     }
@@ -190,7 +233,7 @@ export function UserAccessPanel({ sites }: Props) {
           <span className={styles.headingIcon}><Users size={19} /></span>
           <div>
             <h2>Usuarios y accesos</h2>
-            <p>Identidad, rol y alcance operativo de las cuentas del sistema.</p>
+            <p>Administra identidad, alcance, módulos autorizados y seguridad.</p>
           </div>
         </div>
         <div className={styles.headerActions}>
@@ -245,8 +288,11 @@ export function UserAccessPanel({ sites }: Props) {
                 <td><span className={styles.security}><ShieldCheck size={15} /> Contraseña configurada</span></td>
                 <td>
                   <div className={styles.rowActions}>
-                    <button aria-label={`Ver ${user.name}`} title="Ver detalle" onClick={() => void openDetail(user)}><ChevronRight size={16} /></button>
-                    {!user.protected && <button aria-label={`Editar ${user.name}`} title="Editar usuario" onClick={() => openEdit(user)}><Edit3 size={15} /></button>}
+                    <button className={styles.viewAction} aria-label={`Ver ${user.name}`} data-tooltip="Ver expediente" onClick={() => void openDetail(user)}><Eye size={15} /></button>
+                    {!user.protected && <button className={styles.editAction} aria-label={`Editar ${user.name}`} data-tooltip="Editar acceso" onClick={() => openEdit(user)}><Edit3 size={15} /></button>}
+                    {(!user.protected || user.id === currentUser?.id) && (
+                      <button className={styles.passwordAction} aria-label={`Cambiar contraseña de ${user.name}`} data-tooltip={user.id === currentUser?.id ? 'Cambiar mi contraseña' : 'Restablecer contraseña'} onClick={() => openPassword(user)}><KeyRound size={15} /></button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -268,14 +314,43 @@ export function UserAccessPanel({ sites }: Props) {
                 <label>Usuario<input required value={form.username} onChange={e => setForm(current => ({ ...current, username: e.target.value }))} placeholder="juan.perez" autoCapitalize="none" /></label>
               </div>
               <div className={styles.twoColumns}>
-                <label>Rol<select value={form.roleCode} onChange={e => setForm(current => ({ ...current, roleCode: e.target.value, siteId: '' }))}>{managedRoles.map(role => <option value={role.code} key={role.code}>{role.name}</option>)}</select><small>{selectedRole?.description}</small></label>
+                <label>Rol<select value={form.roleCode} onChange={e => {
+                  const nextRole = managedRoles.find(role => role.code === e.target.value);
+                  setForm(current => ({
+                    ...current,
+                    roleCode: e.target.value,
+                    siteId: '',
+                    moduleCodes: nextRole?.modules.map(module => module.code) ?? [],
+                  }));
+                }}>{managedRoles.map(role => <option value={role.code} key={role.code}>{role.name}</option>)}</select><small>{selectedRole?.description}</small></label>
                 <label>Sede<select value={form.siteId} disabled={selectedRole?.scopeType !== 'SEDE'} required={selectedRole?.scopeType === 'SEDE'} onChange={e => setForm(current => ({ ...current, siteId: e.target.value }))}><option value="">Seleccionar sede</option>{activeSites.map(site => <option key={site.id} value={site.id}>{site.nombre}</option>)}</select><small>{selectedRole?.scopeType === 'SEDE' ? 'Operará únicamente esta sede.' : 'El rol tiene alcance corporativo.'}</small></label>
               </div>
               <div className={styles.twoColumns}>
                 <label>Estado<select value={form.status} onChange={e => setForm(current => ({ ...current, status: e.target.value as SystemUserStatus }))}><option value="activo">Activo</option><option value="inactivo">Suspendido</option></select></label>
-                <label>{editing ? 'Nueva contraseña (opcional)' : 'Contraseña temporal'}<input type="password" minLength={8} required={!editing} value={form.password} onChange={e => setForm(current => ({ ...current, password: e.target.value }))} placeholder={editing ? 'Conservar contraseña actual' : 'Mínimo 8 caracteres'} /></label>
+                {!editing && <label>Contraseña inicial<input type="password" minLength={12} required value={form.password} onChange={e => setForm(current => ({ ...current, password: e.target.value }))} placeholder="Clave segura" /><small>12 caracteres con mayúscula, minúscula, número y símbolo.</small></label>}
               </div>
-              <div className={styles.accountNotice}><LockKeyhole size={17} /><span><strong>Cuenta empresarial</strong>Los usuarios técnicos del sistema se administran fuera de este formulario.</span></div>
+              <fieldset className={styles.moduleSelector}>
+                <legend>Accesos operativos</legend>
+                <p>Selecciona solamente los módulos necesarios para su función.</p>
+                <div>
+                  {selectedRole?.modules.map(module => {
+                    const checked = form.moduleCodes.includes(module.code);
+                    return (
+                      <label key={module.code} className={checked ? styles.moduleOptionActive : styles.moduleOption}>
+                        <input type="checkbox" checked={checked} onChange={() => setForm(current => ({
+                          ...current,
+                          moduleCodes: checked
+                            ? current.moduleCodes.filter(code => code !== module.code)
+                            : [...current.moduleCodes, module.code],
+                        }))} />
+                        <CheckCircle2 size={15} />
+                        <span>{module.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+              <div className={styles.accountNotice}><LockKeyhole size={17} /><span><strong>Principio de mínimo acceso</strong>El rol define el límite y esta selección solo puede restringirlo.</span></div>
             </div>
             <footer className={styles.modalFooter}><button type="button" className={styles.secondaryButton} onClick={() => setFormOpen(false)}>Cancelar</button><button className={styles.primaryButton} disabled={saving}>{saving ? 'Guardando…' : 'Guardar usuario'}</button></footer>
           </form>
@@ -292,8 +367,33 @@ export function UserAccessPanel({ sites }: Props) {
               <section><h4>Seguridad</h4><dl><div><dt>Último acceso</dt><dd>{formatDateTime(detail.lastAccessAt)}</dd></div><div><dt>Contraseña</dt><dd>Configurada</dd></div><div><dt>Último cambio</dt><dd>{formatDateTime(detail.passwordUpdatedAt)}</dd></div></dl></section>
               <section><h4>Actividad reciente</h4>{detailLoading ? <p className={styles.muted}>Cargando actividad…</p> : detail.recentActivity.length ? <div className={styles.timeline}>{detail.recentActivity.map((activity, index) => <div key={`${activity.createdAt}-${index}`}><Clock3 size={14} /><span><strong>{eventLabels[activity.event] ?? activity.event}</strong><small>{formatDateTime(activity.createdAt)}{activity.ip ? ` · ${activity.ip}` : ''}</small></span></div>)}</div> : <p className={styles.muted}>Aún no hay eventos administrativos registrados.</p>}</section>
             </div>
-            {!detail.protected && <footer className={styles.drawerFooter}><button className={styles.secondaryButton} onClick={() => openEdit(detail)}><Edit3 size={15} /> Editar usuario</button>{detail.status === 'activo' && <button className={styles.dangerButton} onClick={() => void suspend(detail)}>Suspender acceso</button>}</footer>}
+            <footer className={styles.drawerFooter}>
+              {!detail.protected && <button className={styles.secondaryButton} onClick={() => openEdit(detail)}><Edit3 size={15} /> Editar accesos</button>}
+              {(!detail.protected || detail.id === currentUser?.id) && <button className={styles.secondaryButton} onClick={() => openPassword(detail)}><KeyRound size={15} /> Cambiar contraseña</button>}
+              {!detail.protected && detail.status === 'activo' && <button className={styles.dangerButton} onClick={() => void suspend(detail)}>Suspender</button>}
+            </footer>
           </aside>
+        </div>
+      )}
+
+      {passwordTarget && (
+        <div className={styles.overlay} onMouseDown={event => event.target === event.currentTarget && setPasswordTarget(null)}>
+          <form className={`${styles.modal} ${styles.passwordModal}`} onSubmit={changePassword}>
+            <header className={styles.modalHeader}>
+              <div><span>SEGURIDAD DE LA CUENTA</span><h3>{passwordTarget.id === currentUser?.id ? 'Cambiar mi contraseña' : 'Restablecer contraseña'}</h3><p>{passwordTarget.name} · @{passwordTarget.username}</p></div>
+              <button type="button" aria-label="Cerrar" onClick={() => setPasswordTarget(null)}><X size={19} /></button>
+            </header>
+            <div className={styles.modalBody}>
+              <div className={styles.passwordSummary}><KeyRound size={22} /><div><strong>Cambio protegido y auditable</strong><p>{passwordTarget.id === currentUser?.id ? 'Confirma tu contraseña actual antes de guardar.' : 'Confirma tu identidad de administrador para restablecer este acceso.'}</p></div></div>
+              <label>Tu contraseña de administrador<input type="password" required autoComplete="current-password" value={passwordForm.current} onChange={e => setPasswordForm(current => ({ ...current, current: e.target.value }))} /></label>
+              <div className={styles.twoColumns}>
+                <label>Nueva contraseña<input type="password" required minLength={12} autoComplete="new-password" value={passwordForm.next} onChange={e => setPasswordForm(current => ({ ...current, next: e.target.value }))} /></label>
+                <label>Confirmar contraseña<input type="password" required minLength={12} autoComplete="new-password" value={passwordForm.confirm} onChange={e => setPasswordForm(current => ({ ...current, confirm: e.target.value }))} /></label>
+              </div>
+              <p className={styles.passwordPolicy}>12 a 72 caracteres, con mayúscula, minúscula, número y símbolo.</p>
+            </div>
+            <footer className={styles.modalFooter}><button type="button" className={styles.secondaryButton} onClick={() => setPasswordTarget(null)}>Cancelar</button><button className={styles.primaryButton} disabled={saving}><LockKeyhole size={15} />{saving ? 'Actualizando…' : 'Actualizar contraseña'}</button></footer>
+          </form>
         </div>
       )}
     </section>

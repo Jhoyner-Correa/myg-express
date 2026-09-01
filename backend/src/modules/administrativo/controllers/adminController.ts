@@ -35,6 +35,8 @@ type DashboardRow = RowDataPacket & {
   total_sedes: number;
   sedes_activas: number;
   total_usuarios: number;
+  usuarios_activos: number;
+  accesos_urbano_activos: number;
   total_lotes: number;
   lotes_activos: number;
   total_destinatarios: number;
@@ -80,7 +82,9 @@ export async function obtenerResumenAdmin(_req: AuthRequest, res: Response): Pro
       `SELECT
          (SELECT COUNT(*) FROM sedes) AS total_sedes,
          (SELECT COUNT(*) FROM sedes WHERE estado = 'activo') AS sedes_activas,
-         (SELECT COUNT(*) FROM usuarios WHERE tipo_usuario = 'EMPRESA') AS total_usuarios,
+         (SELECT COUNT(*) FROM usuarios) AS total_usuarios,
+         (SELECT COUNT(*) FROM usuarios WHERE estado = 'activo') AS usuarios_activos,
+         (SELECT COUNT(*) FROM urbano_credenciales_sede WHERE estado = 'activo') AS accesos_urbano_activos,
          (SELECT COUNT(*) FROM lotes_carga WHERE fecha_eliminacion IS NULL) AS total_lotes,
          (SELECT COUNT(*) FROM lotes_carga WHERE estado IN ('borrador', 'pendiente', 'procesando') AND fecha_eliminacion IS NULL) AS lotes_activos,
          (SELECT COUNT(*)
@@ -320,6 +324,7 @@ export async function crearUsuarioAdmin(req: AuthRequest, res: Response): Promis
       roleCode: req.body.role_code ?? req.body.rol,
       siteId: req.body.sede_id == null ? null : Number(req.body.sede_id),
       estado: req.body.estado,
+      moduleCodes: req.body.module_codes,
     }, auditContext(req));
 
     res.status(201).json({
@@ -342,6 +347,7 @@ export async function actualizarUsuarioAdmin(req: AuthRequest, res: Response): P
       roleCode: req.body.role_code ?? req.body.rol,
       siteId: req.body.sede_id == null ? null : Number(req.body.sede_id),
       estado: req.body.estado,
+      moduleCodes: req.body.module_codes,
     }, auditContext(req));
     res.json({ ok: true, mensaje: 'Usuario actualizado correctamente' });
   } catch (error) {
@@ -355,6 +361,23 @@ export async function eliminarUsuarioAdmin(req: AuthRequest, res: Response): Pro
     res.json({ ok: true, mensaje: 'Usuario suspendido correctamente' });
   } catch (error) {
     handleAccessError(error, res, 'No se pudo suspender el usuario');
+  }
+}
+
+export async function actualizarPasswordUsuarioAdmin(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ ok: false, mensaje: 'Identificador de usuario inválido' });
+      return;
+    }
+    await userAccessAdminService.changePassword(id, {
+      newPassword: req.body.nueva_password,
+      currentPassword: req.body.password_actual,
+    }, auditContext(req));
+    res.json({ ok: true, mensaje: 'Contraseña actualizada correctamente' });
+  } catch (error) {
+    handleAccessError(error, res, 'No se pudo actualizar la contraseña');
   }
 }
 

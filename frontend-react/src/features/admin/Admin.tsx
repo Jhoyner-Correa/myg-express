@@ -1,8 +1,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Building2,
+  KeyRound,
+  Network,
+  Pencil,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import '../../css/admin.css';
+import { ProfileModal } from '../../components/ui/ProfileModal/ProfileModal';
+import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import apiClient from '../../core/api/apiClient';
 import { useAuth } from '../../core/auth/authState';
+import {
+  deleteProfilePhoto,
+  updateProfile,
+  updateProfilePhoto,
+} from '../../core/auth/profile.service';
+import type { ProfileUpdateInput } from '../../core/auth/profile.service';
 import { showToast, showConfirm } from '../../core/utils/toast';
+import { RrhhExecutiveHeader } from '../rrhh/components/RrhhExecutiveHeader';
+import type { ExecutiveAlert } from '../rrhh/components/executive-alerts';
 import { UserAccessPanel } from './access/components/UserAccessPanel';
 
 // ── Tipos exactos del backend ──
@@ -16,6 +37,8 @@ type SedeItem = {
   longitud: number | null;
   radio_permitido_metros: number | null;
   total_usuarios: number;
+  usuarios_activos: number;
+  accesos_urbano_activos: number;
   total_sesiones: number;
   total_lotes: number;
   destinatarios: number;
@@ -34,6 +57,8 @@ type OverviewResumen = {
   total_sedes: number;
   sedes_activas: number;
   total_usuarios: number;
+  usuarios_activos: number;
+  accesos_urbano_activos: number;
   total_lotes: number;
   lotes_activos: number;
   total_destinatarios: number;
@@ -57,10 +82,11 @@ const EstadoChip: React.FC<{ estado: string }> = ({ estado }) => {
 
 // ── Componente ──
 export const Admin: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const [activeView, setActiveView] = useState<'sites' | 'integrations' | 'users'>('sites');
 
   // Data
-  const [resumen, setResumen] = useState<OverviewResumen>({ total_sedes: 0, sedes_activas: 0, total_usuarios: 0, total_lotes: 0, lotes_activos: 0, total_destinatarios: 0 });
+  const [resumen, setResumen] = useState<OverviewResumen>({ total_sedes: 0, sedes_activas: 0, total_usuarios: 0, usuarios_activos: 0, accesos_urbano_activos: 0, total_lotes: 0, lotes_activos: 0, total_destinatarios: 0 });
   const [sedes, setSedes] = useState<SedeItem[]>([]);
   const [urbanoCreds, setUrbanoCreds] = useState<UrbanoCredential[]>([]);
 
@@ -76,28 +102,30 @@ export const Admin: React.FC = () => {
   // Forms
   const [sedeForm, setSf] = useState({ nombre: '', direccion: '', telefono: '', estado: 'activo' });
   const [urbanoForm, setUrf] = useState({ sedeId: '', username: '', password: '', estado: 'activo' });
-  const [profileForm, setPf] = useState({ nombre: '', usuario: '', password_actual: '', nuevo_password: '' });
 
   // ── Loaders ──
   const loadResumen = useCallback(async () => {
     try {
       const r = await apiClient.get('/admin/overview');
-      if (r.data?.ok) setResumen(r.data.data?.resumen || { total_sedes: 0, sedes_activas: 0, total_usuarios: 0, total_lotes: 0, lotes_activos: 0, total_destinatarios: 0 });
-    } catch { /* ignore */ }
+      if (r.data?.ok) setResumen(r.data.data?.resumen || { total_sedes: 0, sedes_activas: 0, total_usuarios: 0, usuarios_activos: 0, accesos_urbano_activos: 0, total_lotes: 0, lotes_activos: 0, total_destinatarios: 0 });
+      return Boolean(r.data?.ok);
+    } catch { return false; }
   }, []);
 
   const loadSedes = useCallback(async () => {
     try {
       const r = await apiClient.get('/admin/sedes');
       if (r.data?.ok) setSedes(r.data.data || []);
-    } catch { /* ignore */ }
+      return Boolean(r.data?.ok);
+    } catch { return false; }
   }, []);
 
   const loadUrbano = useCallback(async () => {
     try {
       const r = await apiClient.get('/admin/urbano-credenciales');
       if (r.data?.ok) setUrbanoCreds(r.data.data || []);
-    } catch { /* ignore */ }
+      return Boolean(r.data?.ok);
+    } catch { return false; }
   }, []);
 
   const loadAll = useCallback(async () => {
@@ -165,122 +193,94 @@ export const Admin: React.FC = () => {
 
 
 
-  const openProfile = () => {
-    setPf({ nombre: user?.nombre || '', usuario: user?.usuario || '', password_actual: '', nuevo_password: '' });
-    setShowProfileModal(true);
+  const openProfile = () => setShowProfileModal(true);
+  const saveProfile = async (input: ProfileUpdateInput) => {
+    const updatedUser = await updateProfile(input);
+    updateUser?.(updatedUser);
+    return updatedUser;
   };
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const payload: any = { nombre: profileForm.nombre.trim(), usuario: profileForm.usuario.trim() };
-      if (profileForm.password_actual && profileForm.nuevo_password) {
-        payload.password_actual = profileForm.password_actual;
-        payload.nuevo_password = profileForm.nuevo_password;
-      }
-      const r = await apiClient.put('/auth/perfil', payload);
-      if (r.data?.user) {
-        localStorage.setItem('user', JSON.stringify(r.data.user));
-        window.dispatchEvent(new Event('user-updated'));
-      }
-      showToast('Perfil actualizado correctamente.', 'success');
-      setShowProfileModal(false);
-    } catch (err: any) { showToast(err.response?.data?.mensaje || 'No se pudo actualizar el perfil', 'error'); }
+  const saveProfilePhoto = async (file: File) => {
+    const updatedUser = await updateProfilePhoto(file);
+    updateUser?.(updatedUser);
+    return updatedUser;
+  };
+  const removeProfilePhoto = async () => {
+    const updatedUser = await deleteProfilePhoto();
+    updateUser?.(updatedUser);
+    return updatedUser;
   };
 
   // ── Render ──
+  const pendingIntegrations = Math.max(resumen.total_sedes - resumen.accesos_urbano_activos, 0);
+  const suspendedUsers = Math.max(resumen.total_usuarios - resumen.usuarios_activos, 0);
+  const adminAlerts: ExecutiveAlert[] = [
+    ...(pendingIntegrations > 0 ? [{
+      id: 'admin-integrations',
+      tone: 'warning' as const,
+      kind: 'request' as const,
+      title: `${pendingIntegrations} ${pendingIntegrations === 1 ? 'sede requiere' : 'sedes requieren'} configurar su integración`,
+      site: 'Administración central',
+      time: 'Pendiente',
+      target: 'integrations',
+    }] : []),
+    ...(suspendedUsers > 0 ? [{
+      id: 'admin-users',
+      tone: 'info' as const,
+      kind: 'request' as const,
+      title: `${suspendedUsers} ${suspendedUsers === 1 ? 'cuenta suspendida' : 'cuentas suspendidas'} para revisión`,
+      site: 'Seguridad',
+      time: 'Pendiente',
+      target: 'users',
+    }] : []),
+  ];
+  const navigateFromHeader = (target: string) => {
+    if (target === 'integrations' || target === 'users' || target === 'sites') setActiveView(target);
+  };
+
   return (
     <div className="main admin-page">
-      {/* TOPBAR — exacto del admin.html original */}
-      <header className="topbar">
-        <div className="topbar-left">
-          <div className="topbar-brand">A</div>
-          <div className="topbar-title-group">
-            <div>
-              <div className="topbar-title">Administración central</div>
-              <div className="topbar-sub">Control de sedes y usuarios</div>
-            </div>
-          </div>
-        </div>
-        <div className="topbar-right">
-          <button className="profile-button" id="btn-open-profile-modal" type="button" title="Abrir perfil" onClick={openProfile}>
-            <span className="profile-avatar" id="topbar-avatar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            </span>
-            <span className="profile-copy">
-              <strong id="topbar-name">{user?.nombre || 'Administrador'}</strong>
-              <small>Perfil</small>
-            </span>
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        icon={<ShieldCheck />}
+        title="Administración central"
+        subtitle="Gobierno de sedes, integraciones y accesos de la plataforma"
+        tone="corporate"
+        metadata={<RrhhExecutiveHeader
+          user={user}
+          sites={[]}
+          canViewAllSites={false}
+          siteId={null}
+          month=""
+          months={[]}
+          query=""
+          alerts={adminAlerts}
+          onSiteChange={() => undefined}
+          onMonthChange={() => undefined}
+          onQueryChange={() => undefined}
+          onAlertSelect={navigateFromHeader}
+          onAlertsClick={() => navigateFromHeader(adminAlerts[0]?.target || 'sites')}
+          onOpenProfile={openProfile}
+          compact
+          contextLabel="Administración central"
+        />}
+      />
 
-      <main className="content">
-        {/* STATS GRID — exacto del admin original */}
-        <section className="stats-grid">
-          <div className="stat-card green">
-            <div className="stat-top">
-              <div className="stat-icon-wrap green">
-                <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>
-              </div>
-              <div className="stat-info">
-                <div className="stat-label">Total sedes</div>
-                <div className="stat-chip">{resumen.sedes_activas || 0} activas</div>
-              </div>
-            </div>
-            <div className="stat-value">{resumen.total_sedes}</div>
-            <div className="stat-sub">Sucursales registradas en el sistema</div>
-          </div>
-          <div className="stat-card blue">
-            <div className="stat-top">
-              <div className="stat-icon-wrap blue">
-                <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-              </div>
-              <div className="stat-info">
-                <div className="stat-label">Total usuarios</div>
-                <div className="stat-chip">Accesos</div>
-              </div>
-            </div>
-            <div className="stat-value">{resumen.total_usuarios}</div>
-            <div className="stat-sub">Usuarios creados para trabajo por sede</div>
-          </div>
-          <div className="stat-card violet">
-            <div className="stat-top">
-              <div className="stat-icon-wrap violet">
-                <svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
-              </div>
-              <div className="stat-info">
-                <div className="stat-label">Rutas cargadas</div>
-                <div className="stat-chip">Histórico</div>
-              </div>
-            </div>
-            <div className="stat-value">{resumen.total_lotes}</div>
-            <div className="stat-sub">Registros de trabajo acumulados</div>
-          </div>
-          <div className="stat-card orange">
-            <div className="stat-top">
-              <div className="stat-icon-wrap orange">
-                <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
-              </div>
-              <div className="stat-info">
-                <div className="stat-label">Rutas activas</div>
-                <div className="stat-chip">Hoy</div>
-              </div>
-            </div>
-            <div className="stat-value">{resumen.lotes_activos}</div>
-            <div className="stat-sub">Rutas pendientes o en proceso</div>
-          </div>
-        </section>
+      <main className="content admin-command-content">
+        <nav className="admin-command-nav" aria-label="Áreas de administración central">
+          <button type="button" className={activeView === 'sites' ? 'active' : ''} onClick={() => setActiveView('sites')}><Building2 size={17} /><span>Sedes</span><small>{resumen.total_sedes}</small></button>
+          <button type="button" className={activeView === 'integrations' ? 'active' : ''} onClick={() => setActiveView('integrations')}><Network size={17} /><span>Integraciones</span><small>{resumen.accesos_urbano_activos}</small></button>
+          <button type="button" className={activeView === 'users' ? 'active' : ''} onClick={() => setActiveView('users')}><Users size={17} /><span>Usuarios y accesos</span><small>{resumen.total_usuarios}</small></button>
+        </nav>
 
         {/* PANEL SEDES */}
-        <section className="panel" id="sedes-panel">
+        {activeView === 'sites' && <section className="panel" id="sedes-panel">
           <div className="panel-head">
             <div>
               <div className="panel-title">Sedes registradas</div>
               <div className="panel-sub">Alta, edición y estado operativo de cada sede.</div>
             </div>
             <div className="actions">
-              <button className="btn btn-soft btn-sm" onClick={loadSedes}>Actualizar</button>
-              <button className="btn btn-primary" onClick={openNewSede}>Nueva sede</button>
+              <button className="btn btn-soft btn-sm" onClick={loadSedes}><RefreshCw size={15} /> Actualizar</button>
+              <button className="btn btn-primary" onClick={openNewSede}><Plus size={16} /> Nueva sede</button>
             </div>
           </div>
           <div className="panel-body">
@@ -311,12 +311,8 @@ export const Admin: React.FC = () => {
                     <td>{s.destinatarios}</td>
                     <td>
                       <div className="row-actions">
-                        <button className="btn-icon edit" title="Editar" onClick={() => openEditSede(s)}>
-                          <svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
-                        </button>
-                        <button className="btn-icon delete" title="Eliminar" onClick={() => handleDeleteSede(s.id, s.nombre)}>
-                          <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                        </button>
+                        <button className="btn-icon edit" data-tooltip="Editar sede" aria-label={`Editar ${s.nombre}`} onClick={() => openEditSede(s)}><Pencil size={15} /></button>
+                        <button className="btn-icon delete" data-tooltip="Eliminar sede" aria-label={`Eliminar ${s.nombre}`} onClick={() => handleDeleteSede(s.id, s.nombre)}><Trash2 size={15} /></button>
                       </div>
                     </td>
                   </tr>
@@ -324,18 +320,19 @@ export const Admin: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </section>
+        </section>}
 
         {/* PANEL URBANO */}
-        <section className="panel" id="urbano-panel">
+        {activeView === 'integrations' && <section className="panel" id="urbano-panel">
           <div className="panel-head">
-            <div>
-              <div className="panel-title">Accesos Urbano por sede</div>
-              <div className="panel-sub">Configura las credenciales que usará cada sede para consultar rutas en Urbano.</div>
+            <div className="panel-heading-copy">
+              <span className="panel-eyebrow">INTEGRACIÓN OPERATIVA</span>
+              <h2 className="panel-title">Accesos Urbano por sede</h2>
+              <p className="panel-sub">Credenciales independientes para la consulta de rutas en cada sede.</p>
             </div>
             <div className="actions">
-              <button className="btn btn-soft btn-sm" onClick={loadUrbano}>Actualizar</button>
-              <button className="btn btn-primary" onClick={openNewUrbano}>Configurar acceso</button>
+              <button className="btn btn-soft btn-sm" onClick={loadUrbano}><RefreshCw size={15} /> Actualizar</button>
+              <button className="btn btn-primary" onClick={openNewUrbano}><KeyRound size={16} /> Configurar acceso</button>
             </div>
           </div>
           <div className="panel-body">
@@ -366,12 +363,8 @@ export const Admin: React.FC = () => {
                     <td className="td-muted">{fmtDateTime(c.updated_at)}</td>
                     <td>
                       <div className="row-actions">
-                        <button className="btn-icon edit" title="Editar acceso Urbano" onClick={() => openEditUrbano(c)}>
-                          <svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
-                        </button>
-                        <button className="btn-icon delete" title="Eliminar acceso Urbano" onClick={() => handleDeleteUrbano(c)}>
-                          <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                        </button>
+                        <button className="btn-icon edit" data-tooltip="Editar acceso" aria-label={`Editar acceso de ${c.sede_nombre}`} onClick={() => openEditUrbano(c)}><Pencil size={15} /></button>
+                        <button className="btn-icon delete" data-tooltip="Eliminar acceso" aria-label={`Eliminar acceso de ${c.sede_nombre}`} onClick={() => handleDeleteUrbano(c)}><Trash2 size={15} /></button>
                       </div>
                     </td>
                   </tr>
@@ -379,9 +372,9 @@ export const Admin: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </section>
+        </section>}
 
-        <UserAccessPanel sites={sedes} />
+        {activeView === 'users' && <UserAccessPanel sites={sedes} />}
       </main>
 
       {/* ── MODAL SEDE ── */}
@@ -496,56 +489,14 @@ export const Admin: React.FC = () => {
         </div>
       )}
 
-      {/* ── MODAL PERFIL ── exacto del admin.html original ── */}
-      {showProfileModal && (
-        <div className="modal-overlay open" onClick={() => setShowProfileModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-accent" />
-            <div className="modal-head">
-              <div className="modal-head-content">
-                <div className="modal-head-icon">
-                  <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                </div>
-                <div>
-                  <h3>Mi perfil</h3>
-                  <p>Actualiza tu nombre, usuario o contraseña de acceso.</p>
-                </div>
-              </div>
-              <button className="close-btn" type="button" onClick={() => setShowProfileModal(false)}>
-                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
-            </div>
-            <form onSubmit={handleSaveProfile}>
-              <div className="modal-body">
-                <div className="field-row">
-                  <div className="field">
-                    <label>Nombre</label>
-                    <input type="text" placeholder="Nombre visible" value={profileForm.nombre} onChange={e => setPf(f => ({ ...f, nombre: e.target.value }))} required />
-                  </div>
-                  <div className="field">
-                    <label>Usuario</label>
-                    <input type="text" placeholder="usuario_login" value={profileForm.usuario} onChange={e => setPf(f => ({ ...f, usuario: e.target.value }))} required />
-                  </div>
-                </div>
-                <div className="field-row">
-                  <div className="field">
-                    <label>Contraseña actual</label>
-                    <input type="password" placeholder="Solo si cambias contraseña" value={profileForm.password_actual} onChange={e => setPf(f => ({ ...f, password_actual: e.target.value }))} />
-                  </div>
-                  <div className="field">
-                    <label>Nueva contraseña</label>
-                    <input type="password" placeholder="Opcional" value={profileForm.nuevo_password} onChange={e => setPf(f => ({ ...f, nuevo_password: e.target.value }))} />
-                  </div>
-                </div>
-              </div>
-              <div className="modal-foot">
-                <button type="button" className="btn btn-ghost" onClick={() => setShowProfileModal(false)}>Cancelar</button>
-                <button type="submit" className="btn btn-primary" id="btn-save-profile">Guardar perfil</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ProfileModal
+        open={showProfileModal}
+        user={user}
+        onClose={() => setShowProfileModal(false)}
+        onSave={saveProfile}
+        onPhotoUpload={saveProfilePhoto}
+        onPhotoDelete={removeProfilePhoto}
+      />
     </div>
   );
 };

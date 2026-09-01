@@ -28,6 +28,8 @@ type Props = {
   showSite?: boolean;
   showSearch?: boolean;
   showPeriod?: boolean;
+  contextLabel?: string;
+  searchPlaceholder?: string;
 };
 
 function displayName(name?: string) {
@@ -64,6 +66,8 @@ export function RrhhExecutiveHeader({
   showSite = true,
   showSearch = true,
   showPeriod = true,
+  contextLabel = 'Recursos Humanos',
+  searchPlaceholder = 'Buscar en asistencia...',
 }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -148,7 +152,7 @@ export function RrhhExecutiveHeader({
           type="search"
           value={query}
           onChange={event => onQueryChange(event.target.value)}
-          placeholder="Buscar en asistencia..."
+          placeholder={searchPlaceholder}
           aria-label="Buscar colaboradores en la asistencia del resumen"
         />
         {query
@@ -184,7 +188,7 @@ export function RrhhExecutiveHeader({
           <header className={styles.notificationHeader}>
             <div>
               <strong>Notificaciones</strong>
-              <small>Seguimiento de Recursos Humanos</small>
+              <small>Seguimiento de {contextLabel}</small>
             </div>
             <span>{alertCount} {alertCount === 1 ? 'pendiente' : 'pendientes'}</span>
           </header>
@@ -229,7 +233,7 @@ export function RrhhExecutiveHeader({
         <button
           className={styles.helpButton}
           type="button"
-          aria-label="Abrir ayuda de Recursos Humanos"
+          aria-label={`Abrir ayuda de ${contextLabel}`}
           aria-haspopup="dialog"
           aria-expanded={helpOpen}
           title="Ayuda"
@@ -242,18 +246,24 @@ export function RrhhExecutiveHeader({
           <CircleHelp aria-hidden="true" />
         </button>
 
-        {helpOpen && <section className={styles.helpPanel} role="dialog" aria-label="Ayuda de Recursos Humanos">
+        {helpOpen && <section className={styles.helpPanel} role="dialog" aria-label={`Ayuda de ${contextLabel}`}>
           <header>
             <span><CircleHelp aria-hidden="true" /></span>
             <div>
-              <strong>Ayuda de Recursos Humanos</strong>
+              <strong>Ayuda de {contextLabel}</strong>
               <small>Accesos rápidos del panel</small>
             </div>
           </header>
           <div className={styles.helpItems}>
-            <div><Search aria-hidden="true" /><span><strong>Buscar información</strong><small>Presiona Ctrl K desde cualquier sección.</small></span></div>
-            <div><Building2 aria-hidden="true" /><span><strong>Cambiar alcance</strong><small>Filtra la información por sede.</small></span></div>
-            <div><CalendarDays aria-hidden="true" /><span><strong>Cambiar periodo</strong><small>Selecciona el mes que deseas revisar.</small></span></div>
+            {contextLabel === 'Administración central' ? <>
+              <div><ShieldCheck aria-hidden="true" /><span><strong>Acciones protegidas</strong><small>Los cambios sensibles requieren confirmar la identidad.</small></span></div>
+              <div><Building2 aria-hidden="true" /><span><strong>Administración por áreas</strong><small>Gestiona sedes, integraciones y usuarios por separado.</small></span></div>
+              <div><Settings aria-hidden="true" /><span><strong>Trazabilidad</strong><small>Los cambios de acceso y contraseña quedan auditados.</small></span></div>
+            </> : <>
+              <div><Search aria-hidden="true" /><span><strong>Buscar información</strong><small>Presiona Ctrl K desde cualquier sección.</small></span></div>
+              <div><Building2 aria-hidden="true" /><span><strong>Cambiar alcance</strong><small>Filtra la información por sede.</small></span></div>
+              <div><CalendarDays aria-hidden="true" /><span><strong>Cambiar periodo</strong><small>Selecciona el mes que deseas revisar.</small></span></div>
+            </>}
           </div>
         </section>}
       </div>

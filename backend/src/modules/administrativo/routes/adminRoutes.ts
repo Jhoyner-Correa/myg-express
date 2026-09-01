@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  actualizarPasswordUsuarioAdmin,
   actualizarSedeAdmin,
   actualizarUsuarioAdmin,
   crearSedeAdmin,
@@ -38,6 +39,7 @@ router.get('/access/catalog', obtenerCatalogoAccesosAdmin);
 router.get('/usuarios/:id', obtenerDetalleUsuarioAdmin);
 router.post('/usuarios', requirePermission(PERMISSIONS.USERS_MANAGE), crearUsuarioAdmin);
 router.put('/usuarios/:id', requirePermission(PERMISSIONS.USERS_MANAGE), actualizarUsuarioAdmin);
+router.patch('/usuarios/:id/password', requirePermission(PERMISSIONS.USERS_MANAGE), actualizarPasswordUsuarioAdmin);
 router.delete('/usuarios/:id', requirePermission(PERMISSIONS.USERS_MANAGE), eliminarUsuarioAdmin);
 
 export default router;

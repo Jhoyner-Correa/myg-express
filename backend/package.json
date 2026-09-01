@@ -1,6 +1,6 @@
 {
   "name": "sistema-mensajeria-backend",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Backend del sistema de mensajería masiva para logística",
   "main": "dist/app.js",
   "scripts": {

@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
+import { VISIBILITY_PERMISSIONS } from '../../../core/constants/permissions';
 import { ACCESS_SCOPES, USER_TYPES } from '../../../core/constants/roles';
 
 const MODULE_LABELS: Record<string, string> = {
@@ -50,6 +51,12 @@ export type SaveUserInput = {
   roleCode: string;
   siteId?: number | null;
   estado?: 'activo' | 'inactivo';
+  moduleCodes?: string[];
+};
+
+export type ChangePasswordInput = {
+  newPassword: string;
+  currentPassword?: string;
 };
 
 export type AuditContext = {
@@ -160,6 +167,9 @@ function validateInput(input: SaveUserInput, isCreate: boolean): SaveUserInput {
     password: normalizeText(input.password),
     roleCode: normalizeText(input.roleCode),
     estado: input.estado === 'inactivo' ? 'inactivo' as const : 'activo' as const,
+    moduleCodes: Array.isArray(input.moduleCodes)
+      ? [...new Set(input.moduleCodes.map(normalizeText).filter(Boolean))]
+      : undefined,
   };
   if (!normalized.nombre || !normalized.usuario || !normalized.roleCode) {
     throw new AccessValidationError('Nombre, usuario y rol son obligatorios.');
@@ -170,10 +180,69 @@ function validateInput(input: SaveUserInput, isCreate: boolean): SaveUserInput {
   if (isCreate && !normalized.password) {
     throw new AccessValidationError('La contraseña es obligatoria al crear la cuenta.');
   }
-  if (normalized.password && normalized.password.length < 8) {
-    throw new AccessValidationError('La contraseña debe tener al menos 8 caracteres.');
-  }
+  if (normalized.password) normalized.password = validateStrongPassword(normalized.password);
   return normalized;
+}
+
+function validateStrongPassword(value: unknown): string {
+  const password = normalizeText(value);
+  const valid = password.length >= 12
+    && password.length <= 72
+    && /[a-z]/.test(password)
+    && /[A-Z]/.test(password)
+    && /\d/.test(password)
+    && /[^A-Za-z0-9]/.test(password);
+  if (!valid) {
+    throw new AccessValidationError(
+      'La contraseña debe tener entre 12 y 72 caracteres, con mayúscula, minúscula, número y símbolo.',
+    );
+  }
+  return password;
+}
+
+async function syncModuleAccess(
+  connection: PoolConnection,
+  userId: number,
+  roleId: number,
+  requestedCodes: string[] | undefined,
+): Promise<void> {
+  if (requestedCodes === undefined) return;
+
+  const [allowedRows] = await connection.query<RowDataPacket[]>(
+    `SELECT permission.id, permission.codigo
+       FROM rol_permisos role_permission
+       INNER JOIN permisos permission
+         ON permission.id = role_permission.permiso_id
+        AND permission.estado = 'ACTIVO'
+      WHERE role_permission.rol_id = ?
+        AND permission.codigo IN (?)`,
+    [roleId, VISIBILITY_PERMISSIONS],
+  );
+  const allowed = new Map(allowedRows.map(row => [String(row.codigo), Number(row.id)]));
+  const invalid = requestedCodes.filter(code => !allowed.has(code));
+  if (invalid.length) {
+    throw new AccessValidationError('Uno o más accesos seleccionados no pertenecen al rol asignado.');
+  }
+
+  await connection.query(
+    `DELETE user_permission
+       FROM usuario_permisos user_permission
+       INNER JOIN permisos permission ON permission.id = user_permission.permiso_id
+      WHERE user_permission.usuario_id = ?
+        AND permission.codigo IN (?)`,
+    [userId, VISIBILITY_PERMISSIONS],
+  );
+
+  const selected = new Set(requestedCodes);
+  for (const [code, permissionId] of allowed.entries()) {
+    if (selected.has(code)) continue;
+    await connection.query(
+      `INSERT INTO usuario_permisos
+         (usuario_id, permiso_id, efecto, motivo)
+       VALUES (?, ?, 'DENEGAR', 'Configuración administrativa de accesos')`,
+      [userId, permissionId],
+    );
+  }
 }
 
 async function audit(
@@ -268,6 +337,16 @@ export class UserAccessAdminService {
       `SELECT id, nombre_comercial AS nombre
          FROM empresas WHERE codigo = 'MYG_EXPRESS' LIMIT 1`,
     );
+    const [moduleRows] = await pool.query<RowDataPacket[]>(
+      `SELECT role_permission.rol_id, permission.codigo, permission.modulo
+         FROM rol_permisos role_permission
+         INNER JOIN permisos permission
+           ON permission.id = role_permission.permiso_id
+          AND permission.estado = 'ACTIVO'
+        WHERE permission.codigo IN (?)
+        ORDER BY permission.modulo ASC`,
+      [VISIBILITY_PERMISSIONS],
+    );
     return {
       company: companyRows[0] ?? null,
       roles: roles.map(role => ({
@@ -279,6 +358,12 @@ export class UserAccessAdminService {
         description: role.descripcion,
         permissionCount: Number(role.permission_count),
         managed: role.tipo_usuario === USER_TYPES.COMPANY,
+        modules: moduleRows
+          .filter(module => Number(module.rol_id) === Number(role.id))
+          .map(module => ({
+            code: String(module.codigo),
+            name: MODULE_LABELS[String(module.modulo)] ?? String(module.modulo),
+          })),
       })),
     };
   }
@@ -329,9 +414,11 @@ export class UserAccessAdminService {
          VALUES (?, ?, ?, ?, ?, 1)`,
         [result.insertId, role.id, companyId, siteId, role.tipo_alcance],
       );
+      await syncModuleAccess(connection, result.insertId, role.id, input.moduleCodes);
       await audit(connection, context, 'USUARIO_CREADO', result.insertId, companyId, siteId, {
         role: role.codigo,
         status: input.estado,
+        modules: input.moduleCodes ?? 'ROLE_DEFAULT',
       });
       return result.insertId;
     });
@@ -390,11 +477,66 @@ export class UserAccessAdminService {
       if (targetRows[0].role_code !== role.codigo) {
         await connection.query('DELETE FROM usuario_permisos WHERE usuario_id = ?', [userId]);
       }
+      await syncModuleAccess(connection, userId, role.id, input.moduleCodes);
       await audit(connection, context, 'USUARIO_ACTUALIZADO', userId, companyId, siteId, {
         role: role.codigo,
         status: input.estado,
         passwordChanged: Boolean(input.password),
+        modules: input.moduleCodes ?? 'UNCHANGED',
       });
+    });
+  }
+
+  async changePassword(
+    userId: number,
+    rawInput: ChangePasswordInput,
+    context: AuditContext,
+  ): Promise<void> {
+    const newPassword = validateStrongPassword(rawInput.newPassword);
+    await runInTransaction(async connection => {
+      const [rows] = await connection.query<RowDataPacket[]>(
+        `SELECT user.id, user.password_hash, user.tipo_usuario,
+                assignment.empresa_id, assignment.sede_id
+           FROM usuarios user
+           LEFT JOIN usuario_asignaciones assignment
+             ON assignment.usuario_id = user.id
+            AND assignment.es_principal = 1
+            AND assignment.estado = 'ACTIVA'
+          WHERE user.id = ? LIMIT 1 FOR UPDATE`,
+        [userId],
+      );
+      if (!rows.length) throw new AccessValidationError('Usuario no encontrado.', 404);
+      const target = rows[0];
+      const selfChange = userId === context.actorId;
+      if (target.tipo_usuario === USER_TYPES.SYSTEM && !selfChange) {
+        throw new AccessValidationError('La cuenta principal solo puede cambiar su propia contraseña.', 403);
+      }
+      const currentPassword = normalizeText(rawInput.currentPassword);
+      const [actorRows] = await connection.query<RowDataPacket[]>(
+        'SELECT password_hash FROM usuarios WHERE id = ? LIMIT 1',
+        [context.actorId],
+      );
+      if (!actorRows.length || !currentPassword
+        || !await bcrypt.compare(currentPassword, String(actorRows[0].password_hash))) {
+        throw new AccessValidationError('Tu contraseña de administrador no es correcta.');
+      }
+      if (await bcrypt.compare(newPassword, String(target.password_hash))) {
+        throw new AccessValidationError('La nueva contraseña debe ser diferente a la actual.');
+      }
+
+      await connection.query(
+        'UPDATE usuarios SET password_hash = ?, password_actualizado_at = NOW() WHERE id = ?',
+        [await bcrypt.hash(newPassword, 12), userId],
+      );
+      await audit(
+        connection,
+        context,
+        'USUARIO_PASSWORD_ACTUALIZADO',
+        userId,
+        target.empresa_id ? Number(target.empresa_id) : null,
+        target.sede_id ? Number(target.sede_id) : null,
+        { mode: selfChange ? 'SELF_CHANGE' : 'ADMIN_RESET' },
+      );
     });
   }
 
