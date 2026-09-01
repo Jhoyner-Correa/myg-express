@@ -18,6 +18,9 @@ export const PERMISSIONS = {
   SAVAR_SCAN_MANAGE: 'savarscan.gestionar',
   RRHH_VIEW: 'rrhh.ver',
   RRHH_MANAGE: 'rrhh.gestionar',
+  RRHH_ATTENDANCE_MANAGE: 'rrhh.asistencia.gestionar',
+  RRHH_PAYMENTS_VIEW: 'rrhh.pagos.ver',
+  RRHH_PAYMENTS_MANAGE: 'rrhh.pagos.gestionar',
   RRHH_CONFIGURE: 'rrhh.configurar',
 } as const;
 

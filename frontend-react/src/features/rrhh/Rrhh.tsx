@@ -88,7 +88,9 @@ const SECTION_META: Record<RrhhSection, { title: string; subtitle: string }> = {
 export function Rrhh({ section }: { section: RrhhSection }) {
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
-  const canManage = userHasPermission(user, PERMISSIONS.RRHH_MANAGE);
+  const canManagePersonnel = userHasPermission(user, PERMISSIONS.RRHH_MANAGE);
+  const canManageAttendance = userHasPermission(user, PERMISSIONS.RRHH_ATTENDANCE_MANAGE);
+  const canManagePayments = userHasPermission(user, PERMISSIONS.RRHH_PAYMENTS_MANAGE);
   const canConfigure = userHasPermission(user, PERMISSIONS.RRHH_CONFIGURE);
   const canViewAllSites = user?.alcance !== 'SEDE';
   const [catalogs, setCatalogs] = useState<RrhhCatalogs>(emptyCatalogs);
@@ -174,12 +176,12 @@ export function Rrhh({ section }: { section: RrhhSection }) {
     if (catalogs.sites.length === 0) return <div className={styles.errorState}>No hay sedes disponibles dentro de tu alcance.</div>;
     if ((section === 'configuration' || section === 'schedules') && configurationSiteId !== null) return <ConfigurationPanel view={section === 'schedules' ? 'schedules' : 'settings'} siteId={configurationSiteId} sites={catalogs.sites} roles={catalogs.roles} schedules={catalogs.schedules} geofences={catalogs.geofences} canManage={canConfigure} onSiteChange={setConfigurationSiteId} onCatalogChanged={() => loadCatalogs()} />;
     if (section === 'overview') return <RrhhOverview siteId={siteId} employees={employees} query={query} agendaMonth={overviewMonth} onAgendaMonthChange={setOverviewMonth} onAlertsChange={setOverviewAlerts} />;
-    if (section === 'attendance') return <AttendancePanel siteId={siteId} sites={catalogs.sites} canViewAllSites={canViewAllSites} canManage={canManage} employees={employees} date={attendanceDate} onSiteChange={setSiteId} onDateChange={setAttendanceDate} />;
+    if (section === 'attendance') return <AttendancePanel siteId={siteId} sites={catalogs.sites} canViewAllSites={canViewAllSites} canManage={canManageAttendance} employees={employees} date={attendanceDate} onSiteChange={setSiteId} onDateChange={setAttendanceDate} />;
     if (section === 'requests') return <AbsencePanel
       siteId={siteId}
       sites={catalogs.sites}
       employees={employees}
-      canManage={canManage}
+      canManage={canManageAttendance}
       canViewAllSites={canViewAllSites}
       onSiteChange={setSiteId}
     />;
@@ -187,7 +189,7 @@ export function Rrhh({ section }: { section: RrhhSection }) {
       month={overviewMonth}
       siteId={siteId}
       sites={catalogs.sites}
-      canManage={canManage}
+      canManage={canManagePayments}
       onSiteChange={setSiteId}
       onMonthChange={setOverviewMonth}
     />;
@@ -197,7 +199,7 @@ export function Rrhh({ section }: { section: RrhhSection }) {
       siteId={siteId}
       query={query}
       loading={loading}
-      canManage={canManage}
+      canManage={canManagePersonnel}
       canViewAllSites={canViewAllSites}
       onQueryChange={setQuery}
       onSiteChange={setSiteId}

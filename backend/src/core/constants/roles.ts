@@ -1,6 +1,8 @@
 export const ROLES = {
   SYSADMIN: 'SysAdmin',
   ADMIN_EMPRESA: 'AdminEmpresa',
+  GERENTE_EMPRESA: 'GerenteEmpresa',
+  SUPERVISOR_SEDE: 'SupervisorSede',
   ENCARGADO_OFICINA: 'EncargadoOficina'
 } as const;
 
@@ -27,6 +29,12 @@ const ROLE_ALIASES: Record<string, AppRole> = {
   adminempresa: ROLES.ADMIN_EMPRESA,
   'admin empresa': ROLES.ADMIN_EMPRESA,
   'administrador general': ROLES.ADMIN_EMPRESA,
+  gerenteempresa: ROLES.GERENTE_EMPRESA,
+  gerente: ROLES.GERENTE_EMPRESA,
+  supervisorsede: ROLES.SUPERVISOR_SEDE,
+  supervisor: ROLES.SUPERVISOR_SEDE,
+  supervisora: ROLES.SUPERVISOR_SEDE,
+  'supervisor/a de sede': ROLES.SUPERVISOR_SEDE,
   encargadooficina: ROLES.ENCARGADO_OFICINA,
   'encargado oficina': ROLES.ENCARGADO_OFICINA,
   'encargado de oficina': ROLES.ENCARGADO_OFICINA,
@@ -35,6 +43,8 @@ const ROLE_ALIASES: Record<string, AppRole> = {
 
 export const MANAGED_USER_ROLES: AppRole[] = [
   ROLES.ADMIN_EMPRESA,
+  ROLES.GERENTE_EMPRESA,
+  ROLES.SUPERVISOR_SEDE,
   ROLES.ENCARGADO_OFICINA
 ];
 
@@ -55,12 +65,14 @@ export function isManagedUserRole(value: unknown): boolean {
 }
 
 export function roleRequiresSede(role: AppRole): boolean {
-  return role === ROLES.ENCARGADO_OFICINA;
+  return role === ROLES.SUPERVISOR_SEDE || role === ROLES.ENCARGADO_OFICINA;
 }
 
 export function getRoleLabel(role: AppRole): string {
   if (role === ROLES.SYSADMIN) return 'Administrador del Sistema';
   if (role === ROLES.ADMIN_EMPRESA) return 'Administrador General';
+  if (role === ROLES.GERENTE_EMPRESA) return 'Gerente';
+  if (role === ROLES.SUPERVISOR_SEDE) return 'Supervisor/a de Sede';
   return 'Encargado de Oficina';
 }
 
@@ -70,6 +82,6 @@ export function getRoleUserType(role: AppRole): UserType {
 
 export function getRoleScope(role: AppRole): AccessScope {
   if (role === ROLES.SYSADMIN) return ACCESS_SCOPES.SYSTEM;
-  if (role === ROLES.ADMIN_EMPRESA) return ACCESS_SCOPES.COMPANY;
+  if (role === ROLES.ADMIN_EMPRESA || role === ROLES.GERENTE_EMPRESA) return ACCESS_SCOPES.COMPANY;
   return ACCESS_SCOPES.SITE;
 }

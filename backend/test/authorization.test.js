@@ -9,7 +9,14 @@ const {
 } = require('../dist/core/auth/sedeScope');
 const { requirePermission } = require('../dist/core/middlewares/permissionMiddleware');
 const { getFinalPermissions, getPermissionsForRole, PERMISSIONS } = require('../dist/core/constants/permissions');
-const { ROLES } = require('../dist/core/constants/roles');
+const {
+  ACCESS_SCOPES,
+  ROLES,
+  getRoleLabel,
+  getRoleScope,
+  normalizeRole,
+  roleRequiresSede,
+} = require('../dist/core/constants/roles');
 const { applyPermissionOverrides } = require('../dist/core/auth/accessControl');
 
 function requestFor({ sedeId, permisos = [], superadmin = false }) {
@@ -99,7 +106,37 @@ test('administrador de empresa gestiona RRHH con alcance global', () => {
   const permissions = getPermissionsForRole(ROLES.ADMIN_EMPRESA);
   assert.equal(permissions.includes(PERMISSIONS.RRHH_VIEW), true);
   assert.equal(permissions.includes(PERMISSIONS.RRHH_MANAGE), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_ATTENDANCE_MANAGE), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_PAYMENTS_VIEW), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_PAYMENTS_MANAGE), true);
   assert.equal(permissions.includes(PERMISSIONS.RRHH_CONFIGURE), true);
+});
+
+test('gerencia controla la empresa y consulta pagos sin ejecutarlos', () => {
+  const permissions = getPermissionsForRole(ROLES.GERENTE_EMPRESA);
+
+  assert.equal(getRoleScope(ROLES.GERENTE_EMPRESA), ACCESS_SCOPES.COMPANY);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_VIEW), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_MANAGE), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_ATTENDANCE_MANAGE), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_PAYMENTS_VIEW), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_PAYMENTS_MANAGE), false);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_CONFIGURE), false);
+  assert.equal(permissions.includes(PERMISSIONS.USERS_MANAGE), false);
+});
+
+test('supervisor o supervisora controla asistencia solo con alcance de sede', () => {
+  const permissions = getPermissionsForRole(ROLES.SUPERVISOR_SEDE);
+
+  assert.equal(normalizeRole('supervisora'), ROLES.SUPERVISOR_SEDE);
+  assert.equal(getRoleLabel(ROLES.SUPERVISOR_SEDE), 'Supervisor/a de Sede');
+  assert.equal(getRoleScope(ROLES.SUPERVISOR_SEDE), ACCESS_SCOPES.SITE);
+  assert.equal(roleRequiresSede(ROLES.SUPERVISOR_SEDE), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_VIEW), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_ATTENDANCE_MANAGE), true);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_MANAGE), false);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_PAYMENTS_VIEW), false);
+  assert.equal(permissions.includes(PERMISSIONS.RRHH_CONFIGURE), false);
 });
 
 test('encargado de oficina no accede al panel administrativo de RRHH', () => {

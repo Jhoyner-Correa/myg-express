@@ -16,6 +16,7 @@ const MODULE_LABELS: Record<string, string> = {
   SAVAR_SCAN: 'SAVAR SCAN',
   ETIQUETAS: 'Etiquetas',
   RRHH: 'Recursos Humanos',
+  RRHH_PAGOS: 'Pagos mensuales',
   GPS: 'Rastreo GPS',
 };
 
@@ -294,7 +295,8 @@ export class UserAccessAdminService {
            WHEN user_permission.efecto = 'DENEGAR' THEN NULL
            WHEN permission.codigo NOT IN (
              'admin.panel.ver', 'rutas.ver', 'whatsapp.ver', 'urbano.rutas.ver',
-             'entregas.ver', 'etiquetas.ver', 'savarscan.ver', 'rrhh.ver', 'gps.ver'
+             'entregas.ver', 'etiquetas.ver', 'savarscan.ver', 'rrhh.ver',
+             'rrhh.pagos.ver', 'gps.ver'
            ) THEN NULL
            ELSE permission.modulo
          END ORDER BY permission.modulo SEPARATOR ',') AS modulos

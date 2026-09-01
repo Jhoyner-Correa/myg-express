@@ -26,4 +26,13 @@ describe('sidebarMenuConfig', () => {
 
     expect(gps?.permission).toBe('gps.ver');
   });
+
+  it('separa pagos y configuracion de la consulta general de RRHH', () => {
+    const rrhh = sidebarMenuConfig.find(item => item.title === 'Recursos Humanos');
+    const payments = rrhh?.children?.find(item => item.path === '/rrhh/pagos');
+    const configuration = rrhh?.children?.find(item => item.path === '/rrhh/configuracion');
+
+    expect(payments?.permission).toBe('rrhh.pagos.ver');
+    expect(configuration?.permission).toBe('rrhh.configurar');
+  });
 });

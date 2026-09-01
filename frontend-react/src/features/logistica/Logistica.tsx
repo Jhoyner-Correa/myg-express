@@ -31,6 +31,8 @@ import { AlertTriangle, MapPin, RefreshCw } from 'lucide-react';
 const ROLES_MAP: Record<string, string> = {
   SysAdmin: 'Administrador del Sistema',
   AdminEmpresa: 'Administrador General',
+  GerenteEmpresa: 'Gerente',
+  SupervisorSede: 'Supervisor/a de Sede',
   EncargadoOficina: 'Encargado de Oficina'
 };
 

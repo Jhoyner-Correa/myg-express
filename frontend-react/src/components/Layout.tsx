@@ -38,6 +38,12 @@ export const Layout: React.FC = () => {
     if (rawRole === 'adminempresa' || rawRole === 'admingeneral' || rawRole === 'administradorgeneral') {
       return 'ADMINISTRADOR GENERAL';
     }
+    if (rawRole === 'gerenteempresa' || rawRole === 'gerente') {
+      return 'GERENCIA';
+    }
+    if (rawRole === 'supervisorsede' || rawRole === 'supervisor' || rawRole === 'supervisora') {
+      return 'SUPERVISIÓN DE SEDE';
+    }
     return 'OPERADOR DEL SISTEMA';
   };
 
