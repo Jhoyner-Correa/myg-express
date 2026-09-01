@@ -69,7 +69,7 @@ app.get('/api', (_req, res) => {
   res.json({
     ok: true,
     mensaje: 'Sistema de mensajeria API funcionando correctamente',
-    version: '1.0.1'
+    version: '1.0.2'
   });
 });
 

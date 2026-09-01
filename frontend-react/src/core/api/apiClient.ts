@@ -7,6 +7,10 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
+export function isLoginRequest(url: unknown): boolean {
+  return /(?:^|\/)auth\/login(?:$|[?#])/.test(String(url || ''));
+}
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -32,7 +36,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
+    if (error.response?.status === 401 && !isLoginRequest(error.config?.url)) {
       console.warn('Sesión no autorizada o expirada. Redirigiendo al login...');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
