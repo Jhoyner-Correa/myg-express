@@ -1,5 +1,5 @@
-#!/usr/bin/env sh
-set -eu
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
 : "${BACKUP_DIR:?Define BACKUP_DIR}"
 : "${DB_HOST:?Define DB_HOST}"
@@ -28,6 +28,7 @@ mysqldump \
   --routines \
   --triggers \
   --events \
+  --no-tablespaces \
   --hex-blob \
   --default-character-set=utf8mb4 \
   "${DB_NAME}" | gzip -9 > "${DATABASE_BACKUP}"
