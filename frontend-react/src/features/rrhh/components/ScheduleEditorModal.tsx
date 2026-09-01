@@ -6,7 +6,7 @@ import {
 import { Button } from '../../../components/ui/Button/Button';
 import { Modal } from '../../../components/ui/Modal/Modal';
 import type { SchedulePolicyInput, WorkSchedule } from '../types';
-import { formatScheduleRange, formatScheduleTime } from './attendance-formatters';
+import { formatDurationReadable, formatScheduleRange, formatScheduleTime } from './attendance-formatters';
 import styles from './ScheduleEditorModal.module.css';
 
 type Props = {
@@ -80,15 +80,6 @@ function lunchDuration(start: string | null, end: string | null) {
   const endMinutes = clockMinutes(end);
   if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) return 0;
   return endMinutes - startMinutes;
-}
-
-function formatDuration(minutes: number) {
-  if (minutes <= 0) return 'Duración pendiente';
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  if (!hours) return `${remainder} min`;
-  if (!remainder) return `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
-  return `${hours} ${hours === 1 ? 'hora' : 'horas'} ${remainder} min`;
 }
 
 function TwelveHourField({ label, value, onChange }: {
@@ -346,13 +337,13 @@ export function ScheduleEditorModal({ schedule, saving, onClose, onSave }: Props
             </label>
           </header>
           {form.lunch_enabled ? <>
-            <output className={styles.inlineSummary}><Coffee />{lunchSummary}<span>{formatDuration(calculatedLunchDuration)} de descanso</span></output>
+            <output className={styles.inlineSummary}><Coffee />{lunchSummary}<span>{calculatedLunchDuration > 0 ? formatDurationReadable(calculatedLunchDuration) : 'Duración pendiente'} de descanso</span></output>
             <div className={styles.threeColumnGrid}>
               <TwelveHourField label="Salida al almuerzo" value={form.lunch_start_from ?? '13:00'} onChange={value => updateLunchTime('lunch_start_from', value)} />
               <TwelveHourField label="Regreso del almuerzo" value={form.lunch_start_until ?? '14:00'} onChange={value => updateLunchTime('lunch_start_until', value)} />
               <div className={styles.calculatedDuration}>
                 <span>Duración calculada</span>
-                <strong><TimerReset />{formatDuration(calculatedLunchDuration)}</strong>
+                <strong><TimerReset />{calculatedLunchDuration > 0 ? formatDurationReadable(calculatedLunchDuration) : 'Duración pendiente'}</strong>
                 <small>Se obtiene automáticamente del horario.</small>
               </div>
               <label><span>Tolerancia de regreso</span><div className={styles.numberControl}><input type="number" min="0" max="120" value={form.return_tolerance_minutes} onChange={event => update('return_tolerance_minutes', Number(event.target.value))} /><em>min</em></div></label>

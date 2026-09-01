@@ -128,7 +128,7 @@ export type WorkSchedule = {
   effective_until: string | null;
 };
 export type SchedulePolicyInput = Omit<WorkSchedule, 'id' | 'version_id' | 'version' | 'status' | 'effective_until'>;
-export type RrhhCatalogs = { sites: Site[]; roles: JobRole[]; schedules: WorkSchedule[] };
+export type RrhhCatalogs = { sites: Site[]; roles: JobRole[]; schedules: WorkSchedule[]; geofences: Geofence[] };
 
 export type WorkCalendarEventType = 'FERIADO' | 'DIA_NO_LABORABLE' | 'JORNADA_ESPECIAL';
 export type WorkCalendarEvent = {
@@ -211,6 +211,7 @@ export type DniLookupResult = {
 
 export type Geofence = {
   site_id: number;
+  site_name?: string;
   latitude: number;
   longitude: number;
   radius_meters: number;

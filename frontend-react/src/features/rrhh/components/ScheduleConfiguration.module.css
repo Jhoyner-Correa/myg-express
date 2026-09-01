@@ -33,13 +33,13 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 10.5px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 600;
   transition: color .18s ease;
 }
 .plannerNav button:hover { color: #1c4f87; }
 .plannerNav button::after { content: ''; position: absolute; right: 10px; bottom: -1px; left: 10px; height: 2px; border-radius: 2px 2px 0 0; background: transparent; transform: scaleX(.45); transition: background .18s ease, transform .18s ease; }
-.plannerNav .plannerNavActive { color: #1762b5; font-weight: 750; }
+.plannerNav .plannerNavActive { color: #175da8; font-weight: 700; }
 .plannerNav .plannerNavActive::after { background: #1769c7; transform: scaleX(1); }
 
 .workspaceContent { min-width: 0; padding: 14px 0 0; background: transparent; }

@@ -1,5 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
+import { publicJobRoleDescription } from '../domain/jobRolePolicy';
 
 const TRACKING_TYPES = ['NINGUNO', 'SOLO_MARCACION', 'CONTINUO'] as const;
 
@@ -46,7 +47,7 @@ export class RrhhCatalogService {
     return rows.map((row) => ({
       id: Number(row.id),
       name: String(row.nombre),
-      description: row.descripcion ? String(row.descripcion) : null,
+      description: publicJobRoleDescription(row.descripcion),
       default_tracking_type: String(row.tipo_rastreo_defecto),
       created_at: row.created_at,
       updated_at: row.updated_at,

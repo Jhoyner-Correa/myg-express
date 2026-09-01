@@ -25,7 +25,7 @@ import { rrhhService } from './rrhh.service';
 import type { Employee, EmployeeInput, RrhhCatalogs, ScheduleAssignment } from './types';
 import styles from './Rrhh.module.css';
 
-const emptyCatalogs: RrhhCatalogs = { sites: [], roles: [], schedules: [] };
+const emptyCatalogs: RrhhCatalogs = { sites: [], roles: [], schedules: [], geofences: [] };
 
 function businessMonth() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit' }).format(new Date());
@@ -80,9 +80,9 @@ const SECTION_META: Record<RrhhSection, { title: string; subtitle: string }> = {
   people: { title: 'Personal', subtitle: 'Directorio, cargos y acceso móvil de colaboradores' },
   attendance: { title: 'Asistencia', subtitle: 'Marcaciones y cumplimiento de jornada' },
   requests: { title: 'Solicitudes', subtitle: 'Permisos, vacaciones y decisiones administrativas' },
-  schedules: { title: 'Horarios y calendario', subtitle: 'Jornadas, semana laboral y días especiales' },
+  schedules: { title: 'Horarios y calendario', subtitle: 'Cargos, jornadas y planificación laboral' },
   payments: { title: 'Pagos mensuales', subtitle: 'Honorarios, horas extras y depósitos bancarios' },
-  configuration: { title: 'Configuración de RR. HH.', subtitle: 'Cargos y parámetros operativos por sede' },
+  configuration: { title: 'Configuración de RR. HH.', subtitle: 'Geocercas y parámetros de ubicación por sede' },
 };
 
 export function Rrhh({ section }: { section: RrhhSection }) {
@@ -172,7 +172,7 @@ export function Rrhh({ section }: { section: RrhhSection }) {
     if (loading && catalogs.sites.length === 0) return <PageLoader label="Preparando Recursos Humanos" />;
     if (error) return <div className={styles.errorState} role="alert"><p>{getApiErrorMessage(error, 'No se pudo cargar Recursos Humanos.')}</p><Button variant="secondary" onClick={() => void loadCatalogs()}>Reintentar</Button></div>;
     if (catalogs.sites.length === 0) return <div className={styles.errorState}>No hay sedes disponibles dentro de tu alcance.</div>;
-    if ((section === 'configuration' || section === 'schedules') && configurationSiteId !== null) return <ConfigurationPanel view={section === 'schedules' ? 'schedules' : 'settings'} siteId={configurationSiteId} sites={catalogs.sites} roles={catalogs.roles} schedules={catalogs.schedules} canManage={canConfigure} onSiteChange={setConfigurationSiteId} onCatalogChanged={() => loadCatalogs()} />;
+    if ((section === 'configuration' || section === 'schedules') && configurationSiteId !== null) return <ConfigurationPanel view={section === 'schedules' ? 'schedules' : 'settings'} siteId={configurationSiteId} sites={catalogs.sites} roles={catalogs.roles} schedules={catalogs.schedules} geofences={catalogs.geofences} canManage={canConfigure} onSiteChange={setConfigurationSiteId} onCatalogChanged={() => loadCatalogs()} />;
     if (section === 'overview') return <RrhhOverview siteId={siteId} employees={employees} query={query} agendaMonth={overviewMonth} onAgendaMonthChange={setOverviewMonth} onAlertsChange={setOverviewAlerts} />;
     if (section === 'attendance') return <AttendancePanel siteId={siteId} sites={catalogs.sites} canViewAllSites={canViewAllSites} canManage={canManage} employees={employees} date={attendanceDate} onSiteChange={setSiteId} onDateChange={setAttendanceDate} />;
     if (section === 'requests') return <AbsencePanel
@@ -247,6 +247,7 @@ export function Rrhh({ section }: { section: RrhhSection }) {
       metadata={executiveHeader}
       tone={section === 'overview' ? 'corporate' : section === 'people' ? 'blue' : 'brand'}
       size={section === 'people' ? 'large' : 'default'}
+      plainIcon={section === 'schedules'}
     />
     <section className={styles.content}>
       {section !== 'overview' && section !== 'people' && section !== 'attendance' && section !== 'schedules' && section !== 'requests' && section !== 'payments' && <div className={styles.headingRow}>

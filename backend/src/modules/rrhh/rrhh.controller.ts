@@ -75,12 +75,13 @@ export class RrhhController {
   listarCatalogos = async (req: AuthRequest, res: Response) => {
     try {
       const scopedSite = req.user?.sede_id ? Number(req.user.sede_id) : null;
-      const [sites, roles, schedules] = await Promise.all([
+      const [sites, roles, schedules, geofences] = await Promise.all([
         this.catalogService.listSites(scopedSite, companyScope(req)),
         this.catalogService.listJobRoles(),
         this.scheduleService.listSchedules(),
+        this.geofenceService.list(scopedSite, companyScope(req)),
       ]);
-      return res.json({ ok: true, data: { sites, roles, schedules } });
+      return res.json({ ok: true, data: { sites, roles, schedules, geofences } });
     } catch (error) {
       return res.status(500).json({
         ok: false,
@@ -543,7 +544,12 @@ export class RrhhController {
         longitude: Number(req.body.longitude),
         radiusMeters: Number(req.body.radius_meters),
         maximumAccuracyMeters: Number(req.body.maximum_accuracy_meters),
-      }, Number(req.user?.id), req.ip);
+      }, Number(req.user?.id), req.ip, {
+        method: req.body.capture_method === 'DEVICE_GPS' ? 'DEVICE_GPS' : 'MANUAL',
+        accuracyMeters: req.body.capture_method === 'DEVICE_GPS'
+          ? Number(req.body.capture_accuracy_meters) || null
+          : null,
+      });
       return res.json({ ok: true, message: 'Geocerca actualizada correctamente.', data: geofence });
     } catch (error) {
       return res.status(errorStatus(error, 400)).json({ ok: false, message: error instanceof Error ? error.message : 'No se pudo guardar la geocerca.' });

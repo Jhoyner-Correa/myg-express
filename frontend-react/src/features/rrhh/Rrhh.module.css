@@ -216,11 +216,125 @@
 
 .configGrid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; align-items: start; }.configCard:first-child { grid-row: span 2; }.configCard > header { display: flex; align-items: center; gap: 11px; padding: 15px 16px; border-bottom: 1px solid var(--border-default); }.configCard > header > span { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 9px; background: #edf8f1; color: #0a8a47; }.configCard > header svg { width: 17px; }
 .compactForm { display: grid; grid-template-columns: repeat(2, 1fr); gap: 13px; padding: 16px; }.compactForm button { grid-column: 1 / -1; justify-self: end; }.compactForm input:disabled { background: #f8fafc; }
+.geofenceHint { grid-column: 1 / -1; margin: -2px 0 0; color: var(--text-muted); font-size: .69rem; line-height: 1.45; }
+.compactForm > .formError { grid-column: 1 / -1; margin: 0; }
+.compactForm input[aria-invalid="true"] { border-color: #d76774; }
 .configSitePicker { display: grid; gap: 3px; margin-left: auto; color: var(--text-muted); font-size: .58rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .configSitePicker select { min-width: 145px; min-height: 34px; padding: 0 28px 0 10px; border: 1px solid var(--border-default); border-radius: 8px; outline: 0; background: #fff; color: var(--text-primary); font: inherit; font-size: .68rem; font-weight: 620; text-transform: none; }
 .configSitePicker select:focus { border-color: #65ad87; box-shadow: 0 0 0 3px rgba(16,145,76,.08); }
 .catalogList { display: grid; max-height: 210px; overflow: auto; }.catalogList > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--color-neutral-100); }.catalogList strong { color: var(--text-primary); font-size: .73rem; font-weight: 650; }.catalogList span { color: var(--text-muted); font-size: .65rem; }
 .inlineCreator, .scheduleCreator { display: grid; gap: 7px; padding: 12px 16px; background: var(--surface-subtle); }.inlineCreator { grid-template-columns: minmax(120px, 1fr) minmax(125px, .8fr) auto; }.scheduleCreator { grid-template-columns: minmax(120px, 1fr) 90px 90px 65px auto; }.inlineCreator input, .inlineCreator select, .scheduleCreator input { min-height: 34px; font-size: .7rem; }
+.settingsWorkspace { display: grid; gap: 16px; min-width: 0; }
+.settingsWorkspace .configCard { overflow: hidden; border-color: #d7e1ec; border-radius: 14px; box-shadow: 0 6px 20px rgba(26, 47, 74, .055); }
+.settingsWorkspace .settingsCardHeader { display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 14px 18px; border-bottom: 1px solid #dce5ee; background: #fff; }
+.settingsCardHeader > span { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border-radius: 10px; background: #eaf2fb; color: #245f9f; }
+.settingsCardHeader > span svg { width: 18px; height: 18px; }
+.settingsCardHeader > div { min-width: 0; }
+.settingsCardHeader > div > small { display: block; margin-bottom: 3px; color: #4d729a; font-size: 9px; font-weight: 760; letter-spacing: .075em; }
+.settingsCardHeader h2 { color: #12263e; font-size: 15px; font-weight: 730; letter-spacing: -.012em; }
+.settingsCardHeader p { color: #687c92 !important; font-size: 11px !important; line-height: 1.45; }
+.configurationProgress { margin-left: auto; padding: 7px 10px; border: 1px solid #d4e0eb; border-radius: 8px; background: #f8fafc; color: #304e69; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.geofenceWorkspace { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 470px; }
+.siteConfigurationRail { min-width: 0; padding: 17px 13px; border-right: 1px solid #dce5ee; background: #f7f9fc; }
+.siteConfigurationRail > div { display: grid; gap: 3px; padding: 0 7px 12px; }
+.siteConfigurationRail > div strong { color: #2b4058; font-size: 11px; font-weight: 700; }
+.siteConfigurationRail > div small { color: #7b8ca0; font-size: 9.5px; line-height: 1.4; }
+.siteConfigurationRail nav { display: grid; gap: 7px; }
+.siteConfigurationRail button { display: grid; grid-template-columns: 34px minmax(0, 1fr) 18px; align-items: center; gap: 9px; width: 100%; min-height: 58px; padding: 8px 9px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #53677e; font: inherit; text-align: left; cursor: pointer; transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease; }
+.siteConfigurationRail button:hover:not(:disabled) { border-color: #d3deea; background: #fff; }
+.siteConfigurationRail button:disabled { cursor: wait; opacity: .65; }
+.siteConfigurationRail button > span:first-child { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 8px; background: #e9eef5; color: #536d89; }
+.siteConfigurationRail button svg { width: 15px; height: 15px; }
+.siteConfigurationRail button strong { display: block; overflow: hidden; color: #20374f; font-size: 11px; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
+.siteConfigurationRail button small { display: block; overflow: hidden; margin-top: 3px; color: #7c8da0; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.siteConfigurationRail .siteConfigurationActive { border-color: #a9c2de; background: #fff; box-shadow: 0 3px 10px rgba(32, 70, 111, .08); }
+.siteConfigurationRail .siteConfigurationActive > span:first-child { background: #e3eefb; color: #2765a8; }
+.siteConfigurationRail button i { display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; }
+.siteConfigured { color: #168451; }.sitePending { width: 7px !important; height: 7px !important; justify-self: center; background: #d39a31; }
+.geofenceEditor { min-width: 0; padding: 18px 20px 20px; background: #fff; }
+.selectedSiteSummary { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0; }
+.selectedSiteSummary small { color: #6f8297; font-size: 9px; font-weight: 730; letter-spacing: .07em; }
+.selectedSiteSummary h3 { margin: 3px 0 2px; color: #122941; font-size: 17px; font-weight: 740; letter-spacing: -.018em; }
+.selectedSiteSummary p { margin: 0; color: #7a8b9d; font-size: 9.5px; }
+.configuredBadge, .pendingBadge { display: inline-flex; align-items: center; min-height: 25px; padding: 0 9px; border-radius: 999px; font-size: 9.5px; font-weight: 700; }
+.configuredBadge { border: 1px solid #b9dec9; background: #f2faf5; color: #157a48; }.pendingBadge { border: 1px solid #ead3a5; background: #fffaf0; color: #97630d; }
+.geofenceOverview { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(220px, .65fr); gap: 12px; margin: 15px 0; }
+.locationCapturePanel { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 12px; margin: 15px 0; padding: 13px 14px; border: 1px solid #cdddec; border-radius: 11px; background: #f7fafe; }
+.geofenceOverview .locationCapturePanel { grid-template-columns: 42px minmax(0, 1fr); align-content: center; margin: 0; padding: 16px; background: linear-gradient(145deg, #f8fbff 0%, #f2f7fc 100%); }
+.geofenceOverview .locationCapturePanel > button { grid-column: 2; justify-self: start; margin-top: 2px; }
+.locationCapturePanel > span { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 10px; background: #e4eef9; color: #245f9f; }
+.locationCapturePanel > span svg { width: 19px; }
+.locationCapturePanel strong { display: block; color: #1d3955; font-size: 11.5px; font-weight: 700; }
+.locationCapturePanel p { max-width: 610px; margin: 3px 0 0; color: #64798f; font-size: 10px; line-height: 1.45; }
+.locationCapturePanel p b { color: #355774; font-weight: 700; }
+.locationCapturePanel small { display: inline-flex; align-items: center; gap: 5px; margin-top: 5px; color: #3f6f9e; font-size: 9.5px; font-weight: 650; }
+.locationCapturePanel .captureEyebrow { display: block; margin: 0 0 4px; color: #5b7fa4; font-size: 8px; font-weight: 760; letter-spacing: .075em; }
+.locationCapturePanel .captureSuccess { color: #137748; }.captureSuccess svg { width: 13px; height: 13px; }
+.geofenceCoveragePreview { display: grid; grid-template-rows: auto 1fr auto; min-height: 190px; padding: 13px; overflow: hidden; border: 1px solid #d3deea; border-radius: 11px; background: #182b42; box-shadow: 0 8px 18px rgba(21, 43, 68, .12); }
+.coveragePreviewHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; }.coveragePreviewHeader span { color: #8eabc7; font-size: 7.5px; font-weight: 750; letter-spacing: .08em; }.coveragePreviewHeader strong { overflow: hidden; color: #eef6ff; font-size: 9.5px; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
+.coverageTarget { position: relative; display: grid; min-height: 104px; place-items: center; isolation: isolate; }.coverageTarget i { position: absolute; width: 86px; height: 86px; border: 1px solid rgba(116, 177, 232, .22); border-radius: 50%; background: rgba(69, 135, 196, .08); }.coverageTarget i:nth-child(2) { width: 56px; height: 56px; border-color: rgba(125, 190, 245, .34); background: rgba(76, 151, 218, .12); }.coverageTarget::before, .coverageTarget::after { position: absolute; z-index: -1; background: rgba(142, 176, 208, .13); content: ''; }.coverageTarget::before { width: 118px; height: 1px; }.coverageTarget::after { width: 1px; height: 94px; }.coverageTarget > span { display: grid; z-index: 2; width: 30px; height: 30px; place-items: center; border: 2px solid #9bc9ef; border-radius: 50%; background: #286ba5; color: #fff; box-shadow: 0 0 0 5px rgba(82, 156, 219, .14); }.coverageTarget svg { width: 14px; height: 14px; }
+.geofenceCoveragePreview dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 0; overflow: hidden; border: 1px solid rgba(155, 187, 216, .12); border-radius: 7px; background: rgba(155, 187, 216, .12); }.geofenceCoveragePreview dl div { padding: 7px 8px; background: #1d334c; }.geofenceCoveragePreview dt { color: #8da6be; font-size: 7.5px; }.geofenceCoveragePreview dd { margin: 2px 0 0; color: #f2f7fc; font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.geofenceForm { display: grid; gap: 13px; }
+.geofenceFormHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 1px 1px 2px; }.geofenceFormHeader > div { display: grid; gap: 2px; }.geofenceFormHeader strong { color: #283f57; font-size: 11px; }.geofenceFormHeader small { color: #7a8b9e; font-size: 9px; }.geofenceFormHeader > span { padding: 5px 7px; border-radius: 6px; background: #f0f4f8; color: #61778d; font-size: 8.5px; font-weight: 650; }
+.coordinateFields, .geofencePolicyFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.geofenceForm label { display: grid; gap: 6px; color: #40566f; font-size: 10px; font-weight: 680; }
+.geofenceForm input { width: 100%; min-width: 0; min-height: 39px; padding: 0 11px; border: 1px solid #d3dde8; border-radius: 8px; outline: 0; background: #fff; color: #172b43; font: inherit; font-size: 11px; font-weight: 560; font-variant-numeric: tabular-nums; }
+.geofenceForm input:focus { border-color: #6a9bc9; box-shadow: 0 0 0 3px rgba(39, 101, 168, .09); }
+.geofenceForm input:disabled { background: #f7f9fb; color: #7e8d9e; }
+.geofencePolicyFields > label { padding: 12px; border: 1px solid #dce4ed; border-radius: 10px; background: #fbfcfe; }
+.geofencePolicyFields label > span { color: #2c455e; font-size: 10.5px; }
+.geofencePolicyFields label > small { margin: -3px 0 2px; color: #7c8c9e; font-size: 9px; font-weight: 500; line-height: 1.4; }
+.geofencePolicyFields label > div { display: grid; grid-template-columns: minmax(0, 1fr) 52px; align-items: center; }
+.geofencePolicyFields label > div input { border-radius: 8px 0 0 8px; }
+.geofencePolicyFields label > div b { display: grid; min-height: 39px; place-items: center; border: 1px solid #d3dde8; border-left: 0; border-radius: 0 8px 8px 0; background: #f2f5f8; color: #65798e; font-size: 9px; font-weight: 650; }
+.geofenceGuidance { display: flex; align-items: flex-start; gap: 9px; padding: 3px 1px; color: #52708d; }
+.geofenceGuidance > svg { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 1px; color: #326eaa; }
+.geofenceGuidance p { display: grid; gap: 2px; margin: 0; }.geofenceGuidance strong { color: #31506d; font-size: 9.8px; }.geofenceGuidance span { color: #74869a; font-size: 9.2px; line-height: 1.45; }
+.geofenceForm > footer { display: flex; justify-content: flex-end; padding-top: 2px; }
+.roleManager { grid-column: 1 / -1; overflow: hidden; border-color: #cfdbe7; background: #f4f7fa; box-shadow: 0 9px 24px rgba(25, 48, 72, .08); }
+.roleManager .settingsCardHeader { display: flex; align-items: center; gap: 12px; min-height: 82px; padding: 15px 17px; border-bottom: 1px solid #cbd8e5; background: linear-gradient(105deg, #f8fafc 0%, #edf3f8 100%); box-shadow: inset 4px 0 #244f78; }
+.roleManager .settingsCardHeader > span { border: 0; background: transparent; color: #25577f; }
+.roleManager .settingsCardHeader > div:nth-child(2) { min-width: 0; }
+.roleManager .settingsCardHeader small { color: #3f6487; font-size: 10px; font-weight: 700; letter-spacing: .065em; }
+.roleManager .settingsCardHeader h2 { margin: 3px 0 0; color: #102a43; font-size: 16.5px; font-weight: 700; letter-spacing: -.015em; line-height: 1.25; }
+.roleManager .settingsCardHeader p { margin: 4px 0 0; color: #526b83; font-size: 11.5px; font-weight: 500; line-height: 1.45; }
+.roleHeaderActions { display: flex; align-items: center; gap: 9px; margin-left: auto; }
+.roleHeaderActions svg { width: 14px; height: 14px; }
+.roleCatalogSummary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 13px 16px; border-bottom: 1px solid #203f5c; background: linear-gradient(110deg, #152d45 0%, #1d405f 100%); }
+.roleCatalogSummary > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; min-width: 0; padding: 2px 18px; border-right: 1px solid rgba(204, 222, 239, .2); }
+.roleCatalogSummary > div:first-child { padding-left: 2px; }.roleCatalogSummary > div:last-child { padding-right: 2px; border-right: 0; }
+.roleCatalogSummary span { color: #f7fbff; font-size: 11px; font-weight: 700; }
+.roleCatalogSummary strong { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: #fff; font-size: 23px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.roleCatalogSummary small { color: #d0deea; font-size: 10px; font-weight: 500; }
+.roleTableHead { display: grid; grid-template-columns: 54px minmax(0, 1fr) 220px 100px; align-items: stretch; min-height: 44px; padding: 0 16px; border-bottom: 1px solid #cbd7e3; background: #e8eef4; color: #294761; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.roleTableHead span { display: flex; align-items: center; }.roleTableHead span:first-child { grid-column: 1 / 3; padding-left: 54px; border-right: 1px solid #c8d4df; }.roleTableHead span:nth-child(2) { justify-content: center; border-right: 1px solid #c8d4df; }.roleTableHead span:last-child { justify-content: center; }
+.roleList { display: grid; background: #fff; }
+.roleList > button { display: grid; grid-template-columns: 54px minmax(0, 1fr) 220px 100px; align-items: stretch; min-height: 78px; padding: 0 16px; border: 0; border-bottom: 1px solid #d9e2eb; background: #fff; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background-color .16s ease, box-shadow .16s ease; }
+.roleList > button:nth-child(even) { background: #f7f9fc; }.roleList > button:hover { background: #edf4fa; box-shadow: inset 4px 0 #2c6498; }.roleList > button:last-child { border-bottom: 0; }
+.roleIcon { display: grid; align-self: center; width: 38px; height: 38px; place-items: center; border: 0; background: transparent; color: #355f83; }.roleIcon svg { width: 17px; }
+.roleIdentityCell { display: grid; align-content: center; min-width: 0; padding: 9px 16px 9px 0; border-right: 1px solid #d7e0e9; }
+.roleList button strong { display: block; overflow: hidden; color: #10283f; font-size: 13px; font-weight: 700; letter-spacing: -.008em; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }.roleList button small { display: block; overflow: hidden; max-width: 610px; margin-top: 4px; color: #526b82; font-size: 11px; font-weight: 500; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.rolePolicyCell { display: flex; align-items: center; justify-content: center; padding: 0 15px; border-right: 1px solid #d7e0e9; }
+.roleList button .roleTrackingPolicy { display: inline-flex; width: auto; min-height: 30px; align-items: center; justify-content: center; gap: 7px; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 11.5px; font-style: normal; font-weight: 700; letter-spacing: 0; white-space: nowrap; }.roleList button .roleTrackingPolicy svg { width: 15px; height: 15px; stroke-width: 2.15; }
+.roleTrackingAttendance { border: 0 !important; background: transparent; color: #285d87; }.roleTrackingContinuous { border: 0 !important; background: transparent; color: #116953; }.roleTrackingNone { border: 0 !important; background: transparent; color: #526273; }
+.roleEditAction { display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: #235b8d; font-size: 11px; font-weight: 700; }.roleEditAction svg { width: 14px; height: 14px; }
+.roleModalForm { display: grid; gap: 20px; }
+.roleFormFields { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 14px; }
+.roleFormFields label { display: grid; align-content: start; gap: 7px; color: #3d536a; font-size: 10px; font-weight: 700; }
+.roleFormFields input, .roleFormFields textarea { width: 100%; min-width: 0; padding: 10px 11px; border: 1px solid #d1dce7; border-radius: 8px; outline: 0; background: #fff; color: #182d43; font: inherit; font-size: 11px; font-weight: 540; transition: border-color .16s ease, box-shadow .16s ease; }
+.roleFormFields input { min-height: 42px; }.roleFormFields textarea { min-height: 88px; resize: vertical; line-height: 1.5; }
+.roleFormFields input:focus, .roleFormFields textarea:focus { border-color: #5f91c3; box-shadow: 0 0 0 3px rgba(40, 104, 170, .1); }
+.trackingPolicyFieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.trackingPolicyFieldset legend { width: 100%; margin-bottom: 10px; padding: 0; }
+.trackingPolicyFieldset legend strong, .trackingPolicyFieldset legend small { display: block; }
+.trackingPolicyFieldset legend strong { color: #243d55; font-size: 11px; font-weight: 720; }.trackingPolicyFieldset legend small { margin-top: 3px; color: #74869a; font-size: 9.5px; }
+.trackingPolicyGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.trackingPolicyGrid label { position: relative; display: grid; grid-template-columns: 38px minmax(0, 1fr) 15px; align-items: start; gap: 10px; min-height: 104px; padding: 13px; border: 1px solid #d8e2ec; border-radius: 10px; background: #fff; cursor: pointer; transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease; }
+.trackingPolicyGrid label:hover { border-color: #a8bfd6; background: #f9fbfd; }.trackingPolicyGrid label > input { position: absolute; opacity: 0; pointer-events: none; }
+.trackingOptionIcon { display: grid; width: 38px; height: 38px; place-items: center; border: 0; background: transparent; color: #526f8b; }.trackingOptionIcon svg { width: 17px; height: 17px; }
+.trackingPolicyGrid label strong { display: block; color: #243d55; font-size: 10.5px; font-weight: 710; }.trackingPolicyGrid label small { display: block; margin-top: 4px; color: #718397; font-size: 9px; line-height: 1.42; }
+.trackingPolicyGrid label > i { width: 14px; height: 14px; margin-top: 2px; border: 1px solid #b8c5d2; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 3px #fff; }
+.trackingPolicyGrid .trackingOptionActive { border-color: #78a6d2; background: #f2f7fc; box-shadow: inset 0 0 0 1px rgba(46, 108, 169, .08); }.trackingPolicyGrid .trackingOptionActive .trackingOptionIcon { background: transparent; color: #2869a9; }.trackingPolicyGrid .trackingOptionActive > i { border-color: #2f70b0; background: #2f70b0; }
 .scheduleManager { grid-column: 1 / -1; grid-row: auto !important; }
 .scheduleManager > header > button { margin-left: auto; }
 .scheduleList { display: grid; }
@@ -714,4 +828,56 @@
   .correctionClocks { grid-template-columns: minmax(0, 1fr); }
   .correctionFooter > p { display: none; }
   .correctionFooter > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 980px) {
+  .geofenceWorkspace { grid-template-columns: 1fr; }
+  .siteConfigurationRail { border-right: 0; border-bottom: 1px solid #dce5ee; }
+  .siteConfigurationRail nav { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .roleFormFields { grid-template-columns: 1fr; }
+  .trackingPolicyGrid { grid-template-columns: 1fr; }
+  .trackingPolicyGrid label { min-height: 76px; }
+}
+
+@media (max-width: 700px) {
+  .settingsWorkspace { gap: 12px; }
+  .settingsWorkspace .settingsCardHeader { align-items: flex-start; min-height: 0; padding: 13px 14px; }
+  .configurationProgress { margin-left: 0; }
+  .siteConfigurationRail { padding: 13px 10px; overflow: hidden; }
+  .siteConfigurationRail nav { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 3px; scroll-snap-type: x mandatory; }
+  .siteConfigurationRail button { flex: 0 0 205px; scroll-snap-align: start; }
+  .geofenceEditor { padding: 15px 13px 16px; }
+  .geofenceOverview { grid-template-columns: 1fr; }
+  .locationCapturePanel { grid-template-columns: 38px minmax(0, 1fr); padding: 12px; }
+  .locationCapturePanel > span { width: 38px; height: 38px; }
+  .locationCapturePanel > button { grid-column: 1 / -1; width: 100%; }
+  .coordinateFields, .geofencePolicyFields { grid-template-columns: 1fr; gap: 9px; }
+  .geofenceFormHeader { align-items: flex-start; flex-direction: column; }
+  .geofenceForm > footer button { width: 100%; white-space: normal; }
+  .roleManager .settingsCardHeader { align-items: flex-start; flex-wrap: wrap; padding: 14px; }
+  .roleManager .settingsCardHeader > div:nth-child(2) { flex: 1; }
+  .roleHeaderActions { width: 100%; margin-left: 0; }
+  .roleHeaderActions > button { margin-left: auto; }
+  .roleCatalogSummary { padding: 10px 12px; }
+  .roleCatalogSummary > div { padding: 1px 10px; }
+  .roleCatalogSummary > div:first-child { padding-left: 0; }.roleCatalogSummary > div:last-child { padding-right: 0; }
+  .roleCatalogSummary span { font-size: 10px; }.roleCatalogSummary small { display: none; }.roleCatalogSummary strong { font-size: 19px; }
+  .roleTableHead { display: none; }
+  .roleList > button { grid-template-columns: 42px minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 4px 10px; min-height: 86px; padding: 10px 13px; }
+  .roleIcon { grid-column: 1; grid-row: 1 / span 2; }
+  .roleIdentityCell { grid-column: 2; grid-row: 1; padding: 0; border-right: 0; }
+  .rolePolicyCell { grid-column: 2; grid-row: 2; justify-content: flex-start; padding: 0; border-right: 0; }
+  .roleList button .roleTrackingPolicy { width: auto; min-height: 25px; }
+  .roleEditAction { grid-column: 3; grid-row: 1 / span 2; }
+}
+
+@media (max-width: 430px) {
+  .roleHeaderActions { align-items: stretch; flex-direction: column; }
+  .roleHeaderActions > button { width: 100%; margin-left: 0; }
+  .roleCatalogSummary { grid-template-columns: 1fr; gap: 8px; }
+  .roleCatalogSummary > div, .roleCatalogSummary > div:first-child, .roleCatalogSummary > div:last-child { min-height: 38px; padding: 0 2px 8px; border-right: 0; border-bottom: 1px solid #d9e2ec; }
+  .roleCatalogSummary > div:last-child { padding-bottom: 0; border-bottom: 0; }
+  .roleCatalogSummary small { display: block; }
+  .roleList > button { grid-template-columns: 38px minmax(0, 1fr); }
+  .roleEditAction { display: none; }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDurationMinutes, formatScheduleRange, formatScheduleTime } from './attendance-formatters';
+import { formatDurationMinutes, formatDurationReadable, formatScheduleRange, formatScheduleTime } from './attendance-formatters';
 
 describe('formatDurationMinutes', () => {
   it('mantiene minutos cuando la duración es menor de una hora', () => {
@@ -12,6 +12,21 @@ describe('formatDurationMinutes', () => {
 
   it('omite minutos cuando la hora es exacta', () => {
     expect(formatDurationMinutes(120)).toBe('2 h');
+  });
+});
+
+describe('formatDurationReadable', () => {
+  it('expresa minutos, horas y días en lenguaje natural', () => {
+    expect(formatDurationReadable(45)).toBe('45 minutos');
+    expect(formatDurationReadable(90)).toBe('1 hora y 30 minutos');
+    expect(formatDurationReadable(180)).toBe('3 horas');
+    expect(formatDurationReadable(1565)).toBe('1 día, 2 horas y 5 minutos');
+  });
+
+  it('respeta el singular y normaliza valores inválidos', () => {
+    expect(formatDurationReadable(1)).toBe('1 minuto');
+    expect(formatDurationReadable(60)).toBe('1 hora');
+    expect(formatDurationReadable(Number.NaN)).toBe('0 minutos');
   });
 });
 

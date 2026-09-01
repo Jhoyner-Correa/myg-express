@@ -92,11 +92,17 @@ export const rrhhService = {
   getGeofence(siteId: number, signal?: AbortSignal) {
     return unwrapRequest(apiClient.get<ApiEnvelope<Geofence | null>>(`/rrhh/sedes/${siteId}/geocerca`, { signal }), null);
   },
-  saveGeofence(siteId: number, input: Omit<Geofence, 'site_id' | 'updated_at'>) {
+  saveGeofence(siteId: number, input: Omit<Geofence, 'site_id' | 'site_name' | 'updated_at'> & {
+    capture_method?: 'MANUAL' | 'DEVICE_GPS';
+    capture_accuracy_meters?: number;
+  }) {
     return unwrapRequest(apiClient.put<ApiEnvelope<Geofence>>(`/rrhh/sedes/${siteId}/geocerca`, input));
   },
   createJobRole(input: Pick<JobRole, 'name' | 'description' | 'default_tracking_type'>) {
     return unwrapRequest(apiClient.post<ApiEnvelope<JobRole>>('/rrhh/cargos', input));
+  },
+  updateJobRole(roleId: number, input: Pick<JobRole, 'name' | 'description' | 'default_tracking_type'>) {
+    return unwrapRequest(apiClient.put<ApiEnvelope<JobRole>>(`/rrhh/cargos/${roleId}`, input));
   },
   createSchedule(input: SchedulePolicyInput) {
     return unwrapRequest(apiClient.post<ApiEnvelope<WorkSchedule>>('/rrhh/horarios', input));

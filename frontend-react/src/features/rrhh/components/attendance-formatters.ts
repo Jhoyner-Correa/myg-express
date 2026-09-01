@@ -33,6 +33,22 @@ export function formatDurationMinutes(value: number) {
   return `${hours} h ${minutes} min`;
 }
 
+/** Formats administrative durations as natural Spanish instead of raw minutes. */
+export function formatDurationReadable(value: number) {
+  const totalMinutes = Math.max(0, Math.trunc(Number.isFinite(value) ? value : 0));
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  const parts: string[] = [];
+
+  if (days) parts.push(`${days} ${days === 1 ? 'día' : 'días'}`);
+  if (hours) parts.push(`${hours} ${hours === 1 ? 'hora' : 'horas'}`);
+  if (minutes || !parts.length) parts.push(`${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`);
+
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(', ')} y ${parts.at(-1)}`;
+}
+
 /** Formats a canonical SQL TIME value for the operational UI. */
 export function formatScheduleTime(value: string | null | undefined) {
   if (!value) return '—';
