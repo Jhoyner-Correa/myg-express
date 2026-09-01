@@ -9,6 +9,8 @@ import { IUsuarioRepository } from './repositories/IUsuarioRepository';
 import { Usuario } from './domain/Usuario';
 import { loadAccessContext } from '../../core/auth/accessControl';
 import { UserPhotoStorageService } from './services/UserPhotoStorageService';
+import { validateSystemPassword } from '../../core/security/passwordPolicy';
+import { loadUserUiPreferences } from '../../core/auth/userUiPreferences';
 
 export class AuthService {
   constructor(
@@ -36,6 +38,7 @@ export class AuthService {
     }
 
     const access = await loadAccessContext(user.id);
+    const uiPreferences = await loadUserUiPreferences(user.id);
     if (access.scope === 'SEDE' && !access.siteId) {
       throw new Error('Usuario sin sede asignada');
     }
@@ -67,6 +70,7 @@ export class AuthService {
         sede_ids: access.siteIds,
         sede_nombre: access.siteName || 'Administración Central',
         permisos: access.permissions,
+        modulos_visibles: uiPreferences.visibleModules,
         estado: user.estado,
         ultimo_acceso_at: user.ultimoAccesoAt?.toISOString() ?? null,
         password_actualizado_at: user.passwordActualizadoAt?.toISOString() ?? null,
@@ -121,15 +125,8 @@ export class AuthService {
     }
 
     if (nuevoPassword) {
-      const strongPassword = nuevoPassword.length >= 12
-        && /[a-z]/.test(nuevoPassword)
-        && /[A-Z]/.test(nuevoPassword)
-        && /\d/.test(nuevoPassword)
-        && /[^A-Za-z0-9]/.test(nuevoPassword);
-      if (!strongPassword) {
-        throw new Error('La nueva contraseña debe tener al menos 12 caracteres, mayúscula, minúscula, número y símbolo');
-      }
-      nuevoPasswordHash = await bcrypt.hash(nuevoPassword, 12);
+      const validPassword = validateSystemPassword(nuevoPassword);
+      nuevoPasswordHash = await bcrypt.hash(validPassword, 12);
     }
 
     const exito = await this.usuarioRepository.actualizarPerfil(

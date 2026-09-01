@@ -15,7 +15,8 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../../../../core/auth/authState';
-import { showConfirm, showToast } from '../../../../core/utils/toast';
+import { resolveUserAvatar } from '../../../../core/auth/user-avatar';
+import { showToast } from '../../../../core/utils/toast';
 import { adminAccessService } from '../admin-access.service';
 import type {
   AccessCatalog,
@@ -54,6 +55,7 @@ const eventLabels: Record<string, string> = {
   USUARIO_ACTUALIZADO: 'Datos y alcance actualizados',
   USUARIO_SUSPENDIDO: 'Usuario suspendido',
   USUARIO_PASSWORD_ACTUALIZADO: 'Contraseña actualizada',
+  USUARIO_MODULOS_ACTUALIZADOS: 'Módulos visibles actualizados',
 };
 
 function formatDateTime(value: string | null): string {
@@ -65,12 +67,8 @@ function formatDateTime(value: string | null): string {
   }).format(date);
 }
 
-function initials(name: string): string {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase();
-}
-
 export function UserAccessPanel({ sites }: Props) {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, updateUser } = useAuth();
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [catalog, setCatalog] = useState<AccessCatalog>({ company: null, roles: [] });
   const [loading, setLoading] = useState(true);
@@ -84,7 +82,10 @@ export function UserAccessPanel({ sites }: Props) {
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
 
   const managedRoles = useMemo(() => catalog.roles.filter(role => role.managed), [catalog.roles]);
-  const selectedRole = managedRoles.find(role => role.code === form.roleCode);
+  const selectedRole = catalog.roles.find(role => role.code === form.roleCode);
+  const editingOwnProtectedAccess = Boolean(
+    editing?.protected && editing.id === currentUser?.id,
+  );
   const activeSites = sites.filter(site => site.estado === 'activo');
 
   const load = useCallback(async () => {
@@ -118,8 +119,10 @@ export function UserAccessPanel({ sites }: Props) {
 
   const openEdit = (user: SystemUser) => {
     if (user.protected) {
-      showToast('Las cuentas técnicas se protegen y no se editan desde este formulario.', 'warning');
-      return;
+      if (user.id !== currentUser?.id) {
+        showToast('Las cuentas técnicas solo pueden gestionar su propia visibilidad.', 'warning');
+        return;
+      }
     }
     setEditing(user);
     setForm({
@@ -129,7 +132,9 @@ export function UserAccessPanel({ sites }: Props) {
       roleCode: user.role.code,
       siteId: user.scope.siteId ? String(user.scope.siteId) : '',
       status: user.status,
-      moduleCodes: user.access.modules.map(module => module.code),
+      moduleCodes: user.protected && user.id === currentUser?.id
+        ? currentUser.modulos_visibles ?? user.access.modules.map(module => module.code)
+        : user.access.modules.map(module => module.code),
     });
     setFormOpen(true);
   };
@@ -149,6 +154,21 @@ export function UserAccessPanel({ sites }: Props) {
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedRole) return;
+    if (editingOwnProtectedAccess) {
+      setSaving(true);
+      try {
+        const result = await adminAccessService.updateMyModules(form.moduleCodes);
+        updateUser?.({ modulos_visibles: result.modulos_visibles });
+        showToast('La visibilidad de tu pantalla fue actualizada.', 'success');
+        setFormOpen(false);
+        await load();
+      } catch (error: any) {
+        showToast(error.response?.data?.mensaje || 'No se pudieron guardar tus módulos.', 'error');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     if (selectedRole.scopeType === 'SEDE' && !form.siteId) {
       showToast('Selecciona la sede que podrá operar este usuario.', 'warning');
       return;
@@ -208,24 +228,6 @@ export function UserAccessPanel({ sites }: Props) {
     }
   };
 
-  const suspend = async (user: SystemUser) => {
-    const confirmed = await showConfirm({
-      title: 'Suspender usuario',
-      message: `${user.name} perderá el acceso al sistema, pero su historial permanecerá disponible.`,
-      confirmText: 'Suspender acceso',
-      type: 'danger',
-    });
-    if (!confirmed) return;
-    try {
-      await adminAccessService.suspendUser(user.id);
-      showToast('Acceso suspendido correctamente.', 'success');
-      setDetail(null);
-      await load();
-    } catch (error: any) {
-      showToast(error.response?.data?.mensaje || 'No se pudo suspender el usuario.', 'error');
-    }
-  };
-
   return (
     <section className={styles.panel} id="usuarios-panel">
       <header className={styles.panelHeader}>
@@ -269,7 +271,9 @@ export function UserAccessPanel({ sites }: Props) {
               <tr key={user.id}>
                 <td>
                   <button className={styles.identityButton} onClick={() => void openDetail(user)}>
-                    <span className={user.protected ? styles.systemAvatar : styles.avatar}>{initials(user.name)}</span>
+                    <span className={user.protected ? styles.systemAvatar : styles.avatar}>
+                      <img src={resolveUserAvatar(user)} alt={`Avatar de ${user.name}`} />
+                    </span>
                     <span><strong>{user.name}</strong><small>@{user.username}</small></span>
                   </button>
                 </td>
@@ -289,7 +293,7 @@ export function UserAccessPanel({ sites }: Props) {
                 <td>
                   <div className={styles.rowActions}>
                     <button className={styles.viewAction} aria-label={`Ver ${user.name}`} data-tooltip="Ver expediente" onClick={() => void openDetail(user)}><Eye size={15} /></button>
-                    {!user.protected && <button className={styles.editAction} aria-label={`Editar ${user.name}`} data-tooltip="Editar acceso" onClick={() => openEdit(user)}><Edit3 size={15} /></button>}
+                    {(!user.protected || user.id === currentUser?.id) && <button className={styles.editAction} aria-label={`Editar ${user.name}`} data-tooltip={user.protected ? 'Personalizar mis módulos' : 'Editar acceso'} onClick={() => openEdit(user)}><Edit3 size={15} /></button>}
                     {(!user.protected || user.id === currentUser?.id) && (
                       <button className={styles.passwordAction} aria-label={`Cambiar contraseña de ${user.name}`} data-tooltip={user.id === currentUser?.id ? 'Cambiar mi contraseña' : 'Restablecer contraseña'} onClick={() => openPassword(user)}><KeyRound size={15} /></button>
                     )}
@@ -305,73 +309,99 @@ export function UserAccessPanel({ sites }: Props) {
         <div className={styles.overlay} onMouseDown={event => event.target === event.currentTarget && setFormOpen(false)}>
           <form className={styles.modal} onSubmit={save}>
             <header className={styles.modalHeader}>
-              <div><span>GESTIÓN DE ACCESO</span><h3>{editing ? 'Editar usuario' : 'Nuevo usuario empresarial'}</h3><p>Define la identidad, función y ámbito autorizado.</p></div>
+              <div>
+                <span>GESTIÓN DE ACCESO</span>
+                <h3>{editingOwnProtectedAccess ? 'Personalizar mis módulos' : editing ? 'Editar usuario' : 'Nuevo usuario empresarial'}</h3>
+                <p>{editingOwnProtectedAccess ? 'Define qué áreas operativas quieres visualizar en tu sesión.' : 'Define la identidad, función y ámbito autorizado.'}</p>
+              </div>
               <button type="button" aria-label="Cerrar" onClick={() => setFormOpen(false)}><X size={19} /></button>
             </header>
             <div className={styles.modalBody}>
-              <div className={styles.twoColumns}>
-                <label>Nombre completo<input required value={form.name} onChange={e => setForm(current => ({ ...current, name: e.target.value }))} placeholder="Ej. Juan Pérez" /></label>
-                <label>Usuario<input required value={form.username} onChange={e => setForm(current => ({ ...current, username: e.target.value }))} placeholder="juan.perez" autoCapitalize="none" /></label>
-              </div>
-              <div className={styles.twoColumns}>
-                <label>Rol<select value={form.roleCode} onChange={e => {
-                  const nextRole = managedRoles.find(role => role.code === e.target.value);
-                  setForm(current => ({
-                    ...current,
-                    roleCode: e.target.value,
-                    siteId: '',
-                    moduleCodes: nextRole?.modules.map(module => module.code) ?? [],
-                  }));
-                }}>{managedRoles.map(role => <option value={role.code} key={role.code}>{role.name}</option>)}</select><small>{selectedRole?.description}</small></label>
-                <label>Sede<select value={form.siteId} disabled={selectedRole?.scopeType !== 'SEDE'} required={selectedRole?.scopeType === 'SEDE'} onChange={e => setForm(current => ({ ...current, siteId: e.target.value }))}><option value="">Seleccionar sede</option>{activeSites.map(site => <option key={site.id} value={site.id}>{site.nombre}</option>)}</select><small>{selectedRole?.scopeType === 'SEDE' ? 'Operará únicamente esta sede.' : 'El rol tiene alcance corporativo.'}</small></label>
-              </div>
-              <div className={styles.twoColumns}>
-                <label>Estado<select value={form.status} onChange={e => setForm(current => ({ ...current, status: e.target.value as SystemUserStatus }))}><option value="activo">Activo</option><option value="inactivo">Suspendido</option></select></label>
-                {!editing && <label>Contraseña inicial<input type="password" minLength={12} required value={form.password} onChange={e => setForm(current => ({ ...current, password: e.target.value }))} placeholder="Clave segura" /><small>12 caracteres con mayúscula, minúscula, número y símbolo.</small></label>}
-              </div>
+              {!editingOwnProtectedAccess && <>
+                <div className={styles.twoColumns}>
+                  <label>Nombre completo<input required value={form.name} onChange={e => setForm(current => ({ ...current, name: e.target.value }))} placeholder="Ej. Juan Pérez" /></label>
+                  <label>Usuario<input required value={form.username} onChange={e => setForm(current => ({ ...current, username: e.target.value }))} placeholder="juan.perez" autoCapitalize="none" /></label>
+                </div>
+                <div className={styles.twoColumns}>
+                  <label>Rol<select value={form.roleCode} onChange={e => {
+                    const nextRole = managedRoles.find(role => role.code === e.target.value);
+                    setForm(current => ({
+                      ...current,
+                      roleCode: e.target.value,
+                      siteId: '',
+                      moduleCodes: nextRole?.modules.map(module => module.code) ?? [],
+                    }));
+                  }}>{managedRoles.map(role => <option value={role.code} key={role.code}>{role.name}</option>)}</select><small>{selectedRole?.description}</small></label>
+                  <label>Sede<select value={form.siteId} disabled={selectedRole?.scopeType !== 'SEDE'} required={selectedRole?.scopeType === 'SEDE'} onChange={e => setForm(current => ({ ...current, siteId: e.target.value }))}><option value="">Seleccionar sede</option>{activeSites.map(site => <option key={site.id} value={site.id}>{site.nombre}</option>)}</select><small>{selectedRole?.scopeType === 'SEDE' ? 'Operará únicamente esta sede.' : 'El rol tiene alcance corporativo.'}</small></label>
+                </div>
+                <div className={styles.twoColumns}>
+                  <label>Estado<select value={form.status} onChange={e => setForm(current => ({ ...current, status: e.target.value as SystemUserStatus }))}><option value="activo">Activo</option><option value="inactivo">Suspendido</option></select></label>
+                  {!editing && <label>Contraseña inicial<input type="password" minLength={4} maxLength={72} required value={form.password} onChange={e => setForm(current => ({ ...current, password: e.target.value }))} placeholder="Mínimo 4 caracteres" /><small>Usa entre 4 y 72 caracteres.</small></label>}
+                </div>
+              </>}
               <fieldset className={styles.moduleSelector}>
-                <legend>Accesos operativos</legend>
-                <p>Selecciona solamente los módulos necesarios para su función.</p>
+                <legend>{editingOwnProtectedAccess ? 'Módulos visibles en el menú' : 'Accesos operativos'}</legend>
+                <p>{editingOwnProtectedAccess ? 'Desmarca las áreas que no necesitas ver. Podrás habilitarlas nuevamente cuando quieras.' : 'Selecciona solamente los módulos necesarios para su función.'}</p>
                 <div>
                   {selectedRole?.modules.map(module => {
                     const checked = form.moduleCodes.includes(module.code);
+                    const required = editingOwnProtectedAccess && module.code === 'admin.panel.ver';
                     return (
                       <label key={module.code} className={checked ? styles.moduleOptionActive : styles.moduleOption}>
-                        <input type="checkbox" checked={checked} onChange={() => setForm(current => ({
+                        <input type="checkbox" checked={checked} disabled={required} onChange={() => setForm(current => ({
                           ...current,
                           moduleCodes: checked
                             ? current.moduleCodes.filter(code => code !== module.code)
                             : [...current.moduleCodes, module.code],
                         }))} />
                         <CheckCircle2 size={15} />
-                        <span>{module.name}</span>
+                        <span>{module.name}{required ? ' · obligatorio' : ''}</span>
                       </label>
                     );
                   })}
                 </div>
               </fieldset>
-              <div className={styles.accountNotice}><LockKeyhole size={17} /><span><strong>Principio de mínimo acceso</strong>El rol define el límite y esta selección solo puede restringirlo.</span></div>
+              <div className={styles.accountNotice}><LockKeyhole size={17} /><span><strong>{editingOwnProtectedAccess ? 'Permisos protegidos' : 'Principio de mínimo acceso'}</strong>{editingOwnProtectedAccess ? 'Esta selección solo ordena tu menú; tus permisos administrativos permanecen activos.' : 'El rol define el límite y esta selección solo puede restringirlo.'}</span></div>
             </div>
-            <footer className={styles.modalFooter}><button type="button" className={styles.secondaryButton} onClick={() => setFormOpen(false)}>Cancelar</button><button className={styles.primaryButton} disabled={saving}>{saving ? 'Guardando…' : 'Guardar usuario'}</button></footer>
+            <footer className={styles.modalFooter}><button type="button" className={styles.secondaryButton} onClick={() => setFormOpen(false)}>Cancelar</button><button className={styles.primaryButton} disabled={saving}>{saving ? 'Guardando…' : editingOwnProtectedAccess ? 'Guardar visualización' : 'Guardar usuario'}</button></footer>
           </form>
         </div>
       )}
 
       {detail && (
         <div className={styles.drawerOverlay} onMouseDown={event => event.target === event.currentTarget && setDetail(null)}>
-          <aside className={styles.drawer}>
-            <header className={styles.drawerHeader}><div className={detail.protected ? styles.systemAvatarLarge : styles.avatarLarge}>{initials(detail.name)}</div><div><h3>{detail.name}</h3><p>@{detail.username}</p><span className={detail.status === 'activo' ? styles.activeStatus : styles.inactiveStatus}><i />{detail.status === 'activo' ? 'Activo' : 'Suspendido'}</span></div><button aria-label="Cerrar detalle" onClick={() => setDetail(null)}><X size={20} /></button></header>
+          <aside className={styles.drawer} role="dialog" aria-modal="true" aria-labelledby="user-access-title">
+            <header className={styles.drawerHeader}>
+              <button className={styles.drawerClose} aria-label="Cerrar detalle" onClick={() => setDetail(null)}><X size={20} /></button>
+              <div className={detail.protected ? styles.systemAvatarLarge : styles.avatarLarge}>
+                <img src={resolveUserAvatar(detail)} alt={`Avatar de ${detail.name}`} />
+              </div>
+              <span className={styles.recordLabel}>EXPEDIENTE DE ACCESO</span>
+              <h3 id="user-access-title">{detail.name}</h3>
+              <p>@{detail.username}</p>
+              <div className={styles.identityMeta}>
+                <span className={detail.status === 'activo' ? styles.activeStatus : styles.inactiveStatus}><i />{detail.status === 'activo' ? 'Activo' : 'Suspendido'}</span>
+                <span><ShieldCheck size={14} />{detail.role.name}</span>
+              </div>
+            </header>
             <div className={styles.drawerBody}>
-              <section><h4>Organización y alcance</h4><dl><div><dt>Tipo de cuenta</dt><dd>{detail.userType === 'SISTEMA' ? 'Sistema' : 'Empresa'}</dd></div><div><dt>Rol</dt><dd>{detail.role.name}</dd></div><div><dt>Ámbito</dt><dd>{detail.scope.label}</dd></div></dl></section>
-              <section><h4>Accesos</h4><div className={styles.moduleList}>{detail.access.modules.map(module => <span key={module.code}><CheckCircle2 size={14} />{module.name}</span>)}</div></section>
-              <section><h4>Seguridad</h4><dl><div><dt>Último acceso</dt><dd>{formatDateTime(detail.lastAccessAt)}</dd></div><div><dt>Contraseña</dt><dd>Configurada</dd></div><div><dt>Último cambio</dt><dd>{formatDateTime(detail.passwordUpdatedAt)}</dd></div></dl></section>
-              <section><h4>Actividad reciente</h4>{detailLoading ? <p className={styles.muted}>Cargando actividad…</p> : detail.recentActivity.length ? <div className={styles.timeline}>{detail.recentActivity.map((activity, index) => <div key={`${activity.createdAt}-${index}`}><Clock3 size={14} /><span><strong>{eventLabels[activity.event] ?? activity.event}</strong><small>{formatDateTime(activity.createdAt)}{activity.ip ? ` · ${activity.ip}` : ''}</small></span></div>)}</div> : <p className={styles.muted}>Aún no hay eventos administrativos registrados.</p>}</section>
+              <section className={styles.detailSection}>
+                <div className={styles.sectionHeading}><Building2 size={18} /><div><h4>Organización y alcance</h4><p>Responsabilidad asignada dentro de la plataforma.</p></div></div>
+                <dl className={styles.factGrid}><div><dt>Tipo de cuenta</dt><dd>{detail.userType === 'SISTEMA' ? 'Sistema' : 'Empresa'}</dd></div><div><dt>Rol operativo</dt><dd>{detail.role.name}</dd></div><div><dt>Ámbito autorizado</dt><dd>{detail.scope.label}</dd></div></dl>
+              </section>
+              <section className={styles.detailSection}>
+                <div className={styles.sectionHeading}><ShieldCheck size={18} /><div><h4>Accesos habilitados</h4><p>{detail.access.moduleCount} módulos disponibles para esta cuenta.</p></div></div>
+                <div className={styles.moduleList}>{detail.access.modules.map(module => <span key={module.code}><CheckCircle2 size={14} />{module.name}</span>)}</div>
+              </section>
+              <section className={styles.detailSection}>
+                <div className={styles.sectionHeading}><KeyRound size={18} /><div><h4>Seguridad de la cuenta</h4><p>Credenciales y últimos eventos de autenticación.</p></div></div>
+                <dl className={styles.securityGrid}><div><dt>Último acceso</dt><dd>{formatDateTime(detail.lastAccessAt)}</dd></div><div><dt>Contraseña</dt><dd>Configurada</dd></div><div><dt>Último cambio</dt><dd>{formatDateTime(detail.passwordUpdatedAt)}</dd></div></dl>
+              </section>
+              <section className={styles.detailSection}>
+                <div className={styles.sectionHeading}><Clock3 size={18} /><div><h4>Actividad reciente</h4><p>Trazabilidad administrativa de esta identidad.</p></div></div>
+                {detailLoading ? <p className={styles.emptyActivity}>Cargando actividad…</p> : detail.recentActivity.length ? <div className={styles.timeline}>{detail.recentActivity.map((activity, index) => <div key={`${activity.createdAt}-${index}`}><Clock3 size={14} /><span><strong>{eventLabels[activity.event] ?? activity.event}</strong><small>{formatDateTime(activity.createdAt)}{activity.ip ? ` · ${activity.ip}` : ''}</small></span></div>)}</div> : <p className={styles.emptyActivity}>Aún no hay eventos administrativos registrados.</p>}
+              </section>
             </div>
-            <footer className={styles.drawerFooter}>
-              {!detail.protected && <button className={styles.secondaryButton} onClick={() => openEdit(detail)}><Edit3 size={15} /> Editar accesos</button>}
-              {(!detail.protected || detail.id === currentUser?.id) && <button className={styles.secondaryButton} onClick={() => openPassword(detail)}><KeyRound size={15} /> Cambiar contraseña</button>}
-              {!detail.protected && detail.status === 'activo' && <button className={styles.dangerButton} onClick={() => void suspend(detail)}>Suspender</button>}
-            </footer>
           </aside>
         </div>
       )}
@@ -384,13 +414,18 @@ export function UserAccessPanel({ sites }: Props) {
               <button type="button" aria-label="Cerrar" onClick={() => setPasswordTarget(null)}><X size={19} /></button>
             </header>
             <div className={styles.modalBody}>
-              <div className={styles.passwordSummary}><KeyRound size={22} /><div><strong>Cambio protegido y auditable</strong><p>{passwordTarget.id === currentUser?.id ? 'Confirma tu contraseña actual antes de guardar.' : 'Confirma tu identidad de administrador para restablecer este acceso.'}</p></div></div>
+              <div className={styles.passwordSummary}>
+                <span className={styles.passwordTargetAvatar}>
+                  <img src={resolveUserAvatar(passwordTarget)} alt={`Avatar de ${passwordTarget.name}`} />
+                </span>
+                <div><strong>Cambio protegido y auditable</strong><p>{passwordTarget.id === currentUser?.id ? 'Confirma tu contraseña actual antes de guardar.' : 'Confirma tu identidad de administrador para restablecer este acceso.'}</p></div>
+              </div>
               <label>Tu contraseña de administrador<input type="password" required autoComplete="current-password" value={passwordForm.current} onChange={e => setPasswordForm(current => ({ ...current, current: e.target.value }))} /></label>
               <div className={styles.twoColumns}>
-                <label>Nueva contraseña<input type="password" required minLength={12} autoComplete="new-password" value={passwordForm.next} onChange={e => setPasswordForm(current => ({ ...current, next: e.target.value }))} /></label>
-                <label>Confirmar contraseña<input type="password" required minLength={12} autoComplete="new-password" value={passwordForm.confirm} onChange={e => setPasswordForm(current => ({ ...current, confirm: e.target.value }))} /></label>
+                <label>Nueva contraseña<input type="password" required minLength={4} maxLength={72} autoComplete="new-password" value={passwordForm.next} onChange={e => setPasswordForm(current => ({ ...current, next: e.target.value }))} /></label>
+                <label>Confirmar contraseña<input type="password" required minLength={4} maxLength={72} autoComplete="new-password" value={passwordForm.confirm} onChange={e => setPasswordForm(current => ({ ...current, confirm: e.target.value }))} /></label>
               </div>
-              <p className={styles.passwordPolicy}>12 a 72 caracteres, con mayúscula, minúscula, número y símbolo.</p>
+              <p className={styles.passwordPolicy}>La contraseña puede tener entre 4 y 72 caracteres.</p>
             </div>
             <footer className={styles.modalFooter}><button type="button" className={styles.secondaryButton} onClick={() => setPasswordTarget(null)}>Cancelar</button><button className={styles.primaryButton} disabled={saving}><LockKeyhole size={15} />{saving ? 'Actualizando…' : 'Actualizar contraseña'}</button></footer>
           </form>

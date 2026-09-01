@@ -6,6 +6,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Save,
   ShieldCheck,
   Trash2,
   Users,
@@ -94,6 +95,7 @@ export const Admin: React.FC = () => {
   const [showSedeModal, setShowSedeModal] = useState(false);
   const [showUrbanoModal, setShowUrbanoModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [savingForm, setSavingForm] = useState(false);
 
   // Editing state
   const [editingSede, setEditingSede] = useState<SedeItem | null>(null);
@@ -144,7 +146,8 @@ export const Admin: React.FC = () => {
   };
   const handleSaveSede = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sedeForm.nombre.trim()) return;
+    if (!sedeForm.nombre.trim() || savingForm) return;
+    setSavingForm(true);
     try {
       const payload = { nombre: sedeForm.nombre.trim(), direccion: sedeForm.direccion.trim() || null, telefono: sedeForm.telefono.trim() || null, estado: sedeForm.estado };
       if (editingSede) {
@@ -156,6 +159,7 @@ export const Admin: React.FC = () => {
       }
       setShowSedeModal(false); resetSf(); await loadAll();
     } catch (err: any) { showToast(err.response?.data?.mensaje || 'No se pudo guardar la sede', 'error'); }
+    finally { setSavingForm(false); }
   };
   const handleDeleteSede = async (id: number, nombre: string) => {
     const ok = await showConfirm({ title: 'Eliminar sede', message: `Se eliminará la sede «${nombre}» si no tiene usuarios, rutas ni sesiones. ¿Deseas continuar?`, confirmText: 'Eliminar sede', type: 'danger' });
@@ -174,8 +178,10 @@ export const Admin: React.FC = () => {
   };
   const handleSaveUrbano = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (savingForm) return;
     if (!urbanoForm.sedeId || !urbanoForm.username.trim()) { showToast('Completa todos los campos obligatorios', 'warning'); return; }
     if (!editingUrbano && !urbanoForm.password.trim()) { showToast('La contraseña Urbano es obligatoria al crear el acceso.', 'warning'); return; }
+    setSavingForm(true);
     try {
       const payload: any = { username: urbanoForm.username.trim(), estado: urbanoForm.estado };
       if (urbanoForm.password.trim()) payload.password = urbanoForm.password.trim();
@@ -183,6 +189,7 @@ export const Admin: React.FC = () => {
       showToast('Acceso Urbano guardado correctamente.', 'success');
       setShowUrbanoModal(false); resetUrf(); await loadUrbano();
     } catch (err: any) { showToast(err.response?.data?.mensaje || 'No se pudo guardar el acceso Urbano', 'error'); }
+    finally { setSavingForm(false); }
   };
   const handleDeleteUrbano = async (c: UrbanoCredential) => {
     const ok = await showConfirm({ title: 'Eliminar acceso Urbano', message: `Se eliminará la configuración de Urbano para la sede "${c.sede_nombre}". La sede dejará de consultar rutas hasta configurar un nuevo acceso.`, confirmText: 'Eliminar acceso', type: 'danger' });
@@ -274,9 +281,10 @@ export const Admin: React.FC = () => {
         {/* PANEL SEDES */}
         {activeView === 'sites' && <section className="panel" id="sedes-panel">
           <div className="panel-head">
-            <div>
-              <div className="panel-title">Sedes registradas</div>
-              <div className="panel-sub">Alta, edición y estado operativo de cada sede.</div>
+            <div className="panel-heading-copy">
+              <span className="panel-eyebrow">ESTRUCTURA OPERATIVA</span>
+              <h2 className="panel-title">Sedes registradas</h2>
+              <p className="panel-sub">Alta, edición y estado operativo de cada sede.</p>
             </div>
             <div className="actions">
               <button className="btn btn-soft btn-sm" onClick={loadSedes}><RefreshCw size={15} /> Actualizar</button>
@@ -379,50 +387,58 @@ export const Admin: React.FC = () => {
 
       {/* ── MODAL SEDE ── */}
       {showSedeModal && (
-        <div className="modal-overlay open" onClick={() => { setShowSedeModal(false); resetSf(); }}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-accent" />
+        <div className="modal-overlay open" onClick={() => { if (!savingForm) { setShowSedeModal(false); resetSf(); } }}>
+          <div className="modal admin-form-modal" role="dialog" aria-modal="true" aria-labelledby="site-modal-title" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <div className="modal-head-content">
                 <div className="modal-head-icon">
-                  <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>
+                  <Building2 size={21} />
                 </div>
                 <div>
-                  <h3>{editingSede ? 'Editar sede' : 'Nueva sede'}</h3>
-                  <p>{editingSede ? 'Actualiza los datos de la sede.' : 'Registra una nueva sucursal y define su información base.'}</p>
+                  <span className="modal-eyebrow">ESTRUCTURA OPERATIVA</span>
+                  <h3 id="site-modal-title">{editingSede ? 'Editar sede' : 'Registrar nueva sede'}</h3>
+                  <p>{editingSede ? 'Actualiza la identidad y disponibilidad de esta ubicación.' : 'Incorpora una ubicación a la estructura de MyG Express.'}</p>
                 </div>
               </div>
-              <button className="close-btn" type="button" onClick={() => { setShowSedeModal(false); resetSf(); }}>
+              <button className="close-btn" type="button" aria-label="Cerrar formulario" disabled={savingForm} onClick={() => { setShowSedeModal(false); resetSf(); }}>
                 <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
             <form onSubmit={handleSaveSede}>
               <div className="modal-body">
-                <div className="field">
-                  <label>Nombre de la sede</label>
-                  <input type="text" placeholder="Ej: La Merced" value={sedeForm.nombre} onChange={e => setSf(f => ({ ...f, nombre: e.target.value }))} required />
+                <div className="form-section-heading">
+                  <div><strong>Información de la sede</strong><span>Datos visibles en la operación y asignación de usuarios.</span></div>
+                  <span className="required-legend">* Obligatorio</span>
                 </div>
-                <div className="field-row">
+                <div className="field field-wide">
+                  <label htmlFor="site-name">Nombre de la sede <b>*</b></label>
+                  <input id="site-name" type="text" autoComplete="organization" maxLength={120} placeholder="Ej. La Merced" value={sedeForm.nombre} onChange={e => setSf(f => ({ ...f, nombre: e.target.value }))} required />
+                </div>
+                <div className="field-row site-contact-grid">
                   <div className="field">
-                    <label>Dirección</label>
-                    <input type="text" placeholder="Dirección o referencia" value={sedeForm.direccion} onChange={e => setSf(f => ({ ...f, direccion: e.target.value }))} />
+                    <label htmlFor="site-address">Dirección operativa</label>
+                    <input id="site-address" type="text" autoComplete="street-address" maxLength={240} placeholder="Dirección o referencia" value={sedeForm.direccion} onChange={e => setSf(f => ({ ...f, direccion: e.target.value }))} />
                   </div>
                   <div className="field">
-                    <label>Teléfono</label>
-                    <input type="text" placeholder="Número de contacto" value={sedeForm.telefono} onChange={e => setSf(f => ({ ...f, telefono: e.target.value }))} />
+                    <label htmlFor="site-phone">Teléfono de contacto</label>
+                    <input id="site-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={30} placeholder="Número de contacto" value={sedeForm.telefono} onChange={e => setSf(f => ({ ...f, telefono: e.target.value }))} />
                   </div>
                 </div>
                 <div className="field">
-                  <label>Estado</label>
-                  <select value={sedeForm.estado} onChange={e => setSf(f => ({ ...f, estado: e.target.value }))}>
+                  <label htmlFor="site-status">Estado operativo</label>
+                  <select id="site-status" value={sedeForm.estado} onChange={e => setSf(f => ({ ...f, estado: e.target.value }))}>
                     <option value="activo">Activa</option>
                     <option value="inactivo">Inactiva</option>
                   </select>
+                  <span className="field-hint">Una sede inactiva conserva su historial, pero queda fuera de nuevas operaciones.</span>
                 </div>
               </div>
               <div className="modal-foot">
-                <button type="button" className="btn btn-ghost" onClick={() => { setShowSedeModal(false); resetSf(); }}>Cancelar</button>
-                <button type="submit" className="btn btn-primary" id="btn-save-sede">Guardar sede</button>
+                <span className="modal-foot-note"><ShieldCheck size={15} /> Configuración administrativa</span>
+                <div className="modal-foot-actions">
+                  <button type="button" className="btn btn-ghost" disabled={savingForm} onClick={() => { setShowSedeModal(false); resetSf(); }}>Cancelar</button>
+                  <button type="submit" className="btn btn-primary admin-form-submit" id="btn-save-sede" disabled={savingForm}><Save size={15} /> {savingForm ? 'Guardando…' : editingSede ? 'Guardar cambios' : 'Registrar sede'}</button>
+                </div>
               </div>
             </form>
           </div>
@@ -431,58 +447,65 @@ export const Admin: React.FC = () => {
 
       {/* ── MODAL URBANO ── */}
       {showUrbanoModal && (
-        <div className="modal-overlay open" onClick={() => { setShowUrbanoModal(false); resetUrf(); }}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-accent" />
+        <div className="modal-overlay open" onClick={() => { if (!savingForm) { setShowUrbanoModal(false); resetUrf(); } }}>
+          <div className="modal admin-form-modal integration-form-modal" role="dialog" aria-modal="true" aria-labelledby="urbano-modal-title" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <div className="modal-head-content">
                 <div className="modal-head-icon">
-                  <svg viewBox="0 0 24 24"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                  <Network size={21} />
                 </div>
                 <div>
-                  <h3>{editingUrbano ? 'Editar acceso Urbano' : 'Configurar acceso Urbano'}</h3>
-                  <p>Asigna el usuario de Urbano que usará esta sede para consultar rutas.</p>
+                  <span className="modal-eyebrow">INTEGRACIÓN POR SEDE</span>
+                  <h3 id="urbano-modal-title">{editingUrbano ? 'Editar acceso Urbano' : 'Configurar acceso Urbano'}</h3>
+                  <p>Vincula una sede con sus credenciales operativas de consulta.</p>
                 </div>
               </div>
-              <button className="close-btn" type="button" onClick={() => { setShowUrbanoModal(false); resetUrf(); }}>
+              <button className="close-btn" type="button" aria-label="Cerrar formulario" disabled={savingForm} onClick={() => { setShowUrbanoModal(false); resetUrf(); }}>
                 <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
             <form onSubmit={handleSaveUrbano}>
               <div className="modal-body">
                 <div className="secret-note">
-                  <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-                  <span><strong>Acceso protegido.</strong> La contraseña nunca se muestra; solo puedes reemplazarla.</span>
+                  <ShieldCheck size={20} />
+                  <span><strong>Credencial protegida</strong> La contraseña permanece cifrada y nunca se muestra nuevamente.</span>
+                </div>
+                <div className="form-section-heading">
+                  <div><strong>Asignación operativa</strong><span>Define la sede, la cuenta externa y su disponibilidad.</span></div>
+                  <span className="required-legend">* Obligatorio</span>
                 </div>
                 <div className="field">
-                  <label>Sede</label>
-                  <select value={urbanoForm.sedeId} onChange={e => setUrf(f => ({ ...f, sedeId: e.target.value }))} disabled={!!editingUrbano} required>
+                  <label htmlFor="urbano-site">Sede vinculada <b>*</b></label>
+                  <select id="urbano-site" value={urbanoForm.sedeId} onChange={e => setUrf(f => ({ ...f, sedeId: e.target.value }))} disabled={!!editingUrbano} required>
                     <option value="">Seleccionar sede</option>
                     {sedes.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                   </select>
                 </div>
                 <div className="field-row">
                   <div className="field">
-                    <label>Usuario Urbano</label>
-                    <input type="text" placeholder="Usuario asignado por Urbano" value={urbanoForm.username} onChange={e => setUrf(f => ({ ...f, username: e.target.value }))} required />
+                    <label htmlFor="urbano-user">Usuario Urbano <b>*</b></label>
+                    <input id="urbano-user" type="text" autoComplete="username" maxLength={120} placeholder="Usuario asignado" value={urbanoForm.username} onChange={e => setUrf(f => ({ ...f, username: e.target.value }))} required />
                   </div>
                   <div className="field">
-                    <label>Estado</label>
-                    <select value={urbanoForm.estado} onChange={e => setUrf(f => ({ ...f, estado: e.target.value }))}>
+                    <label htmlFor="urbano-status">Estado de integración</label>
+                    <select id="urbano-status" value={urbanoForm.estado} onChange={e => setUrf(f => ({ ...f, estado: e.target.value }))}>
                       <option value="activo">Activo</option>
                       <option value="inactivo">Inactivo</option>
                     </select>
                   </div>
                 </div>
                 <div className="field">
-                  <label>Contraseña Urbano</label>
-                  <input type="password" placeholder={editingUrbano ? 'Dejar vacía para conservar la actual' : 'Obligatoria al crear'} value={urbanoForm.password} onChange={e => setUrf(f => ({ ...f, password: e.target.value }))} />
-                  <span className="field-hint">{editingUrbano ? 'En edición puedes dejarla vacía para conservar la actual.' : 'Obligatoria al crear.'}</span>
+                  <label htmlFor="urbano-password">Contraseña Urbano {!editingUrbano && <b>*</b>}</label>
+                  <input id="urbano-password" type="password" autoComplete="new-password" maxLength={200} required={!editingUrbano} placeholder={editingUrbano ? 'Escribe solo para reemplazarla' : 'Ingresa la contraseña asignada'} value={urbanoForm.password} onChange={e => setUrf(f => ({ ...f, password: e.target.value }))} />
+                  <span className="field-hint">{editingUrbano ? 'Déjala vacía para conservar la credencial vigente.' : 'Se almacenará protegida al crear la integración.'}</span>
                 </div>
               </div>
               <div className="modal-foot">
-                <button type="button" className="btn btn-ghost" onClick={() => { setShowUrbanoModal(false); resetUrf(); }}>Cancelar</button>
-                <button type="submit" className="btn btn-primary" id="btn-save-urbano">Guardar acceso</button>
+                <span className="modal-foot-note"><KeyRound size={15} /> Acceso restringido</span>
+                <div className="modal-foot-actions">
+                  <button type="button" className="btn btn-ghost" disabled={savingForm} onClick={() => { setShowUrbanoModal(false); resetUrf(); }}>Cancelar</button>
+                  <button type="submit" className="btn btn-primary admin-form-submit" id="btn-save-urbano" disabled={savingForm}><Save size={15} /> {savingForm ? 'Guardando…' : editingUrbano ? 'Guardar cambios' : 'Vincular acceso'}</button>
+                </div>
               </div>
             </form>
           </div>

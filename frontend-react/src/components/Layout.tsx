@@ -66,6 +66,9 @@ export const Layout: React.FC = () => {
       if (!user?.permisos?.includes(item.permission)) {
         return false;
       }
+      if (Array.isArray(user.modulos_visibles) && !user.modulos_visibles.includes(item.permission)) {
+        return false;
+      }
     }
 
     return true;

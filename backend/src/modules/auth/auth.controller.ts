@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { loadAccessContext } from '../../core/auth/accessControl';
 import { AuthService } from './auth.service';
+import { loadUserUiPreferences } from '../../core/auth/userUiPreferences';
 
-function publicUser(
+async function publicUser(
   user: {
     id: number;
     nombre: string;
@@ -14,6 +15,7 @@ function publicUser(
   },
   access: Awaited<ReturnType<typeof loadAccessContext>>,
 ) {
+  const uiPreferences = await loadUserUiPreferences(user.id);
   return {
     id: user.id,
     nombre: user.nombre,
@@ -28,6 +30,7 @@ function publicUser(
     sede_ids: access.siteIds,
     sede_nombre: access.siteName || 'Administración Central',
     permisos: access.permissions,
+    modulos_visibles: uiPreferences.visibleModules,
     estado: user.estado,
     ultimo_acceso_at: user.ultimoAccesoAt?.toISOString() ?? null,
     password_actualizado_at: user.passwordActualizadoAt?.toISOString() ?? null,
@@ -52,7 +55,7 @@ export class AuthController {
     try {
       const user = await this.authService.obtenerPerfil(req.user?.id);
       const access = await loadAccessContext(user.id);
-      return res.json({ ok: true, user: publicUser(user, access) });
+      return res.json({ ok: true, user: await publicUser(user, access) });
     } catch (error: any) {
       return res.status(500).json({
         ok: false,
@@ -76,7 +79,7 @@ export class AuthController {
       return res.json({
         ok: true,
         message: 'Perfil actualizado correctamente',
-        user: publicUser(user, access),
+        user: await publicUser(user, access),
       });
     } catch (error: any) {
       if (error?.code === 'ER_DUP_ENTRY' || error?.message?.includes('ya esta en uso')) {
@@ -91,7 +94,7 @@ export class AuthController {
       if (!req.file) return res.status(400).json({ ok: false, message: 'Selecciona una foto para continuar' });
       const user = await this.authService.actualizarFotoPerfil(req.user?.id, req.file.buffer, req.file.mimetype);
       const access = await loadAccessContext(user.id);
-      return res.json({ ok: true, message: 'Foto de perfil actualizada', user: publicUser(user, access) });
+      return res.json({ ok: true, message: 'Foto de perfil actualizada', user: await publicUser(user, access) });
     } catch (error: any) {
       return res.status(Number(error?.statusCode) || 400).json({ ok: false, code: error?.code, message: error.message });
     }
@@ -101,7 +104,7 @@ export class AuthController {
     try {
       const user = await this.authService.eliminarFotoPerfil(req.user?.id);
       const access = await loadAccessContext(user.id);
-      return res.json({ ok: true, message: 'Foto de perfil eliminada', user: publicUser(user, access) });
+      return res.json({ ok: true, message: 'Foto de perfil eliminada', user: await publicUser(user, access) });
     } catch (error: any) {
       return res.status(400).json({ ok: false, message: error.message });
     }

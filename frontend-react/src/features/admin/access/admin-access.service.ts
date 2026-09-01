@@ -1,5 +1,12 @@
 import apiClient from '../../../core/api/apiClient';
-import type { AccessCatalog, ChangeSystemUserPassword, SaveSystemUser, SystemUser, SystemUserDetail } from './types';
+import type {
+  AccessCatalog,
+  ChangeSystemUserPassword,
+  SaveSystemUser,
+  SystemUser,
+  SystemUserDetail,
+  UpdateMyModuleAccessResult,
+} from './types';
 
 export const adminAccessService = {
   async listUsers(): Promise<SystemUser[]> {
@@ -23,6 +30,13 @@ export const adminAccessService = {
 
   async updateUser(userId: number, input: SaveSystemUser): Promise<void> {
     await apiClient.put(`/admin/usuarios/${userId}`, input);
+  },
+
+  async updateMyModules(moduleCodes: string[]): Promise<UpdateMyModuleAccessResult> {
+    const response = await apiClient.patch('/admin/usuarios/me/modules', {
+      module_codes: moduleCodes,
+    });
+    return response.data.data;
   },
 
   async changePassword(userId: number, input: ChangeSystemUserPassword): Promise<void> {

@@ -100,29 +100,7 @@ export function ProfileModal({ open, user, onClose, onSave, onPhotoUpload, onPho
 
   if (!open || !user) return null;
 
-  // Real-time password strength calculation
-  const hasMinLength = password.length >= 12;
-  const hasLowercase = /[a-z]/.test(password);
-  const hasUppercase = /[A-Z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  const hasSpecial = /[^A-Za-z0-9]/.test(password);
-
-  let strengthScore = 0;
-  if (password) {
-    if (hasMinLength) strengthScore += 1;
-    if (hasLowercase && hasUppercase) strengthScore += 1;
-    if (hasNumber) strengthScore += 1;
-    if (hasSpecial) strengthScore += 1;
-  }
-
-  const getStrengthLabel = () => {
-    if (strengthScore <= 1) return { text: 'Insegura', color: '#ef4444', width: '25%' };
-    if (strengthScore === 2) return { text: 'Débil', color: '#f59e0b', width: '50%' };
-    if (strengthScore === 3) return { text: 'Fuerte', color: '#10b981', width: '75%' };
-    return { text: 'Muy Fuerte', color: '#059669', width: '100%' };
-  };
-
-  const strength = getStrengthLabel();
+  const passwordHasValidLength = password.length >= 4 && password.length <= 72;
   const passwordsMatch = password === confirmPassword;
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -148,8 +126,8 @@ export function ProfileModal({ open, user, onClose, onSave, onPhotoUpload, onPho
         showToast('Las contraseñas nuevas no coinciden.', 'warning');
         return;
       }
-      if (strengthScore < 3) {
-        showToast('La nueva contraseña debe cumplir con los criterios mínimos de seguridad (Fuerte).', 'warning');
+      if (!passwordHasValidLength) {
+        showToast('La nueva contraseña debe tener entre 4 y 72 caracteres.', 'warning');
         return;
       }
     }
@@ -354,7 +332,9 @@ export function ProfileModal({ open, user, onClose, onSave, onPhotoUpload, onPho
                         type={showNew ? 'text' : 'password'}
                         value={password}
                         onChange={e => setPassword(e.target.value)}
-                        placeholder="Mínimo 12 caracteres"
+                        placeholder="Mínimo 4 caracteres"
+                        minLength={4}
+                        maxLength={72}
                       />
                       <button
                         type="button"
@@ -367,53 +347,12 @@ export function ProfileModal({ open, user, onClose, onSave, onPhotoUpload, onPho
                     </div>
 
                     {password && (
-                      <div className={styles.passwordStrengthWrapper}>
-                        <div className={styles.strengthBarContainer}>
-                          <div
-                            className={styles.strengthBar}
-                            style={{
-                              width: strength.width,
-                              backgroundColor: strength.color,
-                            }}
-                          />
-                        </div>
-                        <span className={styles.strengthLabel} style={{ color: strength.color }}>
-                          Seguridad: {strength.text}
-                        </span>
-
-                        <ul className={styles.rulesList}>
-                          <li className={`${styles.ruleItem} ${hasMinLength ? styles.ruleItemSuccess : ''}`}>
-                            <span className={styles.ruleItemIcon}>
-                              {hasMinLength ? <Check /> : <X size={10} />}
-                            </span>
-                            Mínimo 12 caracteres
-                          </li>
-                          <li className={`${styles.ruleItem} ${hasLowercase ? styles.ruleItemSuccess : ''}`}>
-                            <span className={styles.ruleItemIcon}>
-                              {hasLowercase ? <Check /> : <X size={10} />}
-                            </span>
-                            Una minúscula
-                          </li>
-                          <li className={`${styles.ruleItem} ${hasUppercase ? styles.ruleItemSuccess : ''}`}>
-                            <span className={styles.ruleItemIcon}>
-                              {hasUppercase ? <Check /> : <X size={10} />}
-                            </span>
-                            Una Mayúscula
-                          </li>
-                          <li className={`${styles.ruleItem} ${hasNumber ? styles.ruleItemSuccess : ''}`}>
-                            <span className={styles.ruleItemIcon}>
-                              {hasNumber ? <Check /> : <X size={10} />}
-                            </span>
-                            Un Número
-                          </li>
-                          <li className={`${styles.ruleItem} ${hasSpecial ? styles.ruleItemSuccess : ''}`}>
-                            <span className={styles.ruleItemIcon}>
-                              {hasSpecial ? <Check /> : <X size={10} />}
-                            </span>
-                            Caracter especial
-                          </li>
-                        </ul>
-                      </div>
+                      <span
+                        className={styles.matchBadge}
+                        style={{ color: passwordHasValidLength ? '#059669' : '#ef4444' }}
+                      >
+                        {passwordHasValidLength ? '✓ Contraseña válida' : 'La contraseña debe tener al menos 4 caracteres'}
+                      </span>
                     )}
                   </div>
 
@@ -427,6 +366,8 @@ export function ProfileModal({ open, user, onClose, onSave, onPhotoUpload, onPho
                         value={confirmPassword}
                         onChange={e => setConfirmPassword(e.target.value)}
                         placeholder="Repite la contraseña"
+                        minLength={4}
+                        maxLength={72}
                       />
                       <button
                         type="button"

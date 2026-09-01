@@ -32,25 +32,25 @@ async function repositoryFixture() {
   };
 }
 
-test('actualizarPerfil normaliza datos y persiste una contraseña fuerte', async () => {
+test('actualizarPerfil acepta y persiste una contraseña de cuatro caracteres', async () => {
   const fixture = await repositoryFixture();
   const service = new AuthService(fixture.repository);
 
-  await service.actualizarPerfil(3, '  Renzo Morales  ', ' renzo_admin ', 'ActualSegura!123', 'NuevaSegura!123');
+  await service.actualizarPerfil(3, '  Renzo Morales  ', ' renzo_admin ', 'ActualSegura!123', '1234');
 
   const update = fixture.getUpdate();
   assert.equal(update.nombre, 'Renzo Morales');
   assert.equal(update.usuario, 'renzo_admin');
-  assert.equal(await bcrypt.compare('NuevaSegura!123', update.password), true);
+  assert.equal(await bcrypt.compare('1234', update.password), true);
 });
 
-test('actualizarPerfil rechaza contraseñas débiles antes de persistir', async () => {
+test('actualizarPerfil rechaza contraseñas de menos de cuatro caracteres', async () => {
   const fixture = await repositoryFixture();
   const service = new AuthService(fixture.repository);
 
   await assert.rejects(
-    service.actualizarPerfil(3, 'Renzo Morales', 'renzo_admin', 'ActualSegura!123', 'debil123'),
-    /12 caracteres/,
+    service.actualizarPerfil(3, 'Renzo Morales', 'renzo_admin', 'ActualSegura!123', '123'),
+    /entre 4 y 72 caracteres/,
   );
   assert.equal(fixture.getUpdate(), null);
 });

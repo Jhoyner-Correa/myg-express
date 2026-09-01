@@ -14,6 +14,7 @@ export type UserSession = {
   sede_ids?: number[];
   sede_nombre?: string;
   permisos?: string[];
+  modulos_visibles?: string[] | null;
   estado?: 'activo' | 'inactivo';
   ultimo_acceso_at?: string | null;
   password_actualizado_at?: string | null;

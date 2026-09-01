@@ -1,8 +1,10 @@
 import bcrypt from 'bcrypt';
 import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
-import { VISIBILITY_PERMISSIONS } from '../../../core/constants/permissions';
+import { PERMISSIONS, VISIBILITY_PERMISSIONS } from '../../../core/constants/permissions';
 import { ACCESS_SCOPES, USER_TYPES } from '../../../core/constants/roles';
+import { PasswordPolicyError, validateSystemPassword } from '../../../core/security/passwordPolicy';
+import { normalizeVisibleModules, saveUserUiPreferences } from '../../../core/auth/userUiPreferences';
 
 const MODULE_LABELS: Record<string, string> = {
   ADMIN: 'Administración',
@@ -29,6 +31,7 @@ type UserRow = RowDataPacket & {
   id: number;
   nombre: string;
   usuario: string;
+  foto: string | null;
   tipo_usuario: 'SISTEMA' | 'EMPRESA';
   estado: 'activo' | 'inactivo';
   ultimo_acceso_at: string | null;
@@ -94,6 +97,7 @@ function mapUser(row: UserRow) {
     id: Number(row.id),
     name: row.nombre,
     username: row.usuario,
+    foto: row.foto,
     userType: row.tipo_usuario,
     status: row.estado,
     lastAccessAt: row.ultimo_acceso_at,
@@ -164,7 +168,7 @@ function validateInput(input: SaveUserInput, isCreate: boolean): SaveUserInput {
     ...input,
     nombre: normalizeText(input.nombre),
     usuario: normalizeUsername(input.usuario),
-    password: normalizeText(input.password),
+    password: input.password === undefined ? undefined : String(input.password),
     roleCode: normalizeText(input.roleCode),
     estado: input.estado === 'inactivo' ? 'inactivo' as const : 'activo' as const,
     moduleCodes: Array.isArray(input.moduleCodes)
@@ -180,24 +184,19 @@ function validateInput(input: SaveUserInput, isCreate: boolean): SaveUserInput {
   if (isCreate && !normalized.password) {
     throw new AccessValidationError('La contraseña es obligatoria al crear la cuenta.');
   }
-  if (normalized.password) normalized.password = validateStrongPassword(normalized.password);
+  if (normalized.password) normalized.password = validatePassword(normalized.password);
   return normalized;
 }
 
-function validateStrongPassword(value: unknown): string {
-  const password = normalizeText(value);
-  const valid = password.length >= 12
-    && password.length <= 72
-    && /[a-z]/.test(password)
-    && /[A-Z]/.test(password)
-    && /\d/.test(password)
-    && /[^A-Za-z0-9]/.test(password);
-  if (!valid) {
-    throw new AccessValidationError(
-      'La contraseña debe tener entre 12 y 72 caracteres, con mayúscula, minúscula, número y símbolo.',
-    );
+function validatePassword(value: unknown): string {
+  try {
+    return validateSystemPassword(value);
+  } catch (error) {
+    if (error instanceof PasswordPolicyError) {
+      throw new AccessValidationError(error.message);
+    }
+    throw error;
   }
-  return password;
 }
 
 async function syncModuleAccess(
@@ -278,6 +277,7 @@ export class UserAccessAdminService {
          user.id,
          user.nombre,
          user.usuario,
+         user.foto,
          user.tipo_usuario,
          user.estado,
          user.ultimo_acceso_at,
@@ -314,7 +314,7 @@ export class UserAccessAdminService {
         AND user_permission.permiso_id = permission.id
         AND (user_permission.vigente_hasta IS NULL OR user_permission.vigente_hasta >= NOW())
        GROUP BY
-         user.id, user.nombre, user.usuario, user.tipo_usuario, user.estado,
+         user.id, user.nombre, user.usuario, user.foto, user.tipo_usuario, user.estado,
          user.ultimo_acceso_at, user.password_actualizado_at, user.created_at,
          access_role.codigo, access_role.nombre, assignment.alcance,
          assignment.empresa_id, company.nombre_comercial, assignment.sede_id, site.nombre
@@ -388,6 +388,79 @@ export class UserAccessAdminService {
         createdAt: item.created_at,
       })),
     };
+  }
+
+  async updateOwnModuleAccess(
+    rawModuleCodes: unknown,
+    context: AuditContext,
+  ): Promise<string[]> {
+    const moduleCodes = normalizeVisibleModules(rawModuleCodes);
+
+    if (!moduleCodes.includes(PERMISSIONS.ADMIN_PANEL_VIEW)) {
+      throw new AccessValidationError(
+        'El Panel central debe permanecer habilitado para administrar tus accesos.',
+      );
+    }
+
+    await runInTransaction(async connection => {
+      const [rows] = await connection.query<RowDataPacket[]>(
+        `SELECT user.tipo_usuario, assignment.rol_id, assignment.empresa_id, assignment.sede_id
+           FROM usuarios user
+           INNER JOIN usuario_asignaciones assignment
+             ON assignment.usuario_id = user.id
+            AND assignment.es_principal = 1
+            AND assignment.estado = 'ACTIVA'
+            AND assignment.vigente_desde <= NOW()
+            AND (assignment.vigente_hasta IS NULL OR assignment.vigente_hasta >= NOW())
+          WHERE user.id = ?
+          LIMIT 1 FOR UPDATE`,
+        [context.actorId],
+      );
+      if (!rows.length) throw new AccessValidationError('Usuario sin acceso principal activo.', 404);
+      if (rows[0].tipo_usuario !== USER_TYPES.SYSTEM) {
+        throw new AccessValidationError(
+          'Esta configuración personal está disponible únicamente para la cuenta principal.',
+          403,
+        );
+      }
+
+      const [allowedRows] = await connection.query<RowDataPacket[]>(
+        `SELECT permission.codigo
+           FROM rol_permisos role_permission
+           INNER JOIN permisos permission
+             ON permission.id = role_permission.permiso_id
+            AND permission.estado = 'ACTIVO'
+          WHERE role_permission.rol_id = ?
+            AND permission.codigo IN (?)`,
+        [Number(rows[0].rol_id), VISIBILITY_PERMISSIONS],
+      );
+      const allowedCodes = new Set(allowedRows.map(row => String(row.codigo)));
+      if (moduleCodes.some(code => !allowedCodes.has(code))) {
+        throw new AccessValidationError('Uno o más módulos no pertenece a tu rol actual.');
+      }
+
+      await saveUserUiPreferences(connection, context.actorId, moduleCodes);
+
+      // La visibilidad del menú es una preferencia, nunca una revocación de permisos.
+      await connection.query(
+        `DELETE user_permission
+           FROM usuario_permisos user_permission
+           INNER JOIN permisos permission ON permission.id = user_permission.permiso_id
+          WHERE user_permission.usuario_id = ?
+            AND permission.codigo IN (?)`,
+        [context.actorId, VISIBILITY_PERMISSIONS],
+      );
+      await audit(
+        connection,
+        context,
+        'USUARIO_MODULOS_ACTUALIZADOS',
+        context.actorId,
+        rows[0].empresa_id ? Number(rows[0].empresa_id) : null,
+        rows[0].sede_id ? Number(rows[0].sede_id) : null,
+        { modules: moduleCodes, mode: 'UI_PREFERENCE' },
+      );
+    });
+    return moduleCodes;
   }
 
   async createUser(rawInput: SaveUserInput, context: AuditContext): Promise<number> {
@@ -492,7 +565,7 @@ export class UserAccessAdminService {
     rawInput: ChangePasswordInput,
     context: AuditContext,
   ): Promise<void> {
-    const newPassword = validateStrongPassword(rawInput.newPassword);
+    const newPassword = validatePassword(rawInput.newPassword);
     await runInTransaction(async connection => {
       const [rows] = await connection.query<RowDataPacket[]>(
         `SELECT user.id, user.password_hash, user.tipo_usuario,

@@ -355,6 +355,22 @@ export async function actualizarUsuarioAdmin(req: AuthRequest, res: Response): P
   }
 }
 
+export async function actualizarMisModulosAdmin(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const visibleModules = await userAccessAdminService.updateOwnModuleAccess(
+      req.body.module_codes,
+      auditContext(req),
+    );
+    res.json({
+      ok: true,
+      mensaje: 'Módulos visibles actualizados correctamente',
+      data: { modulos_visibles: visibleModules },
+    });
+  } catch (error) {
+    handleAccessError(error, res, 'No se pudieron actualizar tus módulos');
+  }
+}
+
 export async function eliminarUsuarioAdmin(req: AuthRequest, res: Response): Promise<void> {
   try {
     await userAccessAdminService.suspendUser(Number(req.params.id), auditContext(req));

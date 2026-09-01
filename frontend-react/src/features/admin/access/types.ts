@@ -11,6 +11,7 @@ export type SystemUser = {
   id: number;
   name: string;
   username: string;
+  foto: string | null;
   userType: SystemUserType;
   status: SystemUserStatus;
   lastAccessAt: string | null;
@@ -70,4 +71,8 @@ export type SaveSystemUser = {
 export type ChangeSystemUserPassword = {
   nueva_password: string;
   password_actual?: string;
+};
+
+export type UpdateMyModuleAccessResult = {
+  modulos_visibles: string[];
 };

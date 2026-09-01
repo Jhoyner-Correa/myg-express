@@ -46,15 +46,15 @@ describe('ProfileModal', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Editar información' }));
     fireEvent.change(screen.getByLabelText(/Contraseña Actual/i), { target: { value: 'ActualSegura!123' } });
-    fireEvent.change(screen.getByLabelText('Nueva Contraseña'), { target: { value: 'NuevaSegura!123' } });
-    fireEvent.change(screen.getByLabelText('Confirmar Nueva Contraseña'), { target: { value: 'NuevaSegura!123' } });
+    fireEvent.change(screen.getByLabelText('Nueva Contraseña'), { target: { value: '1234' } });
+    fireEvent.change(screen.getByLabelText('Confirmar Nueva Contraseña'), { target: { value: '1234' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({
       nombre: 'Renzo Administrador',
       usuario: 'renzo_admin',
       password_actual: 'ActualSegura!123',
-      nuevo_password: 'NuevaSegura!123',
+      nuevo_password: '1234',
     }));
   });
 });
