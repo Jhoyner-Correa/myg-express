@@ -134,11 +134,8 @@ export const listarAvisosPorLote = async (req: AuthRequest, res: Response) => {
             id_plantilla,
             mensaje_personalizado,
             estado_aviso,
-            estado_entrega,
             whatsapp_message_id,
             fecha_envio,
-            fecha_entrega,
-            observacion_entrega,
             created_at
           FROM avisos_diarios
           WHERE lote_id = ?
@@ -158,11 +155,8 @@ export const listarAvisosPorLote = async (req: AuthRequest, res: Response) => {
             id_plantilla,
             mensaje_personalizado,
             estado_aviso,
-            estado_entrega,
             whatsapp_message_id,
             fecha_envio,
-            fecha_entrega,
-            observacion_entrega,
             created_at
           FROM avisos_diarios
           WHERE lote_id = ? AND sede_id = ?

@@ -19,7 +19,6 @@ const { todayRoutes, routesData } = vi.hoisted(() => {
       fecha: `${todayKey}T10:00:00-05:00`,
       created_at: `${todayKey}T10:00:00-05:00`,
       updated_at: `${todayKey}T10:00:00-05:00`,
-      entregas_habilitado: 0,
     }));
   return {
     todayRoutes: routes,
@@ -44,7 +43,7 @@ vi.mock('../../core/auth/authState', () => ({
       usuario: 'operador',
       rol: 'EncargadoOficina',
       sede_id: 1,
-      permisos: ['rutas.ver', 'rutas.gestionar', 'avisos.ver', 'entregas.gestionar'],
+      permisos: ['rutas.ver', 'rutas.gestionar', 'avisos.ver'],
     },
   }),
 }));

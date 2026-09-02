@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BarChart3, ChevronRight, Edit3, FileCheck2, MoreVertical, Trash2 } from 'lucide-react';
+import { BarChart3, ChevronRight, Edit3, MoreVertical, Trash2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import type { RouteItem } from '../types';
 import styles from './RouteRowActions.module.css';
@@ -8,11 +8,9 @@ type RouteRowActionsProps = {
   route: RouteItem;
   canReport: boolean;
   canEdit: boolean;
-  canEnableDeliveries: boolean;
   canDelete: boolean;
   onReport: () => void;
   onEdit: () => void;
-  onEnableDeliveries: () => void;
   onDelete: () => void;
   onViewDetail: () => void;
 };
@@ -23,20 +21,16 @@ export function RouteRowActions({
   route,
   canReport,
   canEdit,
-  canEnableDeliveries,
   canDelete,
   onReport,
   onEdit,
-  onEnableDeliveries,
   onDelete,
   onViewDetail,
 }: RouteRowActionsProps) {
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const deliveriesEnabled = route.entregas_habilitado === 1;
-  const deliveriesDisabled = deliveriesEnabled || route.total_registros <= 0;
-  const hasMenuActions = canEnableDeliveries || canDelete;
+  const hasMenuActions = canDelete;
 
   useEffect(() => {
     if (!menuPosition) return;
@@ -111,17 +105,6 @@ export function RouteRowActions({
 
       {menuPosition && hasMenuActions && createPortal(
         <div ref={menuRef} className={styles.menu} role="menu" style={menuPosition}>
-          {canEnableDeliveries && (
-            <button
-              type="button"
-              role="menuitem"
-              disabled={deliveriesDisabled}
-              onClick={() => execute(onEnableDeliveries)}
-            >
-              <FileCheck2 aria-hidden="true" />
-              {deliveriesEnabled ? 'Ya está en entregas' : route.total_registros <= 0 ? 'Sin paquetes para entregas' : 'Enviar a entregas'}
-            </button>
-          )}
           {canDelete && (
             <button className={styles.danger} type="button" role="menuitem" onClick={() => execute(onDelete)}>
               <Trash2 aria-hidden="true" />Eliminar ruta

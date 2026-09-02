@@ -6,8 +6,6 @@ export const PERMISSIONS = {
   ROUTES_MANAGE: 'rutas.gestionar',
   NOTICES_VIEW: 'avisos.ver',
   NOTICES_MANAGE: 'avisos.gestionar',
-  DELIVERIES_VIEW: 'entregas.ver',
-  DELIVERIES_MANAGE: 'entregas.gestionar',
   TEMPLATES_VIEW: 'plantillas.ver',
   TEMPLATES_MANAGE: 'plantillas.gestionar',
   WHATSAPP_VIEW: 'whatsapp.ver',

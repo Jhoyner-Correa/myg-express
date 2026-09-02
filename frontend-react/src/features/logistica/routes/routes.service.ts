@@ -40,11 +40,6 @@ export const routesService = {
     readData(response.data);
   },
 
-  async enableDeliveries(routeId: number): Promise<void> {
-    const response = await apiClient.post<ApiEnvelope<unknown>>(`/lotes/${routeId}/entregas`);
-    readData(response.data);
-  },
-
   async deleteRoute(routeId: number): Promise<void> {
     const response = await apiClient.delete<ApiEnvelope<unknown>>(`/lotes/${routeId}`);
     readData(response.data);

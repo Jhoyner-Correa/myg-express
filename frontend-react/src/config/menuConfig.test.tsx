@@ -35,4 +35,11 @@ describe('sidebarMenuConfig', () => {
     expect(payments?.permission).toBe('rrhh.pagos.ver');
     expect(configuration?.permission).toBe('rrhh.configurar');
   });
+
+  it('no expone el módulo retirado de Gestión de entregas', () => {
+    const serializedMenu = JSON.stringify(sidebarMenuConfig);
+
+    expect(serializedMenu).not.toContain('/logistica/entregas');
+    expect(serializedMenu).not.toContain('entregas.ver');
+  });
 });

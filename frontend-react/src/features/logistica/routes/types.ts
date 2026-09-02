@@ -13,7 +13,6 @@ export type RouteItem = {
   updated_at: string;
   finished_at?: string;
   fecha_finalizacion?: string;
-  entregas_habilitado: number;
 };
 
 export type ZoneItem = {

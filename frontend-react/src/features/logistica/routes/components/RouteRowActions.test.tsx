@@ -12,14 +12,12 @@ const route: RouteItem = {
   fecha: '2026-08-11',
   created_at: '2026-08-11T10:00:00-05:00',
   updated_at: '2026-08-11T10:00:00-05:00',
-  entregas_habilitado: 0,
 };
 
 function renderActions(overrides: Partial<ComponentProps<typeof RouteRowActions>> = {}) {
   const callbacks = {
     onReport: vi.fn(),
     onEdit: vi.fn(),
-    onEnableDeliveries: vi.fn(),
     onDelete: vi.fn(),
     onViewDetail: vi.fn(),
   };
@@ -28,7 +26,6 @@ function renderActions(overrides: Partial<ComponentProps<typeof RouteRowActions>
     route,
     canReport: true,
     canEdit: true,
-    canEnableDeliveries: true,
     canDelete: true,
     ...callbacks,
     ...overrides,
@@ -40,20 +37,6 @@ function renderActions(overrides: Partial<ComponentProps<typeof RouteRowActions>
 }
 
 describe('RouteRowActions', () => {
-  it('mantiene abierto el menú durante pointerdown y ejecuta Enviar a entregas', () => {
-    const callbacks = renderActions();
-
-    fireEvent.click(screen.getByRole('button', { name: /más opciones/i }));
-    const action = screen.getByRole('menuitem', { name: /enviar a entregas/i });
-
-    fireEvent.pointerDown(action);
-    expect(action).toBeInTheDocument();
-    fireEvent.click(action);
-
-    expect(callbacks.onEnableDeliveries).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-  });
-
   it('ejecuta Eliminar ruta desde el menú y cierra el desplegable', () => {
     const callbacks = renderActions();
 
@@ -78,7 +61,7 @@ describe('RouteRowActions', () => {
   });
 
   it('oculta acciones restringidas y conserva el acceso al detalle', () => {
-    renderActions({ canReport: false, canEdit: false, canEnableDeliveries: false, canDelete: false });
+    renderActions({ canReport: false, canEdit: false, canDelete: false });
 
     expect(screen.queryByRole('button', { name: /ver reporte/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument();

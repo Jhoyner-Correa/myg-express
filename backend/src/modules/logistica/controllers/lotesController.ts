@@ -112,8 +112,6 @@ export const listarLotes = async (req: AuthRequest, res: Response) => {
           l.nombre_lote,
           (SELECT COUNT(*) FROM avisos_diarios a WHERE a.lote_id = l.id AND a.sede_id = l.sede_id) AS total_registros,
           CASE WHEN l.estado = 'borrador' THEN 'pendiente' ELSE l.estado END AS estado,
-          l.entregas_habilitado,
-          l.fecha_habilitado_entregas,
           l.created_at
         FROM lotes_carga l
         INNER JOIN sedes s ON l.sede_id = s.id
@@ -128,8 +126,6 @@ export const listarLotes = async (req: AuthRequest, res: Response) => {
           l.nombre_lote,
           (SELECT COUNT(*) FROM avisos_diarios a WHERE a.lote_id = l.id AND a.sede_id = l.sede_id) AS total_registros,
           CASE WHEN l.estado = 'borrador' THEN 'pendiente' ELSE l.estado END AS estado,
-          l.entregas_habilitado,
-          l.fecha_habilitado_entregas,
           l.created_at
         FROM lotes_carga l
         INNER JOIN sedes s ON l.sede_id = s.id
@@ -170,8 +166,6 @@ export const obtenerLotePorId = async (req: AuthRequest, res: Response) => {
             l.nombre_lote,
             (SELECT COUNT(*) FROM avisos_diarios a WHERE a.lote_id = l.id AND a.sede_id = l.sede_id) AS total_registros,
             CASE WHEN l.estado = 'borrador' THEN 'pendiente' ELSE l.estado END AS estado,
-            l.entregas_habilitado,
-            l.fecha_habilitado_entregas,
             l.created_at
           FROM lotes_carga l
           INNER JOIN sedes s ON l.sede_id = s.id
@@ -186,8 +180,6 @@ export const obtenerLotePorId = async (req: AuthRequest, res: Response) => {
             l.nombre_lote,
             (SELECT COUNT(*) FROM avisos_diarios a WHERE a.lote_id = l.id AND a.sede_id = l.sede_id) AS total_registros,
             CASE WHEN l.estado = 'borrador' THEN 'pendiente' ELSE l.estado END AS estado,
-            l.entregas_habilitado,
-            l.fecha_habilitado_entregas,
             l.created_at
           FROM lotes_carga l
           INNER JOIN sedes s ON l.sede_id = s.id
@@ -323,100 +315,6 @@ export const actualizarLote = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({
       ok: false,
       message: 'Error al actualizar la ruta.',
-      error: error.message
-    });
-  }
-};
-
-// Publicar una ruta en Gestion de entregas. La consulta Urbano solo llena rutas;
-// entregas queda habilitado explicitamente por el usuario desde Rutas.
-export const habilitarEntregasLote = async (req: AuthRequest, res: Response) => {
-  try {
-    const id = Number(req.params.id);
-    const sede_id = req.user?.sede_id;
-
-    if (!sede_id) {
-      return res.status(400).json({
-        ok: false,
-        message: 'Sesion invalida.'
-      });
-    }
-
-    if (!Number.isFinite(id) || id <= 0) {
-      return res.status(400).json({
-        ok: false,
-        message: 'ID de ruta invalido.'
-      });
-    }
-
-    const [rows]: any = await pool.query(
-      `SELECT
-         l.id,
-         l.nombre_lote,
-         l.entregas_habilitado,
-         COUNT(a.id) AS total_paquetes
-       FROM lotes_carga l
-       LEFT JOIN avisos_diarios a ON a.lote_id = l.id AND a.sede_id = l.sede_id
-       WHERE l.id = ?
-         AND l.sede_id = ?
-         AND l.fecha_eliminacion IS NULL
-       GROUP BY l.id, l.nombre_lote, l.entregas_habilitado
-       LIMIT 1`,
-      [id, sede_id]
-    );
-
-    if (!rows.length) {
-      return res.status(404).json({
-        ok: false,
-        message: 'Ruta no encontrada o no pertenece a tu sede.'
-      });
-    }
-
-    const route = rows[0];
-    const totalPaquetes = Number(route.total_paquetes || 0);
-
-    if (totalPaquetes <= 0) {
-      return res.status(400).json({
-        ok: false,
-        message: 'La ruta no tiene paquetes para enviar a Gestion de entregas.'
-      });
-    }
-
-    if (Number(route.entregas_habilitado) === 1) {
-      return res.json({
-        ok: true,
-        message: 'Esta ruta ya esta disponible en Gestion de entregas.',
-        data: {
-          id,
-          entregas_habilitado: 1,
-          total_paquetes: totalPaquetes
-        }
-      });
-    }
-
-    await pool.query(
-      `UPDATE lotes_carga
-       SET entregas_habilitado = 1,
-           fecha_habilitado_entregas = NOW()
-       WHERE id = ?
-         AND sede_id = ?
-         AND fecha_eliminacion IS NULL`,
-      [id, sede_id]
-    );
-
-    return res.json({
-      ok: true,
-      message: 'Ruta enviada a Gestion de entregas correctamente.',
-      data: {
-        id,
-        entregas_habilitado: 1,
-        total_paquetes: totalPaquetes
-      }
-    });
-  } catch (error: any) {
-    return res.status(500).json({
-      ok: false,
-      message: 'Error al enviar la ruta a Gestion de entregas.',
       error: error.message
     });
   }

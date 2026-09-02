@@ -11,7 +11,6 @@ const MODULE_LABELS: Record<string, string> = {
   OPERACION: 'Panel operativo',
   RUTAS: 'Rutas',
   WHATSAPP: 'WhatsApp',
-  ENTREGAS: 'Entregas',
   URBANO: 'Urbano',
   SAVAR_SCAN: 'SAVAR SCAN',
   ETIQUETAS: 'Etiquetas',
@@ -306,7 +305,7 @@ export class UserAccessAdminService {
            WHEN user_permission.efecto = 'DENEGAR' THEN NULL
            WHEN permission.codigo NOT IN (
              'admin.panel.ver', 'rutas.ver', 'whatsapp.ver', 'urbano.rutas.ver',
-             'entregas.ver', 'etiquetas.ver', 'savarscan.ver', 'rrhh.ver',
+             'etiquetas.ver', 'savarscan.ver', 'rrhh.ver',
              'rrhh.pagos.ver', 'gps.ver'
            ) THEN NULL
            ELSE permission.modulo

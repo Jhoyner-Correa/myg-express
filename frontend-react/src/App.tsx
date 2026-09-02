@@ -18,7 +18,6 @@ const Dashboard = lazy(() => import('./features/dashboard/Dashboard').then((m) =
 const Logistica = lazy(() => import('./features/logistica/Logistica').then((m) => ({ default: m.Logistica })));
 const LoteDetalle = lazy(() => import('./features/logistica/LoteDetalle').then((m) => ({ default: m.LoteDetalle })));
 const WhatsAppSessions = lazy(() => import('./features/logistica/WhatsAppSessions').then((m) => ({ default: m.WhatsAppSessions })));
-const GestionEntregas = lazy(() => import('./features/logistica/GestionEntregas').then((m) => ({ default: m.GestionEntregas })));
 const SavarScan = lazy(() => import('./features/logistica/SavarScan').then((m) => ({ default: m.SavarScan })));
 const Etiquetas = lazy(() => import('./features/logistica/Etiquetas').then((m) => ({ default: m.Etiquetas })));
 const ConsultaHistorica = lazy(() => import('./features/logistica/ConsultaHistorica').then((m) => ({ default: m.ConsultaHistorica })));
@@ -65,7 +64,6 @@ export const AppContent: React.FC = () => {
           <Route path="logistica" element={<ProtectedRoute permission="rutas.ver"><Logistica /></ProtectedRoute>} />
           <Route path="rutas/:id" element={<ProtectedRoute permission="rutas.ver"><LoteDetalle /></ProtectedRoute>} />
           <Route path="logistica/whatsapp" element={<ProtectedRoute permission="whatsapp.ver"><WhatsAppSessions /></ProtectedRoute>} />
-          <Route path="logistica/entregas" element={<ProtectedRoute permission="entregas.ver"><GestionEntregas /></ProtectedRoute>} />
           <Route path="logistica/savar-scan" element={<ProtectedRoute permission="savarscan.ver"><SavarScan /></ProtectedRoute>} />
           <Route path="logistica/etiquetas" element={<ProtectedRoute permission="etiquetas.ver"><Etiquetas /></ProtectedRoute>} />
           <Route path="logistica/consulta" element={<ProtectedRoute permission="urbano.rutas.ver"><ConsultaHistorica /></ProtectedRoute>} />

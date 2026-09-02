@@ -46,7 +46,6 @@ export const Logistica: React.FC = () => {
   const { routes, zones, loading, error, reload, refreshZones } = useRoutesData();
   const canManageRoutes = can(PERMISSIONS.ROUTES_MANAGE);
   const canViewNotices = can(PERMISSIONS.NOTICES_VIEW);
-  const canManageDeliveries = can(PERMISSIONS.DELIVERIES_MANAGE);
 
   // Filtros
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,7 +84,6 @@ export const Logistica: React.FC = () => {
         route={route}
         canReport={canViewNotices}
         canEdit={canManageRoutes && String(route.fecha || '').startsWith(getTodayKey())}
-        canEnableDeliveries={canManageDeliveries}
         canDelete={canManageRoutes}
         onReport={() => handleOpenReport(route.id, route.nombre_lote)}
         onEdit={() => {
@@ -93,7 +91,6 @@ export const Logistica: React.FC = () => {
           setSelectedZoneName(route.nombre_lote);
           setShowCreateModal(true);
         }}
-        onEnableDeliveries={() => handleEnableDeliveries(route.id)}
         onDelete={() => handleDeleteRoute(route.id)}
         onViewDetail={() => {
           setShowHistoryModal(false);
@@ -120,17 +117,6 @@ export const Logistica: React.FC = () => {
       await reload();
     } catch (error: unknown) {
       showToast(getApiErrorMessage(error, 'Error al crear la ruta'), 'error', { title: 'Error' });
-    }
-  };
-
-  // Habilitar entregas
-  const handleEnableDeliveries = async (id: number) => {
-    try {
-      await routesService.enableDeliveries(id);
-      showToast('Entregas habilitadas correctamente.', 'success', { title: 'Entregas habilitadas' });
-      await reload();
-    } catch (error: unknown) {
-      showToast(getApiErrorMessage(error, 'Error al habilitar las entregas'), 'error', { title: 'Error' });
     }
   };
 

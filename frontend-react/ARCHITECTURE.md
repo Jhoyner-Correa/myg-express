@@ -45,7 +45,7 @@ features/logistica/routes/
 
 1. Migrar Detalle de ruta.
 2. Migrar WhatsApp Sessions.
-3. Migrar Savar Scan y Gestión de entregas.
+3. Migrar Savar Scan.
 4. Migrar Administración, RR. HH. y GPS.
 5. Retirar cada hoja heredada cuando su pantalla termine la migración.
 
@@ -57,7 +57,8 @@ Los estilos heredados ya no forman parte del CSS inicial: cada pantalla los impo
 - Detalle de ruta: contratos, dominio y servicio HTTP migrados; división visual y CSS pendientes.
 - RR. HH.: base tipada por sede, hook cancelable y CSS Module preparados para el desarrollo funcional.
 - Aplicación: fallback accesible compartido y carga diferida por ruta.
-- WhatsApp, Savar, Entregas, Consulta y Administración: pendientes de migración interna.
+- Gestión de entregas: módulo retirado de la plataforma.
+- WhatsApp, Savar, Consulta y Administración: pendientes de migración interna.
 
 ## Definición de terminado
 

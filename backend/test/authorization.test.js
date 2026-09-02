@@ -102,6 +102,13 @@ test('SysAdmin obtiene capacidades por rol sin una bandera especial', () => {
   assert.equal(permissions.includes(PERMISSIONS.ROUTES_MANAGE), true);
 });
 
+test('el catálogo de permisos no conserva Gestión de entregas', () => {
+  const permissionCodes = Object.values(PERMISSIONS);
+
+  assert.equal(permissionCodes.includes('entregas.ver'), false);
+  assert.equal(permissionCodes.includes('entregas.gestionar'), false);
+});
+
 test('administrador de empresa gestiona RRHH con alcance global', () => {
   const permissions = getPermissionsForRole(ROLES.ADMIN_EMPRESA);
   assert.equal(permissions.includes(PERMISSIONS.RRHH_VIEW), true);

@@ -12,7 +12,6 @@ function route(id: number, estado: RouteItem['estado'] = 'pendiente'): RouteItem
     fecha: '2026-08-11T10:00:00-05:00',
     created_at: '2026-08-11T10:00:00-05:00',
     updated_at: '2026-08-11T10:00:00-05:00',
-    entregas_habilitado: 0,
   };
 }
 

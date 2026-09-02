@@ -7,7 +7,6 @@ import express from 'express';
 import adminRoutes from './modules/administrativo/routes/adminRoutes';
 import authRoutes from './modules/auth/auth.routes';
 import avisosRoutes from './modules/logistica/routes/avisosRoutes';
-import entregasRoutes from './modules/logistica/routes/entregasRoutes';
 import lotesRoutes from './modules/logistica/routes/lotesRoutes';
 import plantillasRoutes from './modules/logistica/routes/plantillasRoutes';
 import produccionRoutes from './modules/logistica/routes/produccionRoutes';
@@ -53,7 +52,6 @@ app.use('/api/admin/queues', verificarToken, requirePermission(PERMISSIONS.QUEUE
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/avisos', avisosRoutes);
-app.use('/api/entregas', entregasRoutes);
 app.use('/api/lotes', lotesRoutes);
 app.use('/api/plantillas', plantillasRoutes);
 app.use('/api/produccion', produccionRoutes);
