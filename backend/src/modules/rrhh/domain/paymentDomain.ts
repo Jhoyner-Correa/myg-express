@@ -10,12 +10,26 @@ export type PaymentAmounts = {
 
 export type MonthlyProrationPolicy = 'DIAS_CALENDARIO' | 'HONORARIO_COMPLETO';
 
+export type PaymentAgreementWriteMode =
+  | 'CREATE_INITIAL'
+  | 'UPDATE_CURRENT'
+  | 'CREATE_VERSION'
+  | 'RESCHEDULE_FUTURE';
+
 export type MonthlyServiceBaseInput = {
   monthlyPayment: number;
   periodStart: string;
   employmentStart: string;
   employmentEnd?: string | null;
   agreementStart?: string | null;
+  agreementEnd?: string | null;
+  policy: MonthlyProrationPolicy;
+};
+
+export type MonthlyAgreementSegmentInput = {
+  agreementId: number;
+  monthlyPayment: number;
+  agreementStart: string;
   agreementEnd?: string | null;
   policy: MonthlyProrationPolicy;
 };
@@ -57,6 +71,41 @@ function money(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+export function parsePaymentAmount(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? money(value) : Number.NaN;
+  let raw = String(value ?? '').trim().replace(/\s+/g, '').replace(/^S\/?/i, '');
+  if (!raw || !/^\d[\d.,]*$/.test(raw)) return Number.NaN;
+
+  const lastDot = raw.lastIndexOf('.');
+  const lastComma = raw.lastIndexOf(',');
+  if (lastDot >= 0 && lastComma >= 0) {
+    const decimalIndex = Math.max(lastDot, lastComma);
+    const decimals = raw.slice(decimalIndex + 1);
+    if (decimals.length > 2) return Number.NaN;
+    raw = `${raw.slice(0, decimalIndex).replace(/[.,]/g, '')}.${decimals}`;
+  } else {
+    const separator = lastDot >= 0 ? '.' : lastComma >= 0 ? ',' : null;
+    if (separator) {
+      const parts = raw.split(separator);
+      const first = parts[0] ?? '';
+      const groupedThousands = parts.length > 1
+        && first.length >= 1
+        && first.length <= 3
+        && parts.slice(1).every(part => part.length === 3);
+      if (groupedThousands) {
+        raw = parts.join('');
+      } else {
+        const decimals = parts.pop() ?? '';
+        if (decimals.length > 2 || parts.some(part => !part)) return Number.NaN;
+        raw = `${parts.join('')}.${decimals}`;
+      }
+    }
+  }
+
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? money(parsed) : Number.NaN;
+}
+
 function validDate(value: string, label: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${label} no valida.`);
   const date = new Date(`${value}T00:00:00Z`);
@@ -64,6 +113,27 @@ function validDate(value: string, label: string): string {
     throw new Error(`${label} no valida.`);
   }
   return value;
+}
+
+export function planPaymentAgreementWrite(input: {
+  currentStart: string | null;
+  requestedStart: string;
+  today: string;
+}): PaymentAgreementWriteMode {
+  const requestedStart = validDate(input.requestedStart, 'Fecha de vigencia');
+  const today = validDate(input.today, 'Fecha actual');
+  const currentStart = input.currentStart ? validDate(input.currentStart, 'Vigencia actual') : null;
+  if (!currentStart) return 'CREATE_INITIAL';
+  if (requestedStart === currentStart) return 'UPDATE_CURRENT';
+  if (requestedStart > currentStart) return 'CREATE_VERSION';
+  if (currentStart <= today) {
+    throw new Error(`El acuerdo vigente comenzó el ${currentStart} y no puede retrocederse. Actualízalo desde esa fecha o programa un nuevo mes.`);
+  }
+  const currentMonthStart = `${today.slice(0, 7)}-01`;
+  if (requestedStart < currentMonthStart) {
+    throw new Error('Una programación futura solo puede adelantarse dentro del mes actual.');
+  }
+  return 'RESCHEDULE_FUTURE';
 }
 
 function monthEnd(periodStart: string): string {
@@ -112,6 +182,72 @@ export function calculateMonthlyServiceBase(input: MonthlyServiceBaseInput) {
     prorated: isPartialPeriod && input.policy === 'DIAS_CALENDARIO',
     partialPeriod: isPartialPeriod,
     policy: input.policy,
+  };
+}
+
+export function calculateMonthlyAgreementBase(input: {
+  periodStart: string;
+  employmentStart: string;
+  employmentEnd?: string | null;
+  agreements: MonthlyAgreementSegmentInput[];
+}) {
+  const agreements = [...input.agreements].sort((left, right) => (
+    left.agreementStart.localeCompare(right.agreementStart) || left.agreementId - right.agreementId
+  ));
+  if (!agreements.length) {
+    return {
+      ...calculateMonthlyServiceBase({
+        monthlyPayment: 0,
+        periodStart: input.periodStart,
+        employmentStart: input.employmentStart,
+        employmentEnd: input.employmentEnd,
+        policy: 'DIAS_CALENDARIO',
+      }),
+      segments: [],
+    };
+  }
+
+  // Cuando hay cambios dentro del mismo mes, cada versión aporta únicamente
+  // los días que cubrió. Esto evita duplicar honorarios con la política de pago
+  // completo y conserva exactamente el total si el importe no cambió.
+  const splitMonth = agreements.length > 1;
+  const segments = agreements.map(agreement => ({
+    agreementId: agreement.agreementId,
+    monthlyPayment: money(agreement.monthlyPayment),
+    ...calculateMonthlyServiceBase({
+      monthlyPayment: agreement.monthlyPayment,
+      periodStart: input.periodStart,
+      employmentStart: input.employmentStart,
+      employmentEnd: input.employmentEnd,
+      agreementStart: agreement.agreementStart,
+      agreementEnd: agreement.agreementEnd,
+      policy: splitMonth ? 'DIAS_CALENDARIO' : agreement.policy,
+    }),
+  })).filter(segment => segment.serviceDays > 0);
+  const latest = agreements.at(-1)!;
+  const periodDays = segments[0]?.periodDays
+    ?? calculateMonthlyServiceBase({
+      monthlyPayment: 0,
+      periodStart: input.periodStart,
+      employmentStart: input.employmentStart,
+      employmentEnd: input.employmentEnd,
+      policy: 'DIAS_CALENDARIO',
+    }).periodDays;
+  const serviceDays = segments.reduce((sum, segment) => sum + segment.serviceDays, 0);
+  const appliedMonthlyPayment = money(segments.reduce((sum, segment) => sum + segment.appliedMonthlyPayment, 0));
+
+  return {
+    agreedMonthlyPayment: money(latest.monthlyPayment),
+    appliedMonthlyPayment,
+    periodDays,
+    serviceDays,
+    serviceStart: segments[0]?.serviceStart ?? null,
+    serviceEnd: segments.at(-1)?.serviceEnd ?? null,
+    factor: periodDays ? Math.round((serviceDays / periodDays) * 100_000_000) / 100_000_000 : 0,
+    prorated: segments.some(segment => segment.prorated) || splitMonth,
+    partialPeriod: serviceDays > 0 && serviceDays < periodDays,
+    policy: latest.policy,
+    segments,
   };
 }
 

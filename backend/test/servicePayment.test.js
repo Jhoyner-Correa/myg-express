@@ -1,9 +1,68 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  calculateMonthlyServiceBase, calculateServicePayment, classifyPaymentWorkQueue,
-  evaluatePaymentControls, normalizePaymentMonth,
+  calculateMonthlyAgreementBase, calculateMonthlyServiceBase, calculateServicePayment, classifyPaymentWorkQueue,
+  evaluatePaymentControls, normalizePaymentMonth, parsePaymentAmount, planPaymentAgreementWrite,
 } = require('../dist/modules/rrhh/domain/paymentDomain');
+
+test('normaliza importes monetarios sin perder un cero', () => {
+  assert.equal(parsePaymentAmount('1200'), 1200);
+  assert.equal(parsePaymentAmount('1200,00'), 1200);
+  assert.equal(parsePaymentAmount('1,200'), 1200);
+  assert.equal(parsePaymentAmount('1.200,00'), 1200);
+  assert.equal(parsePaymentAmount('1,200.50'), 1200.5);
+  assert.equal(Number.isNaN(parsePaymentAmount('12abc')), true);
+});
+
+test('actualiza la vigencia actual y permite iniciar una nueva version cualquier dia', () => {
+  assert.equal(planPaymentAgreementWrite({
+    currentStart: '2026-09-01', requestedStart: '2026-09-01', today: '2026-09-03',
+  }), 'UPDATE_CURRENT');
+  assert.equal(planPaymentAgreementWrite({
+    currentStart: '2026-09-01', requestedStart: '2026-10-01', today: '2026-09-03',
+  }), 'CREATE_VERSION');
+  assert.equal(planPaymentAgreementWrite({
+    currentStart: '2026-09-01', requestedStart: '2026-09-05', today: '2026-09-03',
+  }), 'CREATE_VERSION');
+});
+
+test('permite corregir una programacion futura a una fecha exacta del mes actual', () => {
+  assert.equal(planPaymentAgreementWrite({
+    currentStart: '2026-10-01', requestedStart: '2026-09-03', today: '2026-09-03',
+  }), 'RESCHEDULE_FUTURE');
+  assert.throws(() => planPaymentAgreementWrite({
+    currentStart: '2026-08-01', requestedStart: '2026-07-01', today: '2026-09-03',
+  }), /no puede retrocederse/);
+});
+
+test('suma los tramos de dos acuerdos cuando el honorario cambia a mitad de mes', () => {
+  const result = calculateMonthlyAgreementBase({
+    periodStart: '2026-09-01',
+    employmentStart: '2026-01-01',
+    employmentEnd: null,
+    agreements: [
+      { agreementId: 1, monthlyPayment: 1200, agreementStart: '2026-09-01', agreementEnd: '2026-09-04', policy: 'DIAS_CALENDARIO' },
+      { agreementId: 2, monthlyPayment: 1500, agreementStart: '2026-09-05', agreementEnd: null, policy: 'DIAS_CALENDARIO' },
+    ],
+  });
+  assert.equal(result.appliedMonthlyPayment, 1460);
+  assert.equal(result.agreedMonthlyPayment, 1500);
+  assert.equal(result.serviceDays, 30);
+  assert.deepEqual(result.segments.map(segment => segment.appliedMonthlyPayment), [160, 1300]);
+});
+
+test('conserva el total mensual cuando cambia la vigencia pero no cambia el importe', () => {
+  const result = calculateMonthlyAgreementBase({
+    periodStart: '2026-09-01',
+    employmentStart: '2026-01-01',
+    agreements: [
+      { agreementId: 1, monthlyPayment: 1200, agreementStart: '2026-09-01', agreementEnd: '2026-09-04', policy: 'HONORARIO_COMPLETO' },
+      { agreementId: 2, monthlyPayment: 1200, agreementStart: '2026-09-05', agreementEnd: null, policy: 'HONORARIO_COMPLETO' },
+    ],
+  });
+  assert.equal(result.appliedMonthlyPayment, 1200);
+  assert.equal(result.segments.length, 2);
+});
 
 test('calcula pago mensual, horas extra y descuentos sin alterar el bruto del RHE', () => {
   const result = calculateServicePayment({

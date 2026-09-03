@@ -16,6 +16,10 @@ import type {
 } from '../types';
 import { EmployeePaymentLedgerModal } from './EmployeePaymentLedgerModal';
 import { employeePhotoFallbackHandler, getEmployeePhotoUrl } from './employee-avatar';
+import {
+  agreementFormDefaults, applicationDate, canonicalCurrencyText, parseCurrencyText,
+  sanitizeCurrencyText, type AgreementApplicationMode, type AgreementFormDefaults,
+} from './payment-agreement-form';
 import styles from './PaymentsPanel.module.css';
 
 type PaymentAction = 'agreement' | 'movement' | 'loan' | 'receipt' | 'deposit';
@@ -25,11 +29,9 @@ type QueueFilter = 'TODOS' | ServicePaymentQueue;
 const money = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', minimumFractionDigits: 2 });
 const number = (value: number | string) => Number(value || 0);
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
-const nextMonthStart = (dateValue: string) => {
-  const date = new Date(`${dateValue}T12:00:00Z`);
-  date.setUTCMonth(date.getUTCMonth() + 1, 1);
-  return date.toISOString().slice(0, 10);
-};
+const readableDate = (value: string) => new Intl.DateTimeFormat('es-PE', {
+  day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC',
+}).format(new Date(`${value}T12:00:00Z`));
 
 const statusLabel: Record<ServicePaymentRow['estado'], string> = {
   PREVISUALIZACION: 'Por preparar', CONFIGURACION_PENDIENTE: 'Falta configurar', BORRADOR: 'Borrador',
@@ -392,32 +394,68 @@ function Action({ title, icon, onClick }: { title: string; icon: ReactNode; onCl
 
 function PaymentForm({ modal, month, submitting, onClose, onSubmit }: { modal: ModalState; month: string; submitting: boolean; onClose: () => void; onSubmit: (operation: () => Promise<unknown>) => Promise<void> }) {
   const [form, setForm] = useState<Record<string, string>>({});
+  const [defaults, setDefaults] = useState<AgreementFormDefaults | null>(null);
+  const [formError, setFormError] = useState('');
+
   useEffect(() => {
     if (!modal) return;
-    setForm(modal.action === 'agreement' ? {
-      monthly_payment: String(modal.payment.honorario_mensual_pactado || modal.payment.pago_mensual || ''),
-      proration_policy: modal.payment.politica_prorrateo ?? 'DIAS_CALENDARIO',
-      overtime_hourly_rate: String(modal.payment.tarifa_hora_extra || ''), bank: modal.payment.banco ?? '',
-      account_type: modal.payment.tipo_cuenta ?? 'AHORROS', account_number: '', cci: '',
-      effective_from: modal.payment.acuerdo_configurado_id ? nextMonthStart(today()) : `${month}-01`, month,
-    } : modal.action === 'movement' ? { type: 'ADELANTO', concept: '', amount: '' }
+    setFormError('');
+    if (modal.action === 'agreement') {
+      const agreement = agreementFormDefaults(modal.payment, today());
+      setDefaults(agreement);
+      setForm({ agreement_id: agreement.agreementId, application_mode: 'CURRENT', monthly_payment: agreement.monthlyPayment,
+        proration_policy: agreement.prorationPolicy, overtime_hourly_rate: agreement.overtimeHourlyRate,
+        bank: agreement.bank, account_type: agreement.accountType, account_number: '', cci: '', effective_from: agreement.effectiveFrom });
+      return;
+    }
+    setDefaults(null);
+    setForm(modal.action === 'movement' ? { type: 'ADELANTO', concept: '', amount: '' }
       : modal.action === 'loan' ? { concept: '', total_amount: '', monthly_installment: '', start_month: month }
         : modal.action === 'receipt' ? { series: 'E001', number: '', issued_at: today(), amount: String(modal.payment.total_servicio || '') } : { operation_number: '' });
   }, [modal, month]);
+
   if (!modal) return null;
   const payment = modal.payment;
   const names: Record<PaymentAction, [string, string, ReactNode]> = {
-    agreement: ['Configuración de pago', 'Define el honorario mensual, la tarifa de sobretiempo y la cuenta de depósito.', <WalletCards key="agreement" />],
+    agreement: ['Configurar pago', 'Honorario, sobretiempo y depósito.', <WalletCards key="agreement" />],
     movement: ['Movimiento del periodo', 'Registra adelantos u otros conceptos antes de recalcular el borrador.', <Banknote key="movement" />],
     loan: ['Préstamo al colaborador', 'Define el monto entregado y la cuota mensual que se descontará.', <Landmark key="loan" />],
     receipt: ['Recibo por Honorarios', 'Vincula el comprobante emitido con esta liquidación mensual.', <FileCheck2 key="receipt" />],
     deposit: ['Confirmar depósito', 'Registra la operación bancaria y cierra el pago del colaborador.', <CheckCircle2 key="deposit" />],
   };
-  const update = (key: string, value: string) => setForm(current => ({ ...current, [key]: value }));
+  const update = (key: string, value: string) => { setFormError(''); setForm(current => ({ ...current, [key]: value })); };
+  const updateEffectiveDate = (value: string) => {
+    setFormError('');
+    setForm(current => ({ ...current, application_mode: 'CUSTOM', effective_from: value }));
+  };
+  const selectApplicationMode = (mode: AgreementApplicationMode) => {
+    if (!defaults) return;
+    setFormError('');
+    setForm(current => ({ ...current, application_mode: mode, effective_from: applicationDate(mode, defaults) }));
+  };
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    const operations: Record<PaymentAction, () => Promise<unknown>> = {
-      agreement: () => rrhhService.savePaymentAgreement(payment.empleado_id, form),
+    if (modal.action === 'agreement') {
+      const monthlyPayment = parseCurrencyText(form.monthly_payment);
+      const overtimeRate = parseCurrencyText(form.overtime_hourly_rate);
+      const accountNumber = String(form.account_number ?? '').replace(/\s+/g, '');
+      const cci = String(form.cci ?? '').replace(/\s+/g, '');
+      if (monthlyPayment === null || monthlyPayment <= 0 || monthlyPayment > 9_999_999.99) { setFormError('Ingresa un pago mensual mayor a cero. Ejemplo: 1200 o 1200,00.'); return; }
+      if (overtimeRate === null || overtimeRate < 0 || overtimeRate > 9_999_999.99) { setFormError('La tarifa por hora extra debe ser un importe válido, igual o mayor a cero.'); return; }
+      if (accountNumber && !/^\d{6,30}$/.test(accountNumber)) { setFormError('El número de cuenta debe contener entre 6 y 30 dígitos.'); return; }
+      if (cci && !/^\d{20}$/.test(cci)) { setFormError('El CCI debe contener exactamente 20 dígitos.'); return; }
+      if ((accountNumber || cci) && !String(form.bank ?? '').trim()) { setFormError('Indica la entidad bancaria antes de registrar una cuenta o CCI.'); return; }
+      const effectiveFrom = form.effective_from ?? '';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) { setFormError('Selecciona una fecha exacta para iniciar la vigencia.'); return; }
+      void onSubmit(() => rrhhService.savePaymentAgreement(payment.empleado_id, {
+        agreement_id: form.agreement_id ? Number(form.agreement_id) : null, monthly_payment: monthlyPayment,
+        overtime_hourly_rate: overtimeRate, proration_policy: form.proration_policy, bank: String(form.bank ?? '').trim(),
+        account_type: form.account_type, account_number: accountNumber, cci, effective_from: effectiveFrom,
+        month: effectiveFrom.slice(0, 7),
+      }));
+      return;
+    }
+    const operations: Record<Exclude<PaymentAction, 'agreement'>, () => Promise<unknown>> = {
       movement: () => rrhhService.createPaymentMovement({ employee_id: payment.empleado_id, month, ...form }),
       loan: () => rrhhService.createEmployeeLoan({ employee_id: payment.empleado_id, ...form }),
       receipt: () => rrhhService.registerHonorReceipt(Number(payment.id), { series: form.series ?? '', number: form.number ?? '', issued_at: form.issued_at ?? '', amount: Number(form.amount) }),
@@ -425,21 +463,32 @@ function PaymentForm({ modal, month, submitting, onClose, onSubmit }: { modal: M
     };
     void onSubmit(operations[modal.action]);
   };
-  return <Modal open title={names[modal.action][0]} description={names[modal.action][1]} icon={names[modal.action][2]} onClose={onClose} maxWidth={700} footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form="payment-form" variant="corporate" loading={submitting}>Guardar</Button></>}>
+  const previewMonthlyPayment = parseCurrencyText(form.monthly_payment);
+  const currentMode = (form.application_mode ?? 'CURRENT') as AgreementApplicationMode;
+  const isMidMonthChange = /^\d{4}-\d{2}-(?!01)\d{2}$/.test(form.effective_from ?? '');
+
+  return <Modal open title={names[modal.action][0]} description={names[modal.action][1]} icon={names[modal.action][2]} onClose={onClose} maxWidth={modal.action === 'agreement' ? 680 : 740} className={modal.action === 'agreement' ? styles.agreementDialog : ''} footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form="payment-form" variant="corporate" loading={submitting}>{modal.action === 'agreement' ? 'Guardar cambios' : 'Guardar'}</Button></>}>
     <div className={styles.modalEmployee}><strong>{payment.nombres} {payment.apellidos}</strong><span>{payment.codigo_empleado} · {payment.sede}</span></div>
-    <form id="payment-form" className={styles.form} onSubmit={submit}>
+    <form id="payment-form" className={styles.form} onSubmit={submit} noValidate>
+      {formError && <div className={styles.formError} role="alert"><AlertTriangle aria-hidden="true" /><div><strong>Revisa la información</strong><span>{formError}</span></div></div>}
       {modal.action === 'agreement' && <>
-        <Field label="Pago mensual" required><input type="number" min="0" step="0.01" value={form.monthly_payment ?? ''} onChange={e => update('monthly_payment', e.target.value)} /></Field>
-        <Field label="Tarifa por hora extra" required><input type="number" min="0" step="0.01" value={form.overtime_hourly_rate ?? ''} onChange={e => update('overtime_hourly_rate', e.target.value)} /></Field>
-        <Field label="Meses parciales" wide required><select value={form.proration_policy ?? 'DIAS_CALENDARIO'} onChange={e => update('proration_policy', e.target.value)}>
-          <option value="DIAS_CALENDARIO">Prorratear por días calendario</option>
-          <option value="HONORARIO_COMPLETO">Mantener el honorario mensual completo</option>
-        </select><small>Solo se aplica cuando el ingreso, cese o acuerdo cubre una parte del mes. Los meses completos conservan el honorario pactado.</small></Field>
+        <FormSection number="01" title="Honorarios" detail="Montos en soles" />
+        <Field label="Pago mensual" required><CurrencyInput autoFocus value={form.monthly_payment ?? ''} onChange={value => update('monthly_payment', value)} /></Field>
+        <Field label="Tarifa por hora extra" required><CurrencyInput value={form.overtime_hourly_rate ?? ''} onChange={value => update('overtime_hourly_rate', value)} /></Field>
+        <div className={styles.amountConfirmation} aria-live="polite"><span>Monto confirmado</span><strong>{previewMonthlyPayment !== null && previewMonthlyPayment > 0 ? money.format(previewMonthlyPayment) : '—'}</strong></div>
+        <Field label="Pago en mes parcial" wide required><select value={form.proration_policy ?? 'DIAS_CALENDARIO'} onChange={e => update('proration_policy', e.target.value)}><option value="DIAS_CALENDARIO">Prorrateo diario</option><option value="HONORARIO_COMPLETO">Honorario completo</option></select></Field>
+        <FormSection number="02" title="Cuenta bancaria" detail="Opcional hasta la revisión" />
         <Field label="Banco"><input value={form.bank ?? ''} onChange={e => update('bank', e.target.value)} placeholder="Entidad bancaria" /></Field>
         <Field label="Tipo de cuenta"><select value={form.account_type ?? 'AHORROS'} onChange={e => update('account_type', e.target.value)}><option value="AHORROS">Ahorros</option><option value="CORRIENTE">Corriente</option></select></Field>
-        <Field label="Número de cuenta"><input inputMode="numeric" value={form.account_number ?? ''} onChange={e => update('account_number', e.target.value)} placeholder={payment.numero_cuenta_ultimos4 ? `Registrada •••• ${payment.numero_cuenta_ultimos4}` : 'Número de cuenta'} /></Field>
-        <Field label="CCI"><input inputMode="numeric" maxLength={20} value={form.cci ?? ''} onChange={e => update('cci', e.target.value)} placeholder={payment.cci_ultimos4 ? `Registrado •••• ${payment.cci_ultimos4}` : '20 dígitos'} /></Field>
-        <Field label="Aplicar desde" required><input type="date" value={form.effective_from ?? ''} onChange={e => update('effective_from', e.target.value)} /></Field>
+        <Field label="Número de cuenta"><input inputMode="numeric" value={form.account_number ?? ''} onChange={e => update('account_number', e.target.value.replace(/\D/g, '').slice(0, 30))} placeholder={(payment.acuerdo_actual_numero_cuenta_ultimos4 ?? payment.numero_cuenta_ultimos4) ? `Registrada •••• ${payment.acuerdo_actual_numero_cuenta_ultimos4 ?? payment.numero_cuenta_ultimos4}` : 'Número de cuenta'} /></Field>
+        <Field label="CCI"><input inputMode="numeric" maxLength={20} value={form.cci ?? ''} onChange={e => update('cci', e.target.value.replace(/\D/g, '').slice(0, 20))} placeholder={(payment.acuerdo_actual_cci_ultimos4 ?? payment.cci_ultimos4) ? `Registrado •••• ${payment.acuerdo_actual_cci_ultimos4 ?? payment.cci_ultimos4}` : '20 dígitos'} /></Field>
+        <FormSection number="03" title="Vigencia" detail="Fecha efectiva del cambio" />
+        <div className={styles.applicationChoices} role="radiogroup" aria-label="Vigencia del acuerdo">
+          <ApplicationChoice active={currentMode === 'CURRENT'} icon={<CalendarDays />} title={defaults?.agreementId ? 'Vigencia actual' : 'Este mes'} date={defaults?.effectiveFrom ?? today()} onClick={() => selectApplicationMode('CURRENT')} />
+          <ApplicationChoice active={currentMode === 'NEXT_MONTH'} icon={<History />} title="Próximo mes" date={defaults?.nextMonthEffectiveFrom ?? today()} onClick={() => selectApplicationMode('NEXT_MONTH')} />
+        </div>
+        <Field label="Aplicar desde" wide required><input type="date" value={form.effective_from ?? ''} onChange={event => updateEffectiveDate(event.target.value)} /></Field>
+        {isMidMonthChange && <p className={styles.effectiveNotice}><CalendarDays aria-hidden="true" /><span>Se calculará proporcionalmente desde esta fecha.</span></p>}
       </>}
       {modal.action === 'movement' && <><Field label="Tipo de movimiento" required><select value={form.type ?? 'ADELANTO'} onChange={e => update('type', e.target.value)}><option value="ADELANTO">Adelanto</option><option value="OTRO_INGRESO">Otro ingreso</option><option value="OTRO_DESCUENTO">Otro descuento</option></select></Field><Field label="Monto" required><input type="number" min="0.01" step="0.01" value={form.amount ?? ''} onChange={e => update('amount', e.target.value)} /></Field><Field label="Concepto" wide required><input value={form.concept ?? ''} onChange={e => update('concept', e.target.value)} placeholder="Motivo o referencia del movimiento" /></Field></>}
       {modal.action === 'loan' && <><Field label="Monto entregado" required><input type="number" min="0.01" step="0.01" value={form.total_amount ?? ''} onChange={e => update('total_amount', e.target.value)} /></Field><Field label="Cuota mensual" required><input type="number" min="0.01" step="0.01" value={form.monthly_installment ?? ''} onChange={e => update('monthly_installment', e.target.value)} /></Field><Field label="Primera cuota" required><input type="month" value={form.start_month ?? month} onChange={e => update('start_month', e.target.value)} /></Field><Field label="Concepto" required><input value={form.concept ?? ''} onChange={e => update('concept', e.target.value)} placeholder="Descripción del préstamo" /></Field></>}
@@ -451,4 +500,16 @@ function PaymentForm({ modal, month, submitting, onClose, onSubmit }: { modal: M
 
 function Field({ label, children, required, wide }: { label: string; children: ReactNode; required?: boolean; wide?: boolean }) {
   return <label className={wide ? styles.fieldWide : styles.field}><span>{label}{required && <b> *</b>}</span>{children}</label>;
+}
+
+function CurrencyInput({ value, onChange, autoFocus = false }: { value: string; onChange: (value: string) => void; autoFocus?: boolean }) {
+  return <div className={styles.currencyInput}><span aria-hidden="true">S/</span><input autoFocus={autoFocus} type="text" inputMode="decimal" autoComplete="off" value={value} onChange={event => onChange(sanitizeCurrencyText(event.target.value))} onBlur={event => onChange(canonicalCurrencyText(event.target.value))} placeholder="0.00" /></div>;
+}
+
+function FormSection({ number: sectionNumber, title, detail }: { number: string; title: string; detail: string }) {
+  return <div className={styles.formSectionHeading}><span>{sectionNumber}</span><div><strong>{title}</strong><small>{detail}</small></div></div>;
+}
+
+function ApplicationChoice({ active, icon, title, date, onClick }: { active: boolean; icon: ReactNode; title: string; date: string; onClick: () => void }) {
+  return <button type="button" role="radio" aria-checked={active} className={active ? styles.applicationActive : ''} onClick={onClick}><span className={styles.applicationIcon}>{icon}</span><span><strong>{title}</strong><small>{readableDate(date)}</small></span></button>;
 }

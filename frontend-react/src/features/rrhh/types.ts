@@ -630,6 +630,18 @@ export type ServicePaymentControls = {
 export type ServicePaymentRow = {
   id: number | null;
   acuerdo_configurado_id?: number | null;
+  acuerdo_vigente_desde?: string | null;
+  acuerdo_vigente_hasta?: string | null;
+  acuerdo_actual_id?: number | null;
+  acuerdo_actual_pago_mensual?: number | string | null;
+  acuerdo_actual_politica_prorrateo?: 'DIAS_CALENDARIO' | 'HONORARIO_COMPLETO' | null;
+  acuerdo_actual_tarifa_hora_extra?: number | string | null;
+  acuerdo_actual_banco?: string | null;
+  acuerdo_actual_tipo_cuenta?: 'AHORROS' | 'CORRIENTE' | null;
+  acuerdo_actual_numero_cuenta_ultimos4?: string | null;
+  acuerdo_actual_cci_ultimos4?: string | null;
+  acuerdo_actual_vigente_desde?: string | null;
+  acuerdo_actual_vigente_hasta?: string | null;
   empleado_id: number;
   sede_id: number;
   codigo_empleado: string;

@@ -1,9 +1,11 @@
 import { createCipheriv, createHash, randomBytes } from 'crypto';
 import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
+import { businessDate } from '../../../core/utils/time';
 import {
-  calculateMonthlyServiceBase, calculateServicePayment, classifyPaymentWorkQueue,
+  calculateMonthlyAgreementBase, calculateServicePayment, classifyPaymentWorkQueue,
   evaluatePaymentControls, MonthlyProrationPolicy, normalizePaymentMonth,
+  parsePaymentAmount, planPaymentAgreementWrite,
 } from '../domain/paymentDomain';
 
 export class ServicePaymentError extends Error {
@@ -20,7 +22,7 @@ function positiveId(value: unknown, label: string): number {
 }
 
 function amount(value: unknown, label: string, allowZero = true): number {
-  const parsed = Number(value);
+  const parsed = parsePaymentAmount(value);
   if (!Number.isFinite(parsed) || parsed < (allowZero ? 0 : 0.01) || parsed > 9_999_999.99) {
     throw new ServicePaymentError(`${label} no valido.`);
   }
@@ -39,6 +41,16 @@ function prorationPolicy(value: unknown): MonthlyProrationPolicy {
     throw new ServicePaymentError('Politica para periodos parciales no valida.');
   }
   return policy as MonthlyProrationPolicy;
+}
+
+function agreementSegments(rows: RowDataPacket[]) {
+  return rows.map(row => ({
+    agreementId: Number(row.id),
+    monthlyPayment: Number(row.pago_mensual || 0),
+    agreementStart: String(row.vigente_desde_fecha),
+    agreementEnd: row.vigente_hasta_fecha ? String(row.vigente_hasta_fecha) : null,
+    policy: prorationPolicy(row.politica_prorrateo),
+  }));
 }
 
 function optionalDigits(value: unknown, min: number, max: number): string | null {
@@ -131,13 +143,29 @@ export class ServicePaymentService {
                 liquidation.estado, liquidation.rhe_serie, liquidation.rhe_numero,
                 liquidation.rhe_fecha_emision, liquidation.rhe_importe, liquidation.pago_fecha, liquidation.pago_operacion,
                 agreement.tarifa_hora_extra, agreement.banco, agreement.tipo_cuenta, agreement.numero_cuenta_ultimos4,
-                agreement.cci_ultimos4, liquidation.observacion
+                agreement.cci_ultimos4,
+                active_agreement.id AS acuerdo_actual_id,
+                active_agreement.pago_mensual AS acuerdo_actual_pago_mensual,
+                active_agreement.politica_prorrateo AS acuerdo_actual_politica_prorrateo,
+                active_agreement.tarifa_hora_extra AS acuerdo_actual_tarifa_hora_extra,
+                active_agreement.banco AS acuerdo_actual_banco,
+                active_agreement.tipo_cuenta AS acuerdo_actual_tipo_cuenta,
+                active_agreement.numero_cuenta_ultimos4 AS acuerdo_actual_numero_cuenta_ultimos4,
+                active_agreement.cci_ultimos4 AS acuerdo_actual_cci_ultimos4,
+                DATE_FORMAT(active_agreement.vigente_desde, '%Y-%m-%d') AS acuerdo_actual_vigente_desde,
+                DATE_FORMAT(active_agreement.vigente_hasta, '%Y-%m-%d') AS acuerdo_actual_vigente_hasta,
+                liquidation.observacion
            FROM personal_liquidaciones_pago liquidation
            INNER JOIN personal_periodos_pago payment_period ON payment_period.id = liquidation.periodo_pago_id
            INNER JOIN personal_empleados employee ON employee.id = liquidation.empleado_id
            INNER JOIN personal_cargos role ON role.id = employee.cargo_id
            INNER JOIN sedes site ON site.id = liquidation.sede_id
            LEFT JOIN personal_pago_acuerdos agreement ON agreement.id = liquidation.acuerdo_id
+           LEFT JOIN personal_pago_acuerdos active_agreement ON active_agreement.id = (
+             SELECT latest_agreement.id FROM personal_pago_acuerdos latest_agreement
+              WHERE latest_agreement.empleado_id = employee.id AND latest_agreement.vigente_hasta IS NULL
+              ORDER BY latest_agreement.vigente_desde DESC, latest_agreement.id DESC LIMIT 1
+           )
           WHERE payment_period.empresa_id = ? AND payment_period.periodo = ?
             ${siteId ? 'AND liquidation.sede_id = ?' : ''}
           ORDER BY site.nombre, employee.apellidos, employee.nombres`,
@@ -169,7 +197,18 @@ export class ServicePaymentService {
                 NULL AS pago_fecha, NULL AS pago_operacion,
                 COALESCE(agreement.tarifa_hora_extra, 0) AS tarifa_hora_extra,
                 agreement.banco, agreement.tipo_cuenta, agreement.numero_cuenta_ultimos4,
-                agreement.cci_ultimos4, NULL AS observacion
+                agreement.cci_ultimos4,
+                active_agreement.id AS acuerdo_actual_id,
+                active_agreement.pago_mensual AS acuerdo_actual_pago_mensual,
+                active_agreement.politica_prorrateo AS acuerdo_actual_politica_prorrateo,
+                active_agreement.tarifa_hora_extra AS acuerdo_actual_tarifa_hora_extra,
+                active_agreement.banco AS acuerdo_actual_banco,
+                active_agreement.tipo_cuenta AS acuerdo_actual_tipo_cuenta,
+                active_agreement.numero_cuenta_ultimos4 AS acuerdo_actual_numero_cuenta_ultimos4,
+                active_agreement.cci_ultimos4 AS acuerdo_actual_cci_ultimos4,
+                DATE_FORMAT(active_agreement.vigente_desde, '%Y-%m-%d') AS acuerdo_actual_vigente_desde,
+                DATE_FORMAT(active_agreement.vigente_hasta, '%Y-%m-%d') AS acuerdo_actual_vigente_hasta,
+                NULL AS observacion
            FROM personal_empleados employee
            INNER JOIN sedes site ON site.id = employee.sede_id AND site.empresa_id = ?
            INNER JOIN personal_cargos role ON role.id = employee.cargo_id
@@ -179,6 +218,11 @@ export class ServicePaymentService {
                 AND (current_agreement.vigente_hasta IS NULL OR current_agreement.vigente_hasta >= ?)
               ORDER BY current_agreement.vigente_desde DESC, current_agreement.id DESC LIMIT 1
            )
+           LEFT JOIN personal_pago_acuerdos active_agreement ON active_agreement.id = (
+             SELECT latest_agreement.id FROM personal_pago_acuerdos latest_agreement
+              WHERE latest_agreement.empleado_id = employee.id AND latest_agreement.vigente_hasta IS NULL
+              ORDER BY latest_agreement.vigente_desde DESC, latest_agreement.id DESC LIMIT 1
+           )
           WHERE employee.fecha_ingreso <= ? AND (employee.fecha_cese IS NULL OR employee.fecha_cese >= ?)
             ${siteFilter}
           ORDER BY site.nombre, employee.apellidos, employee.nombres`,
@@ -187,6 +231,29 @@ export class ServicePaymentService {
       );
       rows = result;
     }
+    const agreementsByEmployee = new Map<number, RowDataPacket[]>();
+    if (!paymentPeriod && rows.length) {
+      const employeeIds = rows.map(row => Number(row.empleado_id));
+      const placeholders = employeeIds.map(() => '?').join(',');
+      const [agreementRows] = await pool.query<RowDataPacket[]>(
+        `SELECT agreement.*,
+                DATE_FORMAT(agreement.vigente_desde, '%Y-%m-%d') AS vigente_desde_fecha,
+                DATE_FORMAT(agreement.vigente_hasta, '%Y-%m-%d') AS vigente_hasta_fecha
+           FROM personal_pago_acuerdos agreement
+          WHERE agreement.vigente_desde <= ?
+            AND (agreement.vigente_hasta IS NULL OR agreement.vigente_hasta >= ?)
+            AND agreement.empleado_id IN (${placeholders})
+          ORDER BY agreement.empleado_id, agreement.vigente_desde, agreement.id`,
+        [periodEnd(period), period, ...employeeIds],
+      );
+      for (const agreement of agreementRows) {
+        const employeeId = Number(agreement.empleado_id);
+        const current = agreementsByEmployee.get(employeeId) ?? [];
+        current.push(agreement);
+        agreementsByEmployee.set(employeeId, current);
+      }
+    }
+
     const payments: Array<RowDataPacket & {
       controls: ReturnType<typeof paymentControls>;
       queue: ReturnType<typeof classifyPaymentWorkQueue>;
@@ -196,14 +263,11 @@ export class ServicePaymentService {
         queue: ReturnType<typeof classifyPaymentWorkQueue>;
       };
       if (!paymentPeriod && row.acuerdo_configurado_id) {
-        const base = calculateMonthlyServiceBase({
-          monthlyPayment: Number(row.honorario_mensual_pactado || 0),
+        const base = calculateMonthlyAgreementBase({
           periodStart: period,
           employmentStart: String(row.fecha_ingreso),
           employmentEnd: row.fecha_cese ? String(row.fecha_cese) : null,
-          agreementStart: row.acuerdo_vigente_desde ? String(row.acuerdo_vigente_desde) : null,
-          agreementEnd: row.acuerdo_vigente_hasta ? String(row.acuerdo_vigente_hasta) : null,
-          policy: prorationPolicy(row.politica_prorrateo),
+          agreements: agreementSegments(agreementsByEmployee.get(Number(row.empleado_id)) ?? []),
         });
         payment.pago_mensual = base.appliedMonthlyPayment;
         payment.prorrateo_aplicado = base.prorated ? 1 : 0;
@@ -380,14 +444,21 @@ export class ServicePaymentService {
     );
     if (!employeeRows.length) throw new ServicePaymentError('Colaborador fuera del alcance autorizado.', 403);
     const employee = employeeRows[0];
-    const paymentPreview = employee.acuerdo_configurado_id ? calculateMonthlyServiceBase({
-      monthlyPayment: Number(employee.pago_mensual || 0),
+    const [employeeAgreements] = await pool.query<RowDataPacket[]>(
+      `SELECT agreement.*,
+              DATE_FORMAT(agreement.vigente_desde, '%Y-%m-%d') AS vigente_desde_fecha,
+              DATE_FORMAT(agreement.vigente_hasta, '%Y-%m-%d') AS vigente_hasta_fecha
+         FROM personal_pago_acuerdos agreement
+        WHERE agreement.empleado_id = ? AND agreement.vigente_desde <= ?
+          AND (agreement.vigente_hasta IS NULL OR agreement.vigente_hasta >= ?)
+        ORDER BY agreement.vigente_desde, agreement.id`,
+      [employeeId, end, period],
+    );
+    const paymentPreview = employee.acuerdo_configurado_id ? calculateMonthlyAgreementBase({
       periodStart: period,
       employmentStart: String(employee.fecha_ingreso),
       employmentEnd: employee.fecha_cese ? String(employee.fecha_cese) : null,
-      agreementStart: employee.acuerdo_vigente_desde ? String(employee.acuerdo_vigente_desde) : null,
-      agreementEnd: employee.acuerdo_vigente_hasta ? String(employee.acuerdo_vigente_hasta) : null,
-      policy: prorationPolicy(employee.politica_prorrateo),
+      agreements: agreementSegments(employeeAgreements),
     }) : null;
 
     const [periodRows] = await pool.query<RowDataPacket[]>(
@@ -565,11 +636,12 @@ export class ServicePaymentService {
   async saveAgreement(companyIdValue: number | null, employeeIdValue: unknown, actorId: number, input: Record<string, unknown>) {
     const companyId = await this.resolveCompanyId(companyIdValue);
     const employeeId = positiveId(employeeIdValue, 'Colaborador');
-    const monthlyPayment = amount(input.monthly_payment, 'Pago mensual');
+    const monthlyPayment = amount(input.monthly_payment, 'Pago mensual', false);
     const overtimeRate = amount(input.overtime_hourly_rate, 'Tarifa de hora extra');
     const partialPeriodPolicy = prorationPolicy(input.proration_policy);
     const effectiveFrom = String(input.effective_from ?? '').trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) throw new ServicePaymentError('Fecha de vigencia no valida.');
+    const requestedAgreementId = input.agreement_id === undefined || input.agreement_id === null || input.agreement_id === ''
+      ? null : positiveId(input.agreement_id, 'Acuerdo económico');
     const bank = String(input.bank ?? '').trim().slice(0, 100) || null;
     const accountType = input.account_type ? String(input.account_type).toUpperCase() : null;
     if (accountType && !['AHORROS', 'CORRIENTE'].includes(accountType)) throw new ServicePaymentError('Tipo de cuenta no valido.');
@@ -584,18 +656,76 @@ export class ServicePaymentService {
                 DATE_FORMAT(agreement.vigente_desde, '%Y-%m-%d') AS vigente_desde_fecha
            FROM personal_pago_acuerdos agreement
           WHERE agreement.empleado_id = ? AND agreement.vigente_hasta IS NULL
+          ORDER BY agreement.vigente_desde DESC, agreement.id DESC
           LIMIT 1 FOR UPDATE`, [employeeId],
       );
       let agreementId: number;
       const currentStart = current.length ? String(current[0].vigente_desde_fecha) : null;
-      if (currentStart && effectiveFrom < currentStart) {
-        throw new ServicePaymentError('La nueva vigencia no puede comenzar antes del acuerdo económico actual.', 409);
+      const currentId = current.length ? Number(current[0].id) : null;
+      if (requestedAgreementId && requestedAgreementId !== currentId) {
+        throw new ServicePaymentError('El acuerdo económico cambió mientras editabas. Actualiza la pantalla y vuelve a intentarlo.', 409);
       }
-      if (currentStart && effectiveFrom > currentStart && !effectiveFrom.endsWith('-01')) {
-        throw new ServicePaymentError('Los cambios de honorario deben iniciar el primer día de un mes para evitar cálculos ambiguos.', 409);
+      let writeMode: ReturnType<typeof planPaymentAgreementWrite>;
+      try {
+        writeMode = planPaymentAgreementWrite({ currentStart, requestedStart: effectiveFrom, today: businessDate() });
+      } catch (error) {
+        throw new ServicePaymentError(error instanceof Error ? error.message : 'Fecha de vigencia no válida.', 409);
       }
-      if (current.length && currentStart === effectiveFrom) {
-        agreementId = Number(current[0].id);
+
+      if (writeMode !== 'UPDATE_CURRENT') {
+        const [protectedPeriod] = await connection.query<RowDataPacket[]>(
+          `SELECT payment_period.periodo, payment_period.estado
+             FROM personal_periodos_pago payment_period
+            WHERE payment_period.empresa_id = ?
+              AND payment_period.periodo = STR_TO_DATE(CONCAT(LEFT(?, 7), '-01'), '%Y-%m-%d')
+              AND payment_period.estado <> 'BORRADOR'
+            LIMIT 1`,
+          [companyId, effectiveFrom],
+        );
+        if (protectedPeriod.length) {
+          throw new ServicePaymentError(
+            `El periodo ${String(protectedPeriod[0].periodo).slice(0, 7)} ya está protegido. Elige una fecha de un periodo abierto.`,
+            409,
+          );
+        }
+      }
+
+      if (writeMode === 'UPDATE_CURRENT' || writeMode === 'RESCHEDULE_FUTURE') {
+        agreementId = currentId!;
+        if (writeMode === 'RESCHEDULE_FUTURE') {
+          const [lockedUsage] = await connection.query<RowDataPacket[]>(
+            `SELECT payment_period.periodo, payment_period.estado
+               FROM personal_liquidaciones_pago liquidation
+               INNER JOIN personal_periodos_pago payment_period ON payment_period.id = liquidation.periodo_pago_id
+              WHERE liquidation.acuerdo_id = ? AND payment_period.estado <> 'BORRADOR'
+              LIMIT 1`, [agreementId],
+          );
+          if (lockedUsage.length) {
+            throw new ServicePaymentError('La programación futura ya forma parte de un periodo protegido y no puede reprogramarse.', 409);
+          }
+          const [previous] = await connection.query<RowDataPacket[]>(
+            `SELECT agreement.id,
+                    DATE_FORMAT(agreement.vigente_desde, '%Y-%m-%d') AS vigente_desde_fecha,
+                    DATE_FORMAT(agreement.vigente_hasta, '%Y-%m-%d') AS vigente_hasta_fecha
+               FROM personal_pago_acuerdos agreement
+              WHERE agreement.empleado_id = ? AND agreement.id <> ? AND agreement.vigente_desde < ?
+              ORDER BY agreement.vigente_desde DESC, agreement.id DESC
+              LIMIT 1 FOR UPDATE`, [employeeId, agreementId, currentStart],
+          );
+          if (previous.length) {
+            const previousStart = String(previous[0].vigente_desde_fecha);
+            if (previousStart >= effectiveFrom) {
+              throw new ServicePaymentError('La fecha elegida se cruza con un acuerdo histórico. Selecciona una fecha posterior.', 409);
+            }
+            const previousEnd = previous[0].vigente_hasta_fecha ? String(previous[0].vigente_hasta_fecha) : null;
+            if (previousEnd && previousEnd >= effectiveFrom) {
+              await connection.query(
+                `UPDATE personal_pago_acuerdos SET vigente_hasta = DATE_SUB(?, INTERVAL 1 DAY) WHERE id = ?`,
+                [effectiveFrom, previous[0].id],
+              );
+            }
+          }
+        }
         await connection.query(
           `UPDATE personal_pago_acuerdos SET pago_mensual = ?, politica_prorrateo = ?, tarifa_hora_extra = ?, banco = ?, tipo_cuenta = ?,
              numero_cuenta = COALESCE(?, numero_cuenta), numero_cuenta_ultimos4 = COALESCE(?, numero_cuenta_ultimos4),
@@ -604,7 +734,7 @@ export class ServicePaymentService {
             encryptSensitive(cci), cci?.slice(-4) ?? null, effectiveFrom, actorId, agreementId],
         );
       } else {
-        if (current.length) {
+        if (writeMode === 'CREATE_VERSION' && current.length) {
           await connection.query(`UPDATE personal_pago_acuerdos SET vigente_hasta = DATE_SUB(?, INTERVAL 1 DAY) WHERE id = ?`, [effectiveFrom, current[0].id]);
         }
         const [result] = await connection.query<ResultSetHeader>(
@@ -619,7 +749,7 @@ export class ServicePaymentService {
       }
       await this.audit(connection, 'PAGO_ACUERDO_ACTUALIZADO', employeeId, actorId, {
         agreement_id: agreementId, monthly_payment: monthlyPayment, proration_policy: partialPeriodPolicy,
-        overtime_hourly_rate: overtimeRate, effective_from: effectiveFrom,
+        overtime_hourly_rate: overtimeRate, effective_from: effectiveFrom, write_mode: writeMode,
       });
       return { id: agreementId, employee_id: employeeId };
     });
@@ -925,17 +1055,14 @@ export class ServicePaymentService {
               DATE_FORMAT(agreement.vigente_hasta, '%Y-%m-%d') AS vigente_hasta_fecha
          FROM personal_pago_acuerdos agreement WHERE agreement.empleado_id = ? AND agreement.vigente_desde <= ?
        AND (agreement.vigente_hasta IS NULL OR agreement.vigente_hasta >= ?)
-       ORDER BY agreement.vigente_desde DESC, agreement.id DESC LIMIT 1`, [employeeId, end, period],
+       ORDER BY agreement.vigente_desde, agreement.id`, [employeeId, end, period],
     );
-    const agreement = agreements[0] ?? null;
-    const monthlyBase = calculateMonthlyServiceBase({
-      monthlyPayment: Number(agreement?.pago_mensual || 0),
+    const agreement = agreements.at(-1) ?? null;
+    const monthlyBase = calculateMonthlyAgreementBase({
       periodStart: period,
       employmentStart,
       employmentEnd,
-      agreementStart: agreement?.vigente_desde_fecha ? String(agreement.vigente_desde_fecha) : null,
-      agreementEnd: agreement?.vigente_hasta_fecha ? String(agreement.vigente_hasta_fecha) : null,
-      policy: prorationPolicy(agreement?.politica_prorrateo),
+      agreements: agreementSegments(agreements),
     });
     const [[overtime]] = await connection.query<RowDataPacket[]>(
       `SELECT COALESCE(SUM(request.minutos_aprobados), 0) AS minutes
@@ -984,13 +1111,15 @@ export class ServicePaymentService {
     );
     const liquidationId = insert.insertId;
     if (agreement) {
-      const description = monthlyBase.prorated
-        ? `Honorario proporcional por servicios (${monthlyBase.serviceDays} de ${monthlyBase.periodDays} dias)`
-        : 'Pago mensual por servicios';
-      await this.addConcept(
-        connection, liquidationId, 'PAGO_MENSUAL', description,
-        monthlyBase.appliedMonthlyPayment, monthlyBase.serviceDays, 'dias', 'ACUERDO', Number(agreement.id),
-      );
+      for (const segment of monthlyBase.segments) {
+        const description = segment.prorated || monthlyBase.segments.length > 1
+          ? `Honorario del ${segment.serviceStart} al ${segment.serviceEnd} (${segment.serviceDays} de ${segment.periodDays} dias)`
+          : 'Pago mensual por servicios';
+        await this.addConcept(
+          connection, liquidationId, 'PAGO_MENSUAL', description,
+          segment.appliedMonthlyPayment, segment.serviceDays, 'dias', 'ACUERDO', segment.agreementId,
+        );
+      }
       if (calculation.overtimeAmount > 0) await this.addConcept(connection, liquidationId, 'HORAS_EXTRA', 'Horas extras aprobadas', calculation.overtimeAmount, Number(overtime.minutes), 'min', 'SOBRETIEMPO_MENSUAL', null);
     }
     for (const movement of movements) await this.addConcept(connection, liquidationId, movement.tipo, movement.concepto, Number(movement.monto), null, null, 'MOVIMIENTO', Number(movement.id));
