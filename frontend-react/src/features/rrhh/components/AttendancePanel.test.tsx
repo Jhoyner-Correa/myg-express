@@ -60,7 +60,7 @@ describe('AttendancePanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ver historial de verificaciones' }));
 
     expect(await screen.findByRole('dialog', { name: 'Historial de verificaciones' })).toBeInTheDocument();
-    expect(screen.getByText('Sin verificaciones anteriores')).toBeInTheDocument();
+    expect(await screen.findByText('Sin verificaciones anteriores')).toBeInTheDocument();
     expect(rrhhService.getBiometricContingencyHistory).toHaveBeenCalledWith(null);
   });
 });
