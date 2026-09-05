@@ -8,7 +8,7 @@
     "dev:worker": "ts-node-dev --respawn --transpile-only src/worker.ts",
     "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "npm run clean && tsc",
-    "test": "npm run build && node --test test/runtimeEnvironment.test.js test/servicePayment.test.js test/authorization.test.js test/time.test.js test/savarScanDomain.test.js test/urbanoRouteDomain.test.js test/noticeImportDomain.test.js test/attendancePolicy.test.js test/attendanceOperationalState.test.js test/mobileSignature.test.js test/mobilePermissionRequest.test.js test/mobileAttendanceJustification.test.js test/mobileOvertime.test.js test/mobileVersionPolicy.test.js test/gpsTrackingToken.test.js test/employeePolicy.test.js test/employeeCode.test.js test/employeePhotoStorage.test.js test/userPhotoStorage.test.js test/dniLookupService.test.js test/attendanceDashboard.test.js test/attendanceReport.test.js test/rrhhIncidents.test.js test/schedulePolicy.test.js test/workCalendarPolicy.test.js test/holidayCalendarPolicy.test.js test/selfieRetentionPolicy.test.js test/passwordPolicy.test.js test/authProfile.test.js test/migrationRunner.test.js test/userUiPreferences.test.js test/jobRolePolicy.test.js",
+    "test": "npm run build && node --test test/runtimeEnvironment.test.js test/servicePayment.test.js test/authorization.test.js test/time.test.js test/savarScanDomain.test.js test/urbanoRouteDomain.test.js test/urbanoDispatchDomain.test.js test/printingDomain.test.js test/noticeImportDomain.test.js test/attendancePolicy.test.js test/attendanceOperationalState.test.js test/mobileSignature.test.js test/mobilePermissionRequest.test.js test/mobileAttendanceJustification.test.js test/mobileOvertime.test.js test/mobileVersionPolicy.test.js test/gpsTrackingToken.test.js test/employeePolicy.test.js test/employeeCode.test.js test/employeePhotoStorage.test.js test/userPhotoStorage.test.js test/dniLookupService.test.js test/attendanceDashboard.test.js test/attendanceReport.test.js test/rrhhIncidents.test.js test/schedulePolicy.test.js test/workCalendarPolicy.test.js test/holidayCalendarPolicy.test.js test/selfieRetentionPolicy.test.js test/passwordPolicy.test.js test/authProfile.test.js test/migrationRunner.test.js test/userUiPreferences.test.js test/jobRolePolicy.test.js",
     "test:authorization": "npm run build && node --test test/authorization.test.js test/time.test.js",
     "db:migrate": "npm run build && node dist/scripts/runMigrations.js",
     "mobile:release:publish": "npm run build && node dist/scripts/publishMobileRelease.js",
@@ -17,6 +17,7 @@
     "db:bootstrap:sysadmin": "npm run build && node dist/scripts/crearSuperadmin.js",
     "db:create:user": "npm run build && node dist/scripts/crearUsuario.js",
     "configurar:urbano-sede": "ts-node src/scripts/configurarUrbanoSede.ts",
+    "print-agent:register": "npm run build && node dist/scripts/registerPrintAgent.js",
     "start": "node dist/app.js",
     "start:worker": "node dist/worker.js"
   },
@@ -34,7 +35,8 @@
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
     "multer": "^2.2.0",
-    "mysql2": "^3.24.2"
+    "mysql2": "^3.24.2",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

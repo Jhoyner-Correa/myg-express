@@ -20,10 +20,23 @@ import {
 import { verificarToken } from '../../../core/middlewares/authMiddleware';
 import { PERMISSIONS } from '../../../core/constants/permissions';
 import { requirePermission } from '../../../core/middlewares/permissionMiddleware';
+import {
+  consultarDetalleGuiaUrbano,
+  consultarGuiasDespachoUrbano,
+  listarDespachosUrbano,
+  listarSedesDespachosUrbano,
+} from '../controllers/urbanoDispatchController';
 
 const router = Router();
 
-router.use(verificarToken, requirePermission(PERMISSIONS.ADMIN_PANEL_VIEW));
+router.use(verificarToken);
+
+router.get('/urbano-despachos/sedes', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), listarSedesDespachosUrbano);
+router.get('/urbano-despachos', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), listarDespachosUrbano);
+router.get('/urbano-despachos/guias', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), consultarGuiasDespachoUrbano);
+router.get('/urbano-despachos/guias/detalle', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), consultarDetalleGuiaUrbano);
+
+router.use(requirePermission(PERMISSIONS.ADMIN_PANEL_VIEW));
 
 router.get('/overview', obtenerResumenAdmin);
 router.get('/sedes', listarSedesAdmin);

@@ -12,7 +12,6 @@ export function isValidPeruvianRuc(value: string): boolean {
   const expectedDigit = remainder === 10 ? 0 : remainder === 11 ? 1 : remainder;
   return expectedDigit === Number(value[10]);
 }
-
 type EmployeeDefinition = Omit<Empleado, 'id' | 'codigoEmpleado'> & { codigoEmpleado?: string };
 
 export function assertEmployeeDefinition(employee: EmployeeDefinition): void {

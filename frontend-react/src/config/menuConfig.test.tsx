@@ -27,6 +27,13 @@ describe('sidebarMenuConfig', () => {
     expect(gps?.permission).toBe('gps.ver');
   });
 
+  it('trata Rutas como una pantalla exacta para no marcar otros modulos logisticos', () => {
+    const logistics = sidebarMenuConfig.find(item => item.title === 'WhatsApp Masivo');
+    const routes = logistics?.children?.find(item => item.path === '/logistica');
+
+    expect(routes?.exact).toBe(true);
+  });
+
   it('separa pagos y configuracion de la consulta general de RRHH', () => {
     const rrhh = sidebarMenuConfig.find(item => item.title === 'Recursos Humanos');
     const payments = rrhh?.children?.find(item => item.path === '/rrhh/pagos');
@@ -41,5 +48,23 @@ describe('sidebarMenuConfig', () => {
 
     expect(serializedMenu).not.toContain('/logistica/entregas');
     expect(serializedMenu).not.toContain('entregas.ver');
+  });
+  it('trata el panel central como una ruta exacta', () => {
+    const admin = sidebarMenuConfig.find(item => item.path === '/admin');
+
+    expect(admin?.exact).toBe(true);
+  });
+
+  it('protege Despachos Urbano con un permiso independiente', () => {
+    const dispatches = sidebarMenuConfig.find(item => item.path === '/admin/despachos-urbano');
+
+    expect(dispatches?.permission).toBe('urbano.despachos.ver');
+  });
+
+  it('protege Impresion con permisos propios', () => {
+    const printing = sidebarMenuConfig.find(item => item.path === '/impresion');
+
+    expect(printing?.permission).toBe('impresion.ver');
+    expect(printing?.group).toBe('tools');
   });
 });

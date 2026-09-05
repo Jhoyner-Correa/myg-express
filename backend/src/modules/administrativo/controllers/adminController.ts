@@ -366,7 +366,10 @@ export async function actualizarMisModulosAdmin(req: AuthRequest, res: Response)
     res.json({
       ok: true,
       mensaje: 'Módulos visibles actualizados correctamente',
-      data: { modulos_visibles: visibleModules },
+      data: {
+        modulos_visibles: visibleModules,
+        permisos: req.user?.permisos ?? [],
+      },
     });
   } catch (error) {
     handleAccessError(error, res, 'No se pudieron actualizar tus módulos');

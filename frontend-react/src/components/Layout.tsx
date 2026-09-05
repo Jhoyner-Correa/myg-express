@@ -11,8 +11,8 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { sidebarMenuConfig } from '../config/menuConfig';
 import type { MenuItem } from '../config/menuConfig';
 
-function pathIsActive(currentPath: string, path?: string) {
-  return Boolean(path && (currentPath === path || currentPath.startsWith(`${path}/`)));
+function pathIsActive(currentPath: string, path?: string, exact = false) {
+  return Boolean(path && (currentPath === path || (!exact && currentPath.startsWith(`${path}/`))));
 }
 
 export const Layout: React.FC = () => {
@@ -86,7 +86,7 @@ export const Layout: React.FC = () => {
 
   useEffect(() => {
     setOpenSections(current => {
-      const activeParent = sidebarMenuConfig.find(item => item.children?.some(child => pathIsActive(location.pathname, child.path)));
+      const activeParent = sidebarMenuConfig.find(item => item.children?.some(child => pathIsActive(location.pathname, child.path, child.exact)));
       if (!activeParent || current[activeParent.title]) return current;
       return { ...current, [activeParent.title]: true };
     });
@@ -144,7 +144,7 @@ export const Layout: React.FC = () => {
             {sidebarMenuConfig.filter(canShowItem).map((item) => {
               if (item.children) {
                 const visibleChildren = item.children.filter(canShowItem);
-                const hasActiveChild = visibleChildren.some(child => pathIsActive(location.pathname, child.path));
+                const hasActiveChild = visibleChildren.some(child => pathIsActive(location.pathname, child.path, child.exact));
                 const isOpen = openSections[item.title] ?? hasActiveChild;
                 const sectionId = `sidebar-section-${item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
                 return (
@@ -170,8 +170,8 @@ export const Layout: React.FC = () => {
                           <a 
                             key={child.path ?? child.title}
                             href={child.path} 
-                            className={`nav-item sidebar__sub-link ${pathIsActive(location.pathname, child.path) ? 'active' : ''}`}
-                            aria-current={pathIsActive(location.pathname, child.path) ? 'page' : undefined}
+                            className={`nav-item sidebar__sub-link ${pathIsActive(location.pathname, child.path, child.exact) ? 'active' : ''}`}
+                            aria-current={pathIsActive(location.pathname, child.path, child.exact) ? 'page' : undefined}
                             onClick={(e) => { e.preventDefault(); if (child.path) navigate(child.path); }}
                             title={child.title}
                           >
@@ -191,8 +191,8 @@ export const Layout: React.FC = () => {
                     <div className="sidebar__menu">
                       <a 
                         href={item.path} 
-                        className={`nav-item sidebar__link ${pathIsActive(location.pathname, item.path) ? 'active' : ''}`}
-                        aria-current={pathIsActive(location.pathname, item.path) ? 'page' : undefined}
+                        className={`nav-item sidebar__link ${pathIsActive(location.pathname, item.path, item.exact) ? 'active' : ''}`}
+                        aria-current={pathIsActive(location.pathname, item.path, item.exact) ? 'page' : undefined}
                         onClick={(e) => { e.preventDefault(); if (item.path) navigate(item.path); }}
                         title={item.title}
                       >
@@ -203,8 +203,8 @@ export const Layout: React.FC = () => {
                   ) : (
                     <a 
                       href={item.path} 
-                      className={`nav-item sidebar__link ${pathIsActive(location.pathname, item.path) ? 'active' : ''}`}
-                      aria-current={pathIsActive(location.pathname, item.path) ? 'page' : undefined}
+                      className={`nav-item sidebar__link ${pathIsActive(location.pathname, item.path, item.exact) ? 'active' : ''}`}
+                      aria-current={pathIsActive(location.pathname, item.path, item.exact) ? 'page' : undefined}
                       onClick={(e) => { e.preventDefault(); if (item.path) navigate(item.path); }}
                       title={item.title}
                     >

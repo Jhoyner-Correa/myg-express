@@ -98,6 +98,9 @@ test('una excepción individual puede restringir pero no elevar el rol', () => {
 test('SysAdmin obtiene capacidades por rol sin una bandera especial', () => {
   const permissions = getPermissionsForRole(ROLES.SYSADMIN);
   assert.equal(permissions.includes(PERMISSIONS.ADMIN_PANEL_VIEW), true);
+  assert.equal(permissions.includes(PERMISSIONS.URBANO_DISPATCHES_VIEW), true);
+  assert.equal(permissions.includes(PERMISSIONS.PRINTING_VIEW), true);
+  assert.equal(permissions.includes(PERMISSIONS.PRINTING_MANAGE), true);
   assert.equal(permissions.includes(PERMISSIONS.RRHH_VIEW), true);
   assert.equal(permissions.includes(PERMISSIONS.ROUTES_MANAGE), true);
 });
@@ -111,12 +114,15 @@ test('el catálogo de permisos no conserva Gestión de entregas', () => {
 
 test('administrador de empresa gestiona RRHH con alcance global', () => {
   const permissions = getPermissionsForRole(ROLES.ADMIN_EMPRESA);
+  assert.equal(permissions.includes(PERMISSIONS.URBANO_DISPATCHES_VIEW), true);
   assert.equal(permissions.includes(PERMISSIONS.RRHH_VIEW), true);
   assert.equal(permissions.includes(PERMISSIONS.RRHH_MANAGE), true);
   assert.equal(permissions.includes(PERMISSIONS.RRHH_ATTENDANCE_MANAGE), true);
   assert.equal(permissions.includes(PERMISSIONS.RRHH_PAYMENTS_VIEW), true);
   assert.equal(permissions.includes(PERMISSIONS.RRHH_PAYMENTS_MANAGE), true);
   assert.equal(permissions.includes(PERMISSIONS.RRHH_CONFIGURE), true);
+  assert.equal(permissions.includes(PERMISSIONS.PRINTING_VIEW), true);
+  assert.equal(permissions.includes(PERMISSIONS.PRINTING_MANAGE), true);
 });
 
 test('gerencia controla la empresa y consulta pagos sin ejecutarlos', () => {
@@ -130,6 +136,7 @@ test('gerencia controla la empresa y consulta pagos sin ejecutarlos', () => {
   assert.equal(permissions.includes(PERMISSIONS.RRHH_PAYMENTS_MANAGE), false);
   assert.equal(permissions.includes(PERMISSIONS.RRHH_CONFIGURE), false);
   assert.equal(permissions.includes(PERMISSIONS.USERS_MANAGE), false);
+  assert.equal(permissions.includes(PERMISSIONS.URBANO_DISPATCHES_VIEW), false);
 });
 
 test('supervisor o supervisora controla asistencia solo con alcance de sede', () => {

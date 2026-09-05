@@ -12,11 +12,25 @@ const MODULE_LABELS: Record<string, string> = {
   RUTAS: 'Rutas',
   WHATSAPP: 'WhatsApp',
   URBANO: 'Urbano',
+  URBANO_DESPACHOS: 'Despachos Urbano',
+  IMPRESION: 'Impresi\u00f3n',
   SAVAR_SCAN: 'SAVAR SCAN',
-  ETIQUETAS: 'Etiquetas',
   RRHH: 'Recursos Humanos',
   RRHH_PAGOS: 'Pagos mensuales',
   GPS: 'Rastreo GPS',
+};
+
+const MODULE_PERMISSION_LABELS: Record<string, string> = {
+  [PERMISSIONS.ADMIN_PANEL_VIEW]: 'Panel central',
+  [PERMISSIONS.ROUTES_VIEW]: 'Rutas',
+  [PERMISSIONS.WHATSAPP_VIEW]: 'WhatsApp',
+  [PERMISSIONS.URBANO_ROUTES_VIEW]: 'Consulta de rutas Urbano',
+  [PERMISSIONS.URBANO_DISPATCHES_VIEW]: 'Despachos Urbano',
+  [PERMISSIONS.PRINTING_VIEW]: 'Impresi\u00f3n',
+  [PERMISSIONS.SAVAR_SCAN_VIEW]: 'SAVAR SCAN',
+  [PERMISSIONS.RRHH_VIEW]: 'Recursos Humanos',
+  [PERMISSIONS.RRHH_PAYMENTS_VIEW]: 'Pagos mensuales',
+  [PERMISSIONS.GPS_VIEW]: 'Rastreo GPS',
 };
 
 type RoleRow = RowDataPacket & {
@@ -96,8 +110,8 @@ function modulesFromCsv(value: string | null): Array<{ code: string; name: strin
   return value
     .split(',')
     .filter(Boolean)
-    .sort((a, b) => (MODULE_LABELS[a] ?? a).localeCompare(MODULE_LABELS[b] ?? b, 'es'))
-    .map(code => ({ code, name: MODULE_LABELS[code] ?? code }));
+    .sort((a, b) => (MODULE_PERMISSION_LABELS[a] ?? a).localeCompare(MODULE_PERMISSION_LABELS[b] ?? b, 'es'))
+    .map(code => ({ code, name: MODULE_PERMISSION_LABELS[code] ?? code }));
 }
 
 function mapUser(row: UserRow) {
@@ -303,12 +317,8 @@ export class UserAccessAdminService {
          site.nombre AS sede_nombre,
          GROUP_CONCAT(DISTINCT CASE
            WHEN user_permission.efecto = 'DENEGAR' THEN NULL
-           WHEN permission.codigo NOT IN (
-             'admin.panel.ver', 'rutas.ver', 'whatsapp.ver', 'urbano.rutas.ver',
-             'etiquetas.ver', 'savarscan.ver', 'rrhh.ver',
-             'rrhh.pagos.ver', 'gps.ver'
-           ) THEN NULL
-           ELSE permission.modulo
+           WHEN permission.codigo NOT IN (?) THEN NULL
+           ELSE permission.codigo
          END ORDER BY permission.modulo SEPARATOR ',') AS modulos
        FROM usuarios user
        INNER JOIN usuario_asignaciones assignment
@@ -330,7 +340,8 @@ export class UserAccessAdminService {
          user.ultimo_acceso_at, user.password_actualizado_at, user.created_at,
          access_role.codigo, access_role.nombre, assignment.alcance,
          assignment.empresa_id, company.nombre_comercial, assignment.sede_id, site.nombre
-       ORDER BY user.tipo_usuario DESC, user.nombre ASC`,
+      ORDER BY user.tipo_usuario DESC, user.nombre ASC`,
+      [VISIBILITY_PERMISSIONS],
     );
     return rows.map(mapUser);
   }

@@ -77,4 +77,5 @@ export type ChangeSystemUserPassword = {
 
 export type UpdateMyModuleAccessResult = {
   modulos_visibles: string[];
+  permisos: string[];
 };

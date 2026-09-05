@@ -161,7 +161,10 @@ export function UserAccessPanel({ sites }: Props) {
       setSaving(true);
       try {
         const result = await adminAccessService.updateMyModules(form.moduleCodes);
-        updateUser?.({ modulos_visibles: result.modulos_visibles });
+        updateUser?.({
+          modulos_visibles: result.modulos_visibles,
+          permisos: result.permisos,
+        });
         showToast('La visibilidad de tu pantalla fue actualizada.', 'success');
         setFormOpen(false);
         await load();

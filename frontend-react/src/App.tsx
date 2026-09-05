@@ -19,11 +19,12 @@ const Logistica = lazy(() => import('./features/logistica/Logistica').then((m) =
 const LoteDetalle = lazy(() => import('./features/logistica/LoteDetalle').then((m) => ({ default: m.LoteDetalle })));
 const WhatsAppSessions = lazy(() => import('./features/logistica/WhatsAppSessions').then((m) => ({ default: m.WhatsAppSessions })));
 const SavarScan = lazy(() => import('./features/logistica/SavarScan').then((m) => ({ default: m.SavarScan })));
-const Etiquetas = lazy(() => import('./features/logistica/Etiquetas').then((m) => ({ default: m.Etiquetas })));
 const ConsultaHistorica = lazy(() => import('./features/logistica/ConsultaHistorica').then((m) => ({ default: m.ConsultaHistorica })));
 const Rrhh = lazy(() => import('./features/rrhh/Rrhh').then((m) => ({ default: m.Rrhh })));
 const Gps = lazy(() => import('./features/gps/Gps').then((m) => ({ default: m.Gps })));
 const Admin = lazy(() => import('./features/admin/Admin').then((m) => ({ default: m.Admin })));
+const UrbanoDispatches = lazy(() => import('./features/admin/urbano-dispatch/UrbanoDispatches').then((m) => ({ default: m.UrbanoDispatches })));
+const Printing = lazy(() => import('./features/printing/Printing').then((m) => ({ default: m.Printing })));
 
 // Guardián de Rutas Protegidas
 const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: string }> = ({ children, permission }) => {
@@ -65,8 +66,8 @@ export const AppContent: React.FC = () => {
           <Route path="rutas/:id" element={<ProtectedRoute permission="rutas.ver"><LoteDetalle /></ProtectedRoute>} />
           <Route path="logistica/whatsapp" element={<ProtectedRoute permission="whatsapp.ver"><WhatsAppSessions /></ProtectedRoute>} />
           <Route path="logistica/savar-scan" element={<ProtectedRoute permission="savarscan.ver"><SavarScan /></ProtectedRoute>} />
-          <Route path="logistica/etiquetas" element={<ProtectedRoute permission="etiquetas.ver"><Etiquetas /></ProtectedRoute>} />
           <Route path="logistica/consulta" element={<ProtectedRoute permission="urbano.rutas.ver"><ConsultaHistorica /></ProtectedRoute>} />
+          <Route path="impresion" element={<ProtectedRoute permission="impresion.ver"><Printing /></ProtectedRoute>} />
           <Route path="rrhh" element={<Navigate to="/rrhh/resumen" replace />} />
           <Route path="rrhh/resumen" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="overview" /></ProtectedRoute>} />
           <Route path="rrhh/personal" element={<ProtectedRoute permission="rrhh.ver"><Rrhh section="people" /></ProtectedRoute>} />
@@ -79,6 +80,7 @@ export const AppContent: React.FC = () => {
           <Route path="rrhh/configuracion" element={<ProtectedRoute permission="rrhh.configurar"><Rrhh section="configuration" /></ProtectedRoute>} />
           <Route path="gps" element={<Navigate to="/rrhh/gps" replace />} />
           <Route path="admin" element={<ProtectedRoute permission="admin.panel.ver"><Admin /></ProtectedRoute>} />
+          <Route path="admin/despachos-urbano" element={<ProtectedRoute permission="urbano.despachos.ver"><UrbanoDispatches /></ProtectedRoute>} />
         </Route>
 
         {/* Ruta por defecto redirecciona al login */}

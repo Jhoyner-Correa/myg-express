@@ -5,7 +5,9 @@ import {
   ClipboardList,
   LayoutDashboard,
   MapPinned,
+  Printer,
   Settings2,
+  Truck,
   UsersRound,
   WalletCards,
 } from 'lucide-react';
@@ -17,6 +19,7 @@ export interface MenuItem {
   permission?: string; // Permiso PBAC (opcional)
   roles?: string[]; // Roles específicos admitidos (opcional)
   alwaysShow?: boolean; // Visible para todos
+  exact?: boolean; // Solo se activa cuando la URL coincide exactamente
   group: 'operations' | 'tools' | 'administration';
   children?: Omit<MenuItem, 'group'>[]; // Elementos anidados (submenús)
 }
@@ -36,6 +39,7 @@ export const sidebarMenuConfig: MenuItem[] = [
       {
         title: 'Rutas',
         path: '/logistica',
+        exact: true,
         permission: 'rutas.ver',
         icon: (
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -71,16 +75,11 @@ export const sidebarMenuConfig: MenuItem[] = [
     ]
   },
   {
-    title: 'Generar etiquetas',
-    path: '/logistica/etiquetas',
-    permission: 'etiquetas.ver',
+    title: 'Impresion',
+    path: '/impresion',
+    permission: 'impresion.ver',
     group: 'tools',
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-        <line x1="7" y1="7" x2="7.01" y2="7"></line>
-      </svg>
-    )
+    icon: <Printer aria-hidden="true" />,
   },
   {
     title: 'SAVAR SCAN',
@@ -118,6 +117,7 @@ export const sidebarMenuConfig: MenuItem[] = [
   {
     title: 'Panel central',
     path: '/admin',
+    exact: true,
     permission: 'admin.panel.ver',
     group: 'administration',
     icon: (
@@ -128,5 +128,12 @@ export const sidebarMenuConfig: MenuItem[] = [
         <rect x="14" y="14" width="7" height="7" rx="1"></rect>
       </svg>
     )
+  },
+  {
+    title: 'Despachos Urbano',
+    path: '/admin/despachos-urbano',
+    permission: 'urbano.despachos.ver',
+    group: 'administration',
+    icon: <Truck aria-hidden="true" />,
   }
 ];

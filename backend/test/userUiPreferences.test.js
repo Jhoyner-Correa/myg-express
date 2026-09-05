@@ -13,3 +13,14 @@ test('una preferencia vacía no concede módulos desconocidos', () => {
   assert.deepEqual(normalizeVisibleModules(null), []);
   assert.deepEqual(normalizeVisibleModules(['permiso.inexistente']), []);
 });
+
+test('reconoce Despachos Urbano como modulo visible independiente', () => {
+  assert.deepEqual(
+    normalizeVisibleModules(['urbano.despachos.ver']),
+    ['urbano.despachos.ver'],
+  );
+});
+
+test('reconoce Impresion como modulo visible independiente', () => {
+  assert.deepEqual(normalizeVisibleModules(['impresion.ver']), ['impresion.ver']);
+});

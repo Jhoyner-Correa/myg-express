@@ -1,0 +1,22 @@
+{
+  "name": "myg-print-agent",
+  "version": "1.2.2",
+  "private": true,
+  "description": "Conector seguro para impresoras termicas USB de MyG",
+  "scripts": {
+    "start": "node agent.js",
+    "build:connector": "pkg agent.js --target node18-win-x64 --output dist/MyGPrintConnector.exe",
+    "build:setup": "npm run build:connector && powershell -NoProfile -File build-setup.ps1"
+  },
+  "pkg": {
+    "assets": [
+      "raw-print.ps1"
+    ]
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
