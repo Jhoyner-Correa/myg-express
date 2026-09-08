@@ -44,6 +44,15 @@ describe('formulario de acuerdo económico', () => {
     expect(applicationDate('NEXT_MONTH', defaults)).toBe('2026-10-01');
   });
 
+  it('conserva el día exacto cuando el acuerdo comienza hoy', () => {
+    const defaults = agreementFormDefaults({
+      ...payment,
+      acuerdo_actual_vigente_desde: '2026-09-08',
+    }, '2026-09-08');
+    expect(defaults.effectiveFrom).toBe('2026-09-08');
+    expect(applicationDate('CURRENT', defaults)).toBe('2026-09-08');
+  });
+
   it('reubica una programación futura al inicio del mes actual', () => {
     const defaults = agreementFormDefaults({
       ...payment,

@@ -18,7 +18,7 @@ import { EmployeePaymentLedgerModal } from './EmployeePaymentLedgerModal';
 import { employeePhotoFallbackHandler, getEmployeePhotoUrl } from './employee-avatar';
 import {
   agreementFormDefaults, applicationDate, canonicalCurrencyText, parseCurrencyText,
-  sanitizeCurrencyText, type AgreementApplicationMode, type AgreementFormDefaults,
+  sanitizeCurrencyText, monthStart, type AgreementApplicationMode, type AgreementFormDefaults,
 } from './payment-agreement-form';
 import styles from './PaymentsPanel.module.css';
 
@@ -466,6 +466,11 @@ function PaymentForm({ modal, month, submitting, onClose, onSubmit }: { modal: M
   const previewMonthlyPayment = parseCurrencyText(form.monthly_payment);
   const currentMode = (form.application_mode ?? 'CURRENT') as AgreementApplicationMode;
   const isMidMonthChange = /^\d{4}-\d{2}-(?!01)\d{2}$/.test(form.effective_from ?? '');
+  const isCurrentMonthCorrection = Boolean(
+    defaults?.currentEffectiveFrom
+    && (form.effective_from ?? '') < defaults.currentEffectiveFrom
+    && (form.effective_from ?? '') >= monthStart(today()),
+  );
 
   return <Modal open title={names[modal.action][0]} description={names[modal.action][1]} icon={names[modal.action][2]} onClose={onClose} maxWidth={modal.action === 'agreement' ? 680 : 740} className={modal.action === 'agreement' ? styles.agreementDialog : ''} footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form="payment-form" variant="corporate" loading={submitting}>{modal.action === 'agreement' ? 'Guardar cambios' : 'Guardar'}</Button></>}>
     <div className={styles.modalEmployee}><strong>{payment.nombres} {payment.apellidos}</strong><span>{payment.codigo_empleado} · {payment.sede}</span></div>
@@ -487,8 +492,8 @@ function PaymentForm({ modal, month, submitting, onClose, onSubmit }: { modal: M
           <ApplicationChoice active={currentMode === 'CURRENT'} icon={<CalendarDays />} title={defaults?.agreementId ? 'Vigencia actual' : 'Este mes'} date={defaults?.effectiveFrom ?? today()} onClick={() => selectApplicationMode('CURRENT')} />
           <ApplicationChoice active={currentMode === 'NEXT_MONTH'} icon={<History />} title="Próximo mes" date={defaults?.nextMonthEffectiveFrom ?? today()} onClick={() => selectApplicationMode('NEXT_MONTH')} />
         </div>
-        <Field label="Aplicar desde" wide required><input type="date" value={form.effective_from ?? ''} onChange={event => updateEffectiveDate(event.target.value)} /></Field>
-        {isMidMonthChange && <p className={styles.effectiveNotice}><CalendarDays aria-hidden="true" /><span>Se calculará proporcionalmente desde esta fecha.</span></p>}
+        <Field label="Aplicar desde" wide required><input type="date" min={monthStart(today())} value={form.effective_from ?? ''} onChange={event => updateEffectiveDate(event.target.value)} /></Field>
+        {(isMidMonthChange || isCurrentMonthCorrection) && <p className={styles.effectiveNotice}><CalendarDays aria-hidden="true" /><span>{isCurrentMonthCorrection ? 'Se corregirá la vigencia y se recalcularán solo los borradores.' : 'Se calculará proporcionalmente desde esta fecha.'}</span></p>}
       </>}
       {modal.action === 'movement' && <><Field label="Tipo de movimiento" required><select value={form.type ?? 'ADELANTO'} onChange={e => update('type', e.target.value)}><option value="ADELANTO">Adelanto</option><option value="OTRO_INGRESO">Otro ingreso</option><option value="OTRO_DESCUENTO">Otro descuento</option></select></Field><Field label="Monto" required><input type="number" min="0.01" step="0.01" value={form.amount ?? ''} onChange={e => update('amount', e.target.value)} /></Field><Field label="Concepto" wide required><input value={form.concept ?? ''} onChange={e => update('concept', e.target.value)} placeholder="Motivo o referencia del movimiento" /></Field></>}
       {modal.action === 'loan' && <><Field label="Monto entregado" required><input type="number" min="0.01" step="0.01" value={form.total_amount ?? ''} onChange={e => update('total_amount', e.target.value)} /></Field><Field label="Cuota mensual" required><input type="number" min="0.01" step="0.01" value={form.monthly_installment ?? ''} onChange={e => update('monthly_installment', e.target.value)} /></Field><Field label="Primera cuota" required><input type="month" value={form.start_month ?? month} onChange={e => update('start_month', e.target.value)} /></Field><Field label="Concepto" required><input value={form.concept ?? ''} onChange={e => update('concept', e.target.value)} placeholder="Descripción del préstamo" /></Field></>}

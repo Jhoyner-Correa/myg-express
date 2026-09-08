@@ -690,9 +690,9 @@ export class ServicePaymentService {
         }
       }
 
-      if (writeMode === 'UPDATE_CURRENT' || writeMode === 'RESCHEDULE_FUTURE') {
+      if (writeMode === 'UPDATE_CURRENT' || writeMode === 'REPOSITION_CURRENT') {
         agreementId = currentId!;
-        if (writeMode === 'RESCHEDULE_FUTURE') {
+        if (writeMode === 'REPOSITION_CURRENT') {
           const [lockedUsage] = await connection.query<RowDataPacket[]>(
             `SELECT payment_period.periodo, payment_period.estado
                FROM personal_liquidaciones_pago liquidation
@@ -701,7 +701,7 @@ export class ServicePaymentService {
               LIMIT 1`, [agreementId],
           );
           if (lockedUsage.length) {
-            throw new ServicePaymentError('La programación futura ya forma parte de un periodo protegido y no puede reprogramarse.', 409);
+            throw new ServicePaymentError('El acuerdo ya forma parte de un periodo protegido y su vigencia no puede modificarse.', 409);
           }
           const [previous] = await connection.query<RowDataPacket[]>(
             `SELECT agreement.id,

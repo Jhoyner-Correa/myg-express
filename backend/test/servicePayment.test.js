@@ -26,13 +26,16 @@ test('actualiza la vigencia actual y permite iniciar una nueva version cualquier
   }), 'CREATE_VERSION');
 });
 
-test('permite corregir una programacion futura a una fecha exacta del mes actual', () => {
+test('permite corregir la vigencia dentro del mes actual', () => {
   assert.equal(planPaymentAgreementWrite({
     currentStart: '2026-10-01', requestedStart: '2026-09-03', today: '2026-09-03',
-  }), 'RESCHEDULE_FUTURE');
+  }), 'REPOSITION_CURRENT');
+  assert.equal(planPaymentAgreementWrite({
+    currentStart: '2026-09-08', requestedStart: '2026-09-03', today: '2026-09-08',
+  }), 'REPOSITION_CURRENT');
   assert.throws(() => planPaymentAgreementWrite({
     currentStart: '2026-08-01', requestedStart: '2026-07-01', today: '2026-09-03',
-  }), /no puede retrocederse/);
+  }), /meses anteriores conservan su historial/);
 });
 
 test('suma los tramos de dos acuerdos cuando el honorario cambia a mitad de mes', () => {

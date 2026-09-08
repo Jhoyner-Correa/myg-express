@@ -14,7 +14,7 @@ export type PaymentAgreementWriteMode =
   | 'CREATE_INITIAL'
   | 'UPDATE_CURRENT'
   | 'CREATE_VERSION'
-  | 'RESCHEDULE_FUTURE';
+  | 'REPOSITION_CURRENT';
 
 export type MonthlyServiceBaseInput = {
   monthlyPayment: number;
@@ -126,14 +126,11 @@ export function planPaymentAgreementWrite(input: {
   if (!currentStart) return 'CREATE_INITIAL';
   if (requestedStart === currentStart) return 'UPDATE_CURRENT';
   if (requestedStart > currentStart) return 'CREATE_VERSION';
-  if (currentStart <= today) {
-    throw new Error(`El acuerdo vigente comenzó el ${currentStart} y no puede retrocederse. Actualízalo desde esa fecha o programa un nuevo mes.`);
-  }
   const currentMonthStart = `${today.slice(0, 7)}-01`;
   if (requestedStart < currentMonthStart) {
-    throw new Error('Una programación futura solo puede adelantarse dentro del mes actual.');
+    throw new Error('La vigencia solo puede corregirse desde el inicio del mes actual. Los meses anteriores conservan su historial.');
   }
-  return 'RESCHEDULE_FUTURE';
+  return 'REPOSITION_CURRENT';
 }
 
 function monthEnd(periodStart: string): string {
