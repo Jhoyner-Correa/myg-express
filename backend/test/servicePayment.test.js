@@ -1,9 +1,18 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  calculateMonthlyAgreementBase, calculateMonthlyServiceBase, calculateServicePayment, classifyPaymentWorkQueue,
+  calculateAutomaticOvertimeRate, calculateMonthlyAgreementBase, calculateMonthlyServiceBase, calculateServicePayment, classifyPaymentWorkQueue,
   evaluatePaymentControls, normalizePaymentMonth, parsePaymentAmount, planPaymentAgreementWrite,
 } = require('../dist/modules/rrhh/domain/paymentDomain');
+
+test('calcula automaticamente el valor diario y por hora segun el mes', () => {
+  assert.deepEqual(calculateAutomaticOvertimeRate(1200, '2026-09-01'), {
+    calendarDays: 30, dailyHours: 8, dailyRate: 40, hourlyRate: 5,
+  });
+  assert.deepEqual(calculateAutomaticOvertimeRate(1240, '2026-10-01'), {
+    calendarDays: 31, dailyHours: 8, dailyRate: 40, hourlyRate: 5,
+  });
+});
 
 test('normaliza importes monetarios sin perder un cero', () => {
   assert.equal(parsePaymentAmount('1200'), 1200);
@@ -149,6 +158,17 @@ test('bloquea la revision cuando faltan cuenta bancaria o tarifa de sobretiempo'
   });
   assert.equal(controls.ready_for_review, false);
   assert.deepEqual(controls.pending_for_review, ['OVERTIME_RATE', 'BANK_ACCOUNT']);
+});
+
+test('acepta la tarifa automatica cuando existe sobretiempo aprobado', () => {
+  const controls = evaluatePaymentControls({
+    hasAgreement: true, hasLiquidation: true, overtimeMinutes: 90, overtimeHourlyRate: 0,
+    overtimeRateMode: 'AUTOMATICA', bank: 'BCP', accountLast4: '1234', serviceTotal: 1507.5,
+    depositTotal: 1507.5, liquidationStatus: 'BORRADOR', receiptSeries: null,
+    receiptNumber: null, receiptAmount: null, paymentOperation: null,
+  });
+  assert.equal(controls.ready_for_review, true);
+  assert.equal(controls.pending_for_review.includes('OVERTIME_RATE'), false);
 });
 
 test('diferencia controles de revision, lote bancario y deposito', () => {

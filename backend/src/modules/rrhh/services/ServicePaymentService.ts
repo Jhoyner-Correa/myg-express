@@ -3,9 +3,9 @@ import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
 import { businessDate } from '../../../core/utils/time';
 import {
-  calculateMonthlyAgreementBase, calculateServicePayment, classifyPaymentWorkQueue,
+  calculateAutomaticOvertimeRate, calculateMonthlyAgreementBase, calculateServicePayment, classifyPaymentWorkQueue,
   evaluatePaymentControls, MonthlyProrationPolicy, normalizePaymentMonth,
-  parsePaymentAmount, planPaymentAgreementWrite,
+  OvertimeRateMode, parsePaymentAmount, planPaymentAgreementWrite,
 } from '../domain/paymentDomain';
 
 export class ServicePaymentError extends Error {
@@ -41,6 +41,14 @@ function prorationPolicy(value: unknown): MonthlyProrationPolicy {
     throw new ServicePaymentError('Politica para periodos parciales no valida.');
   }
   return policy as MonthlyProrationPolicy;
+}
+
+function overtimeRateMode(value: unknown): OvertimeRateMode {
+  const mode = String(value ?? 'MANUAL').trim().toUpperCase();
+  if (!['AUTOMATICA', 'MANUAL'].includes(mode)) {
+    throw new ServicePaymentError('Modo de cálculo de horas extra no válido.');
+  }
+  return mode as OvertimeRateMode;
 }
 
 function agreementSegments(rows: RowDataPacket[]) {
@@ -86,7 +94,8 @@ function paymentControls(row: RowDataPacket, hasLiquidation: boolean) {
     hasAgreement: Boolean(row.acuerdo_configurado_id),
     hasLiquidation,
     overtimeMinutes: Number(row.minutos_horas_extra || 0),
-    overtimeHourlyRate: Number(row.tarifa_hora_extra || 0),
+    overtimeHourlyRate: Number(row.tarifa_hora_extra_aplicada ?? row.tarifa_hora_extra ?? 0),
+    overtimeRateMode: String(row.tarifa_hora_extra_modo ?? 'MANUAL') as OvertimeRateMode,
     bank: row.banco ? String(row.banco) : null,
     accountLast4: row.numero_cuenta_ultimos4 ? String(row.numero_cuenta_ultimos4) : null,
     serviceTotal: Number(row.total_servicio || 0),
@@ -137,17 +146,18 @@ export class ServicePaymentService {
                 DATE_FORMAT(liquidation.fecha_servicio_desde, '%Y-%m-%d') AS fecha_servicio_desde,
                 DATE_FORMAT(liquidation.fecha_servicio_hasta, '%Y-%m-%d') AS fecha_servicio_hasta,
                 liquidation.factor_prorrateo,
-                liquidation.minutos_horas_extra, liquidation.monto_horas_extra,
+                liquidation.minutos_horas_extra, liquidation.tarifa_hora_extra_aplicada, liquidation.monto_horas_extra,
                 liquidation.otros_ingresos, liquidation.adelantos, liquidation.cuotas_prestamo,
                 liquidation.otros_descuentos, liquidation.total_servicio, liquidation.total_depositar,
                 liquidation.estado, liquidation.rhe_serie, liquidation.rhe_numero,
                 liquidation.rhe_fecha_emision, liquidation.rhe_importe, liquidation.pago_fecha, liquidation.pago_operacion,
-                agreement.tarifa_hora_extra, agreement.banco, agreement.tipo_cuenta, agreement.numero_cuenta_ultimos4,
+                agreement.tarifa_hora_extra, agreement.tarifa_hora_extra_modo, agreement.banco, agreement.tipo_cuenta, agreement.numero_cuenta_ultimos4,
                 agreement.cci_ultimos4,
                 active_agreement.id AS acuerdo_actual_id,
                 active_agreement.pago_mensual AS acuerdo_actual_pago_mensual,
                 active_agreement.politica_prorrateo AS acuerdo_actual_politica_prorrateo,
                 active_agreement.tarifa_hora_extra AS acuerdo_actual_tarifa_hora_extra,
+                active_agreement.tarifa_hora_extra_modo AS acuerdo_actual_tarifa_hora_extra_modo,
                 active_agreement.banco AS acuerdo_actual_banco,
                 active_agreement.tipo_cuenta AS acuerdo_actual_tipo_cuenta,
                 active_agreement.numero_cuenta_ultimos4 AS acuerdo_actual_numero_cuenta_ultimos4,
@@ -188,7 +198,7 @@ export class ServicePaymentService {
                 0 AS prorrateo_aplicado, DAY(LAST_DAY(?)) AS dias_periodo,
                 DAY(LAST_DAY(?)) AS dias_servicio, ? AS fecha_servicio_desde,
                 LAST_DAY(?) AS fecha_servicio_hasta, 1 AS factor_prorrateo,
-                0 AS minutos_horas_extra,
+                0 AS minutos_horas_extra, 0 AS tarifa_hora_extra_aplicada,
                 0 AS monto_horas_extra, 0 AS otros_ingresos, 0 AS adelantos, 0 AS cuotas_prestamo,
                 0 AS otros_descuentos, COALESCE(agreement.pago_mensual, 0) AS total_servicio,
                 COALESCE(agreement.pago_mensual, 0) AS total_depositar,
@@ -196,12 +206,14 @@ export class ServicePaymentService {
                 NULL AS rhe_serie, NULL AS rhe_numero, NULL AS rhe_fecha_emision, NULL AS rhe_importe,
                 NULL AS pago_fecha, NULL AS pago_operacion,
                 COALESCE(agreement.tarifa_hora_extra, 0) AS tarifa_hora_extra,
+                COALESCE(agreement.tarifa_hora_extra_modo, 'AUTOMATICA') AS tarifa_hora_extra_modo,
                 agreement.banco, agreement.tipo_cuenta, agreement.numero_cuenta_ultimos4,
                 agreement.cci_ultimos4,
                 active_agreement.id AS acuerdo_actual_id,
                 active_agreement.pago_mensual AS acuerdo_actual_pago_mensual,
                 active_agreement.politica_prorrateo AS acuerdo_actual_politica_prorrateo,
                 active_agreement.tarifa_hora_extra AS acuerdo_actual_tarifa_hora_extra,
+                active_agreement.tarifa_hora_extra_modo AS acuerdo_actual_tarifa_hora_extra_modo,
                 active_agreement.banco AS acuerdo_actual_banco,
                 active_agreement.tipo_cuenta AS acuerdo_actual_tipo_cuenta,
                 active_agreement.numero_cuenta_ultimos4 AS acuerdo_actual_numero_cuenta_ultimos4,
@@ -278,6 +290,11 @@ export class ServicePaymentService {
         payment.factor_prorrateo = base.factor;
         payment.total_servicio = base.appliedMonthlyPayment;
         payment.total_depositar = base.appliedMonthlyPayment;
+      }
+      if (!paymentPeriod && payment.tarifa_hora_extra_modo === 'AUTOMATICA') {
+        payment.tarifa_hora_extra_aplicada = calculateAutomaticOvertimeRate(
+          Number(payment.honorario_mensual_pactado || 0), period,
+        ).hourlyRate;
       }
       payment.controls = paymentControls(payment, Boolean(paymentPeriod && payment.id));
       payment.queue = classifyPaymentWorkQueue({
@@ -426,7 +443,7 @@ export class ServicePaymentService {
               agreement.pago_mensual, agreement.politica_prorrateo,
               DATE_FORMAT(agreement.vigente_desde, '%Y-%m-%d') AS acuerdo_vigente_desde,
               DATE_FORMAT(agreement.vigente_hasta, '%Y-%m-%d') AS acuerdo_vigente_hasta,
-              agreement.tarifa_hora_extra, agreement.banco,
+              agreement.tarifa_hora_extra, agreement.tarifa_hora_extra_modo, agreement.banco,
               agreement.tipo_cuenta, agreement.numero_cuenta_ultimos4, agreement.cci_ultimos4
          FROM personal_empleados employee
          INNER JOIN sedes site ON site.id = employee.sede_id AND site.empresa_id = ?
@@ -583,6 +600,7 @@ export class ServicePaymentService {
       ...(liquidation ?? {}),
       acuerdo_configurado_id: liquidation?.acuerdo_id ?? employeeRows[0].acuerdo_configurado_id,
       tarifa_hora_extra: employeeRows[0].tarifa_hora_extra,
+      tarifa_hora_extra_modo: employeeRows[0].tarifa_hora_extra_modo,
       banco: employeeRows[0].banco,
       numero_cuenta_ultimos4: employeeRows[0].numero_cuenta_ultimos4,
     } as RowDataPacket, Boolean(liquidation));
@@ -638,6 +656,7 @@ export class ServicePaymentService {
     const employeeId = positiveId(employeeIdValue, 'Colaborador');
     const monthlyPayment = amount(input.monthly_payment, 'Pago mensual', false);
     const overtimeRate = amount(input.overtime_hourly_rate, 'Tarifa de hora extra');
+    const rateMode = overtimeRateMode(input.overtime_rate_mode ?? (overtimeRate > 0 ? 'MANUAL' : 'AUTOMATICA'));
     const partialPeriodPolicy = prorationPolicy(input.proration_policy);
     const effectiveFrom = String(input.effective_from ?? '').trim();
     const requestedAgreementId = input.agreement_id === undefined || input.agreement_id === null || input.agreement_id === ''
@@ -752,11 +771,11 @@ export class ServicePaymentService {
           }
         }
         await connection.query(
-          `UPDATE personal_pago_acuerdos SET pago_mensual = ?, politica_prorrateo = ?, tarifa_hora_extra = ?, banco = ?, tipo_cuenta = ?,
+          `UPDATE personal_pago_acuerdos SET pago_mensual = ?, politica_prorrateo = ?, tarifa_hora_extra = ?, tarifa_hora_extra_modo = ?, banco = ?, tipo_cuenta = ?,
              numero_cuenta = COALESCE(?, numero_cuenta), numero_cuenta_ultimos4 = COALESCE(?, numero_cuenta_ultimos4),
              cci = COALESCE(?, cci), cci_ultimos4 = COALESCE(?, cci_ultimos4), vigente_desde = ?, vigente_hasta = NULL,
              creado_por = ? WHERE id = ?`,
-          [monthlyPayment, partialPeriodPolicy, overtimeRate, bank, accountType, encryptSensitive(account), account?.slice(-4) ?? null,
+          [monthlyPayment, partialPeriodPolicy, overtimeRate, rateMode, bank, accountType, encryptSensitive(account), account?.slice(-4) ?? null,
             encryptSensitive(cci), cci?.slice(-4) ?? null, effectiveFrom, actorId, agreementId],
         );
       } else {
@@ -765,17 +784,17 @@ export class ServicePaymentService {
         }
         const [result] = await connection.query<ResultSetHeader>(
           `INSERT INTO personal_pago_acuerdos
-             (empleado_id, pago_mensual, politica_prorrateo, tarifa_hora_extra, banco, tipo_cuenta, numero_cuenta,
+             (empleado_id, pago_mensual, politica_prorrateo, tarifa_hora_extra, tarifa_hora_extra_modo, banco, tipo_cuenta, numero_cuenta,
               numero_cuenta_ultimos4, cci, cci_ultimos4, vigente_desde, creado_por)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [employeeId, monthlyPayment, partialPeriodPolicy, overtimeRate, bank, accountType, encryptSensitive(account), account?.slice(-4) ?? null,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [employeeId, monthlyPayment, partialPeriodPolicy, overtimeRate, rateMode, bank, accountType, encryptSensitive(account), account?.slice(-4) ?? null,
             encryptSensitive(cci), cci?.slice(-4) ?? null, effectiveFrom, actorId],
         );
         agreementId = result.insertId;
       }
       await this.audit(connection, 'PAGO_ACUERDO_ACTUALIZADO', employeeId, actorId, {
         agreement_id: agreementId, monthly_payment: monthlyPayment, proration_policy: partialPeriodPolicy,
-        overtime_hourly_rate: overtimeRate, effective_from: effectiveFrom, write_mode: writeMode,
+        overtime_hourly_rate: overtimeRate, overtime_rate_mode: rateMode, effective_from: effectiveFrom, write_mode: writeMode,
         replaced_agreement_id: replacedAgreementId,
       });
       return { id: agreementId, employee_id: employeeId };
@@ -936,7 +955,9 @@ export class ServicePaymentService {
           `SELECT SUM(liquidation.estado = 'CONFIGURACION_PENDIENTE') AS configuration_pending,
                   SUM(liquidation.estado = 'OBSERVADO') AS observed,
                   SUM(agreement.banco IS NULL OR agreement.numero_cuenta_ultimos4 IS NULL) AS bank_pending,
-                  SUM(liquidation.minutos_horas_extra > 0 AND COALESCE(agreement.tarifa_hora_extra, 0) <= 0) AS overtime_rate_pending,
+                  SUM(liquidation.minutos_horas_extra > 0
+                    AND COALESCE(agreement.tarifa_hora_extra_modo, 'MANUAL') = 'MANUAL'
+                    AND COALESCE(agreement.tarifa_hora_extra, 0) <= 0) AS overtime_rate_pending,
                   COUNT(*) AS total
              FROM personal_liquidaciones_pago liquidation
              LEFT JOIN personal_pago_acuerdos agreement ON agreement.id = liquidation.acuerdo_id
@@ -1114,9 +1135,12 @@ export class ServicePaymentService {
       return acc;
     }, { advances: 0, income: 0, discounts: 0 });
     const loanTotal = loans.reduce((sum, loan) => sum + Number(loan.installment), 0);
+    const appliedOvertimeRate = agreement?.tarifa_hora_extra_modo === 'AUTOMATICA'
+      ? calculateAutomaticOvertimeRate(monthlyBase.agreedMonthlyPayment, period).hourlyRate
+      : Number(agreement?.tarifa_hora_extra || 0);
     const calculation = calculateServicePayment({
       monthlyPayment: monthlyBase.appliedMonthlyPayment, overtimeMinutes: Number(overtime.minutes || 0),
-      overtimeHourlyRate: Number(agreement?.tarifa_hora_extra || 0), otherIncome: sums.income,
+      overtimeHourlyRate: appliedOvertimeRate, otherIncome: sums.income,
       advances: sums.advances, loanInstallments: loanTotal, otherDiscounts: sums.discounts,
     });
     const status = !agreement ? 'CONFIGURACION_PENDIENTE' : calculation.hasExcessDeductions ? 'OBSERVADO' : 'BORRADOR';
@@ -1125,14 +1149,14 @@ export class ServicePaymentService {
       `INSERT INTO personal_liquidaciones_pago
          (periodo_pago_id, empleado_id, sede_id, acuerdo_id, pago_mensual, honorario_mensual_pactado,
           politica_prorrateo, prorrateo_aplicado, dias_periodo, dias_servicio,
-          fecha_servicio_desde, fecha_servicio_hasta, factor_prorrateo, minutos_horas_extra,
+          fecha_servicio_desde, fecha_servicio_hasta, factor_prorrateo, minutos_horas_extra, tarifa_hora_extra_aplicada,
           monto_horas_extra, otros_ingresos, adelantos, cuotas_prestamo, otros_descuentos,
           total_servicio, total_depositar, estado, observacion)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [periodId, employeeId, siteId, agreement?.id ?? null, monthlyBase.appliedMonthlyPayment,
         monthlyBase.agreedMonthlyPayment, monthlyBase.policy, monthlyBase.prorated ? 1 : 0,
         monthlyBase.periodDays, monthlyBase.serviceDays, monthlyBase.serviceStart, monthlyBase.serviceEnd,
-        monthlyBase.factor, overtime.minutes ?? 0,
+        monthlyBase.factor, overtime.minutes ?? 0, appliedOvertimeRate,
         calculation.overtimeAmount, sums.income, sums.advances, loanTotal, sums.discounts,
         calculation.serviceTotal, calculation.depositTotal, status, observation],
     );

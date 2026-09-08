@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  agreementFormDefaults, applicationDate, canonicalCurrencyText, parseCurrencyText,
+  agreementFormDefaults, applicationDate, automaticOvertimeRate, canonicalCurrencyText, parseCurrencyText,
 } from './payment-agreement-form';
 import type { ServicePaymentRow } from '../types';
 
@@ -22,6 +22,12 @@ const payment = {
 } as ServicePaymentRow;
 
 describe('formulario de acuerdo económico', () => {
+  it('calcula S/ 40 diarios y S/ 5 por hora para S/ 1,200 en septiembre', () => {
+    expect(automaticOvertimeRate(1200, '2026-09-08')).toEqual({
+      calendarDays: 30, dailyHours: 8, dailyRate: 40, hourlyRate: 5,
+    });
+  });
+
   it('conserva S/ 1,200 sin convertirlo en S/ 120', () => {
     expect(parseCurrencyText('1200')).toBe(1200);
     expect(parseCurrencyText('1200,00')).toBe(1200);

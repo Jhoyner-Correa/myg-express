@@ -9,6 +9,7 @@ export type PaymentAmounts = {
 };
 
 export type MonthlyProrationPolicy = 'DIAS_CALENDARIO' | 'HONORARIO_COMPLETO';
+export type OvertimeRateMode = 'AUTOMATICA' | 'MANUAL';
 
 export type PaymentAgreementWriteMode =
   | 'CREATE_INITIAL'
@@ -56,6 +57,7 @@ export type PaymentControlInput = {
   hasLiquidation: boolean;
   overtimeMinutes: number;
   overtimeHourlyRate: number;
+  overtimeRateMode?: OvertimeRateMode;
   bank: string | null;
   accountLast4: string | null;
   serviceTotal: number;
@@ -248,6 +250,21 @@ export function calculateMonthlyAgreementBase(input: {
   };
 }
 
+export function calculateAutomaticOvertimeRate(
+  monthlyPayment: number,
+  periodStart: string,
+  dailyHours = 8,
+) {
+  if (!Number.isFinite(monthlyPayment) || monthlyPayment < 0) throw new Error('Honorario mensual no valido.');
+  if (!Number.isFinite(dailyHours) || dailyHours <= 0 || dailyHours > 24) throw new Error('Jornada diaria no valida.');
+  const period = validDate(periodStart, 'Periodo');
+  if (!period.endsWith('-01')) throw new Error('El periodo debe iniciar el primer dia del mes.');
+  const calendarDays = inclusiveDays(period, monthEnd(period));
+  const dailyRate = money(monthlyPayment / calendarDays);
+  const hourlyRate = money(monthlyPayment / calendarDays / dailyHours);
+  return { calendarDays, dailyHours, dailyRate, hourlyRate };
+}
+
 export function calculateServicePayment(input: PaymentAmounts) {
   for (const [field, value] of Object.entries(input)) {
     if (!Number.isFinite(value) || value < 0) throw new Error(`Importe no valido: ${field}`);
@@ -280,7 +297,9 @@ export function evaluatePaymentControls(input: PaymentControlInput) {
     { code: 'AGREEMENT', state: input.hasAgreement ? 'READY' : 'PENDING' },
     {
       code: 'OVERTIME_RATE',
-      state: overtimeRequired ? (input.overtimeHourlyRate > 0 ? 'READY' : 'PENDING') : 'NOT_REQUIRED',
+      state: overtimeRequired
+        ? (input.overtimeRateMode === 'AUTOMATICA' || input.overtimeHourlyRate > 0 ? 'READY' : 'PENDING')
+        : 'NOT_REQUIRED',
     },
     { code: 'BANK_ACCOUNT', state: input.bank && input.accountLast4 ? 'READY' : 'PENDING' },
     { code: 'CALCULATION', state: calculationReady ? 'READY' : 'PENDING' },

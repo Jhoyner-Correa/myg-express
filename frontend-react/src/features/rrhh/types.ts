@@ -636,6 +636,7 @@ export type ServicePaymentRow = {
   acuerdo_actual_pago_mensual?: number | string | null;
   acuerdo_actual_politica_prorrateo?: 'DIAS_CALENDARIO' | 'HONORARIO_COMPLETO' | null;
   acuerdo_actual_tarifa_hora_extra?: number | string | null;
+  acuerdo_actual_tarifa_hora_extra_modo?: 'AUTOMATICA' | 'MANUAL' | null;
   acuerdo_actual_banco?: string | null;
   acuerdo_actual_tipo_cuenta?: 'AHORROS' | 'CORRIENTE' | null;
   acuerdo_actual_numero_cuenta_ultimos4?: string | null;
@@ -662,6 +663,8 @@ export type ServicePaymentRow = {
   fecha_servicio_hasta: string | null;
   factor_prorrateo: number | string;
   tarifa_hora_extra: number | string;
+  tarifa_hora_extra_modo?: 'AUTOMATICA' | 'MANUAL';
+  tarifa_hora_extra_aplicada?: number | string;
   minutos_horas_extra: number;
   monto_horas_extra: number | string;
   otros_ingresos: number | string;
@@ -780,6 +783,7 @@ export type ServicePaymentEmployeeLedger = {
     pago_mensual: number | string | null;
     politica_prorrateo: 'DIAS_CALENDARIO' | 'HONORARIO_COMPLETO' | null;
     tarifa_hora_extra: number | string | null;
+    tarifa_hora_extra_modo?: 'AUTOMATICA' | 'MANUAL' | null;
     banco: string | null;
     tipo_cuenta: 'AHORROS' | 'CORRIENTE' | null;
     numero_cuenta_ultimos4: string | null;
@@ -798,6 +802,7 @@ export type ServicePaymentEmployeeLedger = {
     fecha_servicio_hasta: string | null;
     factor_prorrateo: number | string;
     minutos_horas_extra: number;
+    tarifa_hora_extra_aplicada?: number | string;
     monto_horas_extra: number | string;
     otros_ingresos: number | string;
     adelantos: number | string;

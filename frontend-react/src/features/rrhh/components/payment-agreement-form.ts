@@ -6,6 +6,7 @@ export type AgreementFormDefaults = {
   agreementId: string;
   monthlyPayment: string;
   overtimeHourlyRate: string;
+  overtimeRateMode: 'AUTOMATICA' | 'MANUAL';
   prorationPolicy: ServicePaymentRow['politica_prorrateo'];
   bank: string;
   accountType: NonNullable<ServicePaymentRow['tipo_cuenta']>;
@@ -69,6 +70,16 @@ export function canonicalCurrencyText(value: unknown): string {
   return parsed === null ? String(value ?? '') : parsed.toFixed(2);
 }
 
+export function automaticOvertimeRate(monthlyPayment: number, date: string, dailyHours = 8) {
+  if (!Number.isFinite(monthlyPayment) || monthlyPayment < 0 || !ISO_DATE.test(date) || dailyHours <= 0) return null;
+  const start = new Date(`${monthStart(date)}T12:00:00Z`);
+  start.setUTCMonth(start.getUTCMonth() + 1, 0);
+  const calendarDays = start.getUTCDate();
+  const dailyRate = Math.round((monthlyPayment / calendarDays + Number.EPSILON) * 100) / 100;
+  const hourlyRate = Math.round((monthlyPayment / calendarDays / dailyHours + Number.EPSILON) * 100) / 100;
+  return { calendarDays, dailyHours, dailyRate, hourlyRate };
+}
+
 export function agreementFormDefaults(payment: ServicePaymentRow, today: string): AgreementFormDefaults {
   const agreementId = payment.acuerdo_actual_id ?? payment.acuerdo_configurado_id ?? null;
   const currentEffectiveFrom = payment.acuerdo_actual_vigente_desde
@@ -90,6 +101,9 @@ export function agreementFormDefaults(payment: ServicePaymentRow, today: string)
     overtimeHourlyRate: canonicalCurrencyText(
       payment.acuerdo_actual_tarifa_hora_extra ?? payment.tarifa_hora_extra ?? 0,
     ),
+    overtimeRateMode: payment.acuerdo_actual_tarifa_hora_extra_modo
+      ?? payment.tarifa_hora_extra_modo
+      ?? (Number(payment.acuerdo_actual_tarifa_hora_extra ?? payment.tarifa_hora_extra ?? 0) > 0 ? 'MANUAL' : 'AUTOMATICA'),
     prorationPolicy: payment.acuerdo_actual_politica_prorrateo
       ?? payment.politica_prorrateo
       ?? 'DIAS_CALENDARIO',

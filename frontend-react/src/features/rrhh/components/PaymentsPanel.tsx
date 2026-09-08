@@ -17,7 +17,7 @@ import type {
 import { EmployeePaymentLedgerModal } from './EmployeePaymentLedgerModal';
 import { employeePhotoFallbackHandler, getEmployeePhotoUrl } from './employee-avatar';
 import {
-  agreementFormDefaults, applicationDate, canonicalCurrencyText, parseCurrencyText,
+  agreementFormDefaults, applicationDate, automaticOvertimeRate, canonicalCurrencyText, parseCurrencyText,
   sanitizeCurrencyText, monthStart, type AgreementApplicationMode, type AgreementFormDefaults,
 } from './payment-agreement-form';
 import styles from './PaymentsPanel.module.css';
@@ -405,6 +405,7 @@ function PaymentForm({ modal, month, submitting, onClose, onSubmit }: { modal: M
       setDefaults(agreement);
       setForm({ agreement_id: agreement.agreementId, application_mode: 'CURRENT', monthly_payment: agreement.monthlyPayment,
         proration_policy: agreement.prorationPolicy, overtime_hourly_rate: agreement.overtimeHourlyRate,
+        overtime_rate_mode: agreement.overtimeRateMode,
         bank: agreement.bank, account_type: agreement.accountType, account_number: '', cci: '', effective_from: agreement.effectiveFrom });
       return;
     }
@@ -437,7 +438,8 @@ function PaymentForm({ modal, month, submitting, onClose, onSubmit }: { modal: M
     event.preventDefault();
     if (modal.action === 'agreement') {
       const monthlyPayment = parseCurrencyText(form.monthly_payment);
-      const overtimeRate = parseCurrencyText(form.overtime_hourly_rate);
+      const rateMode = form.overtime_rate_mode === 'MANUAL' ? 'MANUAL' : 'AUTOMATICA';
+      const overtimeRate = rateMode === 'AUTOMATICA' ? 0 : parseCurrencyText(form.overtime_hourly_rate);
       const accountNumber = String(form.account_number ?? '').replace(/\s+/g, '');
       const cci = String(form.cci ?? '').replace(/\s+/g, '');
       if (monthlyPayment === null || monthlyPayment <= 0 || monthlyPayment > 9_999_999.99) { setFormError('Ingresa un pago mensual mayor a cero. Ejemplo: 1200 o 1200,00.'); return; }
@@ -449,7 +451,8 @@ function PaymentForm({ modal, month, submitting, onClose, onSubmit }: { modal: M
       if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)) { setFormError('Selecciona una fecha exacta para iniciar la vigencia.'); return; }
       void onSubmit(() => rrhhService.savePaymentAgreement(payment.empleado_id, {
         agreement_id: form.agreement_id ? Number(form.agreement_id) : null, monthly_payment: monthlyPayment,
-        overtime_hourly_rate: overtimeRate, proration_policy: form.proration_policy, bank: String(form.bank ?? '').trim(),
+        overtime_hourly_rate: overtimeRate, overtime_rate_mode: rateMode,
+        proration_policy: form.proration_policy, bank: String(form.bank ?? '').trim(),
         account_type: form.account_type, account_number: accountNumber, cci, effective_from: effectiveFrom,
         month: effectiveFrom.slice(0, 7),
       }));
@@ -464,6 +467,9 @@ function PaymentForm({ modal, month, submitting, onClose, onSubmit }: { modal: M
     void onSubmit(operations[modal.action]);
   };
   const previewMonthlyPayment = parseCurrencyText(form.monthly_payment);
+  const automaticRate = previewMonthlyPayment !== null
+    ? automaticOvertimeRate(previewMonthlyPayment, form.effective_from || monthStart(today()))
+    : null;
   const currentMode = (form.application_mode ?? 'CURRENT') as AgreementApplicationMode;
   const isMidMonthChange = /^\d{4}-\d{2}-(?!01)\d{2}$/.test(form.effective_from ?? '');
   const isCurrentMonthCorrection = Boolean(
@@ -479,8 +485,13 @@ function PaymentForm({ modal, month, submitting, onClose, onSubmit }: { modal: M
       {modal.action === 'agreement' && <>
         <FormSection number="01" title="Honorarios" detail="Montos en soles" />
         <Field label="Pago mensual" required><CurrencyInput autoFocus value={form.monthly_payment ?? ''} onChange={value => update('monthly_payment', value)} /></Field>
-        <Field label="Tarifa por hora extra" required><CurrencyInput value={form.overtime_hourly_rate ?? ''} onChange={value => update('overtime_hourly_rate', value)} /></Field>
+        <Field label="Cálculo de hora extra" required><select value={form.overtime_rate_mode ?? 'AUTOMATICA'} onChange={event => update('overtime_rate_mode', event.target.value)}><option value="AUTOMATICA">Automático según el mes</option><option value="MANUAL">Tarifa manual</option></select></Field>
+        {form.overtime_rate_mode === 'MANUAL' && <Field label="Tarifa por hora extra" required><CurrencyInput value={form.overtime_hourly_rate ?? ''} onChange={value => update('overtime_hourly_rate', value)} /></Field>}
         <div className={styles.amountConfirmation} aria-live="polite"><span>Monto confirmado</span><strong>{previewMonthlyPayment !== null && previewMonthlyPayment > 0 ? money.format(previewMonthlyPayment) : '—'}</strong></div>
+        {form.overtime_rate_mode !== 'MANUAL' && <>
+          <div className={styles.amountConfirmation}><span>Valor diario · {automaticRate?.calendarDays ?? '—'} días</span><strong>{automaticRate ? money.format(automaticRate.dailyRate) : '—'}</strong></div>
+          <div className={styles.amountConfirmation}><span>Valor por hora · 8 h</span><strong>{automaticRate ? money.format(automaticRate.hourlyRate) : '—'}</strong></div>
+        </>}
         <Field label="Pago en mes parcial" wide required><select value={form.proration_policy ?? 'DIAS_CALENDARIO'} onChange={e => update('proration_policy', e.target.value)}><option value="DIAS_CALENDARIO">Prorrateo diario</option><option value="HONORARIO_COMPLETO">Honorario completo</option></select></Field>
         <FormSection number="02" title="Cuenta bancaria" detail="Opcional hasta la revisión" />
         <Field label="Banco"><input value={form.bank ?? ''} onChange={e => update('bank', e.target.value)} placeholder="Entidad bancaria" /></Field>
