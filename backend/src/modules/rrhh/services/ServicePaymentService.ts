@@ -3,9 +3,10 @@ import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
 import { businessDate } from '../../../core/utils/time';
 import {
-  calculateAutomaticOvertimeRate, calculateMonthlyAgreementBase, calculateServicePayment, classifyPaymentWorkQueue,
+  calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateMonthlyAgreementBase,
+  calculateServicePayment, classifyPaymentWorkQueue,
   evaluatePaymentControls, MonthlyProrationPolicy, normalizePaymentMonth,
-  OvertimeRateMode, parsePaymentAmount, planPaymentAgreementWrite,
+  OvertimeRateMode, parsePaymentAmount, planPaymentAgreementWrite, resolveAbsencePaymentState,
 } from '../domain/paymentDomain';
 
 export class ServicePaymentError extends Error {
@@ -96,6 +97,7 @@ function paymentControls(row: RowDataPacket, hasLiquidation: boolean) {
     overtimeMinutes: Number(row.minutos_horas_extra || 0),
     overtimeHourlyRate: Number(row.tarifa_hora_extra_aplicada ?? row.tarifa_hora_extra ?? 0),
     overtimeRateMode: String(row.tarifa_hora_extra_modo ?? 'MANUAL') as OvertimeRateMode,
+    pendingAbsences: Number(row.faltas_pendientes || 0),
     bank: row.banco ? String(row.banco) : null,
     accountLast4: row.numero_cuenta_ultimos4 ? String(row.numero_cuenta_ultimos4) : null,
     serviceTotal: Number(row.total_servicio || 0),
@@ -146,7 +148,9 @@ export class ServicePaymentService {
                 DATE_FORMAT(liquidation.fecha_servicio_desde, '%Y-%m-%d') AS fecha_servicio_desde,
                 DATE_FORMAT(liquidation.fecha_servicio_hasta, '%Y-%m-%d') AS fecha_servicio_hasta,
                 liquidation.factor_prorrateo,
-                liquidation.minutos_horas_extra, liquidation.tarifa_hora_extra_aplicada, liquidation.monto_horas_extra,
+                liquidation.minutos_horas_extra, liquidation.tarifa_hora_extra_aplicada,
+                liquidation.faltas_confirmadas, liquidation.faltas_pendientes,
+                liquidation.monto_descuento_faltas, liquidation.monto_horas_extra,
                 liquidation.otros_ingresos, liquidation.adelantos, liquidation.cuotas_prestamo,
                 liquidation.otros_descuentos, liquidation.total_servicio, liquidation.total_depositar,
                 liquidation.estado, liquidation.rhe_serie, liquidation.rhe_numero,
@@ -199,6 +203,7 @@ export class ServicePaymentService {
                 DAY(LAST_DAY(?)) AS dias_servicio, ? AS fecha_servicio_desde,
                 LAST_DAY(?) AS fecha_servicio_hasta, 1 AS factor_prorrateo,
                 0 AS minutos_horas_extra, 0 AS tarifa_hora_extra_aplicada,
+                0 AS faltas_confirmadas, 0 AS faltas_pendientes, 0 AS monto_descuento_faltas,
                 0 AS monto_horas_extra, 0 AS otros_ingresos, 0 AS adelantos, 0 AS cuotas_prestamo,
                 0 AS otros_descuentos, COALESCE(agreement.pago_mensual, 0) AS total_servicio,
                 COALESCE(agreement.pago_mensual, 0) AS total_depositar,
@@ -943,6 +948,16 @@ export class ServicePaymentService {
     };
     const rule = rules[action];
     if (!rule) throw new ServicePaymentError('Transicion de periodo no valida.');
+    if (action === 'ENVIAR_REVISION') {
+      const [draftRows] = await pool.query<RowDataPacket[]>(
+        `SELECT DATE_FORMAT(periodo, '%Y-%m') AS mes, estado
+           FROM personal_periodos_pago WHERE id = ? AND empresa_id = ? LIMIT 1`,
+        [periodId, companyId],
+      );
+      if (draftRows[0]?.estado === 'BORRADOR') {
+        await this.generate(companyId, actorId, String(draftRows[0].mes));
+      }
+    }
     return runInTransaction(async connection => {
       const [periods] = await connection.query<RowDataPacket[]>(
         `SELECT * FROM personal_periodos_pago WHERE id = ? AND empresa_id = ? LIMIT 1 FOR UPDATE`, [periodId, companyId],
@@ -1087,6 +1102,26 @@ export class ServicePaymentService {
     });
   }
 
+  async refreshDraftForAttendanceDecision(
+    siteId: number,
+    employeeId: number,
+    date: string,
+    actorId: number | null,
+    reason: string,
+  ) {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT site.empresa_id
+         FROM sedes site
+         INNER JOIN personal_empleados employee ON employee.sede_id = site.id
+        WHERE site.id = ? AND employee.id = ? LIMIT 1`,
+      [siteId, employeeId],
+    );
+    if (!rows.length) return;
+    await this.refreshDraftEmployee(
+      Number(rows[0].empresa_id), employeeId, date.slice(0, 7), actorId, reason,
+    );
+  }
+
   private async generateEmployee(
     connection: PoolConnection,
     periodId: number,
@@ -1119,6 +1154,25 @@ export class ServicePaymentService {
         WHERE request.empleado_id = ? AND request.estado = 'APROBADO'
           AND attendance.fecha BETWEEN ? AND ?`, [employeeId, period, end],
     );
+    const [absenceRows] = await connection.query<RowDataPacket[]>(
+      `SELECT attendance.id, DATE_FORMAT(attendance.fecha, '%Y-%m-%d') AS fecha,
+              justification.estado AS justificacion_estado,
+              review.decision AS decision_administrativa
+         FROM personal_asistencias attendance
+         LEFT JOIN personal_justificaciones_asistencia justification
+           ON justification.id = (
+             SELECT candidate.id FROM personal_justificaciones_asistencia candidate
+              WHERE candidate.asistencia_id = attendance.id ORDER BY candidate.id DESC LIMIT 1
+           )
+         LEFT JOIN personal_incidencias_asistencia_revisiones review
+           ON review.empleado_id = attendance.empleado_id
+          AND review.fecha = attendance.fecha
+          AND review.tipo_incidencia IN ('FALTA', 'INASISTENCIA')
+        WHERE attendance.empleado_id = ? AND attendance.estado_asistencia = 'FALTA'
+          AND attendance.fecha BETWEEN ? AND ?
+        ORDER BY attendance.fecha, attendance.id`,
+      [employeeId, period, end],
+    );
     const [movements] = await connection.query<RowDataPacket[]>(
       `SELECT id, tipo, concepto, monto FROM personal_pago_movimientos
         WHERE empleado_id = ? AND periodo = ? AND estado = 'PENDIENTE' ORDER BY id`, [employeeId, period],
@@ -1135,29 +1189,57 @@ export class ServicePaymentService {
       return acc;
     }, { advances: 0, income: 0, discounts: 0 });
     const loanTotal = loans.reduce((sum, loan) => sum + Number(loan.installment), 0);
+    const absenceDecisions = absenceRows.map(row => {
+      const date = String(row.fecha);
+      const state = resolveAbsencePaymentState({
+        attendanceDate: date,
+        currentDate: businessDate(),
+        justificationStatus: row.justificacion_estado ? String(row.justificacion_estado) : null,
+        administrativeDecision: row.decision_administrativa ? String(row.decision_administrativa) : null,
+      });
+      const applicableAgreement = agreements.find(candidate => {
+        const start = String(candidate.vigente_desde_fecha);
+        const finish = candidate.vigente_hasta_fecha ? String(candidate.vigente_hasta_fecha) : '9999-12-31';
+        return start <= date && finish >= date;
+      });
+      const discount = state === 'DESCONTABLE' && applicableAgreement
+        ? calculateAbsenceDailyDiscount(Number(applicableAgreement.pago_mensual || 0), period)
+        : 0;
+      return { id: Number(row.id), date, state, discount };
+    });
+    const confirmedAbsences = absenceDecisions.filter(item => item.state === 'DESCONTABLE');
+    const pendingAbsences = absenceDecisions.filter(item => item.state === 'PENDIENTE');
+    const absenceDiscount = Math.round(confirmedAbsences.reduce((sum, item) => sum + item.discount, 0) * 100) / 100;
     const appliedOvertimeRate = agreement?.tarifa_hora_extra_modo === 'AUTOMATICA'
       ? calculateAutomaticOvertimeRate(monthlyBase.agreedMonthlyPayment, period).hourlyRate
       : Number(agreement?.tarifa_hora_extra || 0);
     const calculation = calculateServicePayment({
       monthlyPayment: monthlyBase.appliedMonthlyPayment, overtimeMinutes: Number(overtime.minutes || 0),
       overtimeHourlyRate: appliedOvertimeRate, otherIncome: sums.income,
-      advances: sums.advances, loanInstallments: loanTotal, otherDiscounts: sums.discounts,
+      advances: sums.advances, loanInstallments: loanTotal, otherDiscounts: sums.discounts + absenceDiscount,
     });
-    const status = !agreement ? 'CONFIGURACION_PENDIENTE' : calculation.hasExcessDeductions ? 'OBSERVADO' : 'BORRADOR';
-    const observation = calculation.hasExcessDeductions ? 'Los descuentos superan el total del servicio.' : null;
+    const status = !agreement ? 'CONFIGURACION_PENDIENTE'
+      : calculation.hasExcessDeductions || pendingAbsences.length ? 'OBSERVADO' : 'BORRADOR';
+    const observation = calculation.hasExcessDeductions
+      ? 'Los descuentos superan el total del servicio.'
+      : pendingAbsences.length
+        ? `${pendingAbsences.length} falta(s) requieren justificación o confirmación administrativa.`
+        : null;
     const [insert] = await connection.query<ResultSetHeader>(
       `INSERT INTO personal_liquidaciones_pago
          (periodo_pago_id, empleado_id, sede_id, acuerdo_id, pago_mensual, honorario_mensual_pactado,
           politica_prorrateo, prorrateo_aplicado, dias_periodo, dias_servicio,
           fecha_servicio_desde, fecha_servicio_hasta, factor_prorrateo, minutos_horas_extra, tarifa_hora_extra_aplicada,
+          faltas_confirmadas, faltas_pendientes, monto_descuento_faltas,
           monto_horas_extra, otros_ingresos, adelantos, cuotas_prestamo, otros_descuentos,
           total_servicio, total_depositar, estado, observacion)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [periodId, employeeId, siteId, agreement?.id ?? null, monthlyBase.appliedMonthlyPayment,
         monthlyBase.agreedMonthlyPayment, monthlyBase.policy, monthlyBase.prorated ? 1 : 0,
         monthlyBase.periodDays, monthlyBase.serviceDays, monthlyBase.serviceStart, monthlyBase.serviceEnd,
         monthlyBase.factor, overtime.minutes ?? 0, appliedOvertimeRate,
-        calculation.overtimeAmount, sums.income, sums.advances, loanTotal, sums.discounts,
+        confirmedAbsences.length, pendingAbsences.length, absenceDiscount,
+        calculation.overtimeAmount, sums.income, sums.advances, loanTotal, sums.discounts + absenceDiscount,
         calculation.serviceTotal, calculation.depositTotal, status, observation],
     );
     const liquidationId = insert.insertId;
@@ -1174,6 +1256,12 @@ export class ServicePaymentService {
       if (calculation.overtimeAmount > 0) await this.addConcept(connection, liquidationId, 'HORAS_EXTRA', 'Horas extras aprobadas', calculation.overtimeAmount, Number(overtime.minutes), 'min', 'SOBRETIEMPO_MENSUAL', null);
     }
     for (const movement of movements) await this.addConcept(connection, liquidationId, movement.tipo, movement.concepto, Number(movement.monto), null, null, 'MOVIMIENTO', Number(movement.id));
+    for (const absence of confirmedAbsences) {
+      await this.addConcept(
+        connection, liquidationId, 'OTRO_DESCUENTO', `Falta injustificada del ${absence.date}`,
+        absence.discount, 1, 'día', 'FALTA_ASISTENCIA', absence.id,
+      );
+    }
     for (const loan of loans) await this.addConcept(connection, liquidationId, 'CUOTA_PRESTAMO', loan.concepto, Number(loan.installment), null, null, 'PRESTAMO', Number(loan.id));
   }
 
@@ -1181,7 +1269,7 @@ export class ServicePaymentService {
     companyId: number,
     employeeId: number,
     monthValue: unknown,
-    actorId: number,
+    actorId: number | null,
     reason: string,
   ) {
     const period = normalizePaymentMonth(monthValue);
@@ -1253,7 +1341,7 @@ export class ServicePaymentService {
     if (!rows.length) throw new ServicePaymentError('Colaborador fuera del alcance autorizado.', 403);
   }
 
-  private async audit(connection: { query: Function }, type: string, employeeId: number | null, actorId: number, metadata: Record<string, unknown>) {
+  private async audit(connection: { query: Function }, type: string, employeeId: number | null, actorId: number | null, metadata: Record<string, unknown>) {
     await connection.query(
       `INSERT INTO personal_auditoria_eventos
          (tipo_evento, empleado_id, usuario_id, exitoso, codigo_resultado, metadata_json)

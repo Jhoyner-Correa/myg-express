@@ -10,6 +10,7 @@ export type PaymentAmounts = {
 
 export type MonthlyProrationPolicy = 'DIAS_CALENDARIO' | 'HONORARIO_COMPLETO';
 export type OvertimeRateMode = 'AUTOMATICA' | 'MANUAL';
+export type AbsencePaymentState = 'PENDIENTE' | 'JUSTIFICADA' | 'DESCONTABLE';
 
 export type PaymentAgreementWriteMode =
   | 'CREATE_INITIAL'
@@ -38,6 +39,7 @@ export type MonthlyAgreementSegmentInput = {
 export type PaymentControlCode =
   | 'AGREEMENT'
   | 'OVERTIME_RATE'
+  | 'ABSENCE_REVIEW'
   | 'BANK_ACCOUNT'
   | 'CALCULATION'
   | 'HONOR_RECEIPT'
@@ -58,6 +60,7 @@ export type PaymentControlInput = {
   overtimeMinutes: number;
   overtimeHourlyRate: number;
   overtimeRateMode?: OvertimeRateMode;
+  pendingAbsences?: number;
   bank: string | null;
   accountLast4: string | null;
   serviceTotal: number;
@@ -265,6 +268,33 @@ export function calculateAutomaticOvertimeRate(
   return { calendarDays, dailyHours, dailyRate, hourlyRate };
 }
 
+export function resolveAbsencePaymentState(input: {
+  attendanceDate: string;
+  currentDate: string;
+  justificationStatus?: string | null;
+  administrativeDecision?: string | null;
+}): AbsencePaymentState {
+  const attendanceDate = validDate(input.attendanceDate, 'Fecha de falta');
+  const currentDate = validDate(input.currentDate, 'Fecha actual');
+  const justification = String(input.justificationStatus ?? '').toUpperCase();
+  const decision = String(input.administrativeDecision ?? '').toUpperCase();
+
+  if (justification === 'APROBADA') return 'JUSTIFICADA';
+  if (justification === 'RECHAZADA') return 'DESCONTABLE';
+  if (justification === 'PENDIENTE') return 'PENDIENTE';
+  if (decision === 'JUSTIFICAR_INASISTENCIA') return 'JUSTIFICADA';
+  if (decision === 'CONFIRMAR_FALTA') return 'DESCONTABLE';
+
+  const absence = Date.parse(`${attendanceDate}T12:00:00Z`);
+  const today = Date.parse(`${currentDate}T12:00:00Z`);
+  const elapsedDays = Math.floor((today - absence) / 86_400_000);
+  return elapsedDays > 7 ? 'DESCONTABLE' : 'PENDIENTE';
+}
+
+export function calculateAbsenceDailyDiscount(monthlyPayment: number, periodStart: string): number {
+  return calculateAutomaticOvertimeRate(monthlyPayment, periodStart).dailyRate;
+}
+
 export function calculateServicePayment(input: PaymentAmounts) {
   for (const [field, value] of Object.entries(input)) {
     if (!Number.isFinite(value) || value < 0) throw new Error(`Importe no valido: ${field}`);
@@ -301,13 +331,14 @@ export function evaluatePaymentControls(input: PaymentControlInput) {
         ? (input.overtimeRateMode === 'AUTOMATICA' || input.overtimeHourlyRate > 0 ? 'READY' : 'PENDING')
         : 'NOT_REQUIRED',
     },
+    { code: 'ABSENCE_REVIEW', state: Number(input.pendingAbsences || 0) > 0 ? 'PENDING' : 'READY' },
     { code: 'BANK_ACCOUNT', state: input.bank && input.accountLast4 ? 'READY' : 'PENDING' },
     { code: 'CALCULATION', state: calculationReady ? 'READY' : 'PENDING' },
     { code: 'HONOR_RECEIPT', state: receiptReady ? 'READY' : 'PENDING' },
     { code: 'DEPOSIT', state: depositReady ? 'READY' : 'PENDING' },
   ];
   const stateOf = (code: PaymentControlCode) => items.find(item => item.code === code)?.state;
-  const reviewCodes: PaymentControlCode[] = ['AGREEMENT', 'OVERTIME_RATE', 'BANK_ACCOUNT', 'CALCULATION'];
+  const reviewCodes: PaymentControlCode[] = ['AGREEMENT', 'OVERTIME_RATE', 'ABSENCE_REVIEW', 'BANK_ACCOUNT', 'CALCULATION'];
   const batchCodes: PaymentControlCode[] = [...reviewCodes, 'HONOR_RECEIPT'];
   const pendingForReview = reviewCodes.filter(code => stateOf(code) === 'PENDING');
   const pendingForBatch = batchCodes.filter(code => stateOf(code) === 'PENDING');

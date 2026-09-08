@@ -610,6 +610,7 @@ export type ServicePaymentQueue =
 export type ServicePaymentControlCode =
   | 'AGREEMENT'
   | 'OVERTIME_RATE'
+  | 'ABSENCE_REVIEW'
   | 'BANK_ACCOUNT'
   | 'CALCULATION'
   | 'HONOR_RECEIPT'
@@ -666,6 +667,9 @@ export type ServicePaymentRow = {
   tarifa_hora_extra_modo?: 'AUTOMATICA' | 'MANUAL';
   tarifa_hora_extra_aplicada?: number | string;
   minutos_horas_extra: number;
+  faltas_confirmadas?: number;
+  faltas_pendientes?: number;
+  monto_descuento_faltas?: number | string;
   monto_horas_extra: number | string;
   otros_ingresos: number | string;
   adelantos: number | string;
@@ -803,6 +807,9 @@ export type ServicePaymentEmployeeLedger = {
     factor_prorrateo: number | string;
     minutos_horas_extra: number;
     tarifa_hora_extra_aplicada?: number | string;
+    faltas_confirmadas?: number;
+    faltas_pendientes?: number;
+    monto_descuento_faltas?: number | string;
     monto_horas_extra: number | string;
     otros_ingresos: number | string;
     adelantos: number | string;

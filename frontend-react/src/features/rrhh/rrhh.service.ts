@@ -262,6 +262,7 @@ export const rrhhService = {
     employee_id: number;
     date: string;
     incident_type: string;
+    decision?: 'MANTENER_ESTADO' | 'JUSTIFICAR_INASISTENCIA' | 'CONFIRMAR_FALTA';
     comment: string;
   }) {
     return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number }>>('/rrhh/asistencias/incidencias/resolver', input));

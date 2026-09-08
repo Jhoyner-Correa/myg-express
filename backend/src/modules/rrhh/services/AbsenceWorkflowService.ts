@@ -3,6 +3,7 @@ import { pool, runInTransaction } from '../../../core/database/database';
 import { businessDate, businessDateTime } from '../../../core/utils/time';
 import { createEmployeeNotification } from '../../rrhh-mobile/mobileNotification.service';
 import { PermissionEvidenceStorageService } from './PermissionEvidenceStorageService';
+import { ServicePaymentService } from './ServicePaymentService';
 
 const PERMISSION_TYPES = new Set(['MEDICO', 'PERSONAL', 'FAMILIAR', 'OTRO']);
 
@@ -196,12 +197,13 @@ export class AbsenceWorkflowService {
     }
     if (comment.length > 500) throw new Error('El comentario no puede superar 500 caracteres.');
 
-    await runInTransaction(async connection => {
+    const resolution = await runInTransaction(async connection => {
       const [rows] = await connection.query<RowDataPacket[]>(
         `SELECT justification.id, justification.empleado_id, justification.estado,
-                justification.tipo_incidencia
+                justification.tipo_incidencia, DATE_FORMAT(attendance.fecha, '%Y-%m-%d') AS fecha
            FROM personal_justificaciones_asistencia justification
            INNER JOIN personal_empleados employee ON employee.id = justification.empleado_id
+           INNER JOIN personal_asistencias attendance ON attendance.id = justification.asistencia_id
           WHERE justification.id = ? AND employee.sede_id = ? LIMIT 1 FOR UPDATE`,
         [justificationId, siteId],
       );
@@ -228,14 +230,18 @@ export class AbsenceWorkflowService {
         title: decision === 'APROBADA' ? 'Justificación aprobada' : 'Justificación no aprobada',
         message: decision === 'APROBADA'
           ? 'RR. HH. aprobó tu justificación. La marcación original se conserva como parte del historial.'
-          : 'RR. HH. revisó tu justificación y no fue aprobada. Consulta el comentario de la revisión.',
+          : 'RR. HH. no aprobó tu justificación. La falta se descontará en la liquidación mensual.',
         priority: decision === 'APROBADA' ? 'INFO' : 'IMPORTANTE',
         action: 'HISTORIAL',
         referenceType: 'JUSTIFICACION',
         referenceId: justificationId,
         deduplicationKey: `JUSTIFICACION:${justificationId}:${decision}`,
       });
+      return { employeeId: Number(rows[0].empleado_id), date: String(rows[0].fecha) };
     });
+    await new ServicePaymentService().refreshDraftForAttendanceDecision(
+      siteId, resolution.employeeId, resolution.date, actorUserId, `JUSTIFICACION_${decision}`,
+    ).catch(() => undefined);
   }
 
   async createPermission(siteId: number, actorUserId: number, input: Record<string, unknown>) {

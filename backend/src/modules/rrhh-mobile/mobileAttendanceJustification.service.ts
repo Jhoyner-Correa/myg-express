@@ -1,8 +1,9 @@
 import path from 'path';
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-import { runInTransaction } from '../../core/database/database';
+import { pool, runInTransaction } from '../../core/database/database';
 import { businessDate } from '../../core/utils/time';
 import { PermissionEvidenceStorageService, StoredPermissionEvidence } from '../rrhh/services/PermissionEvidenceStorageService';
+import { ServicePaymentService } from '../rrhh/services/ServicePaymentService';
 
 const CATEGORIES = new Set(['MEDICO', 'EMERGENCIA_FAMILIAR', 'TRANSPORTE', 'OTRO']);
 type EvidenceInput = { buffer: Buffer; mimetype: string; originalname: string };
@@ -37,7 +38,7 @@ export class MobileAttendanceJustificationService {
     let stored: StoredPermissionEvidence | null = null;
     try {
       if (evidence) stored = await this.storage.save(evidence.buffer, evidence.mimetype);
-      const id = await runInTransaction(async connection => {
+      const created = await runInTransaction(async connection => {
         const [rows] = await connection.query<RowDataPacket[]>(
           `SELECT attendance.id, DATE_FORMAT(attendance.fecha, '%Y-%m-%d') AS fecha,
                   attendance.estado_asistencia, attendance.minutos_tardanza
@@ -52,6 +53,15 @@ export class MobileAttendanceJustificationService {
         if (!incidentType) throw new Error('Solo se pueden justificar tardanzas o inasistencias registradas.');
         if (!isWithinJustificationWindow(String(rows[0].fecha))) {
           throw new Error('El plazo de 7 dias para justificar esta incidencia ya vencio.');
+        }
+        const [administrativeResolution] = await connection.query<RowDataPacket[]>(
+          `SELECT decision FROM personal_incidencias_asistencia_revisiones
+            WHERE empleado_id = ? AND fecha = ?
+              AND decision IN ('JUSTIFICAR_INASISTENCIA', 'CONFIRMAR_FALTA') LIMIT 1`,
+          [employeeId, rows[0].fecha],
+        );
+        if (administrativeResolution.length) {
+          throw new Error('RR. HH. ya resolvio esta inasistencia. Consulta el historial de asistencia.');
         }
         const [active] = await connection.query<RowDataPacket[]>(
           `SELECT id, estado FROM personal_justificaciones_asistencia
@@ -84,9 +94,17 @@ export class MobileAttendanceJustificationService {
           [employeeId, deviceId, JSON.stringify({ justification_id: result.insertId, attendance_id: attendanceId,
             incident_type: incidentType, category, has_evidence: Boolean(stored) })],
         );
-        return result.insertId;
+        return { id: result.insertId, date: String(rows[0].fecha) };
       });
-      return { id, status: 'PENDIENTE', has_evidence: Boolean(stored) };
+      const [siteRows] = await pool.query<RowDataPacket[]>(
+        'SELECT sede_id FROM personal_empleados WHERE id = ? LIMIT 1', [employeeId],
+      );
+      if (siteRows.length) {
+        await new ServicePaymentService().refreshDraftForAttendanceDecision(
+          Number(siteRows[0].sede_id), employeeId, created.date, null, 'JUSTIFICACION_CREADA',
+        ).catch(() => undefined);
+      }
+      return { id: created.id, status: 'PENDIENTE', has_evidence: Boolean(stored) };
     } catch (error) {
       if (stored) await this.storage.remove(stored.storageKey).catch(() => undefined);
       throw error;
@@ -95,10 +113,15 @@ export class MobileAttendanceJustificationService {
 
   async cancel(employeeId: number, deviceId: number, justificationId: number) {
     if (!Number.isInteger(justificationId) || justificationId < 1) throw new Error('La justificacion no es valida.');
-    await runInTransaction(async connection => {
+    const cancelled = await runInTransaction(async connection => {
       const [rows] = await connection.query<RowDataPacket[]>(
-        `SELECT id FROM personal_justificaciones_asistencia
-          WHERE id = ? AND empleado_id = ? AND estado = 'PENDIENTE' LIMIT 1 FOR UPDATE`,
+        `SELECT justification.id, employee.sede_id,
+                DATE_FORMAT(attendance.fecha, '%Y-%m-%d') AS fecha
+           FROM personal_justificaciones_asistencia justification
+           INNER JOIN personal_empleados employee ON employee.id = justification.empleado_id
+           INNER JOIN personal_asistencias attendance ON attendance.id = justification.asistencia_id
+          WHERE justification.id = ? AND justification.empleado_id = ?
+            AND justification.estado = 'PENDIENTE' LIMIT 1 FOR UPDATE`,
         [justificationId, employeeId],
       );
       if (!rows.length) throw new Error('Solo puedes cancelar una justificacion pendiente.');
@@ -112,6 +135,10 @@ export class MobileAttendanceJustificationService {
          VALUES ('CANCELACION_JUSTIFICACION_ASISTENCIA', ?, ?, 1, 'CANCELADA', ?)`,
         [employeeId, deviceId, JSON.stringify({ justification_id: justificationId })],
       );
+      return { siteId: Number(rows[0].sede_id), date: String(rows[0].fecha) };
     });
+    await new ServicePaymentService().refreshDraftForAttendanceDecision(
+      cancelled.siteId, employeeId, cancelled.date, null, 'JUSTIFICACION_CANCELADA',
+    ).catch(() => undefined);
   }
 }

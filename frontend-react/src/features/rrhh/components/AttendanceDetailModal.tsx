@@ -136,14 +136,20 @@ export function AttendanceDetailModal({ employee, profile, date, canManage, onCl
   const pendingOvertime = useMemo(() => detail?.overtime_requests.filter(item => item.estado === 'PENDIENTE').length ?? 0, [detail]);
   if (!employee) return null;
 
-  const reviewIncident = async () => {
+  const reviewIncident = async (
+    decision: 'MANTENER_ESTADO' | 'JUSTIFICAR_INASISTENCIA' | 'CONFIRMAR_FALTA' = 'MANTENER_ESTADO',
+  ) => {
     setSavingIncident(true);
     try {
       await rrhhService.reviewAttendanceIncident({
         sede_id: employee.site_id, employee_id: employee.employee_id, date,
-        incident_type: employee.operational_status, comment: incidentComment,
+        incident_type: employee.operational_status, decision, comment: incidentComment,
       });
-      showToast('Incidencia revisada y registrada en auditoría.', 'success');
+      showToast(decision === 'JUSTIFICAR_INASISTENCIA'
+        ? 'Falta justificada: no se aplicará descuento.'
+        : decision === 'CONFIRMAR_FALTA'
+          ? 'Falta confirmada: el descuento se calculará en la liquidación.'
+          : 'Incidencia revisada y registrada en auditoría.', 'success');
       setIncidentComment(''); await load(); onChanged();
     } catch (reviewError) { showToast(getApiErrorMessage(reviewError, 'No se pudo registrar la revisión.'), 'error'); }
     finally { setSavingIncident(false); }
@@ -185,12 +191,17 @@ export function AttendanceDetailModal({ employee, profile, date, canManage, onCl
 
         {canManage && employee.requires_attention && <section className={styles.section}>
           <div className={styles.sectionTitle}><AlertTriangle /><div><h3>Cierre de incidencia</h3><p>Documenta la revisión sin alterar las marcaciones. Para cambiar horas utiliza “Corregir”.</p></div></div>
-          <div className={styles.incidentForm}><textarea maxLength={500} value={incidentComment} onChange={event => setIncidentComment(event.target.value)} placeholder="Resultado de la revisión, evidencia consultada o instrucción aplicada..." /><Button size="sm" variant="corporate" icon={<FileCheck2 />} loading={savingIncident} disabled={incidentComment.trim().length < 8} onClick={() => void reviewIncident()}>Registrar revisión</Button></div>
+          <div className={styles.incidentForm}><textarea maxLength={500} value={incidentComment} onChange={event => setIncidentComment(event.target.value)} placeholder="Resultado de la revisión, evidencia consultada o instrucción aplicada..." />
+            {employee.operational_status === 'FALTA' ? <div>
+              <Button size="sm" variant="secondary" icon={<CheckCircle2 />} loading={savingIncident} disabled={incidentComment.trim().length < 8} onClick={() => void reviewIncident('JUSTIFICAR_INASISTENCIA')}>Justificar · sin descuento</Button>
+              <Button size="sm" variant="corporate" icon={<FileCheck2 />} loading={savingIncident} disabled={incidentComment.trim().length < 8} onClick={() => void reviewIncident('CONFIRMAR_FALTA')}>Confirmar falta · descontar</Button>
+            </div> : <Button size="sm" variant="corporate" icon={<FileCheck2 />} loading={savingIncident} disabled={incidentComment.trim().length < 8} onClick={() => void reviewIncident()}>Registrar revisión</Button>}
+          </div>
         </section>}
 
         {(detail.corrections.length > 0 || detail.incident_reviews.length > 0) && <section className={styles.audit}>
           <div className={styles.sectionTitle}><Fingerprint /><div><h3>Trazabilidad administrativa</h3><p>Cambios y decisiones conservados para auditoría.</p></div></div>
-          {[...detail.corrections.map(item => ({ id: `c-${item.id}`, title: 'Asistencia corregida', text: item.motivo, user: item.corregido_por_nombre, at: item.created_at })), ...detail.incident_reviews.map(item => ({ id: `i-${item.id}`, title: 'Incidencia revisada', text: item.comentario, user: item.revisado_por_nombre, at: item.revisado_en }))].map(item => <div className={styles.auditItem} key={item.id}><CheckCircle2 /><div><strong>{item.title}</strong><p>{item.text}</p></div><small>{item.user} · {formatDateTime(item.at)}</small></div>)}
+          {[...detail.corrections.map(item => ({ id: `c-${item.id}`, title: 'Asistencia corregida', text: item.motivo, user: item.corregido_por_nombre, at: item.created_at })), ...detail.incident_reviews.map(item => ({ id: `i-${item.id}`, title: item.decision === 'JUSTIFICAR_INASISTENCIA' ? 'Inasistencia justificada · sin descuento' : item.decision === 'CONFIRMAR_FALTA' ? 'Falta confirmada · con descuento' : 'Incidencia revisada', text: item.comentario, user: item.revisado_por_nombre, at: item.revisado_en }))].map(item => <div className={styles.auditItem} key={item.id}><CheckCircle2 /><div><strong>{item.title}</strong><p>{item.text}</p></div><small>{item.user} · {formatDateTime(item.at)}</small></div>)}
         </section>}
       </div>}
     </section>

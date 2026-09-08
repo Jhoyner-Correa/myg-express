@@ -3,6 +3,7 @@ import { pool, runInTransaction } from '../../../core/database/database';
 import { assertDateOnly, businessDate } from '../../../core/utils/time';
 import { createEmployeeNotification } from '../../rrhh-mobile/mobileNotification.service';
 import { OvertimeEvidenceStorageService } from './OvertimeEvidenceStorageService';
+import { ServicePaymentService } from './ServicePaymentService';
 
 const OVERTIME_DECISIONS = new Set(['APROBAR', 'RECHAZAR']);
 
@@ -433,34 +434,82 @@ export class AttendanceManagementService {
     const employeeId = positiveInteger(input.employee_id, 'Colaborador');
     const date = attendanceDate(input.date);
     const incidentType = String(input.incident_type ?? '').trim().toUpperCase();
+    const decision = String(input.decision ?? 'MANTENER_ESTADO').trim().toUpperCase();
+    if (!['MANTENER_ESTADO', 'JUSTIFICAR_INASISTENCIA', 'CONFIRMAR_FALTA'].includes(decision)) {
+      throw new Error('La decisión administrativa no es válida.');
+    }
     if (!/^[A-Z_]{3,40}$/.test(incidentType)) throw new Error('Tipo de incidencia no válido.');
     const comment = auditComment(input.comment);
 
-    return runInTransaction(async connection => {
+    const result = await runInTransaction(async connection => {
       const [employees] = await connection.query<RowDataPacket[]>(
-        `SELECT employee.id, attendance.id AS asistencia_id
+        `SELECT employee.id, attendance.id AS asistencia_id, attendance.estado_asistencia,
+                payment_period.estado AS periodo_pago_estado
            FROM personal_empleados employee
+           INNER JOIN sedes site ON site.id = employee.sede_id
            LEFT JOIN personal_asistencias attendance
              ON attendance.empleado_id = employee.id AND attendance.fecha = ?
+           LEFT JOIN personal_periodos_pago payment_period
+             ON payment_period.empresa_id = site.empresa_id
+            AND payment_period.periodo = DATE_FORMAT(?, '%Y-%m-01')
           WHERE employee.id = ? AND employee.sede_id = ? LIMIT 1 FOR UPDATE`,
-        [date, employeeId, siteId],
+        [date, date, employeeId, siteId],
       );
       if (!employees.length) throw new Error('Colaborador no encontrado en la sede.');
+      if (decision !== 'MANTENER_ESTADO' && employees[0].estado_asistencia !== 'FALTA') {
+        throw new Error('Solo una falta registrada admite una decisión con efecto en el pago.');
+      }
+      if (decision !== 'MANTENER_ESTADO' && employees[0].periodo_pago_estado
+        && employees[0].periodo_pago_estado !== 'BORRADOR') {
+        throw new Error('El periodo de pago ya está en revisión. Devuélvelo a borrador antes de cambiar esta falta.');
+      }
+      if (decision !== 'MANTENER_ESTADO' && employees[0].asistencia_id) {
+        const [pendingJustifications] = await connection.query<RowDataPacket[]>(
+          `SELECT id FROM personal_justificaciones_asistencia
+            WHERE asistencia_id = ? AND estado = 'PENDIENTE' LIMIT 1`,
+          [employees[0].asistencia_id],
+        );
+        if (pendingJustifications.length) {
+          throw new Error('Esta falta tiene una justificación pendiente. Resuélvela desde el Centro de solicitudes.');
+        }
+      }
       const [result] = await connection.query<ResultSetHeader>(
         `INSERT INTO personal_incidencias_asistencia_revisiones
           (empleado_id, asistencia_id, fecha, tipo_incidencia, decision, comentario, revisado_por)
-         VALUES (?, ?, ?, ?, 'MANTENER_ESTADO', ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), asistencia_id = VALUES(asistencia_id),
-           comentario = VALUES(comentario), revisado_por = VALUES(revisado_por), revisado_en = NOW()`,
-        [employeeId, employees[0].asistencia_id ?? null, date, incidentType, comment, actorUserId],
+           decision = VALUES(decision), comentario = VALUES(comentario),
+           revisado_por = VALUES(revisado_por), revisado_en = NOW()`,
+        [employeeId, employees[0].asistencia_id ?? null, date, incidentType, decision, comment, actorUserId],
       );
       await connection.query(
         `INSERT INTO personal_auditoria_eventos
           (tipo_evento, empleado_id, usuario_id, exitoso, codigo_resultado, metadata_json)
-         VALUES ('INCIDENCIA_ASISTENCIA_REVISADA', ?, ?, 1, 'MANTENER_ESTADO', ?)`,
-        [employeeId, actorUserId, JSON.stringify({ date, incident_type: incidentType, comment })],
+         VALUES ('INCIDENCIA_ASISTENCIA_REVISADA', ?, ?, 1, ?, ?)`,
+        [employeeId, actorUserId, decision, JSON.stringify({ date, incident_type: incidentType, decision, comment })],
       );
-      return { id: result.insertId, employee_id: employeeId, date, incident_type: incidentType };
+      if (decision !== 'MANTENER_ESTADO') {
+        await createEmployeeNotification(connection, {
+          employeeId,
+          type: 'JUSTIFICACION_RESUELTA',
+          title: decision === 'JUSTIFICAR_INASISTENCIA' ? 'Inasistencia justificada' : 'Falta confirmada',
+          message: decision === 'JUSTIFICAR_INASISTENCIA'
+            ? `RR. HH. justificó tu inasistencia del ${date}; no generará descuento.`
+            : `RR. HH. confirmó tu falta del ${date}; el descuento aparecerá en la liquidación mensual.`,
+          priority: decision === 'JUSTIFICAR_INASISTENCIA' ? 'INFO' : 'IMPORTANTE',
+          action: 'HISTORIAL',
+          referenceType: 'ASISTENCIA',
+          referenceId: Number(employees[0].asistencia_id),
+          deduplicationKey: `FALTA:${employees[0].asistencia_id}:${decision}`,
+        });
+      }
+      return { id: result.insertId, employee_id: employeeId, date, incident_type: incidentType, decision };
     });
+    if (decision !== 'MANTENER_ESTADO') {
+      await new ServicePaymentService().refreshDraftForAttendanceDecision(
+        siteId, employeeId, date, actorUserId, `FALTA_${decision}`,
+      ).catch(() => undefined);
+    }
+    return result;
   }
 }

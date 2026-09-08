@@ -67,8 +67,12 @@ export function RequestResolutionModal({ siteId, target, decision, onClose, onSa
   const approving = decision === 'APPROVE';
   const cancelling = decision === 'CANCEL';
   const justificationDecision = target?.kind === 'JUSTIFICACION';
-  const title = approving ? 'Aprobar solicitud' : cancelling ? 'Cancelar solicitud' : 'Rechazar solicitud';
-  const actionLabel = approving ? 'Confirmar aprobación' : cancelling ? 'Confirmar cancelación' : 'Confirmar rechazo';
+  const title = justificationDecision
+    ? (approving ? 'Justificar inasistencia' : 'Confirmar falta')
+    : approving ? 'Aprobar solicitud' : cancelling ? 'Cancelar solicitud' : 'Rechazar solicitud';
+  const actionLabel = justificationDecision
+    ? (approving ? 'Confirmar sin descuento' : 'Confirmar descuento')
+    : approving ? 'Confirmar aprobación' : cancelling ? 'Confirmar cancelación' : 'Confirmar rechazo';
   const actionIcon = approving ? <Check size={15} /> : cancelling ? <Trash2 size={15} /> : <X size={15} />;
   return <Modal open={Boolean(target)} onClose={onClose} title={title} description="Decisión administrativa auditable" maxWidth={580}
     footer={<><Button variant="secondary" onClick={onClose}>Volver</Button><Button variant={approving ? 'primary' : 'danger'} type="submit" form="resolve-request" loading={saving} icon={actionIcon}>{actionLabel}</Button></>}>
@@ -76,7 +80,9 @@ export function RequestResolutionModal({ siteId, target, decision, onClose, onSa
       {error && <div className={styles.error} role="alert">{error}</div>}
       <div className={`${styles.decisionHero} ${approving ? styles.approvalHero : styles.rejectionHero}`}><span>{approving ? <Check /> : cancelling ? <Trash2 /> : <X />}</span><div><small>{target?.kind === 'PERMISO' ? 'PERMISO' : target?.kind === 'JUSTIFICACION' ? 'JUSTIFICACIÓN DE ASISTENCIA' : 'VACACIONES'}</small><strong>{employee?.nombres} {employee?.apellidos}</strong><p>{requestedPeriod(target)}</p></div></div>
       <section className={styles.section}>
-        <header><FileText /><div><h3>{cancelling ? 'Motivo del retiro' : 'Comentario de resolución'}</h3><p>{approving ? 'Agrega una observación si corresponde.' : cancelling ? 'Explica por qué la solicitud dejará de aplicarse.' : 'Explica claramente el motivo del rechazo.'}</p></div></header>
+        <header><FileText /><div><h3>{cancelling ? 'Motivo del retiro' : 'Comentario de resolución'}</h3><p>{justificationDecision
+          ? (approving ? 'La falta quedará justificada y no reducirá el pago.' : 'La falta quedará confirmada y se descontará en la liquidación.')
+          : approving ? 'Agrega una observación si corresponde.' : cancelling ? 'Explica por qué la solicitud dejará de aplicarse.' : 'Explica claramente el motivo del rechazo.'}</p></div></header>
         <label className={styles.full}><span>{approving && !justificationDecision ? 'Comentario opcional' : 'Sustento de la decisión (obligatorio)'}</span><textarea rows={4} maxLength={500} value={comment} onChange={(event) => setComment(event.target.value)} placeholder={approving && justificationDecision ? 'Ej.: Evidencia verificada y motivo consistente con la incidencia...' : approving ? 'Observación administrativa...' : cancelling ? 'Motivo verificable de la cancelación...' : 'Motivo verificable del rechazo...'} /><small>{comment.length}/500</small></label>
       </section>
       <div className={styles.auditNote}><ShieldCheck /><span>{cancelling ? 'La solicitud dejará de aplicarse, pero permanecerá disponible en auditoría.' : 'La decisión conservará usuario, fecha y comentario en auditoría.'}</span></div>

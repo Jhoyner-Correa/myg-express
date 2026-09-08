@@ -1,8 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  calculateAutomaticOvertimeRate, calculateMonthlyAgreementBase, calculateMonthlyServiceBase, calculateServicePayment, classifyPaymentWorkQueue,
+  calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateMonthlyAgreementBase, calculateMonthlyServiceBase, calculateServicePayment, classifyPaymentWorkQueue,
   evaluatePaymentControls, normalizePaymentMonth, parsePaymentAmount, planPaymentAgreementWrite,
+  resolveAbsencePaymentState,
 } = require('../dist/modules/rrhh/domain/paymentDomain');
 
 test('calcula automaticamente el valor diario y por hora segun el mes', () => {
@@ -12,6 +13,18 @@ test('calcula automaticamente el valor diario y por hora segun el mes', () => {
   assert.deepEqual(calculateAutomaticOvertimeRate(1240, '2026-10-01'), {
     calendarDays: 31, dailyHours: 8, dailyRate: 40, hourlyRate: 5,
   });
+});
+
+test('clasifica una falta segun su justificacion, decision y plazo', () => {
+  const base = { attendanceDate: '2026-09-01', currentDate: '2026-09-08' };
+  assert.equal(resolveAbsencePaymentState({ ...base, justificationStatus: 'PENDIENTE' }), 'PENDIENTE');
+  assert.equal(resolveAbsencePaymentState({ ...base, justificationStatus: 'APROBADA' }), 'JUSTIFICADA');
+  assert.equal(resolveAbsencePaymentState({ ...base, justificationStatus: 'RECHAZADA' }), 'DESCONTABLE');
+  assert.equal(resolveAbsencePaymentState({ ...base, administrativeDecision: 'JUSTIFICAR_INASISTENCIA' }), 'JUSTIFICADA');
+  assert.equal(resolveAbsencePaymentState({ ...base, administrativeDecision: 'CONFIRMAR_FALTA' }), 'DESCONTABLE');
+  assert.equal(resolveAbsencePaymentState(base), 'PENDIENTE');
+  assert.equal(resolveAbsencePaymentState({ attendanceDate: '2026-09-01', currentDate: '2026-09-09' }), 'DESCONTABLE');
+  assert.equal(calculateAbsenceDailyDiscount(1200, '2026-09-01'), 40);
 });
 
 test('normaliza importes monetarios sin perder un cero', () => {
@@ -169,6 +182,17 @@ test('acepta la tarifa automatica cuando existe sobretiempo aprobado', () => {
   });
   assert.equal(controls.ready_for_review, true);
   assert.equal(controls.pending_for_review.includes('OVERTIME_RATE'), false);
+});
+
+test('bloquea la revision mientras exista una falta por resolver', () => {
+  const controls = evaluatePaymentControls({
+    hasAgreement: true, hasLiquidation: true, overtimeMinutes: 0, overtimeHourlyRate: 0,
+    pendingAbsences: 1, bank: 'BCP', accountLast4: '1234', serviceTotal: 1200,
+    depositTotal: 1200, liquidationStatus: 'OBSERVADO', receiptSeries: null,
+    receiptNumber: null, receiptAmount: null, paymentOperation: null,
+  });
+  assert.equal(controls.ready_for_review, false);
+  assert.equal(controls.pending_for_review.includes('ABSENCE_REVIEW'), true);
 });
 
 test('diferencia controles de revision, lote bancario y deposito', () => {

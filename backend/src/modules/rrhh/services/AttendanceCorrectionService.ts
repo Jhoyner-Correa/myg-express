@@ -4,6 +4,7 @@ import { assertDateOnly, businessClockMinutes, businessDate, businessIsoWeekday 
 import { classifyClockTiming, resolveEntryAttendance } from '../domain/attendancePolicy';
 import { findEffectiveSchedule, type EffectiveSchedule } from './ScheduleService';
 import { resolveWorkDay } from './WorkCalendarService';
+import { ServicePaymentService } from './ServicePaymentService';
 
 const ATTENDANCE_STATUSES = new Set(['PRESENTE', 'TARDANZA', 'FALTA', 'PERMISO', 'VACACIONES']);
 const CLOCK_TYPES = ['ENTRADA', 'SALIDA_ALMUERZO', 'REGRESO', 'SALIDA'] as const;
@@ -105,7 +106,7 @@ export class AttendanceCorrectionService {
     if (reason.length < 8 || reason.length > 500) throw new Error('El motivo debe tener entre 8 y 500 caracteres.');
     const rawMarks = input.marks && typeof input.marks === 'object' ? input.marks as Record<string, unknown> : null;
 
-    return runInTransaction(async connection => {
+    const result = await runInTransaction(async connection => {
       const [employees] = await connection.query<RowDataPacket[]>(
         `SELECT employee.id, employee.sede_id,
                 COALESCE(gps.latitud, site.latitud, 0) AS latitude,
@@ -230,5 +231,9 @@ export class AttendanceCorrectionService {
       );
       return { correction_id: correction.insertId, attendance_id: attendanceId, status, delay_minutes: delay };
     });
+    await new ServicePaymentService().refreshDraftForAttendanceDecision(
+      siteId, employeeId, date, actorUserId, 'ASISTENCIA_CORREGIDA',
+    ).catch(() => undefined);
+    return result;
   }
 }
