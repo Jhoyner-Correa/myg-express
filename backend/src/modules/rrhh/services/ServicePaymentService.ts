@@ -660,6 +660,7 @@ export class ServicePaymentService {
           LIMIT 1 FOR UPDATE`, [employeeId],
       );
       let agreementId: number;
+      let replacedAgreementId: number | null = null;
       const currentStart = current.length ? String(current[0].vigente_desde_fecha) : null;
       const currentId = current.length ? Number(current[0].id) : null;
       if (requestedAgreementId && requestedAgreementId !== currentId) {
@@ -714,22 +715,47 @@ export class ServicePaymentService {
           );
           if (previous.length) {
             const previousStart = String(previous[0].vigente_desde_fecha);
-            if (previousStart >= effectiveFrom) {
+            if (previousStart > effectiveFrom) {
               throw new ServicePaymentError('La fecha elegida se cruza con un acuerdo histórico. Selecciona una fecha posterior.', 409);
             }
-            const previousEnd = previous[0].vigente_hasta_fecha ? String(previous[0].vigente_hasta_fecha) : null;
-            if (previousEnd && previousEnd >= effectiveFrom) {
-              await connection.query(
-                `UPDATE personal_pago_acuerdos SET vigente_hasta = DATE_SUB(?, INTERVAL 1 DAY) WHERE id = ?`,
-                [effectiveFrom, previous[0].id],
+            if (previousStart === effectiveFrom) {
+              const previousId = Number(previous[0].id);
+              const [protectedPreviousUsage] = await connection.query<RowDataPacket[]>(
+                `SELECT payment_period.periodo, payment_period.estado
+                   FROM personal_liquidaciones_pago liquidation
+                   INNER JOIN personal_periodos_pago payment_period ON payment_period.id = liquidation.periodo_pago_id
+                  WHERE liquidation.acuerdo_id = ? AND payment_period.estado <> 'BORRADOR'
+                  LIMIT 1`, [previousId],
               );
+              if (protectedPreviousUsage.length) {
+                throw new ServicePaymentError('El acuerdo anterior ya forma parte de un periodo protegido y no puede sustituirse.', 409);
+              }
+              await connection.query(
+                `UPDATE personal_liquidaciones_pago liquidation
+                 INNER JOIN personal_periodos_pago payment_period ON payment_period.id = liquidation.periodo_pago_id
+                    SET liquidation.acuerdo_id = ?
+                  WHERE liquidation.acuerdo_id = ? AND payment_period.estado = 'BORRADOR'`,
+                [previousId, agreementId],
+              );
+              replacedAgreementId = agreementId;
+              agreementId = previousId;
+              await connection.query(`DELETE FROM personal_pago_acuerdos WHERE id = ?`, [replacedAgreementId]);
+            } else {
+              const previousEnd = previous[0].vigente_hasta_fecha ? String(previous[0].vigente_hasta_fecha) : null;
+              if (previousEnd && previousEnd >= effectiveFrom) {
+                await connection.query(
+                  `UPDATE personal_pago_acuerdos SET vigente_hasta = DATE_SUB(?, INTERVAL 1 DAY) WHERE id = ?`,
+                  [effectiveFrom, previous[0].id],
+                );
+              }
             }
           }
         }
         await connection.query(
           `UPDATE personal_pago_acuerdos SET pago_mensual = ?, politica_prorrateo = ?, tarifa_hora_extra = ?, banco = ?, tipo_cuenta = ?,
              numero_cuenta = COALESCE(?, numero_cuenta), numero_cuenta_ultimos4 = COALESCE(?, numero_cuenta_ultimos4),
-             cci = COALESCE(?, cci), cci_ultimos4 = COALESCE(?, cci_ultimos4), vigente_desde = ?, creado_por = ? WHERE id = ?`,
+             cci = COALESCE(?, cci), cci_ultimos4 = COALESCE(?, cci_ultimos4), vigente_desde = ?, vigente_hasta = NULL,
+             creado_por = ? WHERE id = ?`,
           [monthlyPayment, partialPeriodPolicy, overtimeRate, bank, accountType, encryptSensitive(account), account?.slice(-4) ?? null,
             encryptSensitive(cci), cci?.slice(-4) ?? null, effectiveFrom, actorId, agreementId],
         );
@@ -750,6 +776,7 @@ export class ServicePaymentService {
       await this.audit(connection, 'PAGO_ACUERDO_ACTUALIZADO', employeeId, actorId, {
         agreement_id: agreementId, monthly_payment: monthlyPayment, proration_policy: partialPeriodPolicy,
         overtime_hourly_rate: overtimeRate, effective_from: effectiveFrom, write_mode: writeMode,
+        replaced_agreement_id: replacedAgreementId,
       });
       return { id: agreementId, employee_id: employeeId };
     });
