@@ -253,6 +253,40 @@ export function calculateMonthlyAgreementBase(input: {
   };
 }
 
+export function calculateMonthlyAccrual(input: {
+  periodStart: string;
+  currentDate: string;
+  employmentStart: string;
+  employmentEnd?: string | null;
+  agreements: MonthlyAgreementSegmentInput[];
+}) {
+  const currentDate = validDate(input.currentDate, 'Fecha de corte');
+  const monthlyBase = calculateMonthlyAgreementBase(input);
+  const cutoff = currentDate < input.periodStart
+    ? null
+    : [currentDate, monthEnd(input.periodStart)].sort()[0];
+  let accruedDays = 0;
+  let accruedAmount = 0;
+
+  if (cutoff) {
+    for (const segment of monthlyBase.segments) {
+      if (!segment.serviceStart || !segment.serviceEnd || segment.serviceStart > cutoff) continue;
+      const accruedUntil = [segment.serviceEnd, cutoff].sort()[0];
+      const days = inclusiveDays(segment.serviceStart, accruedUntil);
+      accruedDays += days;
+      accruedAmount += segment.monthlyPayment * days / segment.periodDays;
+    }
+  }
+
+  return {
+    accruedAmount: money(accruedAmount),
+    accruedDays,
+    cutoffDate: cutoff,
+    projectedAmount: monthlyBase.appliedMonthlyPayment,
+    periodDays: monthlyBase.periodDays,
+  };
+}
+
 export function calculateAutomaticOvertimeRate(
   monthlyPayment: number,
   periodStart: string,

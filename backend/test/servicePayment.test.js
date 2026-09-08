@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateMonthlyAgreementBase, calculateMonthlyServiceBase, calculateServicePayment, classifyPaymentWorkQueue,
+  calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateMonthlyAccrual, calculateMonthlyAgreementBase, calculateMonthlyServiceBase, calculateServicePayment, classifyPaymentWorkQueue,
   evaluatePaymentControls, normalizePaymentMonth, parsePaymentAmount, planPaymentAgreementWrite,
   resolveAbsencePaymentState,
 } = require('../dist/modules/rrhh/domain/paymentDomain');
@@ -12,6 +12,21 @@ test('calcula automaticamente el valor diario y por hora segun el mes', () => {
   });
   assert.deepEqual(calculateAutomaticOvertimeRate(1240, '2026-10-01'), {
     calendarDays: 31, dailyHours: 8, dailyRate: 40, hourlyRate: 5,
+  });
+});
+
+test('muestra el honorario devengado hasta la fecha sin confundirlo con la proyeccion mensual', () => {
+  const result = calculateMonthlyAccrual({
+    periodStart: '2026-09-01', currentDate: '2026-09-10',
+    employmentStart: '2025-01-01', employmentEnd: null,
+    agreements: [{
+      agreementId: 1, monthlyPayment: 1200, agreementStart: '2026-01-01',
+      agreementEnd: null, policy: 'DIAS_CALENDARIO',
+    }],
+  });
+  assert.deepEqual(result, {
+    accruedAmount: 400, accruedDays: 10, cutoffDate: '2026-09-10',
+    projectedAmount: 1200, periodDays: 30,
   });
 });
 

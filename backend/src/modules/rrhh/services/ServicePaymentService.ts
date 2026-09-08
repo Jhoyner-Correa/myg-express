@@ -3,7 +3,7 @@ import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
 import { businessDate } from '../../../core/utils/time';
 import {
-  calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateMonthlyAgreementBase,
+  calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateMonthlyAccrual, calculateMonthlyAgreementBase,
   calculateServicePayment, classifyPaymentWorkQueue,
   evaluatePaymentControls, MonthlyProrationPolicy, normalizePaymentMonth,
   OvertimeRateMode, parsePaymentAmount, planPaymentAgreementWrite, resolveAbsencePaymentState,
@@ -141,6 +141,8 @@ export class ServicePaymentService {
         `SELECT liquidation.id, liquidation.empleado_id, liquidation.sede_id,
                 liquidation.acuerdo_id AS acuerdo_configurado_id,
                 employee.codigo_empleado, employee.dni, employee.nombres, employee.apellidos, employee.sexo, employee.foto,
+                DATE_FORMAT(employee.fecha_ingreso, '%Y-%m-%d') AS fecha_ingreso,
+                DATE_FORMAT(employee.fecha_cese, '%Y-%m-%d') AS fecha_cese,
                 role.nombre AS cargo, site.nombre AS sede,
                 liquidation.pago_mensual, liquidation.honorario_mensual_pactado,
                 liquidation.politica_prorrateo, liquidation.prorrateo_aplicado,
@@ -249,7 +251,7 @@ export class ServicePaymentService {
       rows = result;
     }
     const agreementsByEmployee = new Map<number, RowDataPacket[]>();
-    if (!paymentPeriod && rows.length) {
+    if (rows.length) {
       const employeeIds = rows.map(row => Number(row.empleado_id));
       const placeholders = employeeIds.map(() => '?').join(',');
       const [agreementRows] = await pool.query<RowDataPacket[]>(
@@ -279,12 +281,13 @@ export class ServicePaymentService {
         controls: ReturnType<typeof paymentControls>;
         queue: ReturnType<typeof classifyPaymentWorkQueue>;
       };
+      const employeeAgreements = agreementSegments(agreementsByEmployee.get(Number(row.empleado_id)) ?? []);
       if (!paymentPeriod && row.acuerdo_configurado_id) {
         const base = calculateMonthlyAgreementBase({
           periodStart: period,
           employmentStart: String(row.fecha_ingreso),
           employmentEnd: row.fecha_cese ? String(row.fecha_cese) : null,
-          agreements: agreementSegments(agreementsByEmployee.get(Number(row.empleado_id)) ?? []),
+          agreements: employeeAgreements,
         });
         payment.pago_mensual = base.appliedMonthlyPayment;
         payment.prorrateo_aplicado = base.prorated ? 1 : 0;
@@ -296,6 +299,16 @@ export class ServicePaymentService {
         payment.total_servicio = base.appliedMonthlyPayment;
         payment.total_depositar = base.appliedMonthlyPayment;
       }
+      const accrual = calculateMonthlyAccrual({
+        periodStart: period,
+        currentDate: businessDate(),
+        employmentStart: String(row.fecha_ingreso),
+        employmentEnd: row.fecha_cese ? String(row.fecha_cese) : null,
+        agreements: employeeAgreements,
+      });
+      payment.monto_devengado = accrual.accruedAmount;
+      payment.dias_devengados = accrual.accruedDays;
+      payment.fecha_corte_devengado = accrual.cutoffDate;
       if (!paymentPeriod && payment.tarifa_hora_extra_modo === 'AUTOMATICA') {
         payment.tarifa_hora_extra_aplicada = calculateAutomaticOvertimeRate(
           Number(payment.honorario_mensual_pactado || 0), period,
@@ -312,6 +325,7 @@ export class ServicePaymentService {
     const summary = payments.reduce((acc, row) => {
       acc.collaborators += 1;
       acc.service_total += Number(row.total_servicio || 0);
+      acc.accrued_total += Number(row.monto_devengado || 0);
       acc.overtime_total += Number(row.monto_horas_extra || 0);
       acc.deductions_total += Number(row.adelantos || 0) + Number(row.cuotas_prestamo || 0) + Number(row.otros_descuentos || 0);
       acc.deposit_total += Number(row.total_depositar || 0);
@@ -324,7 +338,7 @@ export class ServicePaymentService {
       acc.queues[row.queue] += 1;
       return acc;
     }, {
-      collaborators: 0, service_total: 0, overtime_total: 0, deductions_total: 0, deposit_total: 0,
+      collaborators: 0, service_total: 0, accrued_total: 0, overtime_total: 0, deductions_total: 0, deposit_total: 0,
       paid: 0, pending_configuration: 0, pending_receipts: 0, observed: 0, approved: 0, in_batch: 0,
       queues: { POR_REVISAR: 0, OBSERVADOS: 0, LISTOS_PARA_PAGO: 0, EN_PAGO: 0, PAGADOS: 0 },
     });

@@ -663,6 +663,9 @@ export type ServicePaymentRow = {
   fecha_servicio_desde: string | null;
   fecha_servicio_hasta: string | null;
   factor_prorrateo: number | string;
+  monto_devengado: number | string;
+  dias_devengados: number;
+  fecha_corte_devengado: string | null;
   tarifa_hora_extra: number | string;
   tarifa_hora_extra_modo?: 'AUTOMATICA' | 'MANUAL';
   tarifa_hora_extra_aplicada?: number | string;
@@ -709,6 +712,7 @@ export type ServicePaymentDashboard = {
   summary: {
     collaborators: number;
     service_total: number;
+    accrued_total: number;
     overtime_total: number;
     deductions_total: number;
     deposit_total: number;

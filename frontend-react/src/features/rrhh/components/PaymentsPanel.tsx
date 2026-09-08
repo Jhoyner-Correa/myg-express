@@ -73,15 +73,19 @@ function ServicePeriodCell({ payment }: { payment: ServicePaymentRow }) {
   const range = payment.fecha_servicio_desde && payment.fecha_servicio_hasta
     ? `${readableDate(payment.fecha_servicio_desde)} – ${readableDate(payment.fecha_servicio_hasta)}`
     : 'Sin rango calculado';
+  const accrualProgress = periodDays > 0 ? Math.min(100, Math.max(0, Number(payment.dias_devengados || 0) / periodDays * 100)) : 0;
+  const cutoffLabel = payment.fecha_corte_devengado ? readableDate(payment.fecha_corte_devengado) : 'Sin iniciar';
 
   return <div className={styles.servicePeriod}>
-    <strong>{money.format(number(payment.pago_mensual))}</strong>
+    <div className={styles.projectedAmount}><span>Proyección mensual</span><strong>{money.format(number(payment.pago_mensual))}</strong></div>
     <span className={partial ? styles.partialDays : styles.fullMonth}>
       <CalendarDays />{partial ? `${serviceDays} de ${periodDays} días` : 'Mes completo'}
     </span>
+    <div className={styles.accrualLine}><span>Devengado al {cutoffLabel}</span><b>{money.format(number(payment.monto_devengado))}</b></div>
+    <div className={styles.accrualTrack} aria-hidden="true"><i style={{ width: `${accrualProgress}%` }} /></div>
     <small>{partial
       ? `${range} · ${prorated ? `Pactado ${money.format(number(payment.honorario_mensual_pactado))}` : 'Honorario completo por acuerdo'}`
-      : `Honorario pactado ${money.format(number(payment.honorario_mensual_pactado))}`}</small>
+      : `${payment.dias_devengados || 0} días acumulados · Pactado ${money.format(number(payment.honorario_mensual_pactado))}`}</small>
   </div>;
 }
 
@@ -203,7 +207,7 @@ export function PaymentsPanel({
     <PaymentPeriodSummary period={period ?? null} batch={data?.batches?.[0] ?? null} summary={summary ?? null} />
 
     <div className={styles.kpis}>
-      <Kpi icon={<BadgeDollarSign />} label="Pago mensual y conceptos" value={money.format(summary?.service_total ?? 0)} detail={`${summary?.collaborators ?? 0} colaboradores`} tone="blue" />
+      <Kpi icon={<BadgeDollarSign />} label="Devengado a la fecha" value={money.format(summary?.accrued_total ?? 0)} detail="Honorarios acumulados hasta hoy" tone="blue" />
       <Kpi icon={<CalendarDays />} label="Horas extras aprobadas" value={money.format(summary?.overtime_total ?? 0)} detail="Solo solicitudes aprobadas" tone="violet" />
       <Kpi icon={<Banknote />} label="Adelantos y cuotas" value={money.format(summary?.deductions_total ?? 0)} detail="Descuentos del periodo" tone="amber" />
       <Kpi icon={<CircleDollarSign />} label="Total a depositar" value={money.format(summary?.deposit_total ?? 0)} detail={`${summary?.paid ?? 0} pagos realizados`} tone="green" />
