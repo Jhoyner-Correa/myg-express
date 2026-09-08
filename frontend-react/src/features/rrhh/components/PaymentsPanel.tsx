@@ -68,13 +68,14 @@ const monthName = (value: string) => {
 function ServicePeriodCell({ payment }: { payment: ServicePaymentRow }) {
   const serviceDays = Number(payment.dias_servicio || 0);
   const periodDays = Number(payment.dias_periodo || 0);
+  const accruedDays = Number(payment.dias_devengados || 0);
   const partial = periodDays > 0 && serviceDays < periodDays;
-  const prorated = Boolean(Number(payment.prorrateo_aplicado));
   const range = payment.fecha_servicio_desde && payment.fecha_servicio_hasta
     ? `${readableDate(payment.fecha_servicio_desde)} – ${readableDate(payment.fecha_servicio_hasta)}`
     : 'Sin rango calculado';
-  const accrualProgress = periodDays > 0 ? Math.min(100, Math.max(0, Number(payment.dias_devengados || 0) / periodDays * 100)) : 0;
+  const accrualProgress = periodDays > 0 ? Math.min(100, Math.max(0, accruedDays / periodDays * 100)) : 0;
   const cutoffLabel = payment.fecha_corte_devengado ? readableDate(payment.fecha_corte_devengado) : 'Sin iniciar';
+  const dailyAmount = periodDays > 0 ? number(payment.honorario_mensual_pactado) / periodDays : 0;
 
   return <div className={styles.servicePeriod}>
     <div className={styles.projectedAmount}><span>Proyección mensual</span><strong>{money.format(number(payment.pago_mensual))}</strong></div>
@@ -84,8 +85,8 @@ function ServicePeriodCell({ payment }: { payment: ServicePaymentRow }) {
     <div className={styles.accrualLine}><span>Devengado al {cutoffLabel}</span><b>{money.format(number(payment.monto_devengado))}</b></div>
     <div className={styles.accrualTrack} aria-hidden="true"><i style={{ width: `${accrualProgress}%` }} /></div>
     <small>{partial
-      ? `${range} · ${prorated ? `Pactado ${money.format(number(payment.honorario_mensual_pactado))}` : 'Honorario completo por acuerdo'}`
-      : `${payment.dias_devengados || 0} días acumulados · Pactado ${money.format(number(payment.honorario_mensual_pactado))}`}</small>
+      ? `${range} · ${accruedDays}/${periodDays} días acumulados`
+      : `${accruedDays}/${periodDays} días · ${money.format(dailyAmount)} por día`}</small>
   </div>;
 }
 
@@ -236,14 +237,25 @@ export function PaymentsPanel({
       {error ? <div className={styles.state}><p>{getApiErrorMessage(error, 'No se pudieron consultar los pagos.')}</p><Button variant="secondary" onClick={() => void load()}>Reintentar</Button></div>
         : loading && !data ? <div className={styles.state}>Preparando información financiera…</div>
         : <div className={styles.tableViewport}><table>
+          <colgroup>
+            <col className={styles.colEmployee} />
+            <col className={styles.colSite} />
+            <col className={styles.colPeriod} />
+            <col className={styles.colOvertime} />
+            <col className={styles.colDeductions} />
+            <col className={styles.colDeposit} />
+            <col className={styles.colDocument} />
+            <col className={styles.colStatus} />
+            <col className={styles.colActions} />
+          </colgroup>
           <thead><tr><th>Colaborador</th><th>Sede</th><th>Pago del periodo</th><th>Horas extra</th><th>Descuentos</th><th>A depositar</th><th>Expediente</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody>{payments.map(payment => <tr key={payment.empleado_id}>
             <td><div className={styles.employee}><img src={getEmployeePhotoUrl({ id: payment.empleado_id, sexo: payment.sexo, foto: payment.foto })} onError={employeePhotoFallbackHandler({ id: payment.empleado_id, sexo: payment.sexo, foto: payment.foto })} alt="" /><div><strong>{payment.nombres} {payment.apellidos}</strong><span>{payment.codigo_empleado} · {payment.cargo}</span></div></div></td>
             <td><span className={styles.site}>{payment.sede}</span></td>
             <td><ServicePeriodCell payment={payment} /></td>
-            <td><strong className={styles.overtime}>{money.format(number(payment.monto_horas_extra))}</strong><span className={styles.subvalue}>{payment.minutos_horas_extra || 0} min aprobados</span></td>
-            <td><strong className={styles.deduction}>{money.format(number(payment.adelantos) + number(payment.cuotas_prestamo) + number(payment.otros_descuentos))}</strong><span className={styles.subvalue}>{Number(payment.faltas_pendientes || 0) > 0 ? `${payment.faltas_pendientes} falta(s) por resolver` : Number(payment.faltas_confirmadas || 0) > 0 ? `${payment.faltas_confirmadas} falta(s) descontadas` : 'Adelantos, cuotas y ajustes'}</span></td>
-            <td><strong className={styles.total}>{money.format(number(payment.total_depositar))}</strong><span className={styles.subvalue}>Importe final</span></td>
+            <td><div className={styles.amountCell}><strong className={styles.overtime}>{money.format(number(payment.monto_horas_extra))}</strong><span>{payment.minutos_horas_extra || 0} min aprobados</span></div></td>
+            <td><div className={styles.amountCell}><strong className={styles.deduction}>{money.format(number(payment.adelantos) + number(payment.cuotas_prestamo) + number(payment.otros_descuentos))}</strong><span>{Number(payment.faltas_pendientes || 0) > 0 ? `${payment.faltas_pendientes} falta(s) por resolver` : Number(payment.faltas_confirmadas || 0) > 0 ? `${payment.faltas_confirmadas} falta(s) descontadas` : 'Sin descuentos aplicados'}</span></div></td>
+            <td><div className={styles.depositAmount}><strong className={styles.total}>{money.format(number(payment.total_depositar))}</strong><span>Importe final</span></div></td>
             <td><div className={styles.documentControl}>
               <span className={payment.rhe_numero ? styles.documentReady : styles.documentPending}>{payment.rhe_numero ? <FileCheck2 /> : <ReceiptText />}{payment.rhe_numero ? `${payment.rhe_serie}-${payment.rhe_numero}` : 'RHE pendiente'}</span>
               <small>{payment.numero_cuenta_ultimos4 ? `${payment.banco} · •••• ${payment.numero_cuenta_ultimos4}` : 'Cuenta bancaria pendiente'}</small>
