@@ -15,6 +15,7 @@ import type {
   ServicePaymentRow, Site,
 } from '../types';
 import { EmployeePaymentLedgerModal } from './EmployeePaymentLedgerModal';
+import { formatDurationMinutes } from './attendance-formatters';
 import { employeePhotoFallbackHandler, getEmployeePhotoUrl } from './employee-avatar';
 import {
   agreementFormDefaults, applicationDate, automaticOvertimeRate, canonicalCurrencyText, parseCurrencyText,
@@ -253,7 +254,7 @@ export function PaymentsPanel({
             <td><div className={styles.employee}><img src={getEmployeePhotoUrl({ id: payment.empleado_id, sexo: payment.sexo, foto: payment.foto })} onError={employeePhotoFallbackHandler({ id: payment.empleado_id, sexo: payment.sexo, foto: payment.foto })} alt="" /><div><strong>{payment.nombres} {payment.apellidos}</strong><span>{payment.codigo_empleado} · {payment.cargo}</span></div></div></td>
             <td><span className={styles.site}>{payment.sede}</span></td>
             <td><ServicePeriodCell payment={payment} /></td>
-            <td><div className={styles.amountCell}><strong className={styles.overtime}>{money.format(number(payment.monto_horas_extra))}</strong><span>{payment.minutos_horas_extra || 0} min aprobados</span></div></td>
+            <td><div className={styles.amountCell}><strong className={styles.overtime}>{money.format(number(payment.monto_horas_extra))}</strong><span>{payment.minutos_horas_extra > 0 ? `Tiempo aprobado: ${formatDurationMinutes(payment.minutos_horas_extra)}` : 'Sin tiempo aprobado'}</span></div></td>
             <td><div className={styles.amountCell}><strong className={styles.deduction}>{money.format(number(payment.adelantos) + number(payment.cuotas_prestamo) + number(payment.otros_descuentos))}</strong><span>{Number(payment.faltas_pendientes || 0) > 0 ? `${payment.faltas_pendientes} falta(s) por resolver` : Number(payment.faltas_confirmadas || 0) > 0 ? `${payment.faltas_confirmadas} falta(s) descontadas` : 'Sin descuentos aplicados'}</span></div></td>
             <td><div className={styles.depositAmount}><strong className={styles.total}>{money.format(number(payment.total_depositar))}</strong><span>Importe final</span></div></td>
             <td><div className={styles.documentControl}>
