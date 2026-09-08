@@ -1122,6 +1122,17 @@ export class ServicePaymentService {
     );
   }
 
+  async refreshDraftForEmploymentChange(
+    siteId: number,
+    employeeId: number,
+    effectiveDate: string,
+    actorId: number | null,
+  ) {
+    await this.refreshDraftForAttendanceDecision(
+      siteId, employeeId, effectiveDate, actorId, 'VIGENCIA_LABORAL_ACTUALIZADA',
+    );
+  }
+
   private async generateEmployee(
     connection: PoolConnection,
     periodId: number,

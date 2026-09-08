@@ -65,6 +65,26 @@ const monthName = (value: string) => {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 };
 
+function ServicePeriodCell({ payment }: { payment: ServicePaymentRow }) {
+  const serviceDays = Number(payment.dias_servicio || 0);
+  const periodDays = Number(payment.dias_periodo || 0);
+  const partial = periodDays > 0 && serviceDays < periodDays;
+  const prorated = Boolean(Number(payment.prorrateo_aplicado));
+  const range = payment.fecha_servicio_desde && payment.fecha_servicio_hasta
+    ? `${readableDate(payment.fecha_servicio_desde)} – ${readableDate(payment.fecha_servicio_hasta)}`
+    : 'Sin rango calculado';
+
+  return <div className={styles.servicePeriod}>
+    <strong>{money.format(number(payment.pago_mensual))}</strong>
+    <span className={partial ? styles.partialDays : styles.fullMonth}>
+      <CalendarDays />{partial ? `${serviceDays} de ${periodDays} días` : 'Mes completo'}
+    </span>
+    <small>{partial
+      ? `${range} · ${prorated ? `Pactado ${money.format(number(payment.honorario_mensual_pactado))}` : 'Honorario completo por acuerdo'}`
+      : `Honorario pactado ${money.format(number(payment.honorario_mensual_pactado))}`}</small>
+  </div>;
+}
+
 export function PaymentsPanel({
   month, siteId, sites, canManage, onSiteChange, onMonthChange,
 }: {
@@ -111,6 +131,9 @@ export function PaymentsPanel({
   const queueCount = (key: QueueFilter) => key === 'TODOS'
     ? data?.summary.collaborators ?? 0
     : data?.summary.queues[key] ?? 0;
+  const partialPayments = useMemo(() => (data?.payments ?? []).filter(payment => (
+    Number(payment.dias_periodo) > 0 && Number(payment.dias_servicio) < Number(payment.dias_periodo)
+  )).length, [data?.payments]);
 
   const generate = async () => {
     const confirmed = await showConfirm({
@@ -189,7 +212,10 @@ export function PaymentsPanel({
     <div className={styles.register}>
       <div className={styles.registerHeader}>
         <div><h3>Expedientes de pago</h3><p>Administra cada liquidación y su sustento documental.</p></div>
-        <label className={styles.search}><Search aria-hidden="true" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar colaborador, DNI, código o sede..." /></label>
+        <div className={styles.registerTools}>
+          {partialPayments > 0 && <span className={styles.partialSummary}><CalendarDays /><b>{partialPayments}</b> pago{partialPayments === 1 ? '' : 's'} parcial{partialPayments === 1 ? '' : 'es'}</span>}
+          <label className={styles.search}><Search aria-hidden="true" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar colaborador, DNI, código o sede..." /></label>
+        </div>
       </div>
       <nav className={styles.queueNav} aria-label="Bandejas de pagos">
         {queueMeta.map(item => <button
@@ -206,13 +232,14 @@ export function PaymentsPanel({
       {error ? <div className={styles.state}><p>{getApiErrorMessage(error, 'No se pudieron consultar los pagos.')}</p><Button variant="secondary" onClick={() => void load()}>Reintentar</Button></div>
         : loading && !data ? <div className={styles.state}>Preparando información financiera…</div>
         : <div className={styles.tableViewport}><table>
-          <thead><tr><th>Colaborador</th><th>Sede</th><th>Horas extra</th><th>Descuentos</th><th>A depositar</th><th>Expediente</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Colaborador</th><th>Sede</th><th>Pago del periodo</th><th>Horas extra</th><th>Descuentos</th><th>A depositar</th><th>Expediente</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody>{payments.map(payment => <tr key={payment.empleado_id}>
             <td><div className={styles.employee}><img src={getEmployeePhotoUrl({ id: payment.empleado_id, sexo: payment.sexo, foto: payment.foto })} onError={employeePhotoFallbackHandler({ id: payment.empleado_id, sexo: payment.sexo, foto: payment.foto })} alt="" /><div><strong>{payment.nombres} {payment.apellidos}</strong><span>{payment.codigo_empleado} · {payment.cargo}</span></div></div></td>
             <td><span className={styles.site}>{payment.sede}</span></td>
+            <td><ServicePeriodCell payment={payment} /></td>
             <td><strong className={styles.overtime}>{money.format(number(payment.monto_horas_extra))}</strong><span className={styles.subvalue}>{payment.minutos_horas_extra || 0} min aprobados</span></td>
             <td><strong className={styles.deduction}>{money.format(number(payment.adelantos) + number(payment.cuotas_prestamo) + number(payment.otros_descuentos))}</strong><span className={styles.subvalue}>{Number(payment.faltas_pendientes || 0) > 0 ? `${payment.faltas_pendientes} falta(s) por resolver` : Number(payment.faltas_confirmadas || 0) > 0 ? `${payment.faltas_confirmadas} falta(s) descontadas` : 'Adelantos, cuotas y ajustes'}</span></td>
-            <td><strong className={styles.total}>{money.format(number(payment.total_depositar))}</strong></td>
+            <td><strong className={styles.total}>{money.format(number(payment.total_depositar))}</strong><span className={styles.subvalue}>Importe final</span></td>
             <td><div className={styles.documentControl}>
               <span className={payment.rhe_numero ? styles.documentReady : styles.documentPending}>{payment.rhe_numero ? <FileCheck2 /> : <ReceiptText />}{payment.rhe_numero ? `${payment.rhe_serie}-${payment.rhe_numero}` : 'RHE pendiente'}</span>
               <small>{payment.numero_cuenta_ultimos4 ? `${payment.banco} · •••• ${payment.numero_cuenta_ultimos4}` : 'Cuenta bancaria pendiente'}</small>

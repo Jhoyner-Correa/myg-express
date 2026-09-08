@@ -714,6 +714,7 @@ export class RrhhController {
         String(req.body.reason || ''),
         Number(req.user?.id),
         req.ip,
+        req.body.effective_date ? String(req.body.effective_date) : null,
       );
       return res.json({
         ok: true,

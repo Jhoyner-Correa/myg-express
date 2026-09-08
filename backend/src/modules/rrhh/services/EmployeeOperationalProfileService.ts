@@ -1,6 +1,8 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
+import { businessDate } from '../../../core/utils/time';
 import { EmployeeStatus } from '../domain/Empleado';
+import { ServicePaymentService } from './ServicePaymentService';
 
 export class EmployeeProfileError extends Error {
   constructor(
@@ -197,6 +199,7 @@ export class EmployeeOperationalProfileService {
     reason: string,
     actorUserId: number,
     ipAddress?: string | null,
+    effectiveDateValue?: string | null,
   ) {
     if (!['ACTIVO', 'INACTIVO', 'SUSPENDIDO'].includes(status)) {
       throw new EmployeeProfileError('INVALID_EMPLOYEE_STATUS', 'El estado solicitado no es válido.');
@@ -206,25 +209,44 @@ export class EmployeeOperationalProfileService {
       throw new EmployeeProfileError('INVALID_REASON', 'Indica un motivo de 3 a 255 caracteres.');
     }
 
-    return runInTransaction(async connection => {
+    const today = businessDate();
+    const effectiveDate = String(effectiveDateValue || today).trim();
+    const parsedEffectiveDate = new Date(`${effectiveDate}T12:00:00Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)
+      || Number.isNaN(parsedEffectiveDate.getTime())
+      || parsedEffectiveDate.toISOString().slice(0, 10) !== effectiveDate) {
+      throw new EmployeeProfileError('INVALID_EFFECTIVE_DATE', 'Selecciona una fecha efectiva vÃ¡lida.');
+    }
+    if (status === 'INACTIVO' && effectiveDate > today) {
+      throw new EmployeeProfileError('FUTURE_TERMINATION_DATE', 'La fecha de cese no puede estar en el futuro.');
+    }
+
+    const result = await runInTransaction(async connection => {
       const [rows] = await connection.query<RowDataPacket[]>(
-        'SELECT estado FROM personal_empleados WHERE id = ? LIMIT 1 FOR UPDATE',
+        `SELECT estado, sede_id, DATE_FORMAT(fecha_ingreso, '%Y-%m-%d') AS fecha_ingreso
+           FROM personal_empleados WHERE id = ? LIMIT 1 FOR UPDATE`,
         [employeeId],
       );
       if (!rows.length) throw new EmployeeProfileError('EMPLOYEE_NOT_FOUND', 'El colaborador no existe.', 404);
       const previousStatus = String(rows[0].estado) as EmployeeStatus;
-      if (previousStatus === status) return { status, previous_status: previousStatus, mobile_access_revoked: false, unchanged: true };
+      if (effectiveDate < String(rows[0].fecha_ingreso)) {
+        throw new EmployeeProfileError('EFFECTIVE_DATE_BEFORE_ADMISSION', 'La fecha efectiva no puede ser anterior al ingreso del colaborador.');
+      }
+      if (previousStatus === status) return {
+        status, previous_status: previousStatus, mobile_access_revoked: false, unchanged: true,
+        effective_date: effectiveDate, site_id: Number(rows[0].sede_id),
+      };
 
       const [updateResult] = await connection.query<ResultSetHeader>(
         `UPDATE personal_empleados
             SET estado = ?,
                 fecha_cese = CASE
-                  WHEN ? = 'INACTIVO' THEN COALESCE(fecha_cese, CURDATE())
+                  WHEN ? = 'INACTIVO' THEN ?
                   WHEN ? = 'ACTIVO' THEN NULL
                   ELSE fecha_cese
                 END
           WHERE id = ?`,
-        [status, status, status, employeeId],
+        [status, status, effectiveDate, status, employeeId],
       );
       if (!updateResult.affectedRows) throw new EmployeeProfileError('EMPLOYEE_NOT_FOUND', 'El colaborador no existe.', 404);
 
@@ -251,11 +273,22 @@ export class EmployeeOperationalProfileService {
           previous_status: previousStatus,
           status,
           reason: normalizedReason,
+          effective_date: effectiveDate,
           mobile_access_revoked: mobileAccessRevoked,
         })],
       );
 
-      return { status, previous_status: previousStatus, mobile_access_revoked: mobileAccessRevoked, unchanged: false };
+      return {
+        status, previous_status: previousStatus, mobile_access_revoked: mobileAccessRevoked, unchanged: false,
+        effective_date: effectiveDate, site_id: Number(rows[0].sede_id),
+      };
     });
+
+    if (!result.unchanged && ['INACTIVO', 'ACTIVO'].includes(status)) {
+      await new ServicePaymentService().refreshDraftForEmploymentChange(
+        result.site_id, employeeId, effectiveDate, actorUserId,
+      );
+    }
+    return result;
   }
 }

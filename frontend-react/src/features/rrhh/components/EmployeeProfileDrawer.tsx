@@ -85,6 +85,7 @@ export function EmployeeProfileDrawer({
   const [error, setError] = useState<unknown>(null);
   const [operation, setOperation] = useState<'status' | 'revoke' | 'photo-delete' | null>(null);
   const [targetStatus, setTargetStatus] = useState<EmployeeStatus>('SUSPENDIDO');
+  const [effectiveDate, setEffectiveDate] = useState(dateInPeru());
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -103,7 +104,7 @@ export function EmployeeProfileDrawer({
     setTab(initialTab);
     setOperation(initialOperation);
     setTargetStatus(employee.estado === 'ACTIVO' ? 'SUSPENDIDO' : 'ACTIVO');
-    setReason(''); setProfile(null); setPhotoFailed(false);
+    setEffectiveDate(dateInPeru()); setReason(''); setProfile(null); setPhotoFailed(false);
     void loadProfile(employee.id, controller.signal);
     return () => controller.abort();
   }, [employee, initialOperation, initialTab]);
@@ -145,7 +146,9 @@ export function EmployeeProfileDrawer({
         await rrhhService.revokeEmployeeDevice(employee.id, reason.trim());
         showToast('Acceso móvil y sesiones revocados.', 'success');
       } else {
-        const result = await rrhhService.setEmployeeStatus(employee.id, targetStatus, reason.trim());
+        const result = await rrhhService.setEmployeeStatus(
+          employee.id, targetStatus, reason.trim(), targetStatus === 'INACTIVO' ? effectiveDate : undefined,
+        );
         showToast(result.mobile_access_revoked
           ? 'Estado actualizado y acceso móvil cerrado por seguridad.'
           : 'Estado laboral actualizado.', 'success');
@@ -350,11 +353,25 @@ export function EmployeeProfileDrawer({
           </div>
           {operation === 'status' && <label className={styles.confirmField}>
             <span>Nuevo estado</span>
-            <select aria-label="Nuevo estado laboral" value={targetStatus} onChange={event => setTargetStatus(event.target.value as EmployeeStatus)}>
+            <select aria-label="Nuevo estado laboral" value={targetStatus} onChange={event => {
+              setTargetStatus(event.target.value as EmployeeStatus);
+              if (event.target.value === 'INACTIVO') setEffectiveDate(dateInPeru());
+            }}>
               <option value="ACTIVO" disabled={currentStatus === 'ACTIVO'}>Activo</option>
               <option value="SUSPENDIDO" disabled={currentStatus === 'SUSPENDIDO'}>Suspendido</option>
               <option value="INACTIVO" disabled={currentStatus === 'INACTIVO'}>Inactivo · baja laboral</option>
             </select>
+          </label>}
+          {operation === 'status' && targetStatus === 'INACTIVO' && <label className={styles.confirmField}>
+            <span>Ãšltimo dÃ­a de servicio</span>
+            <input
+              type="date"
+              value={effectiveDate}
+              min={activeEmployee?.admission_date || String(employee.fechaIngreso).slice(0, 10)}
+              max={dateInPeru()}
+              onChange={event => setEffectiveDate(event.target.value)}
+            />
+            <small>El pago del mes se calcularÃ¡ hasta este dÃ­a, inclusive.</small>
           </label>}
           {operation !== 'photo-delete' && <textarea value={reason} onChange={event => setReason(event.target.value)} maxLength={255} placeholder="Motivo de la acción…" autoFocus />}
           <div className={styles.confirmActions}>

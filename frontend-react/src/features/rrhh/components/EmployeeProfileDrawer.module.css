@@ -125,8 +125,9 @@
 .confirmCopy strong { display: block; color: #162236; font-size: 15px; font-weight: 750; letter-spacing: -.01em; }
 .confirmCopy p { max-width: 310px; margin: 7px auto 18px; color: #738198; font-size: 11px; line-height: 1.5; }
 .confirmField { display: grid; gap: 6px; margin-bottom: 8px; color: #53657b; font-size: 9px; font-weight: 720; text-align: left; text-transform: uppercase; letter-spacing: .055em; }
-.confirmPanel select, .confirmPanel textarea { width: 100%; border: 1px solid #d8e0eb; border-radius: 8px; background: #fff; color: #263244; font: inherit; font-size: 11px; text-align: left; }
-.confirmPanel select { height: 38px; padding: 0 11px; }
+.confirmPanel select, .confirmPanel input, .confirmPanel textarea { width: 100%; border: 1px solid #d8e0eb; border-radius: 8px; background: #fff; color: #263244; font: inherit; font-size: 11px; text-align: left; }
+.confirmPanel select, .confirmPanel input { height: 38px; padding: 0 11px; }
+.confirmField small { color: #708198; font-size: 9px; font-weight: 550; text-transform: none; letter-spacing: 0; }
 .confirmPanel textarea { min-height: 62px; resize: vertical; padding: 10px 11px; }
 .confirmActions { display: flex; justify-content: center; gap: 9px; margin-top: 18px; }
 .confirmPanel button { min-width: 112px; min-height: 36px; padding: 0 14px; border: 1px solid #d2dce8; border-radius: 8px; color: #4f6076; background: #fff; font: inherit; font-size: 10px; font-weight: 720; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }

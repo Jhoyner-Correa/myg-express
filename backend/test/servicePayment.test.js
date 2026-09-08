@@ -147,6 +147,23 @@ test('prorratea un ingreso parcial usando los dias calendario reales del mes', (
   assert.equal(result.prorated, true);
 });
 
+test('prorratea el pago hasta el ultimo dia trabajado cuando existe cese', () => {
+  const result = calculateMonthlyServiceBase({
+    monthlyPayment: 1200,
+    periodStart: '2026-09-01',
+    employmentStart: '2025-01-01',
+    employmentEnd: '2026-09-10',
+    agreementStart: '2026-01-01',
+    agreementEnd: null,
+    policy: 'DIAS_CALENDARIO',
+  });
+  assert.equal(result.periodDays, 30);
+  assert.equal(result.serviceDays, 10);
+  assert.equal(result.serviceEnd, '2026-09-10');
+  assert.equal(result.appliedMonthlyPayment, 400);
+  assert.equal(result.prorated, true);
+});
+
 test('respeta febrero bisiesto y permite honorario completo por politica explicita', () => {
   const result = calculateMonthlyServiceBase({
     monthlyPayment: 1500,

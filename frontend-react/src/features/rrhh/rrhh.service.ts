@@ -76,13 +76,14 @@ export const rrhhService = {
       `/rrhh/empleados/${employeeId}/perfil-operativo`, { signal },
     ));
   },
-  setEmployeeStatus(employeeId: number, status: EmployeeStatus, reason: string) {
+  setEmployeeStatus(employeeId: number, status: EmployeeStatus, reason: string, effectiveDate?: string) {
     return unwrapRequest(apiClient.patch<ApiEnvelope<{
       status: EmployeeStatus;
       previous_status: EmployeeStatus;
       mobile_access_revoked: boolean;
       unchanged: boolean;
-    }>>(`/rrhh/empleados/${employeeId}/estado`, { status, reason }));
+      effective_date: string;
+    }>>(`/rrhh/empleados/${employeeId}/estado`, { status, reason, effective_date: effectiveDate }));
   },
   revokeEmployeeDevice(employeeId: number, reason: string) {
     return unwrapRequest(apiClient.post<ApiEnvelope<never>>(
