@@ -5,6 +5,7 @@ import { classifyClockTiming, resolveEntryAttendance } from '../domain/attendanc
 import { findEffectiveSchedule, type EffectiveSchedule } from './ScheduleService';
 import { resolveWorkDay } from './WorkCalendarService';
 import { ServicePaymentService } from './ServicePaymentService';
+import { partialAbsenceService } from './PartialAbsenceService';
 
 const ATTENDANCE_STATUSES = new Set(['PRESENTE', 'TARDANZA', 'FALTA', 'PERMISO', 'VACACIONES']);
 const CLOCK_TYPES = ['ENTRADA', 'SALIDA_ALMUERZO', 'REGRESO', 'SALIDA'] as const;
@@ -201,6 +202,7 @@ export class AttendanceCorrectionService {
           schedule.overtimeThresholdMinutes,
         );
       }
+      await partialAbsenceService.syncAttendance(connection, attendanceId);
       const after = await snapshot(connection, attendanceId);
       if (['PRESENTE', 'TARDANZA'].includes(status)) assertAdministrativeMarks(after.marks);
       const [correction] = await connection.query<ResultSetHeader>(

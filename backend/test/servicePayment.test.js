@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateMonthlyAccrual, calculateMonthlyAgreementBase, calculateMonthlyServiceBase, calculateServicePayment, classifyPaymentWorkQueue,
+  calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateMonthlyAccrual, calculateMonthlyAgreementBase, calculateMonthlyServiceBase, calculatePartialAbsenceDiscount, calculateServicePayment, classifyPaymentWorkQueue,
   evaluatePaymentControls, normalizePaymentMonth, parsePaymentAmount, planPaymentAgreementWrite,
   resolveAbsencePaymentState,
 } = require('../dist/modules/rrhh/domain/paymentDomain');
@@ -40,6 +40,9 @@ test('clasifica una falta segun su justificacion, decision y plazo', () => {
   assert.equal(resolveAbsencePaymentState(base), 'PENDIENTE');
   assert.equal(resolveAbsencePaymentState({ attendanceDate: '2026-09-01', currentDate: '2026-09-09' }), 'DESCONTABLE');
   assert.equal(calculateAbsenceDailyDiscount(1200, '2026-09-01'), 40);
+  assert.equal(calculatePartialAbsenceDiscount(1200, '2026-09-01', 380), 31.67);
+  assert.equal(calculatePartialAbsenceDiscount(1300, '2026-09-01', 380), 34.31);
+  assert.equal(calculatePartialAbsenceDiscount(1300, '2026-09-01', 380), 34.31);
 });
 
 test('normaliza importes monetarios sin perder un cero', () => {

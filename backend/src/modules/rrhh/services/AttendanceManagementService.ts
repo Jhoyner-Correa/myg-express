@@ -4,6 +4,7 @@ import { assertDateOnly, businessDate } from '../../../core/utils/time';
 import { createEmployeeNotification } from '../../rrhh-mobile/mobileNotification.service';
 import { OvertimeEvidenceStorageService } from './OvertimeEvidenceStorageService';
 import { ServicePaymentService } from './ServicePaymentService';
+import { partialAbsenceService } from './PartialAbsenceService';
 
 const OVERTIME_DECISIONS = new Set(['APROBAR', 'RECHAZAR']);
 
@@ -106,6 +107,9 @@ export class AttendanceManagementService {
     );
     const attendance = attendanceRows[0] ?? null;
     const attendanceId = attendance ? Number(attendance.id) : null;
+    const partialAbsence = attendanceId
+      ? await partialAbsenceService.reconcileAttendance(attendanceId)
+      : null;
 
     const [marks, overtime, corrections, incidentReviews] = await Promise.all([
       attendanceId ? pool.query<RowDataPacket[]>(
@@ -153,9 +157,14 @@ export class AttendanceManagementService {
       attendance,
       marks,
       overtime_requests: overtime,
+      partial_absence: partialAbsence,
       corrections,
       incident_reviews: incidentReviews,
     };
+  }
+
+  async reviewPartialAbsence(siteId: number, actorUserId: number, input: Record<string, unknown>) {
+    return partialAbsenceService.resolve(siteId, actorUserId, input);
   }
 
   async report(siteId: number, employeeIdValue: unknown, modeValue: unknown, anchorValue: unknown) {

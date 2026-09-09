@@ -268,6 +268,16 @@ export const rrhhService = {
   }) {
     return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number }>>('/rrhh/asistencias/incidencias/resolver', input));
   },
+  resolvePartialAbsence(attendanceId: number, input: {
+    sede_id: number;
+    justified_minutes: number;
+    compensated_minutes: number;
+    comment: string;
+  }) {
+    return unwrapRequest(apiClient.patch<ApiEnvelope<AttendanceDetail['partial_absence']>>(
+      `/rrhh/asistencias/${attendanceId}/inasistencia-parcial`, input,
+    ));
+  },
   getBiometricContingencies(siteId: number | null, signal?: AbortSignal) {
     return unwrapRequest(apiClient.get<ApiEnvelope<BiometricContingency[]>>(
       '/rrhh/contingencias',

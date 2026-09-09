@@ -329,6 +329,19 @@ export function calculateAbsenceDailyDiscount(monthlyPayment: number, periodStar
   return calculateAutomaticOvertimeRate(monthlyPayment, periodStart).dailyRate;
 }
 
+export function calculatePartialAbsenceDiscount(
+  monthlyPayment: number,
+  periodStart: string,
+  deductibleMinutes: number,
+  dailyHours = 8,
+): number {
+  if (!Number.isInteger(deductibleMinutes) || deductibleMinutes < 0) {
+    throw new Error('Minutos de inasistencia parcial no validos.');
+  }
+  const { calendarDays } = calculateAutomaticOvertimeRate(monthlyPayment, periodStart, dailyHours);
+  return money(monthlyPayment / calendarDays / dailyHours / 60 * deductibleMinutes);
+}
+
 export function calculateServicePayment(input: PaymentAmounts) {
   for (const [field, value] of Object.entries(input)) {
     if (!Number.isFinite(value) || value < 0) throw new Error(`Importe no valido: ${field}`);

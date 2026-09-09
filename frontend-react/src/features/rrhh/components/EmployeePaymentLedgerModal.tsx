@@ -115,6 +115,16 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
   const confirmedAbsences = Number(liquidation?.faltas_confirmadas || 0);
   const pendingAbsences = Number(liquidation?.faltas_pendientes || 0);
   const absenceDiscount = Number(liquidation?.monto_descuento_faltas || 0);
+  const pendingPartialAbsences = Number(liquidation?.inasistencias_parciales_pendientes || 0);
+  const partialAbsenceMinutes = Number(liquidation?.minutos_inasistencia_parcial || 0);
+  const partialAbsenceDiscount = Number(liquidation?.monto_descuento_inasistencia_parcial || 0);
+  const discountDetail = pendingPartialAbsences > 0
+    ? `${pendingPartialAbsences} jornada(s) parcial(es) por resolver`
+    : partialAbsenceMinutes > 0
+      ? `${duration(partialAbsenceMinutes)} no laboradas: ${amount(partialAbsenceDiscount)}`
+      : confirmedAbsences
+        ? `${confirmedAbsences} falta(s): ${amount(absenceDiscount)}`
+        : 'Sin faltas descontadas';
   const agreedMonthlyPayment = liquidation?.honorario_mensual_pactado
     ?? paymentPreview?.agreedMonthlyPayment ?? ledger?.employee.pago_mensual;
   const appliedMonthlyPayment = liquidation?.pago_mensual
@@ -192,7 +202,7 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
             <Metric label="Pago mensual aplicado" value={amount(appliedMonthlyPayment)} icon={<WalletCards />} />
             <Metric label="Horas extra aprobadas" value={amount(liquidation?.monto_horas_extra)} detail={duration(ledger.attendance_summary.overtime_minutes)} icon={<Clock3 />} tone="violet" />
             <Metric label="Otros ingresos" value={amount(liquidation?.otros_ingresos)} icon={<Banknote />} tone="blue" />
-            <Metric label="Descuentos totales" value={amount(deductions)} detail={confirmedAbsences ? `${confirmedAbsences} falta(s): ${amount(absenceDiscount)}` : 'Sin faltas descontadas'} icon={<Landmark />} tone="amber" />
+            <Metric label="Descuentos totales" value={amount(deductions)} detail={discountDetail} icon={<Landmark />} tone="amber" />
             <Metric label="Total a depositar" value={amount(liquidation?.total_depositar)} icon={<CheckCircle2 />} tone="green" prominent />
           </section>
 
@@ -244,6 +254,8 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
                 {(ledger.attendance_summary.pending_justifications ?? 0) > 0 && <div className={styles.pendingSummary}><span>Justificaciones por revisar</span><strong>{ledger.attendance_summary.pending_justifications}</strong></div>}
                 {confirmedAbsences > 0 && <div className={styles.pendingSummary}><span>Faltas con descuento</span><strong>{confirmedAbsences} · {amount(absenceDiscount)}</strong></div>}
                 {pendingAbsences > 0 && <div className={styles.pendingSummary}><span>Faltas por resolver</span><strong>{pendingAbsences}</strong></div>}
+                {partialAbsenceMinutes > 0 && <div className={styles.pendingSummary}><span>Tiempo parcial descontado</span><strong>{duration(partialAbsenceMinutes)} Â· {amount(partialAbsenceDiscount)}</strong></div>}
+                {pendingPartialAbsences > 0 && <div className={styles.pendingSummary}><span>Jornadas parciales por resolver</span><strong>{pendingPartialAbsences}</strong></div>}
               </section>
 
               <section className={styles.paymentStatus}>
@@ -264,7 +276,8 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
               <strong>Regla de liquidación</strong>
               <small>
                 Una falta queda pendiente mientras puede justificarse. Si RR. HH. la justifica, no descuenta;
-                si la confirma o vence el plazo, se descuenta el valor diario y queda registrado como concepto auditable.
+                si la confirma o vence el plazo, se descuenta el valor diario. En jornadas parciales solo se
+                descuentan los minutos que RR. HH. confirme; el tiempo compensado no se paga otra vez como hora extra.
               </small>
             </span>
           </div>

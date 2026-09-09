@@ -13,6 +13,7 @@ const REQUIRED_TABLES = [
   'personal_horario_asignaciones',
   'personal_calendario_laboral',
   'personal_sobretiempo_solicitudes',
+  'personal_inasistencias_parciales',
   'personal_notificaciones_app',
   'mobile_app_releases',
   'personal_auditoria_eventos',
@@ -28,7 +29,7 @@ const REQUIRED_TABLES = [
   'personal_pago_notas',
 ] as const;
 
-const REQUIRED_MIGRATIONS = ['001_initial_schema'] as const;
+const REQUIRED_MIGRATIONS = ['001_initial_schema', '013_partial_absence_workflow'] as const;
 
 const RETIRED_TABLES = [
   'personal_empleado_horarios',

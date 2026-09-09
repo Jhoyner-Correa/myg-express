@@ -261,7 +261,8 @@ export type AttendanceDashboardEmployee = {
   overtime_review_pending?: boolean;
   operational_status: 'NO_LABORABLE' | 'PERMISO' | 'VACACIONES' | 'FALTA' | 'PROGRAMADO'
     | 'PENDIENTE_ENTRADA' | 'ENTRADA_RETRASADA' | 'EN_JORNADA' | 'EN_ALMUERZO'
-    | 'REGRESO_RETRASADO' | 'SALIDA_PENDIENTE' | 'JORNADA_COMPLETADA' | 'JORNADA_INCOMPLETA';
+    | 'REGRESO_RETRASADO' | 'SALIDA_PENDIENTE' | 'JORNADA_COMPLETADA' | 'INASISTENCIA_PARCIAL'
+    | 'JORNADA_INCOMPLETA';
   next_action: 'NINGUNA' | 'MARCAR_ENTRADA' | 'MARCAR_SALIDA_ALMUERZO' | 'MARCAR_REGRESO'
     | 'MARCAR_SALIDA' | 'REVISAR_INCIDENCIA';
   requires_attention: boolean;
@@ -287,6 +288,7 @@ export type AttendanceDashboardEmployee = {
     resolution_comment: string | null;
     resolved_at: string | null;
   };
+  partial_absence?: null | { status: string; missed_minutes: number };
 };
 
 export type AttendanceDashboard = {
@@ -515,6 +517,23 @@ export type AttendanceDetail = {
   };
   marks: AttendanceDetailMark[];
   overtime_requests: OvertimeRequest[];
+  partial_absence: null | {
+    id: number;
+    attendance_id: number;
+    employee_id: number;
+    date: string;
+    scheduled_minutes: number;
+    covered_minutes: number;
+    missed_minutes: number;
+    justified_minutes: number;
+    compensated_minutes: number;
+    deductible_minutes: number;
+    compensable_minutes: number;
+    status: 'PENDIENTE' | 'JUSTIFICADA' | 'DESCONTABLE' | 'COMPENSADA' | 'MIXTA' | 'INVALIDADA';
+    resolution_comment: string | null;
+    resolved_by_name: string | null;
+    resolved_at: string | null;
+  };
   corrections: Array<{ id: number; motivo: string; created_at: string; corregido_por_nombre: string }>;
   incident_reviews: Array<{
     id: number;
@@ -672,7 +691,10 @@ export type ServicePaymentRow = {
   minutos_horas_extra: number;
   faltas_confirmadas?: number;
   faltas_pendientes?: number;
+  inasistencias_parciales_pendientes?: number;
+  minutos_inasistencia_parcial?: number;
   monto_descuento_faltas?: number | string;
+  monto_descuento_inasistencia_parcial?: number | string;
   monto_horas_extra: number | string;
   otros_ingresos: number | string;
   adelantos: number | string;
@@ -813,7 +835,10 @@ export type ServicePaymentEmployeeLedger = {
     tarifa_hora_extra_aplicada?: number | string;
     faltas_confirmadas?: number;
     faltas_pendientes?: number;
+    inasistencias_parciales_pendientes?: number;
+    minutos_inasistencia_parcial?: number;
     monto_descuento_faltas?: number | string;
+    monto_descuento_inasistencia_parcial?: number | string;
     monto_horas_extra: number | string;
     otros_ingresos: number | string;
     adelantos: number | string;

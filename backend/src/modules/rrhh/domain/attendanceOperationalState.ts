@@ -13,6 +13,7 @@ export type AttendanceOperationalStatus =
   | 'REGRESO_RETRASADO'
   | 'SALIDA_PENDIENTE'
   | 'JORNADA_COMPLETADA'
+  | 'INASISTENCIA_PARCIAL'
   | 'JORNADA_INCOMPLETA';
 
 export type AttendanceNextAction =

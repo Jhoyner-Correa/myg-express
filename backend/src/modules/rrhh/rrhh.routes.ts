@@ -99,6 +99,7 @@ router.get('/asistencias/detalle', requirePermission(PERMISSIONS.RRHH_VIEW), rrh
 router.get('/asistencias/sede/:sedeId', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.consultarAsistenciasSede);
 router.put('/asistencias/correccion', requirePermission(PERMISSIONS.RRHH_ATTENDANCE_MANAGE), rrhhController.corregirAsistencia);
 router.post('/asistencias/incidencias/resolver', requirePermission(PERMISSIONS.RRHH_ATTENDANCE_MANAGE), rrhhController.resolverIncidenciaAsistencia);
+router.patch('/asistencias/:attendanceId/inasistencia-parcial', requirePermission(PERMISSIONS.RRHH_ATTENDANCE_MANAGE), rrhhController.resolverInasistenciaParcial);
 router.patch('/sobretiempo/:id/resolver', requirePermission(PERMISSIONS.RRHH_ATTENDANCE_MANAGE), rrhhController.resolverSobretiempo);
 router.get('/sobretiempo/:id/sustento', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.obtenerSustentoSobretiempo);
 router.get('/contingencias', requirePermission(PERMISSIONS.RRHH_VIEW), rrhhController.listarContingenciasMarcacion);

@@ -310,7 +310,7 @@
 .statusPENDIENTE_ENTRADA svg, .statusPROGRAMADO svg { color: #64748b; }
 .statusENTRADA_RETRASADA svg, .statusREGRESO_RETRASADO svg, .statusSALIDA_PENDIENTE svg { color: #d97706; }
 .statusEN_ALMUERZO svg { color: #2563eb; }
-.statusJORNADA_INCOMPLETA svg { color: #dc6b24; }
+.statusJORNADA_INCOMPLETA svg, .statusINASISTENCIA_PARCIAL svg { color: #dc6b24; }
 .statusFALTA svg { color: #dc3545; }
 .statusPERMISO svg { color: #2563eb; }
 .statusVACACIONES svg { color: #7c3aed; }

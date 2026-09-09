@@ -947,6 +947,23 @@ export class RrhhController {
     }
   };
 
+  resolverInasistenciaParcial = async (req: AuthRequest, res: Response) => {
+    try {
+      const siteId = resolveSedeScope(req, req.body.sede_id);
+      const data = await this.attendanceManagementService.reviewPartialAbsence(
+        siteId,
+        Number(req.user?.id),
+        { ...req.body, attendance_id: req.params.attendanceId },
+      );
+      return res.json({ ok: true, message: 'Inasistencia parcial resuelta y liquidacion actualizada.', data });
+    } catch (error) {
+      return res.status(errorStatus(error, 400)).json({
+        ok: false,
+        message: error instanceof Error ? error.message : 'No se pudo resolver la inasistencia parcial.',
+      });
+    }
+  };
+
   listarIncidencias = async (req: AuthRequest, res: Response) => {
     try {
       const siteId = resolveOptionalSedeScope(req, req.query.sede_id ?? req.params.sedeId);

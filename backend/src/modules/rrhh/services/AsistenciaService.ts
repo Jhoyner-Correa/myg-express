@@ -9,6 +9,7 @@ import { IEmpleadoRepository } from '../repositories/IEmpleadoRepository';
 import { IMarcacionRepository } from '../repositories/IMarcacionRepository';
 import { findEffectiveSchedule } from './ScheduleService';
 import { resolveWorkDay } from './WorkCalendarService';
+import { partialAbsenceService } from './PartialAbsenceService';
 
 type GeofenceRow = RowDataPacket & {
   latitud: string;
@@ -219,6 +220,10 @@ export class AsistenciaService {
             [asistencia.id, empleado.id, markId, overtimeEvent,
               timing.differenceMinutes, schedule.overtimeThresholdMinutes],
           );
+        }
+
+        if (params.tipo === 'SALIDA') {
+          await partialAbsenceService.syncAttendance(connection, asistencia.id);
         }
 
         await connection.query(

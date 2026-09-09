@@ -4,6 +4,7 @@ import { pool, runInTransaction } from '../../../core/database/database';
 import { businessDate } from '../../../core/utils/time';
 import {
   calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateMonthlyAccrual, calculateMonthlyAgreementBase,
+  calculatePartialAbsenceDiscount,
   calculateServicePayment, classifyPaymentWorkQueue,
   evaluatePaymentControls, MonthlyProrationPolicy, normalizePaymentMonth,
   OvertimeRateMode, parsePaymentAmount, planPaymentAgreementWrite, resolveAbsencePaymentState,
@@ -97,7 +98,8 @@ function paymentControls(row: RowDataPacket, hasLiquidation: boolean) {
     overtimeMinutes: Number(row.minutos_horas_extra || 0),
     overtimeHourlyRate: Number(row.tarifa_hora_extra_aplicada ?? row.tarifa_hora_extra ?? 0),
     overtimeRateMode: String(row.tarifa_hora_extra_modo ?? 'MANUAL') as OvertimeRateMode,
-    pendingAbsences: Number(row.faltas_pendientes || 0),
+    pendingAbsences: Number(row.faltas_pendientes || 0)
+      + Number(row.inasistencias_parciales_pendientes || 0),
     bank: row.banco ? String(row.banco) : null,
     accountLast4: row.numero_cuenta_ultimos4 ? String(row.numero_cuenta_ultimos4) : null,
     serviceTotal: Number(row.total_servicio || 0),
@@ -152,7 +154,9 @@ export class ServicePaymentService {
                 liquidation.factor_prorrateo,
                 liquidation.minutos_horas_extra, liquidation.tarifa_hora_extra_aplicada,
                 liquidation.faltas_confirmadas, liquidation.faltas_pendientes,
-                liquidation.monto_descuento_faltas, liquidation.monto_horas_extra,
+                liquidation.inasistencias_parciales_pendientes, liquidation.minutos_inasistencia_parcial,
+                liquidation.monto_descuento_faltas, liquidation.monto_descuento_inasistencia_parcial,
+                liquidation.monto_horas_extra,
                 liquidation.otros_ingresos, liquidation.adelantos, liquidation.cuotas_prestamo,
                 liquidation.otros_descuentos, liquidation.total_servicio, liquidation.total_depositar,
                 liquidation.estado, liquidation.rhe_serie, liquidation.rhe_numero,
@@ -205,7 +209,9 @@ export class ServicePaymentService {
                 DAY(LAST_DAY(?)) AS dias_servicio, ? AS fecha_servicio_desde,
                 LAST_DAY(?) AS fecha_servicio_hasta, 1 AS factor_prorrateo,
                 0 AS minutos_horas_extra, 0 AS tarifa_hora_extra_aplicada,
-                0 AS faltas_confirmadas, 0 AS faltas_pendientes, 0 AS monto_descuento_faltas,
+                0 AS faltas_confirmadas, 0 AS faltas_pendientes,
+                0 AS inasistencias_parciales_pendientes, 0 AS minutos_inasistencia_parcial,
+                0 AS monto_descuento_faltas, 0 AS monto_descuento_inasistencia_parcial,
                 0 AS monto_horas_extra, 0 AS otros_ingresos, 0 AS adelantos, 0 AS cuotas_prestamo,
                 0 AS otros_descuentos, COALESCE(agreement.pago_mensual, 0) AS total_servicio,
                 COALESCE(agreement.pago_mensual, 0) AS total_depositar,
@@ -1198,6 +1204,17 @@ export class ServicePaymentService {
         ORDER BY attendance.fecha, attendance.id`,
       [employeeId, period, end],
     );
+    const [partialAbsenceRows] = await connection.query<RowDataPacket[]>(
+      `SELECT partial_absence.id, DATE_FORMAT(partial_absence.fecha, '%Y-%m-%d') AS fecha,
+              partial_absence.estado, partial_absence.minutos_ausencia_detectados,
+              partial_absence.minutos_justificados, partial_absence.minutos_compensados,
+              partial_absence.minutos_descontables
+         FROM personal_inasistencias_parciales partial_absence
+        WHERE partial_absence.empleado_id = ? AND partial_absence.fecha BETWEEN ? AND ?
+          AND partial_absence.estado <> 'INVALIDADA'
+        ORDER BY partial_absence.fecha, partial_absence.id`,
+      [employeeId, period, end],
+    );
     const [movements] = await connection.query<RowDataPacket[]>(
       `SELECT id, tipo, concepto, monto FROM personal_pago_movimientos
         WHERE empleado_id = ? AND periodo = ? AND estado = 'PENDIENTE' ORDER BY id`, [employeeId, period],
@@ -1235,36 +1252,66 @@ export class ServicePaymentService {
     const confirmedAbsences = absenceDecisions.filter(item => item.state === 'DESCONTABLE');
     const pendingAbsences = absenceDecisions.filter(item => item.state === 'PENDIENTE');
     const absenceDiscount = Math.round(confirmedAbsences.reduce((sum, item) => sum + item.discount, 0) * 100) / 100;
+    const partialAbsences = partialAbsenceRows.map(row => {
+      const date = String(row.fecha);
+      const deductibleMinutes = Number(row.minutos_descontables || 0);
+      const applicableAgreement = agreements.find(candidate => {
+        const start = String(candidate.vigente_desde_fecha);
+        const finish = candidate.vigente_hasta_fecha ? String(candidate.vigente_hasta_fecha) : '9999-12-31';
+        return start <= date && finish >= date;
+      });
+      return {
+        id: Number(row.id), date, status: String(row.estado),
+        compensatedMinutes: Number(row.minutos_compensados || 0), deductibleMinutes,
+        discount: deductibleMinutes > 0 && applicableAgreement
+          ? calculatePartialAbsenceDiscount(Number(applicableAgreement.pago_mensual || 0), period, deductibleMinutes)
+          : 0,
+      };
+    });
+    const pendingPartialAbsences = partialAbsences.filter(item => item.status === 'PENDIENTE');
+    const resolvedPartialAbsences = partialAbsences.filter(item => item.status !== 'PENDIENTE');
+    const partialDeductibleMinutes = resolvedPartialAbsences.reduce((sum, item) => sum + item.deductibleMinutes, 0);
+    const compensatedOvertimeMinutes = resolvedPartialAbsences.reduce((sum, item) => sum + item.compensatedMinutes, 0);
+    const payableOvertimeMinutes = Math.max(0, Number(overtime.minutes || 0) - compensatedOvertimeMinutes);
+    const partialAbsenceDiscount = Math.round(
+      resolvedPartialAbsences.reduce((sum, item) => sum + item.discount, 0) * 100,
+    ) / 100;
     const appliedOvertimeRate = agreement?.tarifa_hora_extra_modo === 'AUTOMATICA'
       ? calculateAutomaticOvertimeRate(monthlyBase.agreedMonthlyPayment, period).hourlyRate
       : Number(agreement?.tarifa_hora_extra || 0);
     const calculation = calculateServicePayment({
-      monthlyPayment: monthlyBase.appliedMonthlyPayment, overtimeMinutes: Number(overtime.minutes || 0),
+      monthlyPayment: monthlyBase.appliedMonthlyPayment, overtimeMinutes: payableOvertimeMinutes,
       overtimeHourlyRate: appliedOvertimeRate, otherIncome: sums.income,
-      advances: sums.advances, loanInstallments: loanTotal, otherDiscounts: sums.discounts + absenceDiscount,
+      advances: sums.advances, loanInstallments: loanTotal,
+      otherDiscounts: sums.discounts + absenceDiscount + partialAbsenceDiscount,
     });
     const status = !agreement ? 'CONFIGURACION_PENDIENTE'
-      : calculation.hasExcessDeductions || pendingAbsences.length ? 'OBSERVADO' : 'BORRADOR';
+      : calculation.hasExcessDeductions || pendingAbsences.length || pendingPartialAbsences.length ? 'OBSERVADO' : 'BORRADOR';
     const observation = calculation.hasExcessDeductions
       ? 'Los descuentos superan el total del servicio.'
       : pendingAbsences.length
         ? `${pendingAbsences.length} falta(s) requieren justificación o confirmación administrativa.`
-        : null;
+        : pendingPartialAbsences.length
+          ? `${pendingPartialAbsences.length} inasistencia(s) parcial(es) requieren revision administrativa.`
+          : null;
     const [insert] = await connection.query<ResultSetHeader>(
       `INSERT INTO personal_liquidaciones_pago
          (periodo_pago_id, empleado_id, sede_id, acuerdo_id, pago_mensual, honorario_mensual_pactado,
           politica_prorrateo, prorrateo_aplicado, dias_periodo, dias_servicio,
           fecha_servicio_desde, fecha_servicio_hasta, factor_prorrateo, minutos_horas_extra, tarifa_hora_extra_aplicada,
-          faltas_confirmadas, faltas_pendientes, monto_descuento_faltas,
+          faltas_confirmadas, faltas_pendientes, inasistencias_parciales_pendientes,
+          minutos_inasistencia_parcial, monto_descuento_faltas, monto_descuento_inasistencia_parcial,
           monto_horas_extra, otros_ingresos, adelantos, cuotas_prestamo, otros_descuentos,
           total_servicio, total_depositar, estado, observacion)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [periodId, employeeId, siteId, agreement?.id ?? null, monthlyBase.appliedMonthlyPayment,
         monthlyBase.agreedMonthlyPayment, monthlyBase.policy, monthlyBase.prorated ? 1 : 0,
         monthlyBase.periodDays, monthlyBase.serviceDays, monthlyBase.serviceStart, monthlyBase.serviceEnd,
-        monthlyBase.factor, overtime.minutes ?? 0, appliedOvertimeRate,
-        confirmedAbsences.length, pendingAbsences.length, absenceDiscount,
-        calculation.overtimeAmount, sums.income, sums.advances, loanTotal, sums.discounts + absenceDiscount,
+        monthlyBase.factor, payableOvertimeMinutes, appliedOvertimeRate,
+        confirmedAbsences.length, pendingAbsences.length, pendingPartialAbsences.length,
+        partialDeductibleMinutes, absenceDiscount, partialAbsenceDiscount,
+        calculation.overtimeAmount, sums.income, sums.advances, loanTotal,
+        sums.discounts + absenceDiscount + partialAbsenceDiscount,
         calculation.serviceTotal, calculation.depositTotal, status, observation],
     );
     const liquidationId = insert.insertId;
@@ -1278,13 +1325,19 @@ export class ServicePaymentService {
           segment.appliedMonthlyPayment, segment.serviceDays, 'dias', 'ACUERDO', segment.agreementId,
         );
       }
-      if (calculation.overtimeAmount > 0) await this.addConcept(connection, liquidationId, 'HORAS_EXTRA', 'Horas extras aprobadas', calculation.overtimeAmount, Number(overtime.minutes), 'min', 'SOBRETIEMPO_MENSUAL', null);
+      if (calculation.overtimeAmount > 0) await this.addConcept(connection, liquidationId, 'HORAS_EXTRA', 'Horas extra aprobadas y no compensadas', calculation.overtimeAmount, payableOvertimeMinutes, 'min', 'SOBRETIEMPO_MENSUAL', null);
     }
     for (const movement of movements) await this.addConcept(connection, liquidationId, movement.tipo, movement.concepto, Number(movement.monto), null, null, 'MOVIMIENTO', Number(movement.id));
     for (const absence of confirmedAbsences) {
       await this.addConcept(
         connection, liquidationId, 'OTRO_DESCUENTO', `Falta injustificada del ${absence.date}`,
         absence.discount, 1, 'día', 'FALTA_ASISTENCIA', absence.id,
+      );
+    }
+    for (const partial of resolvedPartialAbsences.filter(item => item.deductibleMinutes > 0)) {
+      await this.addConcept(
+        connection, liquidationId, 'OTRO_DESCUENTO', `Inasistencia parcial del ${partial.date}`,
+        partial.discount, partial.deductibleMinutes, 'min', 'INASISTENCIA_PARCIAL', partial.id,
       );
     }
     for (const loan of loans) await this.addConcept(connection, liquidationId, 'CUOTA_PRESTAMO', loan.concepto, Number(loan.installment), null, null, 'PRESTAMO', Number(loan.id));

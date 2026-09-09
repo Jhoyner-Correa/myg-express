@@ -1,4 +1,5 @@
 import { ClockTimingClassification, ClockType } from './Marcacion';
+import { scheduledMinutesBefore } from './partialAbsencePolicy';
 
 export type AttendanceRuleCode =
   | 'REQUEST_ID_INVALID'
@@ -159,7 +160,7 @@ export function resolveEntryAttendance(
   const late = timing.classification === 'TARDANZA';
   return {
     status: late ? 'TARDANZA' : 'PRESENTE',
-    delayMinutes: late ? Math.max(0, timing.differenceMinutes) : 0,
+    delayMinutes: late ? scheduledMinutesBefore(schedule, currentMinutes) : 0,
     timing,
   };
 }

@@ -41,6 +41,8 @@ type DashboardRow = RowDataPacket & {
   justificacion_categoria: 'MEDICO' | 'EMERGENCIA_FAMILIAR' | 'TRANSPORTE' | 'OTRO' | null;
   justificacion_comentario_revision: string | null;
   justificacion_revisada_en: Date | null;
+  inasistencia_parcial_estado: string | null;
+  minutos_ausencia_parcial: number | null;
 };
 
 export type AttendanceDashboardItem = {
@@ -84,6 +86,7 @@ export type AttendanceDashboardItem = {
     resolution_comment: string | null;
     resolved_at: Date | null;
   };
+  partial_absence: null | { status: string; missed_minutes: number };
 };
 
 export function summarizeAttendance(items: AttendanceDashboardItem[]) {
@@ -217,7 +220,9 @@ export class AttendanceDashboardService {
               justification.tipo_incidencia AS justificacion_tipo_incidencia,
               justification.categoria AS justificacion_categoria,
               justification.comentario_revision AS justificacion_comentario_revision,
-              justification.revisado_en AS justificacion_revisada_en
+              justification.revisado_en AS justificacion_revisada_en,
+              partial_absence.estado AS inasistencia_parcial_estado,
+              partial_absence.minutos_ausencia_detectados AS minutos_ausencia_parcial
          FROM personal_empleados employee
          INNER JOIN personal_cargos role ON role.id = employee.cargo_id
          LEFT JOIN personal_asistencias attendance
@@ -230,6 +235,8 @@ export class AttendanceDashboardService {
               ORDER BY candidate.id DESC
               LIMIT 1
            )
+         LEFT JOIN personal_inasistencias_parciales partial_absence
+           ON partial_absence.asistencia_id = attendance.id AND partial_absence.estado <> 'INVALIDADA'
          LEFT JOIN personal_horario_asignaciones assignment
            ON assignment.id = (
              SELECT candidate.id
@@ -346,21 +353,33 @@ export class AttendanceDashboardService {
         resolution_comment: row.justificacion_comentario_revision,
         resolved_at: row.justificacion_revisada_en,
       },
+      partial_absence: row.inasistencia_parcial_estado === null ? null : {
+        status: String(row.inasistencia_parcial_estado),
+        missed_minutes: Number(row.minutos_ausencia_parcial || 0),
+      },
     }));
     const now = new Date();
     const today = businessDate(now);
     const currentMinutes = businessClockMinutes(now);
-    const items: AttendanceDashboardItem[] = baseItems.map(item => ({
-      ...item,
-      ...deriveAttendanceOperationalState({
+    const items: AttendanceDashboardItem[] = baseItems.map(item => {
+      const operational = deriveAttendanceOperationalState({
         date,
         today,
         current_minutes: currentMinutes,
         status: item.status,
         schedule: item.schedule,
         marks: item.marks,
-      }),
-    }));
+      });
+      if (item.partial_absence && item.partial_absence.status !== 'INVALIDADA') {
+        return {
+          ...item, ...operational,
+          operational_status: 'INASISTENCIA_PARCIAL' as const,
+          requires_attention: item.partial_absence.status === 'PENDIENTE',
+          next_action: item.partial_absence.status === 'PENDIENTE' ? 'REVISAR_INCIDENCIA' as const : 'NINGUNA' as const,
+        };
+      }
+      return { ...item, ...operational };
+    });
     return {
       date,
       scope: 'SEDE' as const,
