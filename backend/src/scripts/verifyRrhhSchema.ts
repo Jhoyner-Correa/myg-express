@@ -33,6 +33,7 @@ const REQUIRED_MIGRATIONS = [
   '001_initial_schema',
   '013_partial_absence_workflow',
   '014_overtime_correction_reconciliation',
+  '015_repair_stale_overtime_requests',
 ] as const;
 
 const RETIRED_TABLES = [
@@ -173,6 +174,31 @@ async function main(): Promise<void> {
     } else {
       ok('No se detectaron cruces de vigencia en horarios.');
     }
+  }
+
+  if (tables.has('personal_sobretiempo_solicitudes') && tables.has('personal_marcaciones')) {
+    const unsupportedOvertime = await count(
+      `SELECT COUNT(*) AS total
+         FROM personal_sobretiempo_solicitudes request
+        WHERE request.estado IN ('PENDIENTE', 'APROBADO')
+          AND NOT EXISTS (
+            SELECT 1
+              FROM personal_marcaciones mark
+             WHERE mark.asistencia_id = request.asistencia_id
+               AND (
+                 (request.tipo_evento = 'ALMUERZO_DIFERIDO'
+                   AND mark.tipo_marcacion = 'SALIDA_ALMUERZO'
+                   AND COALESCE(mark.diferencia_programada_minutos, 0) >= COALESCE(request.umbral_aplicado_minutos, 1))
+                 OR
+                 (request.tipo_evento = 'SALIDA_POSTERIOR'
+                   AND mark.tipo_marcacion = 'SALIDA'
+                   AND mark.clasificacion_tiempo = 'SOBRETIEMPO_CANDIDATO'
+                   AND COALESCE(mark.diferencia_programada_minutos, 0) >= COALESCE(request.umbral_aplicado_minutos, 1))
+               )
+          )`,
+    );
+    if (unsupportedOvertime) fail(`Hay ${unsupportedOvertime} solicitud(es) activa(s) de horas extra sin marcacion vigente.`);
+    else ok('Todas las horas extra activas conservan una marcacion vigente.');
   }
 
   if (tables.has('personal_acceso_app')) {

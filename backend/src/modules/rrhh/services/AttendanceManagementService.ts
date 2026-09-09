@@ -367,17 +367,27 @@ export class AttendanceManagementService {
 
     return runInTransaction(async connection => {
       const [rows] = await connection.query<RowDataPacket[]>(
-        `SELECT request.id, request.estado, request.marcacion_id,
-                request.minutos_detectados, employee.id AS empleado_id
+        `SELECT request.id, request.estado, request.marcacion_id, request.tipo_evento,
+                request.minutos_detectados, request.umbral_aplicado_minutos,
+                mark.tipo_marcacion, mark.diferencia_programada_minutos, mark.clasificacion_tiempo,
+                employee.id AS empleado_id
            FROM personal_sobretiempo_solicitudes request
            INNER JOIN personal_empleados employee ON employee.id = request.empleado_id
+           LEFT JOIN personal_marcaciones mark
+             ON mark.id = request.marcacion_id AND mark.asistencia_id = request.asistencia_id
           WHERE request.id = ? AND employee.sede_id = ? LIMIT 1 FOR UPDATE`,
         [requestId, siteId],
       );
       if (!rows.length) throw new Error('Solicitud de horas extra no encontrada.');
       if (String(rows[0].estado) !== 'PENDIENTE') throw new Error('Esta solicitud ya fue resuelta.');
-      if (decision === 'APROBAR' && rows[0].marcacion_id === null) {
-        throw new Error('La jornada sigue abierta. El colaborador debe registrar la marcación que cierra el sobretiempo.');
+      const markSupportsRequest = rows[0].marcacion_id !== null
+        && Number(rows[0].diferencia_programada_minutos || 0) >= Number(rows[0].umbral_aplicado_minutos || 1)
+        && (String(rows[0].tipo_evento) === 'ALMUERZO_DIFERIDO'
+          ? String(rows[0].tipo_marcacion) === 'SALIDA_ALMUERZO'
+          : String(rows[0].tipo_marcacion) === 'SALIDA'
+            && String(rows[0].clasificacion_tiempo) === 'SOBRETIEMPO_CANDIDATO');
+      if (decision === 'APROBAR' && !markSupportsRequest) {
+        throw new Error('Las horas extra ya no coinciden con la jornada vigente. Actualiza la asistencia antes de aprobarlas.');
       }
 
       const detected = Number(rows[0].minutos_detectados);
