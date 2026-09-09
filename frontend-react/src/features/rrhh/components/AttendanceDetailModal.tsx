@@ -10,7 +10,7 @@ import { getApiErrorMessage } from '../../../core/api/errors';
 import { showToast } from '../../../core/utils/toast';
 import { rrhhService } from '../rrhh.service';
 import type { AttendanceDashboardEmployee, AttendanceDetail, Employee, OvertimeRequest } from '../types';
-import { formatDurationMinutes, formatScheduleRange } from './attendance-formatters';
+import { formatAttendanceClock, formatDurationMinutes, formatScheduleRange } from './attendance-formatters';
 import { employeePhotoFallbackHandler, getEmployeePhotoUrl } from './employee-avatar';
 import styles from './AttendanceDetailModal.module.css';
 
@@ -18,19 +18,11 @@ const MARK_LABELS = {
   ENTRADA: 'Entrada', SALIDA_ALMUERZO: 'Salida a almuerzo', REGRESO: 'Regreso', SALIDA: 'Salida final',
 } as const;
 
-function formatClock(value: string | null) {
-  if (!value) return '—';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('es-PE', {
-    timeZone: 'America/Lima', hour: 'numeric', minute: '2-digit',
-  }).format(date);
-}
-
 function formatDateTime(value: string | null) {
   if (!value) return '—';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('es-PE', {
-    timeZone: 'America/Lima', dateStyle: 'medium', timeStyle: 'short',
+    timeZone: 'America/Lima', dateStyle: 'medium', timeStyle: 'short', hour12: true,
   }).format(date);
 }
 
@@ -245,7 +237,7 @@ export function AttendanceDetailModal({ employee, profile, date, canManage, onCl
           <div className={styles.timeline}>{(['ENTRADA', 'SALIDA_ALMUERZO', 'REGRESO', 'SALIDA'] as const).map(type => {
             const mark = detail.marks.find(item => item.tipo_marcacion === type);
             return <article key={type} className={mark ? styles.markDone : styles.markMissing}>
-              <i>{mark ? <CheckCircle2 /> : <Clock3 />}</i><div><small>{MARK_LABELS[type]}</small><strong>{formatClock(mark?.hora_marcacion ?? null)}</strong><span>{mark ? `${mark.origen_marcacion} · ${mark.verificacion_identidad ?? 'Identidad verificada'}` : 'Sin marcación'}</span></div>
+              <i>{mark ? <CheckCircle2 /> : <Clock3 />}</i><div><small>{MARK_LABELS[type]}</small><strong>{formatAttendanceClock(mark?.hora_marcacion ?? null)}</strong><span>{mark ? `${mark.origen_marcacion} · ${mark.verificacion_identidad ?? 'Identidad verificada'}` : 'Sin marcación'}</span></div>
               {mark?.distancia_sede_metros != null && <em><MapPin />{Math.round(mark.distancia_sede_metros)} m</em>}
             </article>;
           })}</div>

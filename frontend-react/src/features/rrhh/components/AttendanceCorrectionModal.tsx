@@ -15,7 +15,7 @@ import { Button } from '../../../components/ui/Button/Button';
 import { Modal } from '../../../components/ui/Modal/Modal';
 import { rrhhService } from '../rrhh.service';
 import type { AttendanceCorrectionInput, AttendanceDashboardEmployee } from '../types';
-import { formatDurationMinutes } from './attendance-formatters';
+import { formatDurationMinutes, formatScheduleTime } from './attendance-formatters';
 import styles from '../Rrhh.module.css';
 
 type Props = {
@@ -271,7 +271,7 @@ export function AttendanceCorrectionModal({ siteId, date, employee, onClose, onS
       : 'sin tolerancia';
     return {
       label: isLate ? `Tardanza · ${formatDurationMinutes(difference)}` : 'Ingreso puntual',
-      detail: `Entrada ${entry} · ${tolerance}`,
+      detail: `Entrada ${formatScheduleTime(entry)} · ${tolerance}`,
       late: isLate,
     };
   }, [employee?.schedule, parsedClocks.marks, status]);

@@ -16,7 +16,7 @@ import styles from './AttendancePanel.module.css';
 import { AttendanceCorrectionModal } from './AttendanceCorrectionModal';
 import { AttendanceDetailModal } from './AttendanceDetailModal';
 import { EmployeeAttendanceReportModal } from './EmployeeAttendanceReportModal';
-import { formatDurationMinutes, formatScheduleRange } from './attendance-formatters';
+import { formatAttendanceClock, formatDurationMinutes, formatScheduleRange } from './attendance-formatters';
 import { BiometricReviewPanel } from './BiometricReviewPanel';
 import { employeePhotoFallbackHandler, getEmployeePhotoUrl } from './employee-avatar';
 
@@ -26,11 +26,6 @@ type StatusMeta = { label: string; detail: string; icon: ComponentType<{ size?: 
 
 function businessToday() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-}
-
-function clock(value: string | null) {
-  if (!value) return '—';
-  return new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', hour: 'numeric', minute: '2-digit' }).format(new Date(value));
 }
 
 function longDate(value: string) {
@@ -253,7 +248,7 @@ export function AttendancePanel({ siteId, sites = [], canViewAllSites = false, c
               <td><div className={styles.identity}>{profile ? <img src={getEmployeePhotoUrl(profile)} alt={profile.foto ? `Foto de ${employee.names} ${employee.last_names}` : ''} loading="lazy" onError={employeePhotoFallbackHandler(profile)} /> : <span className={styles.avatarFallback}>{employee.names.charAt(0)}{employee.last_names.charAt(0)}</span>}<div><strong>{employee.names} {employee.last_names}</strong><small>{employee.job_role} · {employee.employee_code}</small></div></div></td>
               {siteId === null && <td><span className={styles.site}><MapPin />{employee.site_name}</span></td>}
               <td>{employee.schedule ? <div className={styles.schedule}><strong>{employee.schedule.name}</strong><small><Clock3 />{formatScheduleRange(employee.schedule.start_time, employee.schedule.end_time)}</small></div> : <span className={styles.noSchedule}>Sin asignar</span>}</td>
-              <td className={styles.clock}>{clock(employee.marks.entry)}</td><td className={styles.clock}>{clock(employee.marks.lunch_out)}</td><td className={styles.clock}>{clock(employee.marks.lunch_return)}</td><td className={styles.clock}>{clock(employee.marks.exit)}</td><td><Status employee={employee} /></td><td className={employee.delay_minutes ? styles.delay : styles.emptyValue}>{employee.delay_minutes ? <span className={styles.delayStack}><strong>{formatDurationMinutes(employee.delay_minutes)}</strong>{employee.justification && <small className={styles[`justification${employee.justification.status}`]}>{employee.justification.status === 'APROBADA' ? 'Justificada' : employee.justification.status === 'PENDIENTE' ? 'En revisión' : employee.justification.status === 'RECHAZADA' ? 'No aprobada' : 'Cancelada'}</small>}</span> : '—'}</td><td className={(employee.overtime_minutes || employee.overtime_review_pending) ? styles.overtime : styles.emptyValue}>{employee.overtime_review_pending ? <span className={styles.overtimePending}><strong>{formatDurationMinutes(employee.overtime_pending_minutes ?? employee.overtime_detected_minutes ?? 0)}</strong><small>Por aprobar</small></span> : employee.overtime_minutes ? formatDurationMinutes(employee.overtime_minutes) : '—'}</td>
+              <td className={styles.clock}>{formatAttendanceClock(employee.marks.entry)}</td><td className={styles.clock}>{formatAttendanceClock(employee.marks.lunch_out)}</td><td className={styles.clock}>{formatAttendanceClock(employee.marks.lunch_return)}</td><td className={styles.clock}>{formatAttendanceClock(employee.marks.exit)}</td><td><Status employee={employee} /></td><td className={employee.delay_minutes ? styles.delay : styles.emptyValue}>{employee.delay_minutes ? <span className={styles.delayStack}><strong>{formatDurationMinutes(employee.delay_minutes)}</strong>{employee.justification && <small className={styles[`justification${employee.justification.status}`]}>{employee.justification.status === 'APROBADA' ? 'Justificada' : employee.justification.status === 'PENDIENTE' ? 'En revisión' : employee.justification.status === 'RECHAZADA' ? 'No aprobada' : 'Cancelada'}</small>}</span> : '—'}</td><td className={(employee.overtime_minutes || employee.overtime_review_pending) ? styles.overtime : styles.emptyValue}>{employee.overtime_review_pending ? <span className={styles.overtimePending}><strong>{formatDurationMinutes(employee.overtime_pending_minutes ?? employee.overtime_detected_minutes ?? 0)}</strong><small>Por aprobar</small></span> : employee.overtime_minutes ? formatDurationMinutes(employee.overtime_minutes) : '—'}</td>
               <td className={styles.actionsCell}>
                 <button
                   type="button"

@@ -93,7 +93,7 @@ async function exportExcel(employees: Employee[]): Promise<void> {
   sheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'left' };
   sheet.getRow(1).height = 34;
   sheet.mergeCells(2, 1, 2, columns.length);
-  sheet.getCell('A2').value = `Generado el ${new Intl.DateTimeFormat('es-PE', { dateStyle: 'long', timeStyle: 'short' }).format(new Date())}`;
+  sheet.getCell('A2').value = `Generado el ${new Intl.DateTimeFormat('es-PE', { dateStyle: 'long', timeStyle: 'short', hour12: true }).format(new Date())}`;
   sheet.getCell('A2').font = { name: 'Calibri', size: 10, color: { argb: 'FF52657A' } };
   sheet.mergeCells(3, 1, 3, columns.length);
   sheet.getCell('A3').value = `${employees.length} ${employees.length === 1 ? 'colaborador incluido' : 'colaboradores incluidos'}`;
@@ -144,7 +144,7 @@ function exportPdf(employees: Employee[]): void {
   const body = reportRows(employees).map(values => `<tr>${values.map(value => `<td>${escapeHtml(value || '—')}</td>`).join('')}</tr>`).join('');
   printWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Directorio de Personal</title><style>
     @page{size:A4 landscape;margin:12mm}*{box-sizing:border-box}body{margin:0;color:#183047;font:10px Arial,sans-serif}header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;padding:15px 18px;background:#123b67;color:#fff}h1{margin:0;font-size:20px}header p{margin:4px 0 0;color:#dbeafe}.total{font-size:13px;font-weight:700}table{width:100%;border-collapse:collapse}th{padding:8px 6px;background:#2165ad;color:#fff;font-size:8px;text-align:left;text-transform:uppercase}td{padding:7px 6px;border-bottom:1px solid #dce5ef;vertical-align:top}tr:nth-child(even){background:#f6f9fc}footer{margin-top:14px;color:#718096;font-size:8px;text-align:right}
-  </style></head><body><header><div><h1>MyG Express · Directorio de personal</h1><p>Reporte corporativo de Recursos Humanos · ${escapeHtml(new Intl.DateTimeFormat('es-PE', { dateStyle: 'long', timeStyle: 'short' }).format(new Date()))}</p></div><div class="total">${employees.length} colaboradores</div></header><table><thead><tr>${columns.map(column => `<th>${escapeHtml(column)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table><footer>Generado automáticamente por el sistema MyG Express</footer><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
+  </style></head><body><header><div><h1>MyG Express · Directorio de personal</h1><p>Reporte corporativo de Recursos Humanos · ${escapeHtml(new Intl.DateTimeFormat('es-PE', { dateStyle: 'long', timeStyle: 'short', hour12: true }).format(new Date()))}</p></div><div class="total">${employees.length} colaboradores</div></header><table><thead><tr>${columns.map(column => `<th>${escapeHtml(column)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table><footer>Generado automáticamente por el sistema MyG Express</footer><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
   printWindow.document.close();
 }
 

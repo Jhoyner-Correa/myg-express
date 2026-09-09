@@ -27,7 +27,7 @@ const REVIEW_STATUS: Record<BiometricContingency['status'], string> = {
 
 function dateTime(value: string) {
   return new Intl.DateTimeFormat('es-PE', {
-    timeZone: 'America/Lima', dateStyle: 'medium', timeStyle: 'short',
+    timeZone: 'America/Lima', dateStyle: 'medium', timeStyle: 'short', hour12: true,
   }).format(new Date(value));
 }
 

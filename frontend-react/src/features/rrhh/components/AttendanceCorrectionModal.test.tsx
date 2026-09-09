@@ -111,7 +111,7 @@ describe('AttendanceCorrectionModal', () => {
     fireEvent.blur(screen.getByLabelText('Entrada: hora'));
 
     expect(screen.getByText('Tardanza · 1 h')).toBeInTheDocument();
-    expect(screen.getByText('Entrada 10:00 · sin tolerancia')).toBeInTheDocument();
+    expect(screen.getByText('Entrada 10:00 a. m. · sin tolerancia')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Entrada: hora'), { target: { value: '1015' } });
     fireEvent.blur(screen.getByLabelText('Entrada: hora'));

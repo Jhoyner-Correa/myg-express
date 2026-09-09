@@ -20,6 +20,7 @@ export function formatAttendanceClock(value: string | null) {
     timeZone: 'America/Lima',
     hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
   }).format(date);
 }
 

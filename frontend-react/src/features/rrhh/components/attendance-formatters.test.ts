@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatDurationMinutes, formatDurationReadable, formatScheduleRange, formatScheduleTime } from './attendance-formatters';
+import { formatAttendanceClock, formatDurationMinutes, formatDurationReadable, formatScheduleRange, formatScheduleTime } from './attendance-formatters';
+
+describe('formatAttendanceClock', () => {
+  it('muestra las marcaciones en formato de 12 horas para Lima', () => {
+    expect(formatAttendanceClock('2026-09-08T22:20:00.000Z')).toBe('5:20 p. m.');
+  });
+});
 
 describe('formatDurationMinutes', () => {
   it('mantiene minutos cuando la duración es menor de una hora', () => {

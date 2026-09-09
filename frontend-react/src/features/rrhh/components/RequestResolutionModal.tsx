@@ -23,7 +23,7 @@ function requestedPeriod(target: Target | null) {
   const format = (value: string) => new Intl.DateTimeFormat('es-PE', {
     timeZone: 'America/Lima', day: '2-digit', month: 'short',
     year: target.kind === 'VACACIONES' ? 'numeric' : undefined,
-    ...(target.kind === 'PERMISO' ? { hour: 'numeric', minute: '2-digit' } : {}),
+    ...(target.kind === 'PERMISO' ? { hour: 'numeric', minute: '2-digit', hour12: true } : {}),
   }).format(new Date(target.kind === 'PERMISO' ? value : `${value.slice(0, 10)}T12:00:00-05:00`));
   return `${format(target.item.fecha_inicio)} — ${format(target.item.fecha_fin)}`;
 }

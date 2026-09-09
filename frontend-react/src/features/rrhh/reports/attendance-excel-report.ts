@@ -50,6 +50,7 @@ function formatGeneratedAt(value: Date) {
     dateStyle: 'short',
     timeStyle: 'medium',
     timeZone: 'America/Lima',
+    hour12: true,
   }).format(value);
 }
 

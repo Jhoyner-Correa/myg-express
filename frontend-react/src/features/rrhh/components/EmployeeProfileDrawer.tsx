@@ -53,7 +53,7 @@ function formatDate(value: string | null | undefined, withTime = false) {
   const date = new Date(value.length === 10 ? `${value}T12:00:00` : value);
   if (Number.isNaN(date.getTime())) return '—';
   return new Intl.DateTimeFormat('es-PE', withTime
-    ? { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Lima' }
+    ? { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Lima', hour12: true }
     : { dateStyle: 'medium', timeZone: 'America/Lima' }).format(date);
 }
 

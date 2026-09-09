@@ -113,7 +113,7 @@ function zonedDateTime(value: string, long = false) {
   const withZone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(normalized) ? normalized : `${normalized}-05:00`;
   return peruDate(withZone, {
     day: '2-digit', month: long ? 'long' : 'short', year: long ? 'numeric' : undefined,
-    hour: 'numeric', minute: '2-digit',
+    hour: 'numeric', minute: '2-digit', hour12: true,
   });
 }
 function readableMinutes(total: number) {
