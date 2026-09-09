@@ -76,11 +76,11 @@
 .partialFooter { display: flex; align-items: center; justify-content: space-between; gap: 10px; }.partialFooter small { color: #718198; font-size: .59rem; }
 .partialResult { display: grid; grid-template-columns: repeat(3, auto) 1fr auto; align-items: center; gap: 14px; padding: 11px 12px; background: #fff; }
 .partialResult span { display: grid; gap: 2px; color: #7a899c; font-size: .56rem; }.partialResult strong { color: #23364e; font-size: .68rem; }.partialResult p { margin: 0; color: #607289; font-size: .61rem; }.partialResult small { color: #8291a4; font-size: .56rem; }
-.reviewForm { display: grid; grid-template-columns: 135px 1fr auto; align-items: end; gap: 9px; padding: 11px 12px; border-top: 1px solid #e3e9f1; background: #fff; }
+.reviewForm { display: grid; grid-template-columns: minmax(210px, .7fr) 1fr auto; align-items: end; gap: 9px; padding: 11px 12px; border-top: 1px solid #e3e9f1; background: #fff; }
 .reviewForm label { display: grid; gap: 5px; color: #596b82; font-size: .58rem; font-weight: 670; }
 .reviewForm label > div { display: flex; height: 35px; align-items: center; overflow: hidden; border: 1px solid #d1dce8; border-radius: 8px; background: #fff; }
-.reviewForm input { width: 90px; height: 100%; padding: 0 9px; border: 0; outline: 0; color: #172a44; font: inherit; font-size: .7rem; }
-.reviewForm label > div small { color: #8090a4; }
+.reviewForm input { width: 62px; height: 100%; padding: 0 9px; border: 0; border-right: 1px solid #e1e7ee; outline: 0; color: #172a44; font: inherit; font-size: .7rem; }
+.reviewForm label > div small { min-width: 0; padding: 0 9px; overflow: hidden; color: #52667f; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .commentField textarea, .incidentForm textarea { min-height: 55px; padding: 9px 10px; resize: vertical; border: 1px solid #d1dce8; border-radius: 8px; outline: 0; color: #24364f; font: inherit; font-size: .66rem; }
 .commentField textarea:focus, .incidentForm textarea:focus { border-color: #6593d2; box-shadow: 0 0 0 3px rgb(37 99 235 / 8%); }
 .reviewActions { display: flex; gap: 6px; }

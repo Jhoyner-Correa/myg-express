@@ -10,7 +10,7 @@ import { getApiErrorMessage } from '../../../core/api/errors';
 import { showToast } from '../../../core/utils/toast';
 import { rrhhService } from '../rrhh.service';
 import type { AttendanceDashboardEmployee, AttendanceDetail, Employee, OvertimeRequest } from '../types';
-import { formatAttendanceClock, formatDurationMinutes, formatScheduleRange } from './attendance-formatters';
+import { formatAttendanceClock, formatDurationMinutes, formatDurationReadable, formatScheduleRange } from './attendance-formatters';
 import { employeePhotoFallbackHandler, getEmployeePhotoUrl } from './employee-avatar';
 import styles from './AttendanceDetailModal.module.css';
 
@@ -63,7 +63,7 @@ function OvertimeReviewCard({ request, siteId, canManage, onResolved }: {
   return <article className={styles.overtimeCard}>
     <div className={styles.overtimeHeading}>
       <span><TimerReset /></span>
-      <div><strong>{request.tipo_evento === 'SALIDA_POSTERIOR' ? 'Salida posterior al horario' : 'Trabajo durante el almuerzo'}</strong><small>{segmentClosed ? `Duración calculada: ${formatDurationMinutes(request.minutos_detectados)}` : 'Jornada abierta · duración provisional'}</small></div>
+      <div><strong>{request.tipo_evento === 'SALIDA_POSTERIOR' ? 'Salida posterior al horario' : 'Trabajo durante el almuerzo'}</strong><small>{segmentClosed ? `Duración calculada: ${formatDurationReadable(request.minutos_detectados)}` : 'Jornada abierta · duración provisional'}</small></div>
       <em className={styles[`review${request.estado}`]}>{request.estado === 'PENDIENTE' ? 'Pendiente' : request.estado === 'APROBADO' ? 'Aprobada' : 'Rechazada'}</em>
     </div>
     {request.origen === 'DECLARACION_EMPLEADO' && <div className={styles.employeeEvidence}>
@@ -72,7 +72,7 @@ function OvertimeReviewCard({ request, siteId, canManage, onResolved }: {
       {Boolean(request.tiene_sustento) && <Button size="sm" variant="secondary" icon={<Eye />} onClick={() => void openEvidence()}>Ver foto</Button>}
     </div>}
     {pending && canManage ? <div className={styles.reviewForm}>
-      <label><span>Tiempo a reconocer</span><div><input type="number" min={1} max={request.minutos_detectados} value={minutes} onChange={event => setMinutes(Number(event.target.value))} /><small>min</small></div></label>
+      <label><span>Tiempo a reconocer</span><div><input aria-label="Minutos a reconocer" type="number" min={1} max={request.minutos_detectados} value={minutes} onChange={event => setMinutes(Number(event.target.value))} /><small>{formatDurationReadable(minutes)}</small></div></label>
       <label className={styles.commentField}><span>Sustento administrativo</span><textarea maxLength={500} value={comment} onChange={event => setComment(event.target.value)} placeholder="Indica la autorización, necesidad operativa o motivo del rechazo..." /></label>
       <div className={styles.reviewActions}>
         <Button size="sm" variant="secondary" icon={<XCircle />} loading={saving === 'RECHAZAR'} disabled={comment.trim().length < 8 || saving !== null} onClick={() => void resolve('RECHAZAR')}>Rechazar</Button>
@@ -80,7 +80,7 @@ function OvertimeReviewCard({ request, siteId, canManage, onResolved }: {
       </div>
       {!segmentClosed && <p className={styles.openSegmentNotice}>La aprobación se habilitará cuando el colaborador registre la marcación de cierre.</p>}
     </div> : <div className={styles.reviewResult}>
-      <strong>{request.estado === 'APROBADO' ? `${formatDurationMinutes(request.minutos_aprobados ?? request.minutos_detectados)} reconocidas` : request.estado === 'RECHAZADO' ? 'No computa como hora extra' : 'Esperando decisión administrativa'}</strong>
+      <strong>{request.estado === 'APROBADO' ? `${formatDurationReadable(request.minutos_aprobados ?? request.minutos_detectados)} reconocidos` : request.estado === 'RECHAZADO' ? 'No computa como hora extra' : 'Esperando decisión administrativa'}</strong>
       {request.comentario_revision && <p>{request.comentario_revision}</p>}
       {request.revisado_en && <small>{request.revisado_por_nombre ?? 'Administrador'} · {formatDateTime(request.revisado_en)}</small>}
     </div>}
