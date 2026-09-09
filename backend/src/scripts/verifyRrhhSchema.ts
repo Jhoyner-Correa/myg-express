@@ -29,7 +29,11 @@ const REQUIRED_TABLES = [
   'personal_pago_notas',
 ] as const;
 
-const REQUIRED_MIGRATIONS = ['001_initial_schema', '013_partial_absence_workflow'] as const;
+const REQUIRED_MIGRATIONS = [
+  '001_initial_schema',
+  '013_partial_absence_workflow',
+  '014_overtime_correction_reconciliation',
+] as const;
 
 const RETIRED_TABLES = [
   'personal_empleado_horarios',

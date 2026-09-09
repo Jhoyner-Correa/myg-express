@@ -2,6 +2,13 @@ import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { runInTransaction } from '../../../core/database/database';
 import { assertDateOnly, businessClockMinutes, businessDate, businessIsoWeekday } from '../../../core/utils/time';
 import { classifyClockTiming, resolveEntryAttendance } from '../domain/attendancePolicy';
+import {
+  changesApprovedOvertimeAmount,
+  resolveOvertimeCorrection,
+  type OvertimeCorrectionAction,
+  type OvertimeCorrectionStatus,
+} from '../domain/overtimeCorrectionPolicy';
+import { createEmployeeNotification } from '../../rrhh-mobile/mobileNotification.service';
 import { findEffectiveSchedule, type EffectiveSchedule } from './ScheduleService';
 import { resolveWorkDay } from './WorkCalendarService';
 import { ServicePaymentService } from './ServicePaymentService';
@@ -41,7 +48,10 @@ async function reconcileOvertimeCandidates(
   connection: PoolConnection,
   attendanceId: number,
   employeeId: number,
-  thresholdMinutes: number,
+  companyId: number,
+  date: string,
+  thresholdMinutes: number | null,
+  actorUserId: number,
 ) {
   const [marks] = await connection.query<RowDataPacket[]>(
     `SELECT id, tipo_marcacion, diferencia_programada_minutos, clasificacion_tiempo
@@ -49,33 +59,147 @@ async function reconcileOvertimeCandidates(
       WHERE asistencia_id = ? AND tipo_marcacion IN ('SALIDA_ALMUERZO','SALIDA')`,
     [attendanceId],
   );
-  for (const mark of marks) {
+  const candidates = new Map<string, { markId: number; minutes: number }>();
+  if (thresholdMinutes !== null) for (const mark of marks) {
     const difference = Math.max(0, Number(mark.diferencia_programada_minutos || 0));
     const event = String(mark.tipo_marcacion) === 'SALIDA_ALMUERZO' && difference >= thresholdMinutes
       ? 'ALMUERZO_DIFERIDO'
       : String(mark.tipo_marcacion) === 'SALIDA' && String(mark.clasificacion_tiempo) === 'SOBRETIEMPO_CANDIDATO'
         ? 'SALIDA_POSTERIOR'
         : null;
-    if (!event) {
+    if (event) candidates.set(event, { markId: Number(mark.id), minutes: difference });
+  }
+
+  const [requests] = await connection.query<RowDataPacket[]>(
+    `SELECT id, tipo_evento, estado, minutos_detectados, minutos_aprobados
+       FROM personal_sobretiempo_solicitudes
+      WHERE asistencia_id = ? FOR UPDATE`,
+    [attendanceId],
+  );
+  const existingByEvent = new Map(requests.map(request => [String(request.tipo_evento), request]));
+  const changes: Array<{
+    requestId: number;
+    event: string;
+    action: OvertimeCorrectionAction;
+    previousStatus: OvertimeCorrectionStatus;
+    previousDetectedMinutes: number;
+    previousApprovedMinutes: number | null;
+    correctedDetectedMinutes: number | null;
+  }> = [];
+
+  for (const event of ['ALMUERZO_DIFERIDO', 'SALIDA_POSTERIOR'] as const) {
+    const candidate = candidates.get(event) ?? null;
+    const existing = existingByEvent.get(event);
+    if (!existing && !candidate) continue;
+    if (!existing && candidate) {
       await connection.query(
-        `DELETE FROM personal_sobretiempo_solicitudes
-          WHERE marcacion_id = ? AND origen = 'DETECCION_AUTOMATICA'`,
-        [mark.id],
+        `INSERT INTO personal_sobretiempo_solicitudes (
+          asistencia_id, empleado_id, marcacion_id, tipo_evento,
+          minutos_detectados, umbral_aplicado_minutos
+        ) VALUES (?, ?, ?, ?, ?, ?)`,
+        [attendanceId, employeeId, candidate.markId, event, candidate.minutes, thresholdMinutes],
       );
       continue;
     }
+
+    const previousStatus = String(existing!.estado) as OvertimeCorrectionStatus;
+    const previousApprovedMinutes = existing!.minutos_aprobados === null
+      ? null
+      : Number(existing!.minutos_aprobados);
+    const action = resolveOvertimeCorrection({
+      status: previousStatus,
+      detectedMinutes: Number(existing!.minutos_detectados),
+      approvedMinutes: previousApprovedMinutes,
+      candidateMinutes: candidate?.minutes ?? null,
+    });
+    if (action !== 'CONSERVAR') changes.push({
+      requestId: Number(existing!.id), event, action, previousStatus,
+      previousDetectedMinutes: Number(existing!.minutos_detectados),
+      previousApprovedMinutes,
+      correctedDetectedMinutes: candidate?.minutes ?? null,
+    });
+  }
+
+  const changesApprovedMoney = changes.some(change => (
+    changesApprovedOvertimeAmount(change.previousStatus, change.action)
+  ));
+  if (changesApprovedMoney) {
+    const [lockedPeriods] = await connection.query<RowDataPacket[]>(
+      `SELECT estado FROM personal_periodos_pago
+        WHERE empresa_id = ? AND periodo = ? AND estado <> 'BORRADOR' LIMIT 1`,
+      [companyId, `${date.slice(0, 7)}-01`],
+    );
+    if (lockedPeriods.length) {
+      throw new Error('La correcci\u00f3n cambia horas extra ya incluidas en un periodo de pago cerrado. Reabre el periodo antes de modificar la asistencia.');
+    }
+  }
+
+  for (const event of ['ALMUERZO_DIFERIDO', 'SALIDA_POSTERIOR'] as const) {
+    const candidate = candidates.get(event) ?? null;
+    const existing = existingByEvent.get(event);
+    if (!existing || !candidate) continue;
+    const change = changes.find(item => item.requestId === Number(existing.id));
+    if (change?.action === 'REABRIR_REVISION') {
+      await connection.query(
+        `UPDATE personal_sobretiempo_solicitudes
+            SET marcacion_id = ?, minutos_detectados = ?, umbral_aplicado_minutos = ?,
+                estado = 'PENDIENTE', minutos_aprobados = NULL, revisado_por = NULL,
+                comentario_revision = NULL, revisado_en = NULL,
+                anulado_por = NULL, motivo_anulacion = NULL, anulado_en = NULL
+          WHERE id = ?`,
+        [candidate.markId, candidate.minutes, thresholdMinutes, existing.id],
+      );
+    } else {
+      await connection.query(
+        `UPDATE personal_sobretiempo_solicitudes
+            SET marcacion_id = ?, minutos_detectados = ?, umbral_aplicado_minutos = ?
+          WHERE id = ?`,
+        [candidate.markId, candidate.minutes, thresholdMinutes, existing.id],
+      );
+    }
+  }
+
+  for (const change of changes.filter(item => item.action === 'ANULAR')) {
     await connection.query(
-      `INSERT INTO personal_sobretiempo_solicitudes (
-        asistencia_id, empleado_id, marcacion_id, tipo_evento,
-        minutos_detectados, umbral_aplicado_minutos
-      ) VALUES (?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE minutos_detectados = VALUES(minutos_detectados),
-        marcacion_id = VALUES(marcacion_id),
-        umbral_aplicado_minutos = VALUES(umbral_aplicado_minutos),
-        estado = IF(estado = 'PENDIENTE', 'PENDIENTE', estado)`,
-      [attendanceId, employeeId, mark.id, event, difference, thresholdMinutes],
+      `UPDATE personal_sobretiempo_solicitudes
+          SET estado = 'ANULADO', marcacion_id = NULL,
+              anulado_por = ?, motivo_anulacion = ?, anulado_en = NOW()
+        WHERE id = ?`,
+      [actorUserId, 'Anulado autom\u00e1ticamente por correcci\u00f3n de asistencia.', change.requestId],
     );
   }
+  for (const change of changes) {
+    if (!['ANULAR', 'REABRIR_REVISION'].includes(change.action)) continue;
+    await connection.query(
+      `INSERT INTO personal_auditoria_eventos
+        (tipo_evento, empleado_id, usuario_id, exitoso, codigo_resultado, metadata_json)
+       VALUES ('SOBRETIEMPO_RECONCILIADO', ?, ?, 1, ?, ?)`,
+      [employeeId, actorUserId, change.action, JSON.stringify({
+        attendance_id: attendanceId,
+        request_id: change.requestId,
+        event: change.event,
+        previous_status: change.previousStatus,
+        previous_detected_minutes: change.previousDetectedMinutes,
+        previous_approved_minutes: change.previousApprovedMinutes,
+        corrected_detected_minutes: change.correctedDetectedMinutes,
+        correction_date: date,
+      })],
+    );
+    await createEmployeeNotification(connection, {
+      employeeId,
+      type: 'SOBRETIEMPO_RECONCILIADO',
+      title: change.action === 'ANULAR' ? 'Horas extra anuladas' : 'Horas extra nuevamente en revisión',
+      message: change.action === 'ANULAR'
+        ? `Una corrección de tu asistencia del ${date} eliminó el sobretiempo registrado.`
+        : `Una corrección de tu asistencia del ${date} cambió el sobretiempo y requiere una nueva revisión.`,
+      priority: 'IMPORTANTE',
+      action: 'HISTORIAL',
+      referenceType: 'SOBRETIEMPO',
+      referenceId: change.requestId,
+      deduplicationKey: `SOBRETIEMPO_RECONCILIADO:${change.requestId}:${change.action}:${change.correctedDetectedMinutes ?? 0}`,
+    });
+  }
+  return changes;
 }
 
 export function assertAdministrativeMarks(marks: RowDataPacket[]) {
@@ -109,7 +233,7 @@ export class AttendanceCorrectionService {
 
     const result = await runInTransaction(async connection => {
       const [employees] = await connection.query<RowDataPacket[]>(
-        `SELECT employee.id, employee.sede_id,
+        `SELECT employee.id, employee.sede_id, site.empresa_id,
                 COALESCE(gps.latitud, site.latitud, 0) AS latitude,
                 COALESCE(gps.longitud, site.longitud, 0) AS longitude
            FROM personal_empleados employee
@@ -194,14 +318,15 @@ export class AttendanceCorrectionService {
           );
         }
       }
-      if (['PRESENTE', 'TARDANZA'].includes(status) && schedule) {
-        await reconcileOvertimeCandidates(
-          connection,
-          attendanceId,
-          employeeId,
-          schedule.overtimeThresholdMinutes,
-        );
-      }
+      const overtimeReconciliation = await reconcileOvertimeCandidates(
+        connection,
+        attendanceId,
+        employeeId,
+        Number(employees[0].empresa_id),
+        date,
+        schedule?.overtimeThresholdMinutes ?? null,
+        actorUserId,
+      );
       await partialAbsenceService.syncAttendance(connection, attendanceId);
       const after = await snapshot(connection, attendanceId);
       if (['PRESENTE', 'TARDANZA'].includes(status)) assertAdministrativeMarks(after.marks);
@@ -229,6 +354,7 @@ export class AttendanceCorrectionService {
             ? `${String(Math.floor(entryTiming.scheduledMinutes / 60)).padStart(2, '0')}:${String(entryTiming.scheduledMinutes % 60).padStart(2, '0')}`
             : null,
           entry_difference_minutes: entryTiming?.differenceMinutes ?? null,
+          overtime_reconciliation: overtimeReconciliation,
         })],
       );
       return { correction_id: correction.insertId, attendance_id: attendanceId, status, delay_minutes: delay };

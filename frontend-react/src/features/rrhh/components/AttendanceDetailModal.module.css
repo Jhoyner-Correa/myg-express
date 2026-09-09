@@ -50,7 +50,7 @@
 .employeeEvidence strong { color: #17263b; font-size: .68rem; line-height: 1.35; }
 .employeeEvidence span { color: #65768d; font-size: .58rem; }
 .openSegmentNotice { grid-column: 1 / -1; margin: 0; color: #8a5708; font-size: .61rem; font-weight: 650; }
-.reviewPENDIENTE { color: #c56a08; }.reviewAPROBADO { color: #078755; }.reviewRECHAZADO { color: #d14343; }
+.reviewPENDIENTE { color: #c56a08; }.reviewAPROBADO { color: #078755; }.reviewRECHAZADO { color: #d14343; }.reviewANULADO { color: #68778a; }
 .reviewJUSTIFICADA, .reviewCOMPENSADA { color: #078755; }.reviewDESCONTABLE, .reviewMIXTA { color: #a85f08; }
 .partialCard { overflow: hidden; border: 1px solid #d9e3ee; border-radius: 10px; background: #fbfcfe; }
 .partialHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 12px; border-bottom: 1px solid #e3e9f1; }

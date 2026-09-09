@@ -475,7 +475,7 @@ export type OvertimeRequest = {
   minutos_detectados: number;
   minutos_aprobados: number | null;
   umbral_aplicado_minutos: number;
-  estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
+  estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'ANULADO';
   comentario_empleado: string | null;
   declarado_en: string | null;
   tiene_sustento: number | boolean;
@@ -483,6 +483,9 @@ export type OvertimeRequest = {
   comentario_revision: string | null;
   revisado_en: string | null;
   revisado_por_nombre: string | null;
+  motivo_anulacion: string | null;
+  anulado_en: string | null;
+  anulado_por_nombre: string | null;
 };
 
 export type AttendanceDetail = {

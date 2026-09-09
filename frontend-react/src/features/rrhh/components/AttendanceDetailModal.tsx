@@ -34,6 +34,9 @@ function OvertimeReviewCard({ request, siteId, canManage, onResolved }: {
   const [saving, setSaving] = useState<'APROBAR' | 'RECHAZAR' | null>(null);
   const pending = request.estado === 'PENDIENTE';
   const segmentClosed = request.marcacion_id !== null;
+  const resolutionComment = request.estado === 'ANULADO' ? request.motivo_anulacion : request.comentario_revision;
+  const resolutionAt = request.estado === 'ANULADO' ? request.anulado_en : request.revisado_en;
+  const resolutionBy = request.estado === 'ANULADO' ? request.anulado_por_nombre : request.revisado_por_nombre;
   const openEvidence = async () => {
     try {
       const blob = await rrhhService.getOvertimeEvidence(request.id, siteId);
@@ -64,7 +67,7 @@ function OvertimeReviewCard({ request, siteId, canManage, onResolved }: {
     <div className={styles.overtimeHeading}>
       <span><TimerReset /></span>
       <div><strong>{request.tipo_evento === 'SALIDA_POSTERIOR' ? 'Salida posterior al horario' : 'Trabajo durante el almuerzo'}</strong><small>{segmentClosed ? `Duración calculada: ${formatDurationReadable(request.minutos_detectados)}` : 'Jornada abierta · duración provisional'}</small></div>
-      <em className={styles[`review${request.estado}`]}>{request.estado === 'PENDIENTE' ? 'Pendiente' : request.estado === 'APROBADO' ? 'Aprobada' : 'Rechazada'}</em>
+      <em className={styles[`review${request.estado}`]}>{request.estado === 'PENDIENTE' ? 'Pendiente' : request.estado === 'APROBADO' ? 'Aprobada' : request.estado === 'ANULADO' ? 'Anulada' : 'Rechazada'}</em>
     </div>
     {request.origen === 'DECLARACION_EMPLEADO' && <div className={styles.employeeEvidence}>
       <FileImage />
@@ -80,9 +83,9 @@ function OvertimeReviewCard({ request, siteId, canManage, onResolved }: {
       </div>
       {!segmentClosed && <p className={styles.openSegmentNotice}>La aprobación se habilitará cuando el colaborador registre la marcación de cierre.</p>}
     </div> : <div className={styles.reviewResult}>
-      <strong>{request.estado === 'APROBADO' ? `${formatDurationReadable(request.minutos_aprobados ?? request.minutos_detectados)} reconocidos` : request.estado === 'RECHAZADO' ? 'No computa como hora extra' : 'Esperando decisión administrativa'}</strong>
-      {request.comentario_revision && <p>{request.comentario_revision}</p>}
-      {request.revisado_en && <small>{request.revisado_por_nombre ?? 'Administrador'} · {formatDateTime(request.revisado_en)}</small>}
+      <strong>{request.estado === 'APROBADO' ? `${formatDurationReadable(request.minutos_aprobados ?? request.minutos_detectados)} reconocidos` : request.estado === 'ANULADO' ? 'Anulada por corrección de asistencia' : request.estado === 'RECHAZADO' ? 'No computa como hora extra' : 'Esperando decisión administrativa'}</strong>
+      {resolutionComment && <p>{resolutionComment}</p>}
+      {resolutionAt && <small>{resolutionBy ?? 'Administrador'} · {formatDateTime(resolutionAt)}</small>}
     </div>}
   </article>;
 }

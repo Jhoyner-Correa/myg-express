@@ -46,7 +46,7 @@ type OvertimeReviewRow = RowDataPacket & {
   origen: 'DETECCION_AUTOMATICA' | 'DECLARACION_EMPLEADO';
   minutos_detectados: number;
   minutos_aprobados: number | null;
-  estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO';
+  estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'ANULADO';
   comentario_empleado: string | null;
   comentario_revision: string | null;
   declarado_en: Date | null;

@@ -128,9 +128,12 @@ export class AttendanceManagementService {
                 request.minutos_detectados, request.minutos_aprobados,
                 request.umbral_aplicado_minutos, request.estado,
                 request.comentario_revision, request.revisado_en,
-                reviewer.nombre AS revisado_por_nombre
+                reviewer.nombre AS revisado_por_nombre,
+                request.motivo_anulacion, request.anulado_en,
+                annulled_by.nombre AS anulado_por_nombre
            FROM personal_sobretiempo_solicitudes request
            LEFT JOIN usuarios reviewer ON reviewer.id = request.revisado_por
+           LEFT JOIN usuarios annulled_by ON annulled_by.id = request.anulado_por
           WHERE request.asistencia_id = ? ORDER BY request.created_at, request.id`, [attendanceId],
       ).then(([rows]) => rows) : Promise.resolve([]),
       pool.query<RowDataPacket[]>(

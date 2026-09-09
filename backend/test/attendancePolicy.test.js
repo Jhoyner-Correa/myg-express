@@ -13,6 +13,10 @@ const {
   classifyClockTiming,
   resolveEntryAttendance,
 } = require('../dist/modules/rrhh/domain/attendancePolicy');
+const {
+  changesApprovedOvertimeAmount,
+  resolveOvertimeCorrection,
+} = require('../dist/modules/rrhh/domain/overtimeCorrectionPolicy');
 
 const splitSchedule = {
   startTime: '09:00:00', endTime: '19:00:00', toleranceMinutes: 0,
@@ -150,4 +154,35 @@ test('resuelve presencia y tardanza desde el horario y la tolerancia', () => {
     delayMinutes: 11,
     timing: { scheduledMinutes: 540, differenceMinutes: 11, classification: 'TARDANZA' },
   });
+});
+
+test('anula el sobretiempo cuando la correccion deja la salida dentro del horario normal', () => {
+  assert.equal(resolveOvertimeCorrection({
+    status: 'APROBADO', detectedMinutes: 106, approvedMinutes: 106, candidateMinutes: null,
+  }), 'ANULAR');
+});
+
+test('devuelve a revision una aprobacion mayor que el nuevo sobretiempo corregido', () => {
+  assert.equal(resolveOvertimeCorrection({
+    status: 'APROBADO', detectedMinutes: 106, approvedMinutes: 90, candidateMinutes: 45,
+  }), 'REABRIR_REVISION');
+});
+
+test('conserva una aprobacion que sigue respaldada por la marcacion corregida', () => {
+  assert.equal(resolveOvertimeCorrection({
+    status: 'APROBADO', detectedMinutes: 106, approvedMinutes: 60, candidateMinutes: 75,
+  }), 'ACTUALIZAR_DETECCION');
+});
+
+test('reabre una solicitud anulada si una nueva correccion vuelve a generar sobretiempo', () => {
+  assert.equal(resolveOvertimeCorrection({
+    status: 'ANULADO', detectedMinutes: 106, approvedMinutes: null, candidateMinutes: 35,
+  }), 'REABRIR_REVISION');
+});
+
+test('identifica cuando una correccion alteraria dinero ya aprobado', () => {
+  assert.equal(changesApprovedOvertimeAmount('APROBADO', 'ANULAR'), true);
+  assert.equal(changesApprovedOvertimeAmount('APROBADO', 'REABRIR_REVISION'), true);
+  assert.equal(changesApprovedOvertimeAmount('APROBADO', 'ACTUALIZAR_DETECCION'), false);
+  assert.equal(changesApprovedOvertimeAmount('PENDIENTE', 'ANULAR'), false);
 });
