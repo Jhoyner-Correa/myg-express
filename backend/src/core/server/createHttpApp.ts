@@ -92,6 +92,7 @@ export function createHttpApp() {
     "'self'",
     'data:',
     'blob:',
+    'https://tile.openstreetmap.org',
     'https://*.tile.openstreetmap.org'
   ]);
   const mediaSrc = parseCspList(process.env.APP_CSP_MEDIA_SRC, [
