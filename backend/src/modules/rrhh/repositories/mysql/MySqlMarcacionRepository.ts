@@ -6,7 +6,7 @@ import { IMarcacionRepository } from '../IMarcacionRepository';
 const SELECT_COLUMNS = `id, request_id, asistencia_id, dispositivo_id, tipo_marcacion, origen_marcacion,
   hora_marcacion, hora_programada, diferencia_programada_minutos, clasificacion_tiempo,
   latitud, longitud, precision_gps, selfie_path, red_wifi, bluetooth,
-  dentro_de_radio, distancia_sede_metros, verificacion_identidad, created_at`;
+  dentro_de_radio, distancia_sede_metros, estado_ubicacion, verificacion_identidad, created_at`;
 
 export class MySqlMarcacionRepository implements IMarcacionRepository {
   private mapRowToEntity(row: any): Marcacion {
@@ -29,6 +29,7 @@ export class MySqlMarcacionRepository implements IMarcacionRepository {
       bluetooth: row.bluetooth || null,
       dentroDeRadio: Boolean(row.dentro_de_radio),
       distanciaSedeMetros: Number(row.distancia_sede_metros),
+      estadoUbicacion: (row.estado_ubicacion || (row.dentro_de_radio ? 'EN_SEDE' : 'FUERA_DE_SEDE')),
       verificacionIdentidad: row.verificacion_identidad as IdentityVerification,
       createdAt: new Date(row.created_at),
     };
@@ -41,8 +42,8 @@ export class MySqlMarcacionRepository implements IMarcacionRepository {
         request_id, asistencia_id, dispositivo_id, tipo_marcacion, origen_marcacion,
         hora_marcacion, hora_programada, diferencia_programada_minutos, clasificacion_tiempo,
         latitud, longitud, precision_gps, selfie_path, red_wifi,
-        bluetooth, dentro_de_radio, distancia_sede_metros, verificacion_identidad
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        bluetooth, dentro_de_radio, distancia_sede_metros, estado_ubicacion, verificacion_identidad
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         mark.requestId,
         mark.asistenciaId,
@@ -61,6 +62,7 @@ export class MySqlMarcacionRepository implements IMarcacionRepository {
         mark.bluetooth,
         mark.dentroDeRadio ? 1 : 0,
         mark.distanciaSedeMetros,
+        mark.estadoUbicacion || (mark.dentroDeRadio ? 'EN_SEDE' : 'FUERA_DE_SEDE'),
         mark.verificacionIdentidad,
       ],
     );

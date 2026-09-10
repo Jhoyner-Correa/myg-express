@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
-  AlertTriangle, CheckCircle2, Clock3, ClockAlert, Eye, FileCheck2, FileImage, Fingerprint, MapPin,
+  AlertTriangle, CheckCircle2, Clock3, ClockAlert, ExternalLink, Eye, FileCheck2, FileImage, Fingerprint, MapPin,
   ShieldCheck, TimerReset, UserRound, X, XCircle,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
@@ -17,6 +17,13 @@ import styles from './AttendanceDetailModal.module.css';
 const MARK_LABELS = {
   ENTRADA: 'Entrada', SALIDA_ALMUERZO: 'Salida a almuerzo', REGRESO: 'Regreso', SALIDA: 'Salida final',
 } as const;
+
+function formatDistance(meters?: number | null) {
+  if (meters == null || meters <= 0) return '';
+  const num = Number(meters);
+  if (num >= 1000) return `${(num / 1000).toFixed(1)} km`;
+  return `${Math.round(num)} m`;
+}
 
 function formatDateTime(value: string | null) {
   if (!value) return '—';
@@ -231,6 +238,7 @@ export function AttendanceDetailModal({ employee, profile, date, canManage, onCl
         <section className={styles.summaryStrip}>
           <div><Clock3 /><span>Fecha operativa<strong>{new Intl.DateTimeFormat('es-PE', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`))}</strong></span></div>
           <div><ShieldCheck /><span>Resultado<strong>{detail.attendance?.estado_asistencia?.replaceAll('_', ' ') ?? 'Sin registro'}</strong></span></div>
+          <div><MapPin className={detail.attendance?.estado_ubicacion === 'FUERA_DE_SEDE' ? styles.warningIcon : undefined} /><span>Ubicación<strong className={detail.attendance?.estado_ubicacion === 'FUERA_DE_SEDE' ? styles.outsideLocationText : undefined}>{detail.attendance?.estado_ubicacion === 'FUERA_DE_SEDE' ? 'Fuera de sede' : 'En sede'}</strong></span></div>
           <div><TimerReset /><span>Horas extra<strong>{pendingOvertime ? `${pendingOvertime} por revisar` : formatDurationMinutes(employee.overtime_minutes)}</strong></span></div>
           {detail.attendance?.hora_entrada && detail.attendance?.hora_salida && <div><FileCheck2 /><span>Horario<strong>{formatScheduleRange(detail.attendance.hora_entrada, detail.attendance.hora_salida)}</strong></span></div>}
         </section>
@@ -239,9 +247,36 @@ export function AttendanceDetailModal({ employee, profile, date, canManage, onCl
           <div className={styles.sectionTitle}><Clock3 /><div><h3>Marcaciones verificadas</h3><p>Hora real, origen y controles registrados por el sistema.</p></div></div>
           <div className={styles.timeline}>{(['ENTRADA', 'SALIDA_ALMUERZO', 'REGRESO', 'SALIDA'] as const).map(type => {
             const mark = detail.marks.find(item => item.tipo_marcacion === type);
-            return <article key={type} className={mark ? styles.markDone : styles.markMissing}>
-              <i>{mark ? <CheckCircle2 /> : <Clock3 />}</i><div><small>{MARK_LABELS[type]}</small><strong>{formatAttendanceClock(mark?.hora_marcacion ?? null)}</strong><span>{mark ? `${mark.origen_marcacion} · ${mark.verificacion_identidad ?? 'Identidad verificada'}` : 'Sin marcación'}</span></div>
-              {mark?.distancia_sede_metros != null && <em><MapPin />{Math.round(mark.distancia_sede_metros)} m</em>}
+            const isOutside = mark && (mark.estado_ubicacion === 'FUERA_DE_SEDE' || mark.dentro_de_radio === 0 || mark.dentro_de_radio === false);
+            return <article key={type} className={mark ? (isOutside ? styles.markOutside : styles.markDone) : styles.markMissing}>
+              <i>{mark ? (isOutside ? <MapPin /> : <CheckCircle2 />) : <Clock3 />}</i>
+              <div>
+                <small>{MARK_LABELS[type]}</small>
+                <strong>{formatAttendanceClock(mark?.hora_marcacion ?? null)}</strong>
+                <span>{mark ? `${mark.origen_marcacion} · ${mark.verificacion_identidad ?? 'Identidad verificada'}` : 'Sin marcación'}</span>
+              </div>
+              {mark && (
+                <div className={styles.markLocationInfo}>
+                  {mark.distancia_sede_metros != null && (
+                    <em className={isOutside ? styles.outsideDistance : undefined}>
+                      <MapPin />
+                      {isOutside ? `Fuera (${formatDistance(mark.distancia_sede_metros)})` : `${Math.round(mark.distancia_sede_metros)} m`}
+                    </em>
+                  )}
+                  {mark.latitud != null && mark.longitud != null && (
+                    <a
+                      href={`https://www.google.com/maps?q=${mark.latitud},${mark.longitud}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.mapLink}
+                      title="Ver ubicación en Google Maps"
+                    >
+                      <ExternalLink size={10} />
+                      Ver mapa
+                    </a>
+                  )}
+                </div>
+              )}
             </article>;
           })}</div>
         </section>

@@ -34,6 +34,7 @@ export function DailySummaryCard({ attendance, trackedEmployees, refreshing, onR
         <li><i className={styles.amber} /><span>Tardanzas incluidas</span><strong>{summary?.late ?? 0}</strong></li>
         <li><i className={styles.purple} /><span>Sin registrar</span><strong>{summary?.without_record ?? 0}</strong></li>
         <li><i className={styles.indigo} /><span>Con rastreo GPS</span><strong>{trackedEmployees}</strong></li>
+        {(summary?.outside_geofence ?? 0) > 0 && <li><i className={styles.rose} /><span>Fuera de sede</span><strong>{summary?.outside_geofence}</strong></li>}
       </ul>
     </div>
   </article>;

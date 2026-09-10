@@ -7,6 +7,7 @@ export type ClockType = 'ENTRADA' | 'SALIDA_ALMUERZO' | 'REGRESO' | 'SALIDA';
 export type ClockOrigin = 'GPS' | 'QR' | 'NFC' | 'BIOMETRICO' | 'ADMINISTRATIVO';
 export type IdentityVerification = 'BIOMETRIA_DISPOSITIVO' | 'SELFIE_REVISADA' | 'ADMINISTRATIVA' | 'NO_APLICA';
 export type ClockTimingClassification = 'ANTICIPADA' | 'PUNTUAL' | 'TARDANZA' | 'DEMORADA' | 'SALIDA_ANTICIPADA' | 'SOBRETIEMPO_CANDIDATO';
+export type LocationStatus = 'EN_SEDE' | 'FUERA_DE_SEDE';
 
 export interface Marcacion {
   id: number;
@@ -27,6 +28,7 @@ export interface Marcacion {
   bluetooth: string | null;
   dentroDeRadio: boolean;
   distanciaSedeMetros: number;
+  estadoUbicacion?: LocationStatus;
   verificacionIdentidad: IdentityVerification;
   createdAt?: Date;
 }

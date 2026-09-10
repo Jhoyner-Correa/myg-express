@@ -289,8 +289,28 @@
   font-weight: 750;
 }
 .identity div { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.nameRow { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
 .identity strong { display: block; max-width: 100%; overflow: hidden; color: #10213a; font-size: .72rem; font-weight: 690; text-overflow: ellipsis; white-space: nowrap; }
 .identity small { display: block; max-width: 100%; overflow: hidden; color: #7b8ca2; font-size: .61rem; text-overflow: ellipsis; white-space: nowrap; }
+.badgeOutsideGeofence {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #e11d48;
+  font-size: .56rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.badgeOutsideGeofence svg {
+  width: 10px;
+  height: 10px;
+  stroke-width: 2.2;
+}
 
 .site { display: inline-flex; align-items: center; gap: 5px; color: #334863; font-weight: 620; }
 .site svg { width: 13px; color: #6582a5; }

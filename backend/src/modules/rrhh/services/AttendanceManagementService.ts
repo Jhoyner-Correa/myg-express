@@ -94,7 +94,7 @@ export class AttendanceManagementService {
     const [attendanceRows] = await pool.query<RowDataPacket[]>(
       `SELECT attendance.id, attendance.fecha, attendance.estado_asistencia,
               attendance.tipo_asistencia, attendance.minutos_tardanza,
-              attendance.minutos_tardanza_retorno, schedule.nombre AS horario,
+              attendance.minutos_tardanza_retorno, attendance.estado_ubicacion, schedule.nombre AS horario,
               version.hora_entrada, version.hora_salida, version.tolerancia_entrada_minutos,
               version.almuerzo_habilitado, version.salida_almuerzo_desde,
               version.salida_almuerzo_hasta, version.duracion_almuerzo_minutos,
@@ -116,7 +116,8 @@ export class AttendanceManagementService {
         `SELECT mark.id, mark.tipo_marcacion, mark.hora_marcacion, mark.hora_programada,
                 mark.diferencia_programada_minutos, mark.clasificacion_tiempo,
                 mark.origen_marcacion, mark.dentro_de_radio, mark.distancia_sede_metros,
-                mark.precision_gps, mark.verificacion_identidad, mark.dispositivo_id
+                mark.precision_gps, mark.verificacion_identidad, mark.dispositivo_id,
+                mark.estado_ubicacion, mark.latitud, mark.longitud
            FROM personal_marcaciones mark
           WHERE mark.asistencia_id = ? ORDER BY mark.hora_marcacion, mark.id`, [attendanceId],
       ).then(([rows]) => rows) : Promise.resolve([]),
@@ -191,6 +192,7 @@ export class AttendanceManagementService {
         `SELECT attendance.id, DATE_FORMAT(attendance.fecha, '%Y-%m-%d') AS fecha,
                 attendance.estado_asistencia, attendance.tipo_asistencia,
                 attendance.minutos_tardanza, attendance.minutos_tardanza_retorno,
+                attendance.estado_ubicacion,
                 marks.entrada, marks.salida_almuerzo, marks.regreso, marks.salida,
                 COALESCE(overtime.minutos_aprobados, 0) AS minutos_horas_extra,
                 justification.id AS justificacion_id,
@@ -300,6 +302,7 @@ export class AttendanceManagementService {
         is_future: future,
         attendance_id: attendance ? Number(attendance.id) : null,
         attendance_type: attendance?.tipo_asistencia ? String(attendance.tipo_asistencia) : null,
+        location_status: attendance?.estado_ubicacion ? String(attendance.estado_ubicacion) : 'EN_SEDE',
         delay_minutes: Number(attendance?.minutos_tardanza || 0),
         return_delay_minutes: Number(attendance?.minutos_tardanza_retorno || 0),
         overtime_minutes: Number(attendance?.minutos_horas_extra || 0),

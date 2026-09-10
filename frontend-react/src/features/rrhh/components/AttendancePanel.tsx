@@ -41,6 +41,14 @@ function shiftDate(value: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatDistanceMeters(meters?: number): string {
+  if (!meters || meters <= 0) return '';
+  if (meters >= 1000) {
+    return `${(meters / 1000).toFixed(1)} km`;
+  }
+  return `${Math.round(meters)} m`;
+}
+
 const STATUS_META: Record<AttendanceDashboardEmployee['operational_status'], StatusMeta> = {
   PROGRAMADO: { label: 'Programado', detail: 'Jornada futura', icon: CalendarDays },
   PENDIENTE_ENTRADA: { label: 'Pendiente de entrada', detail: 'Dentro del horario', icon: Clock3 },
@@ -144,6 +152,7 @@ export function AttendancePanel({ siteId, sites = [], canViewAllSites = false, c
         const searchable = `${employee.names} ${employee.last_names} ${employee.employee_code} ${employee.job_role} ${employee.site_name}`.toLocaleLowerCase('es');
         return (!term || searchable.includes(term))
           && (status === 'TODOS'
+            || (status === 'FUERA_DE_SEDE' && (employee.location_status === 'FUERA_DE_SEDE' || (employee.outside_geofence_marks ?? 0) > 0))
             || (status === 'JUSTIFICACION_PENDIENTE' && employee.justification?.status === 'PENDIENTE')
             || (status === 'JUSTIFICACION_APROBADA' && employee.justification?.status === 'APROBADA')
             || (status === 'JUSTIFICACION_RECHAZADA' && employee.justification?.status === 'RECHAZADA')
@@ -221,7 +230,7 @@ export function AttendancePanel({ siteId, sites = [], canViewAllSites = false, c
 
       <div className={styles.filters}>
         <label className={styles.searchField}><span>Buscar</span><div><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Colaborador, código, cargo o sede..." /></div></label>
-        <label className={styles.selectField}><span>Situación</span><select aria-label="Filtrar por situación operativa" value={status} onChange={event => setStatus(event.target.value)}><option value="TODOS">Todas las situaciones</option><option value="REQUIERE_ATENCION">Requiere atención</option><option value="JUSTIFICACION_PENDIENTE">Justificación por revisar</option><option value="JUSTIFICACION_APROBADA">Justificación aprobada</option><option value="JUSTIFICACION_RECHAZADA">Justificación no aprobada</option><option value="PENDIENTE_ENTRADA">Pendiente de entrada</option><option value="ENTRADA_RETRASADA">Entrada retrasada</option><option value="EN_JORNADA">En jornada</option><option value="EN_ALMUERZO">En almuerzo</option><option value="REGRESO_RETRASADO">Regreso retrasado</option><option value="SALIDA_PENDIENTE">Salida pendiente</option><option value="JORNADA_COMPLETADA">Jornada completa</option><option value="INASISTENCIA_PARCIAL">Jornada parcial</option><option value="JORNADA_INCOMPLETA">Jornada incompleta</option><option value="FALTA">Faltas</option><option value="PERMISO">Permisos</option><option value="VACACIONES">Vacaciones</option><option value="NO_LABORABLE">No laborable</option></select></label>
+        <label className={styles.selectField}><span>Situación</span><select aria-label="Filtrar por situación operativa" value={status} onChange={event => setStatus(event.target.value)}><option value="TODOS">Todas las situaciones</option><option value="REQUIERE_ATENCION">Requiere atención</option><option value="FUERA_DE_SEDE">📍 Fuera de sede</option><option value="JUSTIFICACION_PENDIENTE">Justificación por revisar</option><option value="JUSTIFICACION_APROBADA">Justificación aprobada</option><option value="JUSTIFICACION_RECHAZADA">Justificación no aprobada</option><option value="PENDIENTE_ENTRADA">Pendiente de entrada</option><option value="ENTRADA_RETRASADA">Entrada retrasada</option><option value="EN_JORNADA">En jornada</option><option value="EN_ALMUERZO">En almuerzo</option><option value="REGRESO_RETRASADO">Regreso retrasado</option><option value="SALIDA_PENDIENTE">Salida pendiente</option><option value="JORNADA_COMPLETADA">Jornada completa</option><option value="INASISTENCIA_PARCIAL">Jornada parcial</option><option value="JORNADA_INCOMPLETA">Jornada incompleta</option><option value="FALTA">Faltas</option><option value="PERMISO">Permisos</option><option value="VACACIONES">Vacaciones</option><option value="NO_LABORABLE">No laborable</option></select></label>
         <label className={styles.dateField}><span>Fecha operativa</span><div><CalendarDays size={15} /><input aria-label="Fecha de asistencia" type="date" max={businessToday()} value={date} onChange={event => onDateChange?.(event.target.value)} /></div></label>
         <div className={styles.resultCount}><strong>{visibleEmployees.length}</strong><span>{visibleEmployees.length === 1 ? 'resultado' : 'resultados'}</span></div>
       </div>
@@ -244,8 +253,9 @@ export function AttendancePanel({ siteId, sites = [], canViewAllSites = false, c
         </tr></thead><tbody>
           {visibleEmployees.map(employee => {
             const profile = employeeById.get(employee.employee_id);
+            const isOutside = employee.location_status === 'FUERA_DE_SEDE' || (employee.outside_geofence_marks ?? 0) > 0;
             return <tr key={employee.employee_id} className={employee.requires_attention ? styles.attentionRow : undefined}>
-              <td><div className={styles.identity}>{profile ? <img src={getEmployeePhotoUrl(profile)} alt={profile.foto ? `Foto de ${employee.names} ${employee.last_names}` : ''} loading="lazy" onError={employeePhotoFallbackHandler(profile)} /> : <span className={styles.avatarFallback}>{employee.names.charAt(0)}{employee.last_names.charAt(0)}</span>}<div><strong>{employee.names} {employee.last_names}</strong><small>{employee.job_role} · {employee.employee_code}</small></div></div></td>
+              <td><div className={styles.identity}>{profile ? <img src={getEmployeePhotoUrl(profile)} alt={profile.foto ? `Foto de ${employee.names} ${employee.last_names}` : ''} loading="lazy" onError={employeePhotoFallbackHandler(profile)} /> : <span className={styles.avatarFallback}>{employee.names.charAt(0)}{employee.last_names.charAt(0)}</span>}<div><div className={styles.nameRow}><strong>{employee.names} {employee.last_names}</strong>{isOutside && <span className={styles.badgeOutsideGeofence} title={`Marcación registrada fuera del radio de sede (${formatDistanceMeters(employee.max_distance_outside_meters)})`}><MapPin size={10} aria-hidden />Fuera de sede {formatDistanceMeters(employee.max_distance_outside_meters) ? `(${formatDistanceMeters(employee.max_distance_outside_meters)})` : ''}</span>}</div><small>{employee.job_role} · {employee.employee_code}</small></div></div></td>
               {siteId === null && <td><span className={styles.site}><MapPin />{employee.site_name}</span></td>}
               <td>{employee.schedule ? <div className={styles.schedule}><strong>{employee.schedule.name}</strong><small><Clock3 />{formatScheduleRange(employee.schedule.start_time, employee.schedule.end_time)}</small></div> : <span className={styles.noSchedule}>Sin asignar</span>}</td>
               <td className={styles.clock}>{formatAttendanceClock(employee.marks.entry)}</td><td className={styles.clock}>{formatAttendanceClock(employee.marks.lunch_out)}</td><td className={styles.clock}>{formatAttendanceClock(employee.marks.lunch_return)}</td><td className={styles.clock}>{formatAttendanceClock(employee.marks.exit)}</td><td><Status employee={employee} /></td><td className={employee.delay_minutes ? styles.delay : styles.emptyValue}>{employee.delay_minutes ? <span className={styles.delayStack}><strong>{formatDurationMinutes(employee.delay_minutes)}</strong>{employee.justification && <small className={styles[`justification${employee.justification.status}`]}>{employee.justification.status === 'APROBADA' ? 'Justificada' : employee.justification.status === 'PENDIENTE' ? 'En revisión' : employee.justification.status === 'RECHAZADA' ? 'No aprobada' : 'Cancelada'}</small>}</span> : '—'}</td><td className={(employee.overtime_minutes || employee.overtime_review_pending) ? styles.overtime : styles.emptyValue}>{employee.overtime_review_pending ? <span className={styles.overtimePending}><strong>{formatDurationMinutes(employee.overtime_pending_minutes ?? employee.overtime_detected_minutes ?? 0)}</strong><small>Por aprobar</small></span> : employee.overtime_minutes ? formatDurationMinutes(employee.overtime_minutes) : '—'}</td>

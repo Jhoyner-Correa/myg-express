@@ -43,6 +43,9 @@ type DashboardRow = RowDataPacket & {
   justificacion_revisada_en: Date | null;
   inasistencia_parcial_estado: string | null;
   minutos_ausencia_parcial: number | null;
+  marcaciones_fuera_sede: number | null;
+  distancia_maxima_fuera_sede: number | null;
+  estado_ubicacion: 'EN_SEDE' | 'FUERA_DE_SEDE' | null;
 };
 
 export type AttendanceDashboardItem = {
@@ -55,6 +58,9 @@ export type AttendanceDashboardItem = {
   job_role: string;
   attendance_id: number | null;
   status: string;
+  location_status: 'EN_SEDE' | 'FUERA_DE_SEDE';
+  outside_geofence_marks: number;
+  max_distance_outside_meters: number;
   delay_minutes: number;
   overtime_minutes: number;
   overtime_detected_minutes: number;
@@ -99,6 +105,7 @@ export function summarizeAttendance(items: AttendanceDashboardItem[]) {
     authorized_absence: items.filter(item => ['PERMISO', 'VACACIONES'].includes(item.status)).length,
     non_working: items.filter(item => item.status === 'NO_LABORABLE').length,
     completed: items.filter(item => item.marks.exit !== null).length,
+    outside_geofence: items.filter(item => item.location_status === 'FUERA_DE_SEDE' || item.outside_geofence_marks > 0).length,
     overtime_minutes: items.reduce((total, item) => total + item.overtime_minutes, 0),
     justified_incidents: items.filter(item => item.justification?.status === 'APROBADA').length,
     pending_justifications: items.filter(item => item.justification?.status === 'PENDIENTE').length,
@@ -211,6 +218,9 @@ export class AttendanceDashboardService {
               COALESCE(attendance_version.duracion_almuerzo_minutos, effective_version.duracion_almuerzo_minutos) AS duracion_almuerzo_minutos,
               COALESCE(attendance_version.tolerancia_retorno_minutos, effective_version.tolerancia_retorno_minutos) AS tolerancia_retorno_minutos,
               marks.entrada, marks.salida_almuerzo, marks.regreso, marks.salida,
+              COALESCE(marks.marcaciones_fuera_sede, 0) AS marcaciones_fuera_sede,
+              COALESCE(marks.distancia_maxima_fuera_sede, 0) AS distancia_maxima_fuera_sede,
+              attendance.estado_ubicacion,
               COALESCE(overtime.minutos_aprobados, 0) AS minutos_sobretiempo_aprobados,
               COALESCE(overtime.minutos_detectados, 0) AS minutos_sobretiempo_detectados,
               COALESCE(overtime.minutos_pendientes, 0) AS minutos_sobretiempo_pendientes,
@@ -274,7 +284,9 @@ export class AttendanceDashboardService {
                   MIN(CASE WHEN tipo_marcacion = 'ENTRADA' THEN hora_marcacion END) AS entrada,
                   MIN(CASE WHEN tipo_marcacion = 'SALIDA_ALMUERZO' THEN hora_marcacion END) AS salida_almuerzo,
                   MIN(CASE WHEN tipo_marcacion = 'REGRESO' THEN hora_marcacion END) AS regreso,
-                  MAX(CASE WHEN tipo_marcacion = 'SALIDA' THEN hora_marcacion END) AS salida
+                  MAX(CASE WHEN tipo_marcacion = 'SALIDA' THEN hora_marcacion END) AS salida,
+                  SUM(CASE WHEN dentro_de_radio = 0 OR estado_ubicacion = 'FUERA_DE_SEDE' THEN 1 ELSE 0 END) AS marcaciones_fuera_sede,
+                  MAX(CASE WHEN dentro_de_radio = 0 OR estado_ubicacion = 'FUERA_DE_SEDE' THEN distancia_sede_metros ELSE 0 END) AS distancia_maxima_fuera_sede
              FROM personal_marcaciones
             WHERE hora_marcacion >= ? AND hora_marcacion < DATE_ADD(?, INTERVAL 1 DAY)
             GROUP BY asistencia_id
@@ -298,7 +310,10 @@ export class AttendanceDashboardService {
     );
 
     const override = workDay.scheduleOverride;
-    const baseItems = rows.map(row => ({
+    const baseItems = rows.map(row => {
+      const outsideMarks = Number(row.marcaciones_fuera_sede || 0);
+      const isOutside = row.estado_ubicacion === 'FUERA_DE_SEDE' || outsideMarks > 0;
+      return {
       employee_id: Number(row.empleado_id),
       site_id: siteId,
       site_name: siteName,
@@ -312,6 +327,9 @@ export class AttendanceDashboardService {
         : (!workDay.working || (!override && !row.horario_nombre)
             ? 'NO_LABORABLE'
             : row.estado_asistencia_efectivo ? String(row.estado_asistencia_efectivo) : 'SIN_REGISTRO'),
+      location_status: (isOutside ? 'FUERA_DE_SEDE' : 'EN_SEDE') as 'EN_SEDE' | 'FUERA_DE_SEDE',
+      outside_geofence_marks: outsideMarks,
+      max_distance_outside_meters: Math.round(Number(row.distancia_maxima_fuera_sede || 0)),
       delay_minutes: Number(row.minutos_tardanza || 0),
       return_delay_minutes: Number(row.minutos_tardanza_retorno || 0),
       overtime_minutes: Number(row.minutos_sobretiempo_aprobados || 0),
@@ -357,7 +375,8 @@ export class AttendanceDashboardService {
         status: String(row.inasistencia_parcial_estado),
         missed_minutes: Number(row.minutos_ausencia_parcial || 0),
       },
-    }));
+    };
+  });
     const now = new Date();
     const today = businessDate(now);
     const currentMinutes = businessClockMinutes(now);

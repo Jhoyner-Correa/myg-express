@@ -213,7 +213,8 @@ export interface Geofence extends Coordinates {
 
 export interface GeofenceValidation {
   distanceMeters: number;
-  inside: true;
+  inside: boolean;
+  locationStatus: 'EN_SEDE' | 'FUERA_DE_SEDE';
 }
 
 export function assertGeofenceDefinition(geofence: Geofence): void {
@@ -283,13 +284,11 @@ export function validateGeofence(
     );
   }
 
-  const measuredDistance = distanceMeters(position, geofence);
-  if (measuredDistance > geofence.radiusMeters) {
-    throw new AttendanceRuleError(
-      'OUTSIDE_GEOFENCE',
-      `Estas fuera del area autorizada por ${Math.ceil(measuredDistance - geofence.radiusMeters)} metros.`,
-    );
-  }
-
-  return { distanceMeters: measuredDistance, inside: true };
+  const measuredDistance = Math.round(distanceMeters(position, geofence) * 100) / 100;
+  const inside = measuredDistance <= geofence.radiusMeters;
+  return {
+    distanceMeters: measuredDistance,
+    inside,
+    locationStatus: inside ? 'EN_SEDE' : 'FUERA_DE_SEDE',
+  };
 }

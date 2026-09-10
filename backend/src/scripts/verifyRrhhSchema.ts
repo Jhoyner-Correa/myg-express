@@ -34,6 +34,7 @@ const REQUIRED_MIGRATIONS = [
   '013_partial_absence_workflow',
   '014_overtime_correction_reconciliation',
   '015_repair_stale_overtime_requests',
+  '016_attendance_outside_geofence',
 ] as const;
 
 const RETIRED_TABLES = [

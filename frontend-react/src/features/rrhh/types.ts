@@ -253,6 +253,9 @@ export type AttendanceDashboardEmployee = {
   job_role: string;
   attendance_id: number | null;
   status: 'PRESENTE' | 'TARDANZA' | 'FALTA' | 'PERMISO' | 'VACACIONES' | 'SIN_REGISTRO' | 'NO_LABORABLE';
+  location_status?: 'EN_SEDE' | 'FUERA_DE_SEDE';
+  outside_geofence_marks?: number;
+  max_distance_outside_meters?: number;
   delay_minutes: number;
   return_delay_minutes: number;
   overtime_minutes: number;
@@ -304,6 +307,7 @@ export type AttendanceDashboard = {
     authorized_absence: number;
     non_working: number;
     completed: number;
+    outside_geofence?: number;
     overtime_minutes: number;
     justified_incidents?: number;
     pending_justifications?: number;
@@ -465,6 +469,9 @@ export type AttendanceDetailMark = {
   precision_gps: number | null;
   verificacion_identidad: string | null;
   dispositivo_id: number | null;
+  estado_ubicacion?: 'EN_SEDE' | 'FUERA_DE_SEDE' | null;
+  latitud?: number | string | null;
+  longitud?: number | string | null;
 };
 
 export type OvertimeRequest = {
@@ -505,6 +512,7 @@ export type AttendanceDetail = {
     fecha: string;
     estado_asistencia: AttendanceDashboardEmployee['status'];
     tipo_asistencia: string;
+    estado_ubicacion?: 'EN_SEDE' | 'FUERA_DE_SEDE' | null;
     minutos_tardanza: number;
     minutos_tardanza_retorno: number;
     horario: string | null;

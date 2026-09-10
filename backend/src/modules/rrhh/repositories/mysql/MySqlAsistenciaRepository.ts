@@ -18,6 +18,7 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
       estadoAsistencia: row.estado_asistencia as AttendanceStatus,
       tipoAsistencia: row.tipo_asistencia as AttendanceType,
       minutosTardanza: Number(row.minutos_tardanza || 0),
+      estadoUbicacion: (row.estado_ubicacion || 'EN_SEDE'),
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     };
@@ -26,7 +27,7 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
   async obtenerPorEmpleadoYFecha(empleadoId: number, fecha: string, connection?: PoolConnection, lock = false): Promise<Asistencia | null> {
     const executor = connection ?? pool;
     const [rows] = await executor.query<RowDataPacket[]>(
-      `SELECT id, empleado_id, fecha, estado_asistencia, tipo_asistencia, minutos_tardanza, created_at, updated_at
+      `SELECT id, empleado_id, fecha, estado_asistencia, tipo_asistencia, minutos_tardanza, estado_ubicacion, created_at, updated_at
        FROM personal_asistencias
        WHERE empleado_id = ? AND fecha = ?
        LIMIT 1${lock ? ' FOR UPDATE' : ''}`,
@@ -40,7 +41,7 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
   async obtenerPorId(id: number, connection?: PoolConnection): Promise<Asistencia | null> {
     const executor = connection ?? pool;
     const [rows] = await executor.query<RowDataPacket[]>(
-      `SELECT id, empleado_id, fecha, estado_asistencia, tipo_asistencia, minutos_tardanza, created_at, updated_at
+      `SELECT id, empleado_id, fecha, estado_asistencia, tipo_asistencia, minutos_tardanza, estado_ubicacion, created_at, updated_at
        FROM personal_asistencias
        WHERE id = ?
        LIMIT 1`,
@@ -55,14 +56,15 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
     const executor = connection ?? pool;
     const [result] = await executor.query<ResultSetHeader>(
       `INSERT INTO personal_asistencias (
-        empleado_id, fecha, estado_asistencia, tipo_asistencia, minutos_tardanza
-      ) VALUES (?, ?, ?, ?, ?)`,
+        empleado_id, fecha, estado_asistencia, tipo_asistencia, minutos_tardanza, estado_ubicacion
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
       [
         a.empleadoId,
         a.fecha instanceof Date ? a.fecha.toISOString().slice(0, 10) : a.fecha,
         a.estadoAsistencia,
         a.tipoAsistencia,
-        a.minutosTardanza
+        a.minutosTardanza,
+        a.estadoUbicacion || 'EN_SEDE',
       ]
     );
 
@@ -72,8 +74,8 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
   async obtenerOCrear(a: Omit<Asistencia, 'id'>, connection: PoolConnection): Promise<Asistencia> {
     const [result] = await connection.query<ResultSetHeader>(
       `INSERT INTO personal_asistencias (
-        empleado_id, fecha, estado_asistencia, tipo_asistencia, minutos_tardanza
-      ) VALUES (?, ?, ?, ?, ?)
+        empleado_id, fecha, estado_asistencia, tipo_asistencia, minutos_tardanza, estado_ubicacion
+      ) VALUES (?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)`,
       [
         a.empleadoId,
@@ -81,6 +83,7 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
         a.estadoAsistencia,
         a.tipoAsistencia,
         a.minutosTardanza,
+        a.estadoUbicacion || 'EN_SEDE',
       ],
     );
     const attendance = await this.obtenerPorId(result.insertId, connection);
@@ -112,6 +115,10 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
       fields.push('minutos_tardanza = ?');
       params.push(datos.minutosTardanza);
     }
+    if (datos.estadoUbicacion !== undefined) {
+      fields.push('estado_ubicacion = ?');
+      params.push(datos.estadoUbicacion);
+    }
 
     if (fields.length === 0) return false;
 
@@ -130,7 +137,7 @@ export class MySqlAsistenciaRepository implements IAsistenciaRepository {
     fecha: string
   ): Promise<(Asistencia & { codigoEmpleado: string; nombres: string; apellidos: string; cargoNombre: string })[]> {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT a.id, a.empleado_id, a.fecha, a.estado_asistencia, a.tipo_asistencia, a.minutos_tardanza, a.created_at, a.updated_at,
+      `SELECT a.id, a.empleado_id, a.fecha, a.estado_asistencia, a.tipo_asistencia, a.minutos_tardanza, a.estado_ubicacion, a.created_at, a.updated_at,
               e.codigo_empleado, e.nombres, e.apellidos,
               c.nombre AS cargo_nombre
        FROM personal_asistencias a

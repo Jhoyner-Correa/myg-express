@@ -96,6 +96,18 @@ test('acepta una posicion precisa dentro de la geocerca', () => {
   );
   assert.equal(result.inside, true);
   assert.equal(result.distanceMeters, 0);
+  assert.equal(result.locationStatus, 'EN_SEDE');
+});
+
+test('permite marcacion fuera de la geocerca con estado FUERA_DE_SEDE', () => {
+  const result = validateGeofence(
+    { latitude: -12.06513, longitude: -75.20486 },
+    15,
+    { latitude: -12.06468, longitude: -75.20486, radiusMeters: 20, maximumAccuracyMeters: 30 },
+  );
+  assert.equal(result.inside, false);
+  assert.ok(result.distanceMeters > 20);
+  assert.equal(result.locationStatus, 'FUERA_DE_SEDE');
 });
 
 test('rechaza configuraciones de geocerca operativamente inseguras', () => {

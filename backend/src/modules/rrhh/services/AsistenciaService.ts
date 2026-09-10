@@ -192,10 +192,20 @@ export class AsistenciaService {
           selfiePath: params.selfiePath,
           redWifi: params.wifi,
           bluetooth: params.bluetooth,
-          dentroDeRadio: true,
+          dentroDeRadio: geofenceResult.inside,
           distanciaSedeMetros: geofenceResult.distanceMeters,
+          estadoUbicacion: geofenceResult.locationStatus,
           verificacionIdentidad: params.verificacionIdentidad,
         }, connection);
+
+        if (!geofenceResult.inside) {
+          await connection.query(
+            "UPDATE personal_asistencias SET estado_ubicacion = 'FUERA_DE_SEDE' WHERE id = ?",
+            [asistencia.id],
+          );
+          asistencia.estadoUbicacion = 'FUERA_DE_SEDE';
+        }
+
         const created = (await this.marcacionRepository.obtenerPorAsistencia(asistencia.id, connection))
           .find(mark => mark.id === markId);
         if (!created) throw new Error('No se pudo recuperar la marcacion registrada.');
@@ -242,6 +252,9 @@ export class AsistenciaService {
               hora_programada: created.horaProgramada,
               diferencia_minutos: timing.differenceMinutes,
               clasificacion: timing.classification,
+              dentro_de_radio: geofenceResult.inside,
+              distancia_sede_metros: geofenceResult.distanceMeters,
+              estado_ubicacion: geofenceResult.locationStatus,
             }),
           ],
         );
