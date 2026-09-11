@@ -1,6 +1,7 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
-import { Geofence, assertGeofenceDefinition } from '../domain/attendancePolicy';
+import { businessDate } from '../../../core/utils/time';
+import { Geofence, assertGeofenceDefinition, distanceMeters } from '../domain/attendancePolicy';
 
 type GeofenceRow = RowDataPacket & {
   sede_id: number;
@@ -83,6 +84,61 @@ export class GeofenceService {
         ) VALUES ('CONFIGURACION_GEOCERCA', ?, 1, 'ACTUALIZADA', ?, ?)`,
         [actorUserId, ipAddress || null, JSON.stringify({ site_id: siteId, ...value, capture: capture ?? null })],
       );
+
+      // Reconciliar marcaciones del dia actual para los colaboradores de la sede
+      const today = businessDate();
+      const [markRows] = await connection.query<RowDataPacket[]>(
+        `SELECT m.id, m.asistencia_id, m.latitud, m.longitud
+           FROM personal_marcaciones m
+           INNER JOIN personal_asistencias a ON a.id = m.asistencia_id
+           INNER JOIN personal_empleados e ON e.id = a.empleado_id
+          WHERE e.sede_id = ?
+            AND a.fecha = ?
+          FOR UPDATE`,
+        [siteId, today],
+      );
+
+      for (const row of markRows) {
+        const measuredDistance = Math.round(
+          distanceMeters(
+            { latitude: Number(row.latitud), longitude: Number(row.longitud) },
+            value,
+          ) * 100,
+        ) / 100;
+        const inside = measuredDistance <= value.radiusMeters;
+        const locationStatus = inside ? 'EN_SEDE' : 'FUERA_DE_SEDE';
+
+        await connection.query(
+          `UPDATE personal_marcaciones
+              SET dentro_de_radio = ?,
+                  distancia_sede_metros = ?,
+                  estado_ubicacion = ?
+            WHERE id = ?`,
+          [inside ? 1 : 0, measuredDistance, locationStatus, row.id],
+        );
+      }
+
+      // Reconciliar el estado_ubicacion de las asistencias diarias afectadas
+      const [attendanceRows] = await connection.query<RowDataPacket[]>(
+        `SELECT a.id,
+                MAX(CASE WHEN m.estado_ubicacion = 'FUERA_DE_SEDE' THEN 1 ELSE 0 END) AS has_outside
+           FROM personal_asistencias a
+           INNER JOIN personal_empleados e ON e.id = a.empleado_id
+           LEFT JOIN personal_marcaciones m ON m.asistencia_id = a.id
+          WHERE e.sede_id = ?
+            AND a.fecha = ?
+          GROUP BY a.id
+          FOR UPDATE`,
+        [siteId, today],
+      );
+
+      for (const att of attendanceRows) {
+        const newLocationStatus = att.has_outside ? 'FUERA_DE_SEDE' : 'EN_SEDE';
+        await connection.query(
+          `UPDATE personal_asistencias SET estado_ubicacion = ? WHERE id = ?`,
+          [newLocationStatus, att.id],
+        );
+      }
     });
     return this.getBySite(siteId);
   }
