@@ -51,7 +51,7 @@ export class ServicePaymentController {
     this.service.transitionPeriod(companyScope(req), req.params.id, actorId(req), req.body));
 
   createBatch = async (req: AuthRequest, res: Response) => this.respond(res, () =>
-    this.service.createBatch(companyScope(req), req.params.id, actorId(req)), 201);
+    this.service.createBatch(companyScope(req), req.params.id, actorId(req), req.body), 201);
 
   registerReceipt = async (req: AuthRequest, res: Response) => this.respond(res, () =>
     this.service.registerReceipt(companyScope(req), req.params.id, actorId(req), req.body));

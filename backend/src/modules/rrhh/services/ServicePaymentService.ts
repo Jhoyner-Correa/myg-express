@@ -986,23 +986,49 @@ export class ServicePaymentService {
       const current = String(periods[0].estado);
       if (!rule.from.includes(current)) throw new ServicePaymentError(`El periodo ${current.toLowerCase().replace(/_/g, ' ')} no admite esta accion.`, 409);
       if (action === 'ENVIAR_REVISION' || action === 'APROBAR') {
-        const [[blocking]] = await connection.query<RowDataPacket[]>(
-          `SELECT SUM(liquidation.estado = 'CONFIGURACION_PENDIENTE') AS configuration_pending,
-                  SUM(liquidation.estado = 'OBSERVADO') AS observed,
-                  SUM(agreement.banco IS NULL OR agreement.numero_cuenta_ultimos4 IS NULL) AS bank_pending,
-                  SUM(liquidation.minutos_horas_extra > 0
+        const [blockers] = await connection.query<RowDataPacket[]>(
+          `SELECT employee.nombres, employee.apellidos,
+                  (liquidation.estado = 'CONFIGURACION_PENDIENTE') AS config_pending,
+                  (liquidation.estado = 'OBSERVADO') AS is_observed,
+                  (agreement.banco IS NULL OR agreement.numero_cuenta_ultimos4 IS NULL) AS bank_pending,
+                  (liquidation.minutos_horas_extra > 0
                     AND COALESCE(agreement.tarifa_hora_extra_modo, 'MANUAL') = 'MANUAL'
-                    AND COALESCE(agreement.tarifa_hora_extra, 0) <= 0) AS overtime_rate_pending,
-                  COUNT(*) AS total
+                    AND COALESCE(agreement.tarifa_hora_extra, 0) <= 0) AS overtime_rate_pending
              FROM personal_liquidaciones_pago liquidation
+             INNER JOIN personal_empleados employee ON employee.id = liquidation.empleado_id
              LEFT JOIN personal_pago_acuerdos agreement ON agreement.id = liquidation.acuerdo_id
-            WHERE liquidation.periodo_pago_id = ?`, [periodId],
+            WHERE liquidation.periodo_pago_id = ?
+              AND (
+                liquidation.estado IN ('CONFIGURACION_PENDIENTE', 'OBSERVADO')
+                OR agreement.banco IS NULL
+                OR agreement.numero_cuenta_ultimos4 IS NULL
+                OR (liquidation.minutos_horas_extra > 0
+                    AND COALESCE(agreement.tarifa_hora_extra_modo, 'MANUAL') = 'MANUAL'
+                    AND COALESCE(agreement.tarifa_hora_extra, 0) <= 0)
+              )
+            ORDER BY employee.apellidos, employee.nombres`,
+          [periodId],
         );
-        if (!Number(blocking.total)) throw new ServicePaymentError('El periodo no contiene liquidaciones.', 409);
-        if (Number(blocking.configuration_pending)) throw new ServicePaymentError('Completa la configuracion de pago de todos los colaboradores.', 409);
-        if (Number(blocking.observed)) throw new ServicePaymentError('Resuelve las liquidaciones observadas antes de continuar.', 409);
-        if (Number(blocking.bank_pending)) throw new ServicePaymentError('Completa la cuenta bancaria de todos los colaboradores antes de continuar.', 409);
-        if (Number(blocking.overtime_rate_pending)) throw new ServicePaymentError('Configura la tarifa de horas extra de los colaboradores que tienen sobretiempo aprobado.', 409);
+        const [[countRow]] = await connection.query<RowDataPacket[]>(
+          `SELECT COUNT(*) AS total FROM personal_liquidaciones_pago WHERE periodo_pago_id = ?`, [periodId],
+        );
+        if (!Number(countRow.total)) throw new ServicePaymentError('El periodo no contiene liquidaciones.', 409);
+
+        if (blockers.length) {
+          const first = blockers[0];
+          const sample = blockers.slice(0, 3).map(b => `${b.nombres} ${b.apellidos}`).join(', ');
+          const more = blockers.length > 3 ? ` y ${blockers.length - 3} más` : '';
+          let reasonText = 'expediente pendiente de revisión';
+          if (first.config_pending) reasonText = 'falta configuración de pago';
+          else if (first.is_observed) reasonText = 'liquidación observada (faltas o descuentos excesivos)';
+          else if (first.bank_pending) reasonText = 'falta registrar cuenta bancaria';
+          else if (first.overtime_rate_pending) reasonText = 'falta configurar tarifa de horas extra';
+
+          throw new ServicePaymentError(
+            `No se puede ${action === 'ENVIAR_REVISION' ? 'enviar a revisión' : 'aprobar'}. ${blockers.length} colaborador(es) con ${reasonText} (${sample}${more}).`,
+            409,
+          );
+        }
       }
       if (action === 'ENVIAR_REVISION') {
         await connection.query(`UPDATE personal_liquidaciones_pago SET estado = 'EN_REVISION' WHERE periodo_pago_id = ? AND estado IN ('BORRADOR','LISTO_PARA_PAGO')`, [periodId]);
@@ -1023,7 +1049,7 @@ export class ServicePaymentService {
     });
   }
 
-  async createBatch(companyIdValue: number | null, periodIdValue: unknown, actorId: number) {
+  async createBatch(companyIdValue: number | null, periodIdValue: unknown, actorId: number, input?: Record<string, unknown>) {
     const companyId = await this.resolveCompanyId(companyIdValue);
     const periodId = positiveId(periodIdValue, 'Periodo');
     return runInTransaction(async connection => {
@@ -1042,24 +1068,54 @@ export class ServicePaymentService {
           ORDER BY liquidation.id FOR UPDATE`, [periodId],
       );
       if (!payments.length) throw new ServicePaymentError('No hay pagos aprobados disponibles para el lote.', 409);
-      const invalidReceipt = payments.find(row => !row.rhe_serie || !row.rhe_numero || row.rhe_importe === null || Math.abs(Number(row.rhe_importe) - Number(row.total_servicio)) > 0.01);
-      if (invalidReceipt) throw new ServicePaymentError('Todos los RHE deben estar registrados y coincidir con el importe bruto aprobado.', 409);
-      if (payments.some(row => !row.banco || !row.numero_cuenta_ultimos4)) throw new ServicePaymentError('Todos los colaboradores deben tener una cuenta bancaria configurada.', 409);
-      const total = Math.round(payments.reduce((sum, row) => sum + Number(row.total_depositar), 0) * 100) / 100;
-      const code = `PAG-${String(periods[0].periodo).slice(0, 7).replace('-', '')}-${String(periodId).padStart(5, '0')}`;
+
+      const requestedIds = Array.isArray(input?.liquidation_ids)
+        ? (input.liquidation_ids as unknown[]).map(Number).filter(id => Number.isInteger(id) && id > 0)
+        : null;
+
+      const candidates = requestedIds && requestedIds.length
+        ? payments.filter(p => requestedIds.includes(Number(p.id)))
+        : payments;
+
+      // Filtrar liquidaciones listas (RHE coincidente y cuenta bancaria válida)
+      const readyPayments = candidates.filter(row => (
+        Boolean(row.rhe_serie)
+        && Boolean(row.rhe_numero)
+        && row.rhe_importe !== null
+        && Math.abs(Number(row.rhe_importe) - Number(row.total_servicio)) <= 0.01
+        && Boolean(row.banco)
+        && Boolean(row.numero_cuenta_ultimos4)
+      ));
+
+      if (!readyPayments.length) {
+        throw new ServicePaymentError('No hay liquidaciones aprobadas con RHE y cuenta bancaria validados para incluir en un lote.', 409);
+      }
+
+      const total = Math.round(readyPayments.reduce((sum, row) => sum + Number(row.total_depositar), 0) * 100) / 100;
+      const [existingBatches] = await connection.query<RowDataPacket[]>(
+        `SELECT COUNT(*) AS total FROM personal_lotes_pago WHERE empresa_id = ? AND periodo_pago_id = ?`,
+        [companyId, periodId],
+      );
+      const batchSeq = Number(existingBatches[0]?.total || 0) + 1;
+      const code = batchSeq === 1
+        ? `PAG-${String(periods[0].periodo).slice(0, 7).replace('-', '')}-${String(periodId).padStart(5, '0')}`
+        : `PAG-${String(periods[0].periodo).slice(0, 7).replace('-', '')}-${String(periodId).padStart(3, '0')}-${String(batchSeq).padStart(2, '0')}`;
+
       const [insert] = await connection.query<ResultSetHeader>(
         `INSERT INTO personal_lotes_pago (empresa_id, periodo_pago_id, codigo, estado, cantidad_pagos, total_depositar, creado_por)
-         VALUES (?, ?, ?, 'EN_PROCESO', ?, ?, ?)`, [companyId, periodId, code, payments.length, total, actorId],
+         VALUES (?, ?, ?, 'EN_PROCESO', ?, ?, ?)`, [companyId, periodId, code, readyPayments.length, total, actorId],
       );
-      for (const payment of payments) {
+      for (const payment of readyPayments) {
         await connection.query(`INSERT INTO personal_lote_pago_detalles (lote_pago_id, liquidacion_id, monto) VALUES (?, ?, ?)`, [insert.insertId, payment.id, payment.total_depositar]);
       }
-      await connection.query(`UPDATE personal_liquidaciones_pago SET estado = 'EN_LOTE' WHERE periodo_pago_id = ? AND estado = 'APROBADO'`, [periodId]);
+      const readyIds = readyPayments.map(p => p.id);
+      const placeholders = readyIds.map(() => '?').join(',');
+      await connection.query(`UPDATE personal_liquidaciones_pago SET estado = 'EN_LOTE' WHERE id IN (${placeholders})`, readyIds);
       await connection.query(`UPDATE personal_periodos_pago SET estado = 'EN_PAGO' WHERE id = ?`, [periodId]);
       await this.transition(connection, companyId, 'LOTE', insert.insertId, null, 'EN_PROCESO', actorId, null);
       await this.transition(connection, companyId, 'PERIODO', periodId, 'APROBADO', 'EN_PAGO', actorId, null);
-      await this.audit(connection, 'LOTE_PAGO_CREADO', null, actorId, { batch_id: insert.insertId, period_id: periodId, code, payments: payments.length, total });
-      return { id: insert.insertId, code, payments: payments.length, total };
+      await this.audit(connection, 'LOTE_PAGO_CREADO', null, actorId, { batch_id: insert.insertId, period_id: periodId, code, payments: readyPayments.length, total });
+      return { id: insert.insertId, code, payments: readyPayments.length, total };
     });
   }
 
@@ -1104,6 +1160,24 @@ export class ServicePaymentService {
           );
         } else if (['ADELANTO', 'OTRO_INGRESO', 'OTRO_DESCUENTO'].includes(String(concept.tipo))) {
           await connection.query(`UPDATE personal_pago_movimientos SET estado = 'APLICADO', aplicado_en = NOW() WHERE id = ?`, [concept.origen_id]);
+        }
+      }
+      const [batchRows] = await connection.query<RowDataPacket[]>(
+        `SELECT lote_pago_id FROM personal_lote_pago_detalles WHERE liquidacion_id = ? LIMIT 1`,
+        [liquidationId],
+      );
+      if (batchRows.length) {
+        const batchId = Number(batchRows[0].lote_pago_id);
+        const [[pendingInBatch]] = await connection.query<RowDataPacket[]>(
+          `SELECT COUNT(*) AS total FROM personal_lote_pago_detalles WHERE lote_pago_id = ? AND estado <> 'PAGADO'`,
+          [batchId],
+        );
+        if (Number(pendingInBatch.total) === 0) {
+          await connection.query(
+            `UPDATE personal_lotes_pago SET estado = 'PAGADO', procesado_por = ?, procesado_en = NOW()
+              WHERE id = ? AND estado = 'EN_PROCESO'`,
+            [actorId, batchId],
+          );
         }
       }
       const [[remaining]] = await connection.query<RowDataPacket[]>(

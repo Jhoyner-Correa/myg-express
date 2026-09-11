@@ -186,18 +186,45 @@
 .tableViewport td { height:88px; padding:12px 14px; vertical-align:middle; }
 .tableViewport tbody tr:nth-child(even) { background:#fcfdff; }
 .tableViewport tbody tr:hover { background:#f6f9fd; }
-.colEmployee { width:270px; }
-.colSite { width:90px; }
-.colPeriod { width:270px; }
+.colEmployee { width:240px; }
+.colSite { width:85px; }
+.colBase { width:130px; }
 .colOvertime { width:115px; }
-.colDeductions { width:155px; }
-.colDeposit { width:140px; }
-.colDocument { width:155px; }
-.colStatus { width:120px; }
-.colActions { width:140px; }
+.colGross { width:135px; }
+.colDeductions { width:200px; }
+.colDeposit { width:130px; }
+.colDocument { width:145px; }
+.colStatus { width:115px; }
+.colActions { width:135px; }
 .employee { min-width:0; }
-.employee strong { max-width:205px; }
+.employee strong { max-width:185px; }
 .deduction { display:block; color:#a05a22; font-size:12px; }
+.baseFeeCell { display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
+.baseFeeAmount { color:#183a63; font-size:11.5px; font-variant-numeric:tabular-nums; font-weight:750; }
+.partialBadge { display:inline-flex; align-items:center; gap:4px; padding:1px 6px; border-radius:5px; background:#eff6ff; color:#1d65b8; font-size:8.5px; font-weight:700; }
+.fullMonthBadge { color:#6b7c93; font-size:8.5px; font-weight:600; }
+.overtimeCell { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+.overtimeAmount { color:#6a43b8; font-size:11.5px; font-variant-numeric:tabular-nums; font-weight:750; }
+.overtimeSubtext { color:#8265be; font-size:8.5px; }
+.bonusSubtext { color:#1768c5; font-size:8.5px; font-weight:650; }
+.zeroAmount { color:#98a6b8; font-size:10.5px; }
+.grossCell { display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
+.grossAmount { color:#0f5298; font-size:12.5px; font-variant-numeric:tabular-nums; font-weight:850; }
+.grossBadge { display:inline-flex; align-items:center; gap:4px; padding:1px 6px; border-radius:5px; background:#e8f2fc; color:#155a9c; font-size:8.5px; font-weight:800; letter-spacing:.02em; }
+.deductionsCell { display:flex; flex-direction:column; align-items:flex-start; gap:4px; max-width:200px; }
+.totalDeductions { color:#b45309; font-size:11px; font-variant-numeric:tabular-nums; font-weight:800; }
+.chipsContainer { display:flex; flex-wrap:wrap; gap:3px; }
+.chipAdvance { display:inline-block; padding:1px 5px; border-radius:4px; background:#eff6ff; color:#1d4ed8; font-size:8.5px; font-weight:650; white-space:nowrap; }
+.chipLoan { display:inline-block; padding:1px 5px; border-radius:4px; background:#fef3c7; color:#92400e; font-size:8.5px; font-weight:650; white-space:nowrap; }
+.chipAbsence { display:inline-block; padding:1px 5px; border-radius:4px; background:#fee2e2; color:#b91c1c; font-size:8.5px; font-weight:650; white-space:nowrap; }
+.chipPartial { display:inline-block; padding:1px 5px; border-radius:4px; background:#ffedd5; color:#c2410c; font-size:8.5px; font-weight:650; white-space:nowrap; }
+.chipOther { display:inline-block; padding:1px 5px; border-radius:4px; background:#f1f5f9; color:#475569; font-size:8.5px; font-weight:650; white-space:nowrap; }
+.chipPending { display:inline-block; padding:1px 5px; border-radius:4px; background:#fff1f2; color:#be123c; font-size:8.5px; font-weight:700; border:1px dashed #f43f5e; white-space:nowrap; }
+.noDeductions { color:#94a3b8; font-size:10px; }
+.depositCell { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+.depositAmount { color:#047857; font-size:12px; font-variant-numeric:tabular-nums; font-weight:850; }
+.depositBankOk { display:inline-flex; align-items:center; gap:3px; color:#475569; font-size:8.8px; max-width:125px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.depositBankPending { display:inline-flex; align-items:center; gap:3px; color:#dc2626; font-size:8.8px; font-weight:650; }
 .servicePeriod { min-width:0; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:5px 10px; padding:2px 0; }
 .projectedAmount { min-width:0; display:flex; flex-direction:column; gap:1px; }
 .projectedAmount>span { color:#8290a3; font-size:7.7px; font-weight:750; letter-spacing:.035em; text-transform:uppercase; }
@@ -221,8 +248,24 @@
 .documentControl>span { display:inline-flex; align-items:center; gap:6px; font-size:10px; font-weight:750; }
 .documentControl svg { width:14px; height:14px; stroke-width:1.75; }
 .documentControl small { max-width:150px; overflow:hidden; color:#8795a7; font-size:8.8px; text-overflow:ellipsis; white-space:nowrap; }
+.bankOk { display:inline-flex; align-items:center; gap:4px; color:#475569; font-size:8.8px; }
+.bankPending { display:inline-flex; align-items:center; gap:4px; color:#dc2626; font-size:8.8px; font-weight:700; }
 .documentReady { color:#0d7c50; }
 .documentPending { color:#a96819; }
+.receiptHelpCard { grid-column:1/-1; padding:14px; border:1px solid #c7dcf0; border-radius:10px; background:#f4f9fe; display:flex; flex-direction:column; gap:10px; }
+.receiptHelpHeader { display:flex; align-items:flex-start; gap:10px; color:#175da8; }
+.receiptHelpHeader>svg { flex-shrink:0; margin-top:2px; }
+.receiptHelpHeader strong { display:block; font-size:11.5px; color:#0f3f74; }
+.receiptHelpHeader small { display:block; margin-top:2px; font-size:9.5px; color:#57718e; line-height:1.35; }
+.receiptHelpRow { display:flex; flex-wrap:wrap; gap:14px; font-size:10px; color:#334155; padding-bottom:8px; border-bottom:1px solid #dce8f4; }
+.receiptHelpRow b { color:#0f3f74; }
+.receiptHelpTotal { display:flex; justify-content:space-between; align-items:center; color:#0f3f74; font-size:11px; }
+.receiptHelpTotal strong { font-size:16px; color:#0c4a85; font-weight:850; }
+.receiptHelpNet { display:flex; align-items:center; gap:8px; font-size:9.5px; color:#475569; }
+.receiptHelpNet b { color:#047857; font-size:11px; }
+.receiptHelpNet small { color:#64748b; }
+.copyAmountBtn { align-self:flex-start; padding:5px 12px; border:1px solid #1e6bb8; border-radius:6px; background:#1e6bb8; color:#fff; font-size:10px; font-weight:700; cursor:pointer; transition:background .15s ease; }
+.copyAmountBtn:hover { background:#155494; }
 .state>svg { width:28px; height:28px; color:#7990aa; stroke-width:1.5; }
 .state strong { color:#30445e; font-size:12px; }
 .state span { color:#8896a8; font-size:10px; }

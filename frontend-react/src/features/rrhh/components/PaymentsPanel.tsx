@@ -28,7 +28,7 @@ type ModalState = { action: PaymentAction; payment: ServicePaymentRow } | null;
 type QueueFilter = 'TODOS' | ServicePaymentQueue;
 
 const money = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', minimumFractionDigits: 2 });
-const number = (value: number | string) => Number(value || 0);
+const number = (value: number | string | null | undefined) => Number(value || 0);
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
 const readableDate = (value: string) => new Intl.DateTimeFormat('es-PE', {
   day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC',
@@ -66,29 +66,162 @@ const monthName = (value: string) => {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 };
 
-function ServicePeriodCell({ payment }: { payment: ServicePaymentRow }) {
+function BaseFeeCell({ payment }: { payment: ServicePaymentRow }) {
   const serviceDays = Number(payment.dias_servicio || 0);
   const periodDays = Number(payment.dias_periodo || 0);
-  const accruedDays = Number(payment.dias_devengados || 0);
   const partial = periodDays > 0 && serviceDays < periodDays;
-  const range = payment.fecha_servicio_desde && payment.fecha_servicio_hasta
-    ? `${readableDate(payment.fecha_servicio_desde)} – ${readableDate(payment.fecha_servicio_hasta)}`
-    : 'Sin rango calculado';
-  const accrualProgress = periodDays > 0 ? Math.min(100, Math.max(0, accruedDays / periodDays * 100)) : 0;
-  const cutoffLabel = payment.fecha_corte_devengado ? readableDate(payment.fecha_corte_devengado) : 'Sin iniciar';
-  const dailyAmount = periodDays > 0 ? number(payment.honorario_mensual_pactado) / periodDays : 0;
+  const pactado = number(payment.honorario_mensual_pactado);
+  const aplicado = number(payment.pago_mensual);
 
-  return <div className={styles.servicePeriod}>
-    <div className={styles.projectedAmount}><span>Proyección mensual</span><strong>{money.format(number(payment.pago_mensual))}</strong></div>
-    <span className={partial ? styles.partialDays : styles.fullMonth}>
-      <CalendarDays />{partial ? `${serviceDays} de ${periodDays} días` : 'Mes completo'}
-    </span>
-    <div className={styles.accrualLine}><span>Devengado al {cutoffLabel}</span><b>{money.format(number(payment.monto_devengado))}</b></div>
-    <div className={styles.accrualTrack} aria-hidden="true"><i style={{ width: `${accrualProgress}%` }} /></div>
-    <small>{partial
-      ? `${range} · ${accruedDays}/${periodDays} días acumulados`
-      : `${accruedDays}/${periodDays} días · ${money.format(dailyAmount)} por día`}</small>
-  </div>;
+  return (
+    <div className={styles.baseFeeCell}>
+      <strong className={styles.baseFeeAmount}>{money.format(aplicado)}</strong>
+      {partial ? (
+        <span className={styles.partialBadge} title={`Honorario pactado: ${money.format(pactado)} (${serviceDays}/${periodDays} días)`}>
+          <CalendarDays size={11} /> Proporcional ({serviceDays}/{periodDays} d)
+        </span>
+      ) : (
+        <span className={styles.fullMonthBadge}>Mes completo</span>
+      )}
+    </div>
+  );
+}
+
+function OvertimeCell({ payment }: { payment: ServicePaymentRow }) {
+  const overtimeAmount = number(payment.monto_horas_extra);
+  const overtimeMins = Number(payment.minutos_horas_extra || 0);
+  const otherIncome = number(payment.otros_ingresos);
+
+  if (overtimeAmount === 0 && otherIncome === 0) {
+    return <span className={styles.zeroAmount}>S/ 0.00</span>;
+  }
+
+  return (
+    <div className={styles.overtimeCell}>
+      <strong className={styles.overtimeAmount}>
+        {money.format(overtimeAmount + otherIncome)}
+      </strong>
+      {overtimeMins > 0 && (
+        <span className={styles.overtimeSubtext}>
+          {formatDurationMinutes(overtimeMins)} extra
+        </span>
+      )}
+      {otherIncome > 0 && (
+        <span className={styles.bonusSubtext}>
+          +{money.format(otherIncome)} bono
+        </span>
+      )}
+    </div>
+  );
+}
+
+function GrossServiceCell({ payment }: { payment: ServicePaymentRow }) {
+  const total = number(payment.total_servicio);
+  return (
+    <div className={styles.grossCell}>
+      <strong className={styles.grossAmount}>{money.format(total)}</strong>
+      <span className={styles.grossBadge} title="Importe exacto que debe emitirse en el Recibo por Honorarios electrónico (SUNAT)">
+        <ReceiptText size={10} /> RHE SUNAT
+      </span>
+    </div>
+  );
+}
+
+function DeductionsCell({ payment }: { payment: ServicePaymentRow }) {
+  const advances = number(payment.adelantos);
+  const loans = number(payment.cuotas_prestamo);
+  const absences = number(payment.monto_descuento_faltas);
+  const partialAbsences = number(payment.monto_descuento_inasistencia_parcial);
+  const otherDiscounts = Math.max(0, number(payment.otros_descuentos) - absences - partialAbsences);
+  const totalDeductions = advances + loans + absences + partialAbsences + otherDiscounts;
+
+  const confirmedAbsences = Number(payment.faltas_confirmadas || 0);
+  const pendingAbsences = Number(payment.faltas_pendientes || 0);
+  const pendingPartials = Number(payment.inasistencias_parciales_pendientes || 0);
+
+  if (totalDeductions === 0 && pendingAbsences === 0 && pendingPartials === 0) {
+    return <span className={styles.noDeductions}>Sin descuentos</span>;
+  }
+
+  return (
+    <div className={styles.deductionsCell}>
+      {totalDeductions > 0 && (
+        <strong className={styles.totalDeductions}>
+          − {money.format(totalDeductions)}
+        </strong>
+      )}
+      <div className={styles.chipsContainer}>
+        {advances > 0 && (
+          <span className={styles.chipAdvance} title="Adelanto de honorarios">
+            Adelanto: {money.format(advances)}
+          </span>
+        )}
+        {loans > 0 && (
+          <span className={styles.chipLoan} title="Cuota de préstamo empresarial">
+            Préstamo: {money.format(loans)}
+          </span>
+        )}
+        {absences > 0 && (
+          <span className={styles.chipAbsence} title={`${confirmedAbsences} falta(s) injustificada(s) descontada(s)`}>
+            Faltas ({confirmedAbsences}): {money.format(absences)}
+          </span>
+        )}
+        {partialAbsences > 0 && (
+          <span className={styles.chipPartial} title="Tiempo no laborado descontado">
+            Tardanzas: {money.format(partialAbsences)}
+          </span>
+        )}
+        {otherDiscounts > 0 && (
+          <span className={styles.chipOther} title="Otros descuentos administrativos">
+            Ajuste: {money.format(otherDiscounts)}
+          </span>
+        )}
+        {pendingAbsences > 0 && (
+          <span className={styles.chipPending} title={`${pendingAbsences} falta(s) pendientes de justificar o confirmar`}>
+            {pendingAbsences} falta(s) por resolver
+          </span>
+        )}
+        {pendingPartials > 0 && (
+          <span className={styles.chipPending} title={`${pendingPartials} jornada(s) parcial(es) pendientes`}>
+            {pendingPartials} tardanza(s) por resolver
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DepositCell({ payment }: { payment: ServicePaymentRow }) {
+  const net = number(payment.total_depositar);
+  const bankAccount = payment.banco
+    ? `${payment.banco} ···· ${payment.numero_cuenta_ultimos4 ?? '—'}`
+    : 'Sin cuenta bancaria';
+
+  return (
+    <div className={styles.depositCell}>
+      <strong className={styles.depositAmount}>{money.format(net)}</strong>
+      <span className={payment.banco ? styles.depositBankOk : styles.depositBankPending} title={bankAccount}>
+        <Landmark size={10} /> {bankAccount}
+      </span>
+    </div>
+  );
+}
+
+function DocumentControlCell({ payment }: { payment: ServicePaymentRow }) {
+  const hasRhe = Boolean(payment.rhe_numero);
+  const hasBank = Boolean(payment.banco && payment.numero_cuenta_ultimos4);
+  return (
+    <div className={styles.documentControl}>
+      <span className={hasRhe ? styles.documentReady : styles.documentPending}>
+        {hasRhe ? <FileCheck2 size={13} /> : <ReceiptText size={13} />}
+        {hasRhe ? `${payment.rhe_serie}-${payment.rhe_numero}` : 'RHE pendiente'}
+      </span>
+      <small className={hasBank ? styles.bankOk : styles.bankPending}>
+        <Landmark size={11} />
+        {hasBank ? `${payment.banco} ···· ${payment.numero_cuenta_ultimos4}` : 'Falta cuenta bancaria'}
+      </small>
+    </div>
+  );
 }
 
 export function PaymentsPanel({
@@ -241,32 +374,44 @@ export function PaymentsPanel({
           <colgroup>
             <col className={styles.colEmployee} />
             <col className={styles.colSite} />
-            <col className={styles.colPeriod} />
+            <col className={styles.colBase} />
             <col className={styles.colOvertime} />
+            <col className={styles.colGross} />
             <col className={styles.colDeductions} />
             <col className={styles.colDeposit} />
             <col className={styles.colDocument} />
             <col className={styles.colStatus} />
             <col className={styles.colActions} />
           </colgroup>
-          <thead><tr><th>Colaborador</th><th>Sede</th><th>Pago del periodo</th><th>Horas extra</th><th>Descuentos</th><th>A depositar</th><th>Expediente</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Colaborador</th>
+              <th>Sede</th>
+              <th>Honorario base</th>
+              <th>Horas extra</th>
+              <th>Total Bruto (RHE)</th>
+              <th>Descuentos</th>
+              <th>A depositar</th>
+              <th>Expediente</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
           <tbody>{payments.map(payment => <tr key={payment.empleado_id}>
             <td><div className={styles.employee}><img src={getEmployeePhotoUrl({ id: payment.empleado_id, sexo: payment.sexo, foto: payment.foto })} onError={employeePhotoFallbackHandler({ id: payment.empleado_id, sexo: payment.sexo, foto: payment.foto })} alt="" /><div><strong>{payment.nombres} {payment.apellidos}</strong><span>{payment.codigo_empleado} · {payment.cargo}</span></div></div></td>
             <td><span className={styles.site}>{payment.sede}</span></td>
-            <td><ServicePeriodCell payment={payment} /></td>
-            <td><div className={styles.amountCell}><strong className={styles.overtime}>{money.format(number(payment.monto_horas_extra))}</strong><span>{payment.minutos_horas_extra > 0 ? `Tiempo aprobado: ${formatDurationMinutes(payment.minutos_horas_extra)}` : 'Sin tiempo aprobado'}</span></div></td>
-            <td><div className={styles.amountCell}><strong className={styles.deduction}>{money.format(number(payment.adelantos) + number(payment.cuotas_prestamo) + number(payment.otros_descuentos))}</strong><span>{Number(payment.inasistencias_parciales_pendientes || 0) > 0 ? `${payment.inasistencias_parciales_pendientes} jornada(s) parcial(es) por resolver` : Number(payment.minutos_inasistencia_parcial || 0) > 0 ? `${formatDurationMinutes(Number(payment.minutos_inasistencia_parcial))} no laboradas descontadas` : Number(payment.faltas_pendientes || 0) > 0 ? `${payment.faltas_pendientes} falta(s) por resolver` : Number(payment.faltas_confirmadas || 0) > 0 ? `${payment.faltas_confirmadas} falta(s) descontadas` : 'Sin descuentos aplicados'}</span></div></td>
-            <td><div className={styles.depositAmount}><strong className={styles.total}>{money.format(number(payment.total_depositar))}</strong><span>Importe final</span></div></td>
-            <td><div className={styles.documentControl}>
-              <span className={payment.rhe_numero ? styles.documentReady : styles.documentPending}>{payment.rhe_numero ? <FileCheck2 /> : <ReceiptText />}{payment.rhe_numero ? `${payment.rhe_serie}-${payment.rhe_numero}` : 'RHE pendiente'}</span>
-              <small>{payment.numero_cuenta_ultimos4 ? `${payment.banco} · •••• ${payment.numero_cuenta_ultimos4}` : 'Cuenta bancaria pendiente'}</small>
-            </div></td>
+            <td><BaseFeeCell payment={payment} /></td>
+            <td><OvertimeCell payment={payment} /></td>
+            <td><GrossServiceCell payment={payment} /></td>
+            <td><DeductionsCell payment={payment} /></td>
+            <td><DepositCell payment={payment} /></td>
+            <td><DocumentControlCell payment={payment} /></td>
             <td><div className={styles.statusCell}>
               <span className={`${styles.status} ${styles[`status_${payment.estado}`]}`}><i />{statusLabel[payment.estado]}</span>
               <small>{paymentControlCopy(payment)}</small>
             </div></td>
             <td><div className={styles.actions}>
-              <Action title="Ver expediente mensual" icon={<Eye />} onClick={() => setLedgerEmployee(payment)} />
+              <Action title="Ver expediente mensual y boleta" icon={<Eye />} onClick={() => setLedgerEmployee(payment)} />
               {canManage && <Action title="Configurar pago y cuenta" icon={<PencilLine />} onClick={() => setModal({ action: 'agreement', payment })} />}
               {canManage && <Action title="Registrar adelanto o ajuste" icon={<Plus />} onClick={() => setModal({ action: 'movement', payment })} />}
               {canManage && <Action title="Registrar préstamo" icon={<Landmark />} onClick={() => setModal({ action: 'loan', payment })} />}
@@ -552,7 +697,42 @@ function PaymentForm({ modal, month, submitting, onClose, onSubmit }: { modal: M
       </>}
       {modal.action === 'movement' && <><Field label="Tipo de movimiento" required><select value={form.type ?? 'ADELANTO'} onChange={e => update('type', e.target.value)}><option value="ADELANTO">Adelanto</option><option value="OTRO_INGRESO">Otro ingreso</option><option value="OTRO_DESCUENTO">Otro descuento</option></select></Field><Field label="Monto" required><input type="number" min="0.01" step="0.01" value={form.amount ?? ''} onChange={e => update('amount', e.target.value)} /></Field><Field label="Concepto" wide required><input value={form.concept ?? ''} onChange={e => update('concept', e.target.value)} placeholder="Motivo o referencia del movimiento" /></Field></>}
       {modal.action === 'loan' && <><Field label="Monto entregado" required><input type="number" min="0.01" step="0.01" value={form.total_amount ?? ''} onChange={e => update('total_amount', e.target.value)} /></Field><Field label="Cuota mensual" required><input type="number" min="0.01" step="0.01" value={form.monthly_installment ?? ''} onChange={e => update('monthly_installment', e.target.value)} /></Field><Field label="Primera cuota" required><input type="month" value={form.start_month ?? month} onChange={e => update('start_month', e.target.value)} /></Field><Field label="Concepto" required><input value={form.concept ?? ''} onChange={e => update('concept', e.target.value)} placeholder="Descripción del préstamo" /></Field></>}
-      {modal.action === 'receipt' && <><Field label="Serie" required><input value={form.series ?? ''} maxLength={8} onChange={e => update('series', e.target.value)} /></Field><Field label="Número" required><input value={form.number ?? ''} maxLength={20} onChange={e => update('number', e.target.value)} /></Field><Field label="Fecha de emisión" required><input type="date" value={form.issued_at ?? ''} onChange={e => update('issued_at', e.target.value)} /></Field><Field label="Importe bruto del RHE" required><input type="number" min="0.01" step="0.01" value={form.amount ?? ''} onChange={e => update('amount', e.target.value)} /></Field><p className={styles.formNote}>Importe aprobado: <strong>{money.format(number(payment.total_servicio))}</strong>. El RHE debe coincidir antes de crear el lote bancario.</p></>}
+      {modal.action === 'receipt' && <>
+        <div className={styles.receiptHelpCard}>
+          <div className={styles.receiptHelpHeader}>
+            <ReceiptText size={18} />
+            <div>
+              <strong>¿Por qué el RHE debe registrarse por {money.format(number(payment.total_servicio))}?</strong>
+              <small>Normativa tributaria SUNAT: El Recibo por Honorarios electrónico se emite por el importe bruto de la locación de servicios. Los adelantos o préstamos no disminuyen la factura tributaria, sino que se descuentan al momento de realizar la transferencia bancaria.</small>
+            </div>
+          </div>
+          <div className={styles.receiptHelpRow}>
+            <div><span>Honorario mensual:</span> <b>{money.format(number(payment.pago_mensual))}</b></div>
+            {number(payment.monto_horas_extra) > 0 && <div><span>Horas extra aprobadas:</span> <b>+ {money.format(number(payment.monto_horas_extra))}</b></div>}
+            {number(payment.otros_ingresos) > 0 && <div><span>Otros ingresos:</span> <b>+ {money.format(number(payment.otros_ingresos))}</b></div>}
+          </div>
+          <div className={styles.receiptHelpTotal}>
+            <span>Importe a consignar en el RHE (SUNAT):</span>
+            <strong>{money.format(number(payment.total_servicio))}</strong>
+          </div>
+          <div className={styles.receiptHelpNet}>
+            <span>Neto a transferir en cuenta bancaria:</span>
+            <b>{money.format(number(payment.total_depositar))}</b>
+            <small>(tras descontar {money.format(Math.max(0, number(payment.total_servicio) - number(payment.total_depositar)))} en adelantos/préstamos)</small>
+          </div>
+          <button
+            type="button"
+            className={styles.copyAmountBtn}
+            onClick={() => update('amount', String(payment.total_servicio))}
+          >
+            Copiar monto exacto del RHE ({money.format(number(payment.total_servicio))})
+          </button>
+        </div>
+        <Field label="Serie" required><input value={form.series ?? ''} maxLength={8} onChange={e => update('series', e.target.value)} placeholder="Ej. E001" /></Field>
+        <Field label="Número de recibo" required><input value={form.number ?? ''} maxLength={20} onChange={e => update('number', e.target.value)} placeholder="Ej. 124" /></Field>
+        <Field label="Fecha de emisión" required><input type="date" value={form.issued_at ?? ''} onChange={e => update('issued_at', e.target.value)} /></Field>
+        <Field label="Importe bruto del RHE (S/)" required><input type="number" min="0.01" step="0.01" value={form.amount ?? ''} onChange={e => update('amount', e.target.value)} placeholder="0.00" /></Field>
+      </>}
       {modal.action === 'deposit' && <><div className={styles.depositSummary}><span>Total a depositar</span><strong>{money.format(number(payment.total_depositar))}</strong><small>{payment.banco} · cuenta •••• {payment.numero_cuenta_ultimos4}</small></div><Field label="Número de operación bancaria" wide required><input value={form.operation_number ?? ''} onChange={e => update('operation_number', e.target.value)} placeholder="Código o referencia del depósito" /></Field></>}
     </form>
   </Modal>;

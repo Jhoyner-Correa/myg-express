@@ -1,8 +1,8 @@
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
-  Banknote, CalendarDays, CheckCircle2, CircleAlert, Clock3, FileText,
-  Landmark, NotebookPen, ReceiptText, ShieldCheck, Trash2, UserRound, WalletCards,
+  CalendarDays, CheckCircle2, CircleAlert, Clock3, FileText,
+  Landmark, NotebookPen, Printer, ReceiptText, ShieldCheck, Trash2, UserRound, WalletCards,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
 import { Modal } from '../../../components/ui/Modal/Modal';
@@ -179,7 +179,12 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
     maxWidth={1120}
     className={styles.modal}
     onClose={onClose}
-    footer={<Button variant="secondary" onClick={onClose}>Cerrar expediente</Button>}
+    footer={<>
+      <Button variant="secondary" icon={<Printer size={16} />} onClick={() => window.print()}>
+        Imprimir liquidación
+      </Button>
+      <Button variant="secondary" onClick={onClose}>Cerrar expediente</Button>
+    </>}
   >
     {error ? <div className={styles.feedback}><CircleAlert /><strong>No se pudo abrir el expediente</strong><span>{getApiErrorMessage(error, 'Intenta nuevamente.')}</span><Button variant="secondary" onClick={() => void load()}>Reintentar</Button></div>
       : loading && !ledger ? <div className={styles.loading}><span /><p>Consolidando información del periodo…</p></div>
@@ -200,10 +205,10 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
 
           <section className={styles.amountStrip} aria-label="Resumen económico del colaborador">
             <Metric label="Pago mensual aplicado" value={amount(appliedMonthlyPayment)} icon={<WalletCards />} />
-            <Metric label="Horas extra aprobadas" value={amount(liquidation?.monto_horas_extra)} detail={duration(ledger.attendance_summary.overtime_minutes)} icon={<Clock3 />} tone="violet" />
-            <Metric label="Otros ingresos" value={amount(liquidation?.otros_ingresos)} icon={<Banknote />} tone="blue" />
+            <Metric label="Horas extra & bonos" value={amount(Number(liquidation?.monto_horas_extra || 0) + Number(liquidation?.otros_ingresos || 0))} detail={ledger.attendance_summary.overtime_minutes > 0 ? duration(ledger.attendance_summary.overtime_minutes) : undefined} icon={<Clock3 />} tone="violet" />
+            <Metric label="Total Bruto (RHE SUNAT)" value={amount(liquidation?.total_servicio ?? appliedMonthlyPayment)} detail="Comprobante fiscal" icon={<FileText />} tone="blue" />
             <Metric label="Descuentos totales" value={amount(deductions)} detail={discountDetail} icon={<Landmark />} tone="amber" />
-            <Metric label="Total a depositar" value={amount(liquidation?.total_depositar)} icon={<CheckCircle2 />} tone="green" prominent />
+            <Metric label="Total a depositar (Neto)" value={amount(liquidation?.total_depositar ?? appliedMonthlyPayment)} icon={<CheckCircle2 />} tone="green" prominent />
           </section>
 
           {partialPeriod && <section className={styles.prorationSummary} aria-label="Cálculo del periodo parcial">
@@ -281,6 +286,171 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
               </small>
             </span>
           </div>
+
+          {/* Pre-boleta formal imprimible de liquidación */}
+          <article className={styles.voucherCard} aria-label="Liquidación de servicios">
+            <header className={styles.voucherHeader}>
+              <div>
+                <span className={styles.voucherCompany}>M&G Express · Liquidación de Servicios</span>
+                <h4>Boleta de Honorarios y Servicios</h4>
+                <small>Periodo: {monthTitle.format(new Date(`${month}-01T00:00:00Z`))}</small>
+              </div>
+              <div className={styles.voucherBadge}>
+                <span className={styles.voucherStatus}>
+                  {liquidationNames[liquidation?.estado ?? 'PREVISUALIZACION'] ?? liquidation?.estado ?? 'Vista previa'}
+                </span>
+                {liquidation?.rhe_numero ? (
+                  <small>RHE {liquidation.rhe_serie}-{liquidation.rhe_numero}</small>
+                ) : (
+                  <small>RHE no emitido</small>
+                )}
+              </div>
+            </header>
+
+            <div className={styles.voucherWorkerData}>
+              <div>
+                <span>Colaborador</span>
+                <strong>{ledger.employee.nombres} {ledger.employee.apellidos}</strong>
+              </div>
+              <div>
+                <span>Documento</span>
+                <strong>DNI {ledger.employee.dni || '—'}</strong>
+              </div>
+              <div>
+                <span>Cargo / Sede</span>
+                <strong>{ledger.employee.cargo} · {ledger.employee.sede}</strong>
+              </div>
+              <div>
+                <span>Código</span>
+                <strong>{ledger.employee.codigo_empleado}</strong>
+              </div>
+            </div>
+
+            <div className={styles.voucherTables}>
+              <div className={styles.voucherCol}>
+                <div className={styles.voucherTableHeading}>
+                  <span>1. Ingresos y Servicios Prestados</span>
+                </div>
+                <table className={styles.voucherTable}>
+                  <tbody>
+                    <tr>
+                      <td>
+                        Honorario base del periodo
+                        {partialPeriod && <><br /><small>{serviceDays} de {periodDays} días computados</small></>}
+                      </td>
+                      <td className={styles.voucherNum}>{amount(appliedMonthlyPayment)}</td>
+                    </tr>
+                    {Number(liquidation?.monto_horas_extra || 0) > 0 && (
+                      <tr>
+                        <td>
+                          Horas extras reconocidas
+                          <br /><small>{duration(ledger.attendance_summary.overtime_minutes)} trabajadas</small>
+                        </td>
+                        <td className={styles.voucherNum}>{amount(liquidation?.monto_horas_extra)}</td>
+                      </tr>
+                    )}
+                    {Number(liquidation?.otros_ingresos || 0) > 0 && (
+                      <tr>
+                        <td>Otros ingresos y bonificaciones</td>
+                        <td className={styles.voucherNum}>{amount(liquidation?.otros_ingresos)}</td>
+                      </tr>
+                    )}
+                    <tr className={styles.voucherSubtotalRow}>
+                      <td><strong>Total Bruto (Comprobante SUNAT)</strong></td>
+                      <td className={styles.voucherNum}>
+                        <strong>{amount(liquidation?.total_servicio ?? appliedMonthlyPayment)}</strong>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className={styles.voucherCol}>
+                <div className={styles.voucherTableHeading}>
+                  <span>2. Deducciones y Compensaciones</span>
+                </div>
+                <table className={styles.voucherTable}>
+                  <tbody>
+                    {absenceDiscount > 0 && (
+                      <tr>
+                        <td>
+                          Descuento por inasistencia
+                          <br /><small>{confirmedAbsences} día(s) no laborado(s)</small>
+                        </td>
+                        <td className={styles.voucherNum}>− {amount(absenceDiscount)}</td>
+                      </tr>
+                    )}
+                    {partialAbsenceDiscount > 0 && (
+                      <tr>
+                        <td>
+                          Descuento tiempo parcial
+                          <br /><small>{duration(partialAbsenceMinutes)} no compensadas</small>
+                        </td>
+                        <td className={styles.voucherNum}>− {amount(partialAbsenceDiscount)}</td>
+                      </tr>
+                    )}
+                    {Number(liquidation?.adelantos || 0) > 0 && (
+                      <tr>
+                        <td>Adelanto de honorarios</td>
+                        <td className={styles.voucherNum}>− {amount(liquidation?.adelantos)}</td>
+                      </tr>
+                    )}
+                    {Number(liquidation?.cuotas_prestamo || 0) > 0 && (
+                      <tr>
+                        <td>Cuota de préstamo</td>
+                        <td className={styles.voucherNum}>− {amount(liquidation?.cuotas_prestamo)}</td>
+                      </tr>
+                    )}
+                    {(() => {
+                      const otherDiscounts = Math.max(0, Number(liquidation?.otros_descuentos || 0) - absenceDiscount - partialAbsenceDiscount);
+                      if (otherDiscounts > 0) {
+                        return (
+                          <tr>
+                            <td>Otros descuentos aplicados</td>
+                            <td className={styles.voucherNum}>− {amount(otherDiscounts)}</td>
+                          </tr>
+                        );
+                      }
+                      return null;
+                    })()}
+                    {deductions === 0 && (
+                      <tr>
+                        <td colSpan={2} className={styles.voucherEmptyRow}>
+                          Sin deducciones ni compensaciones en el periodo
+                        </td>
+                      </tr>
+                    )}
+                    <tr className={styles.voucherSubtotalRow}>
+                      <td><strong>Total Deducciones</strong></td>
+                      <td className={styles.voucherNum}>
+                        <strong>{deductions > 0 ? `− ${amount(deductions)}` : amount(0)}</strong>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <footer className={styles.voucherFooter}>
+              <div className={styles.voucherBankDetail}>
+                <span>Información de Abono Bancario</span>
+                <strong>
+                  {ledger.employee.banco ? `${ledger.employee.banco} ···· ${ledger.employee.numero_cuenta_ultimos4 ?? '—'}` : 'Cuenta bancaria pendiente'}
+                </strong>
+                {liquidation?.pago_operacion ? (
+                  <small>Operación #{liquidation.pago_operacion} · {formatDate(liquidation.pago_fecha)}</small>
+                ) : liquidation?.lote_codigo ? (
+                  <small>Lote #{liquidation.lote_codigo}</small>
+                ) : (
+                  <small>Pendiente de programación bancaria</small>
+                )}
+              </div>
+              <div className={styles.voucherFinalAmount}>
+                <span>Neto a Transferir:</span>
+                <strong>{amount(liquidation?.total_depositar ?? appliedMonthlyPayment)}</strong>
+              </div>
+            </footer>
+          </article>
 
           <div className={styles.detailGrid}>
             <section className={styles.detailPanel}>
