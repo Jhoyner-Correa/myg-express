@@ -1,0 +1,424 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.headerIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #e0f2fe;
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.headerTitle div h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.headerTitle div p {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.closeBtn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.closeBtn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.body {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Estado del día */
+.statusBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.statusMain {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge_PRESENTE {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badge_TARDANZA {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.badge_FALTA {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.badge_PERMISO, .badge_VACACIONES {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.badge_NO_LABORABLE, .badge_DESCANSO {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.justifiedChip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Tarjetas de sección */
+.card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1rem;
+  background: #ffffff;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cardHeader svg {
+  color: #0284c7;
+}
+
+/* Horario y Marcaciones */
+.scheduleStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.6rem;
+}
+
+.markBox {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.6rem;
+  text-align: center;
+}
+
+.markBox small {
+  display: block;
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.markBox strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.markBox em {
+  display: block;
+  font-size: 0.7rem;
+  font-style: normal;
+  color: #9a3412;
+  font-weight: 600;
+  margin-top: 0.15rem;
+}
+
+.emptyMark {
+  color: #94a3b8 !important;
+  font-weight: 400 !important;
+}
+
+/* Impacto Económico */
+.economicBox {
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.economicPositive {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.economicNegative {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.economicWarning {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.economicHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.economicTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.economicAmount {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.amountPlus {
+  color: #16a34a;
+}
+
+.amountMinus {
+  color: #dc2626;
+}
+
+.amountNeutral {
+  color: #475569;
+}
+
+.economicDetail {
+  font-size: 0.8rem;
+  color: #475569;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Horas Extras */
+.overtimeCard {
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  border-radius: 10px;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.overtimeTopline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.overtimeMinutes {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #7e22ce;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.overtimeReason {
+  font-size: 0.8rem;
+  color: #581c87;
+  margin: 0;
+  font-style: italic;
+}
+
+/* Resolución In-Situ */
+.resolveSection {
+  border: 1px solid #fed7aa;
+  background: #fffaf5;
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.resolveHeading {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #9a3412;
+}
+
+.resolveButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.choiceBtn {
+  flex: 1;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: all 0.15s;
+}
+
+.choiceBtn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.choiceActiveGreen {
+  background: #dcfce7 !important;
+  border-color: #22c55e !important;
+  color: #15803d !important;
+}
+
+.choiceActiveRed {
+  background: #fee2e2 !important;
+  border-color: #ef4444 !important;
+  color: #b91c1c !important;
+}
+
+.commentInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  resize: vertical;
+  min-height: 55px;
+  font-family: inherit;
+  outline: none;
+}
+
+.commentInput:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
+
+.resolveFooter {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Estados de carga y error */
+.centerState {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}

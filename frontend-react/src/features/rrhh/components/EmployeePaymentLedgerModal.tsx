@@ -11,6 +11,7 @@ import { showToast } from '../../../core/utils/toast';
 import { rrhhService } from '../rrhh.service';
 import type { ServicePaymentEmployeeLedger, ServicePaymentRow } from '../types';
 import { employeePhotoFallbackHandler, getEmployeePhotoUrl } from './employee-avatar';
+import { PaymentDayDetailModal } from './PaymentDayDetailModal';
 import styles from './EmployeePaymentLedgerModal.module.css';
 
 type Props = {
@@ -83,6 +84,7 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
   const [savingNote, setSavingNote] = useState(false);
   const [cancelNoteId, setCancelNoteId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     if (!employee) return;
@@ -105,6 +107,7 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
     setReferenceAmount('');
     setCancelNoteId(null);
     setCancelReason('');
+    setSelectedDayDate(null);
   }, [employee?.empleado_id, month]);
 
   const attendanceByDate = useMemo(() => new Map((ledger?.attendance ?? []).map(record => [record.fecha, record])), [ledger?.attendance]);
@@ -222,26 +225,60 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
           <div className={styles.mainGrid}>
             <section className={styles.calendarPanel}>
               <header className={styles.sectionHeader}>
-                <div><CalendarDays /><span><strong>Control mensual de asistencia</strong><small>Contexto operativo del pago</small></span></div>
-                <div className={styles.legend}><span className={styles.presentDot}>Asistió</span><span className={styles.lateDot}>Tardanza</span><span className={styles.absentDot}>Falta</span><span className={styles.justifiedDot}>Justificado</span></div>
+                <div><CalendarDays /><span><strong>Control mensual de asistencia</strong><small>Haz clic en cualquier fecha para ver el detalle de marcaciones e incidencias</small></span></div>
+                <div className={styles.legend}>
+                  <span className={styles.presentDot}>Asistió</span>
+                  <span className={styles.lateDot}>Tardanza</span>
+                  <span className={styles.absentDot}>Falta</span>
+                  <span className={styles.justifiedDot}>Justificado</span>
+                  <span className={styles.overtimeDot}>Horas extra</span>
+                </div>
               </header>
               <div className={styles.calendarTitle}>{monthTitle.format(new Date(`${month}-01T00:00:00Z`))}</div>
               <div className={styles.calendar}>
                 {week.map(day => <span className={styles.weekDay} key={day}>{day}</span>)}
                 {cells.map((day, index) => {
                   if (!day) return <span className={styles.emptyDay} key={`empty-${index}`} />;
-                  const record = attendanceByDate.get(dayKey(month, day));
+                  const dateKey = dayKey(month, day);
+                  const record = attendanceByDate.get(dateKey);
                   const status = String(record?.estado_asistencia ?? '').toUpperCase();
                   const justificationStatus = String(record?.justificacion_estado ?? '').toUpperCase();
                   const justifiedIncident = ['TARDANZA', 'FALTA'].includes(status) && justificationStatus === 'APROBADA';
                   const pendingJustification = ['TARDANZA', 'FALTA'].includes(status) && justificationStatus === 'PENDIENTE';
+                  const hasOvertime = Number(record?.minutos_horas_extra || 0) > 0;
                   const calendarLabel = justifiedIncident
                     ? `${statusNames[status] ?? status} justificada`
                     : statusNames[status] ?? status;
-                  return <div className={`${styles.day} ${status ? styles[`day_${status}`] ?? '' : ''} ${justifiedIncident ? styles.dayJustified : ''} ${pendingJustification ? styles.dayJustificationPending : ''}`} key={day}>
-                    <span>{day}</span>
-                    {record ? <><strong>{calendarLabel}</strong>{record.minutos_tardanza > 0 && <small>{duration(record.minutos_tardanza)}</small>}{pendingJustification && <small>En revisión</small>}</> : null}
-                  </div>;
+                  return (
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className={`${styles.day} ${styles.clickableDay} ${status ? styles[`day_${status}`] ?? '' : ''} ${justifiedIncident ? styles.dayJustified : ''} ${pendingJustification ? styles.dayJustificationPending : ''}`}
+                      key={day}
+                      title={`Día ${day}: Haz clic para ver detalle de marcaciones, horario y liquidación`}
+                      onClick={() => setSelectedDayDate(dateKey)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedDayDate(dateKey);
+                        }
+                      }}
+                    >
+                      <span>{day}</span>
+                      {record ? (
+                        <>
+                          <strong>{calendarLabel}</strong>
+                          {record.minutos_tardanza > 0 && <small>{duration(record.minutos_tardanza)}</small>}
+                          {hasOvertime && (
+                            <span className={styles.overtimeChip}>
+                              +{duration(record.minutos_horas_extra)}
+                            </span>
+                          )}
+                          {pendingJustification && <small>En revisión</small>}
+                        </>
+                      ) : null}
+                    </div>
+                  );
                 })}
               </div>
             </section>
@@ -503,6 +540,27 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
               {!ledger.notes.length && <Empty text="Todavía no se registraron notas administrativas para este mes." />}
             </div>
           </section>
+          <PaymentDayDetailModal
+            date={selectedDayDate}
+            employee={ledger?.employee ? {
+              id: ledger.employee.id,
+              codigo_empleado: ledger.employee.codigo_empleado,
+              nombres: ledger.employee.nombres,
+              apellidos: ledger.employee.apellidos,
+              cargo: ledger.employee.cargo,
+              sede: ledger.employee.sede,
+              sede_id: ledger.employee.sede_id,
+              pago_mensual: Number(appliedMonthlyPayment || ledger.employee.pago_mensual || 0),
+              tarifa_hora_extra: Number(ledger.employee.tarifa_hora_extra || 0),
+              tarifa_hora_extra_modo: ledger.employee.tarifa_hora_extra_modo,
+            } : null}
+            periodDays={periodDays}
+            canManage={canManage}
+            onClose={() => setSelectedDayDate(null)}
+            onResolved={async () => {
+              await load();
+            }}
+          />
         </div> : null}
   </Modal>;
 }
