@@ -33,12 +33,12 @@ function envNumber(name: string, fallback: number): number {
 
 const jobAttempts = Math.max(1, envNumber('WHATSAPP_JOB_ATTEMPTS', 1));
 const jobRetryDelayMs = Math.max(1000, envNumber('WHATSAPP_JOB_RETRY_DELAY_MS', 120000));
-const interMessageDelayMs = Math.max(1000, envNumber('WHATSAPP_INTER_MESSAGE_DELAY_MS', 25000));
-const batchSize = Math.max(1, envNumber('WHATSAPP_BATCH_SIZE', 15));
-const batchPauseMs = Math.max(0, envNumber('WHATSAPP_BATCH_PAUSE_MS', 300000));
+const interMessageDelayMs = Math.max(1000, envNumber('WHATSAPP_INTER_MESSAGE_DELAY_MS', 5000));
+const batchSize = Math.max(1, envNumber('WHATSAPP_BATCH_SIZE', 35));
+const batchPauseMs = Math.max(0, envNumber('WHATSAPP_BATCH_PAUSE_MS', 15000));
 const jitterMs = Math.min(
   Math.floor(interMessageDelayMs / 2),
-  Math.max(0, envNumber('WHATSAPP_INTER_MESSAGE_JITTER_MS', 8000))
+  Math.max(0, envNumber('WHATSAPP_INTER_MESSAGE_JITTER_MS', 1500))
 );
 
 export const waQueue = new Queue<WhatsappJobData>(QUEUE_NAME, {

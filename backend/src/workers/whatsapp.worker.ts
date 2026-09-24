@@ -17,18 +17,18 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const minSendIntervalMs = Math.max(1000, envNumber('WHATSAPP_INTER_MESSAGE_DELAY_MS', 25000));
+const minSendIntervalMs = Math.max(1000, envNumber('WHATSAPP_INTER_MESSAGE_DELAY_MS', 5000));
 const workerConcurrency = Math.max(1, envNumber('WHATSAPP_WORKER_CONCURRENCY', 1));
-const rateLimitMax = Math.max(1, envNumber('WHATSAPP_RATE_LIMIT_MAX', 2));
+const rateLimitMax = Math.max(1, envNumber('WHATSAPP_RATE_LIMIT_MAX', 15));
 const rateLimitDurationMs = Math.max(1000, envNumber('WHATSAPP_RATE_LIMIT_DURATION_MS', 60000));
-const adaptiveAfterMessages = Math.max(1, envNumber('WHATSAPP_ADAPTIVE_AFTER_MESSAGES', 30));
-const adaptiveExtraDelayMs = Math.max(0, envNumber('WHATSAPP_ADAPTIVE_EXTRA_DELAY_MS', 60000));
-const adaptiveStrongAfterMessages = Math.max(adaptiveAfterMessages, envNumber('WHATSAPP_ADAPTIVE_STRONG_AFTER_MESSAGES', 50));
-const adaptiveStrongDelayMs = Math.max(0, envNumber('WHATSAPP_ADAPTIVE_STRONG_DELAY_MS', 240000));
-const hourlyHardLimit = Math.max(1, envNumber('WHATSAPP_HOURLY_HARD_LIMIT', 45));
-const hourlyHardCooldownMs = Math.max(60000, envNumber('WHATSAPP_HOURLY_HARD_COOLDOWN_MS', 1800000));
-const mediaTextOnlyAfterMessages = Math.max(0, envNumber('WHATSAPP_MEDIA_TEXT_ONLY_AFTER_MESSAGES', 35));
-const mediaStrategy = String(process.env.WHATSAPP_MEDIA_STRATEGY || 'text_after_threshold').toLowerCase();
+const adaptiveAfterMessages = Math.max(1, envNumber('WHATSAPP_ADAPTIVE_AFTER_MESSAGES', 150));
+const adaptiveExtraDelayMs = Math.max(0, envNumber('WHATSAPP_ADAPTIVE_EXTRA_DELAY_MS', 2000));
+const adaptiveStrongAfterMessages = Math.max(adaptiveAfterMessages, envNumber('WHATSAPP_ADAPTIVE_STRONG_AFTER_MESSAGES', 250));
+const adaptiveStrongDelayMs = Math.max(0, envNumber('WHATSAPP_ADAPTIVE_STRONG_DELAY_MS', 5000));
+const hourlyHardLimit = Math.max(1, envNumber('WHATSAPP_HOURLY_HARD_LIMIT', 350));
+const hourlyHardCooldownMs = Math.max(60000, envNumber('WHATSAPP_HOURLY_HARD_COOLDOWN_MS', 60000));
+const mediaTextOnlyAfterMessages = Math.max(0, envNumber('WHATSAPP_MEDIA_TEXT_ONLY_AFTER_MESSAGES', 300));
+const mediaStrategy = String(process.env.WHATSAPP_MEDIA_STRATEGY || 'always').toLowerCase();
 
 function isWhatsappConnectionError(message: string): boolean {
   const normalized = message.toLowerCase();
@@ -64,7 +64,11 @@ function isWhatsappSafetyPauseError(message: string): boolean {
     || normalized.includes('connection replaced')
     || normalized.includes('logged out')
     || normalized.includes('forbidden')
-    || normalized.includes('unauthorized');
+    || normalized.includes('unauthorized')
+    || normalized.includes('sesion de whatsapp con id=')
+    || normalized.includes('sesión de whatsapp con id=')
+    || normalized.includes('no hay ninguna sesion activa')
+    || normalized.includes('no hay ninguna sesión activa');
 }
 
 function isSinWhatsappError(message: string): boolean {
@@ -264,6 +268,66 @@ async function guardarLogEnvio(params: {
   }
 }
 
+async function resolveActiveSessionForJob(
+  requestedSesionId: number,
+  sedeId: number
+): Promise<{ sesionId: number; sessionKey: string } | null> {
+  // 1. Probar la sesión solicitada si existe y pertenece a la sede
+  if (requestedSesionId) {
+    try {
+      const [sesiones]: any = await pool.query(
+        `SELECT id, session_key, activo, estado FROM whatsapp_sesiones WHERE id = ? AND sede_id = ?`,
+        [requestedSesionId, sedeId]
+      );
+
+      if (sesiones.length && sesiones[0].activo) {
+        const isAlive = await whatsappService.isConnected(sesiones[0].session_key);
+        if (isAlive) {
+          return {
+            sesionId: Number(sesiones[0].id),
+            sessionKey: String(sesiones[0].session_key)
+          };
+        }
+        console.warn(`[BullMQ] Sesión asignada ${requestedSesionId} para sede ${sedeId} no está conectada. Buscando alternativa activa en la misma sede...`);
+      } else {
+        console.warn(`[BullMQ] Sesión asignada ${requestedSesionId} no existe o está desactivada. Buscando alternativa activa para sede ${sedeId}...`);
+      }
+    } catch (err: any) {
+      console.warn(`[BullMQ] Error al verificar sesión ${requestedSesionId}:`, err.message);
+    }
+  }
+
+  // 2. Fallback automático: buscar la sesión activa y conectada de la misma sede
+  try {
+    const [candidatos]: any = await pool.query(
+      `SELECT id, session_key, nombre_dispositivo
+       FROM whatsapp_sesiones
+       WHERE sede_id = ? AND activo = 1
+       ORDER BY (estado = 'connected') DESC, updated_at DESC, id DESC`,
+      [sedeId]
+    );
+
+    for (const cand of candidatos) {
+      try {
+        const isAlive = await whatsappService.isConnected(cand.session_key);
+        if (isAlive) {
+          console.log(`[BullMQ] Auto-recuperación exitosa: Reasignando aviso a la sesión conectada ID=${cand.id} (${cand.nombre_dispositivo}) para sede ${sedeId}.`);
+          return {
+            sesionId: Number(cand.id),
+            sessionKey: String(cand.session_key)
+          };
+        }
+      } catch {
+        // Continuar evaluando otros candidatos
+      }
+    }
+  } catch (err: any) {
+    console.warn(`[BullMQ] Error buscando sesiones alternativas para sede ${sedeId}:`, err.message);
+  }
+
+  return null;
+}
+
 export const whatsappWorker = new Worker<WhatsappJobData>(
   QUEUE_NAME,
   async (job: Job<WhatsappJobData>) => {
@@ -271,30 +335,20 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
     console.log(`[BullMQ] Procesando job ${job.id} -> lote ${loteId}, orden ${orden || '-'}, aviso ${avisoId}, telefono ${telefono}`);
 
+    let effectiveSesionId = Number(sesionId) || 0;
+
     try {
-      const [sesiones]: any = await pool.query(
-        `SELECT session_key, activo FROM whatsapp_sesiones WHERE id = ?`,
-        [sesionId]
-      );
+      const activeSession = await resolveActiveSessionForJob(effectiveSesionId, Number(sedeId));
 
-      if (!sesiones.length) {
-        throw new Error(`Sesion de WhatsApp con id=${sesionId} no encontrada`);
-      }
-
-      const sesion = sesiones[0];
-      if (!sesion.activo) {
-        throw new Error('La sesion de WhatsApp esta desactivada. Activala desde el panel.');
-      }
-
-      const sessionKey = sesion.session_key;
-      const conectado = await whatsappService.isConnected(sessionKey);
-
-      if (!conectado) {
-        const pauseReason = 'Envio pausado: WhatsApp no esta conectado. El usuario debe decidir si retoma, marca manualmente o cancela pendientes.';
+      if (!activeSession) {
+        const pauseReason = 'Envio pausado: WhatsApp no esta conectado o no hay ninguna sesion activa para tu sede. Conecta un dispositivo en Ajustes de WhatsApp y reanuda el lote.';
         const removedJobs = await pauseLoteForWhatsAppSafety(Number(loteId), Number(sedeId), pauseReason);
-        console.warn(`[BullMQ] Lote ${loteId} pausado por WhatsApp desconectado. Trabajos pendientes removidos: ${removedJobs}`);
-        return { success: false, paused: true, reason: 'whatsapp_disconnected', removedJobs };
+        console.warn(`[BullMQ] Lote ${loteId} pausado por falta de sesion WhatsApp en sede ${sedeId}. Trabajos removidos: ${removedJobs}`);
+        return { success: false, paused: true, reason: 'no_connected_session_for_sede', removedJobs };
       }
+
+      effectiveSesionId = activeSession.sesionId;
+      const sessionKey = activeSession.sessionKey;
 
       const [avisos]: any = await pool.query(
         `SELECT nombre, telefono, codigo_paquete, id_plantilla, mensaje_personalizado,
@@ -357,7 +411,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         mediaFilename = path.basename(plantilla.imagen_path);
       }
 
-      const trafficStats = await getSessionTrafficStats(Number(sesionId));
+      const trafficStats = await getSessionTrafficStats(Number(effectiveSesionId));
       if (!shouldSendMedia(trafficStats, Boolean(mediaPath))) {
         if (mediaPath) {
           console.log(`[BullMQ] Envio sin imagen para aviso ${avisoId}: estrategia=${mediaStrategy}, enviados_hoy=${trafficStats.today}.`);
@@ -368,7 +422,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       }
 
       await waitForSessionPace(sessionKey, avisoId);
-      await waitForAdaptiveSafety(Number(sesionId), avisoId);
+      await waitForAdaptiveSafety(Number(effectiveSesionId), avisoId);
 
       let result: any;
       try {
@@ -394,14 +448,14 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
              error_detalle = NULL,
              whatsapp_sesion_id = ?
          WHERE id = ?`,
-        [messageId, sesionId, avisoId]
+        [messageId, effectiveSesionId, avisoId]
       );
 
       await guardarLogEnvio({
         sedeId,
         loteId,
         avisoId,
-        sesionId,
+        sesionId: effectiveSesionId,
         telefono: actualTelefono,
         nombre: actualNombre,
         estado: 'enviado',
@@ -441,7 +495,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           sedeId,
           loteId,
           avisoId,
-          sesionId,
+          sesionId: effectiveSesionId || sesionId,
           telefono,
           nombre,
           estado: estadoFinal as 'fallido' | 'sin_whatsapp',

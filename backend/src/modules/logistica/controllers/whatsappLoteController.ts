@@ -151,15 +151,15 @@ export const enviarLoteWhatsApp = async (req: AuthRequest, res: Response) => {
     } = req.body;
     const sede_id = req.user?.sede_id;
 
-    if (!sede_id || !lote_id || !whatsapp_sesion_id) {
+    if (!sede_id || !lote_id) {
       return res.status(400).json({
         ok: false,
-        message: 'lote_id y whatsapp_sesion_id son obligatorios'
+        message: 'lote_id es obligatorio'
       });
     }
 
-    // Validación de plantilla ya no es estrictamente requerida aquí si se asignó en la importación.
-    // Pero si se envía, actualizaremos los avisos.
+    // Validacion de plantilla ya no es estrictamente requerida aqui si se asigno en la importacion.
+    // Pero si se envia, actualizaremos los avisos.
 
     const [loteRows]: any = await pool.query(
       `SELECT id, sede_id, estado
@@ -176,32 +176,40 @@ export const enviarLoteWhatsApp = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const [sesionRows]: any = await pool.query(
-      `SELECT id, sede_id, activo, estado, session_key
-       FROM whatsapp_sesiones
-       WHERE id = ? AND sede_id = ?
-       LIMIT 1`,
-      [whatsapp_sesion_id, sede_id]
-    );
-
-    if (!sesionRows.length) {
-      return res.status(404).json({
-        ok: false,
-        message: 'Sesion de WhatsApp no encontrada o no pertenece a tu sede'
-      });
+    let sesion: any = null;
+    if (whatsapp_sesion_id) {
+      const [sesionRows]: any = await pool.query(
+        `SELECT id, sede_id, activo, estado, session_key
+         FROM whatsapp_sesiones
+         WHERE id = ? AND sede_id = ?
+         LIMIT 1`,
+        [whatsapp_sesion_id, sede_id]
+      );
+      if (sesionRows.length && sesionRows[0].activo) {
+        const isConn = await whatsappService.isConnected(sesionRows[0].session_key);
+        if (isConn) {
+          sesion = sesionRows[0];
+        }
+      }
     }
 
-    const sesion = sesionRows[0];
-
-    if (!sesion.activo) {
-      return res.status(400).json({
-        ok: false,
-        message: 'La sesion de WhatsApp esta inactiva. Actívala desde el panel de WhatsApp.'
-      });
+    if (!sesion) {
+      const [candidatos]: any = await pool.query(
+        `SELECT id, sede_id, activo, estado, session_key
+         FROM whatsapp_sesiones
+         WHERE sede_id = ? AND activo = 1
+         ORDER BY (estado = 'connected') DESC, updated_at DESC, id DESC`,
+        [sede_id]
+      );
+      for (const cand of candidatos) {
+        if (await whatsappService.isConnected(cand.session_key)) {
+          sesion = cand;
+          break;
+        }
+      }
     }
 
-    const conectado = await whatsappService.isConnected(sesion.session_key);
-    if (!conectado) {
+    if (!sesion) {
       await pool.query(
         `UPDATE lotes_carga SET estado = 'pausado' WHERE id = ? AND sede_id = ?`,
         [lote_id, sede_id]
@@ -212,9 +220,11 @@ export const enviarLoteWhatsApp = async (req: AuthRequest, res: Response) => {
         code: 'WHATSAPP_DISCONNECTED',
         requiresIntervention: true,
         control: await getLoteQueueControl(Number(lote_id), Number(sede_id)),
-        message: 'WhatsApp no esta conectado. Reconecta la sesion y luego decide si deseas retomar el envio.'
+        message: 'WhatsApp no esta conectado para tu sede. Por favor conecta tu dispositivo en Ajustes de WhatsApp.'
       });
     }
+
+    const effectiveSesionId = sesion.id;
 
     let plantilla: any = { contenido: '', imagen_path: null };
 
@@ -264,7 +274,7 @@ export const enviarLoteWhatsApp = async (req: AuthRequest, res: Response) => {
     }
 
     try {
-      await encolarLote(Number(lote_id), dispatch.avisos, Number(whatsapp_sesion_id));
+      await encolarLote(Number(lote_id), dispatch.avisos, Number(effectiveSesionId));
     } catch (queueError) {
       await releaseFailedDispatch(dispatch.dispatchPrefix);
       throw queueError;
@@ -344,8 +354,8 @@ export const reanudarLoteWhatsAppInterrumpido = async (req: AuthRequest, res: Re
     const { whatsapp_sesion_id } = req.body;
     const sede_id = req.user?.sede_id;
 
-    if (!sede_id || !loteId || !whatsapp_sesion_id) {
-      return res.status(400).json({ ok: false, message: 'loteId y whatsapp_sesion_id son obligatorios' });
+    if (!sede_id || !loteId) {
+      return res.status(400).json({ ok: false, message: 'loteId es obligatorio' });
     }
 
     // 1. Validar lote
@@ -357,26 +367,45 @@ export const reanudarLoteWhatsAppInterrumpido = async (req: AuthRequest, res: Re
       return res.status(404).json({ ok: false, message: 'Lote no encontrado o no pertenece a tu sede' });
     }
 
-    // 2. Validar sesión
-    const [sesionRows]: any = await pool.query(
-      `SELECT id, activo, session_key FROM whatsapp_sesiones WHERE id = ? AND sede_id = ? LIMIT 1`,
-      [whatsapp_sesion_id, sede_id]
-    );
-    if (!sesionRows.length || !sesionRows[0].activo) {
-      return res.status(404).json({ ok: false, message: 'Sesión inactiva o no encontrada' });
+    // 2. Validar o auto-detectar sesion activa conectada
+    let targetSesion: any = null;
+    if (whatsapp_sesion_id) {
+      const [sesionRows]: any = await pool.query(
+        `SELECT id, activo, session_key, nombre_dispositivo FROM whatsapp_sesiones WHERE id = ? AND sede_id = ? LIMIT 1`,
+        [whatsapp_sesion_id, sede_id]
+      );
+      if (sesionRows.length && sesionRows[0].activo) {
+        const isConn = await whatsappService.isConnected(sesionRows[0].session_key);
+        if (isConn) {
+          targetSesion = sesionRows[0];
+        }
+      }
     }
 
-    const conectado = await whatsappService.isConnected(sesionRows[0].session_key);
-    if (!conectado) {
+    if (!targetSesion) {
+      const [candidatos]: any = await pool.query(
+        `SELECT id, activo, session_key, nombre_dispositivo FROM whatsapp_sesiones 
+         WHERE sede_id = ? AND activo = 1 
+         ORDER BY (estado = 'connected') DESC, updated_at DESC, id DESC`,
+        [sede_id]
+      );
+      for (const cand of candidatos) {
+        if (await whatsappService.isConnected(cand.session_key)) {
+          targetSesion = cand;
+          break;
+        }
+      }
+    }
+
+    if (!targetSesion) {
       return res.status(409).json({
         ok: false,
         code: 'WHATSAPP_DISCONNECTED',
-        message: 'WhatsApp no esta conectado. Reconecta la sesion antes de retomar esta ruta.'
+        message: 'WhatsApp no esta conectado. Por favor conecta una sesion en Ajustes de WhatsApp antes de retomar esta ruta.'
       });
     }
 
-    // Los trabajos residuales se vuelven inofensivos al perder la propiedad
-    // id_trabajo_cola. No se eliminan aqui para evitar carreras entre dos resumes.
+    const effectiveSesionId = targetSesion.id;
     const removedJobs = 0;
 
     // 4. Reclamar atomicamente pendientes/fallidos para este despacho.
