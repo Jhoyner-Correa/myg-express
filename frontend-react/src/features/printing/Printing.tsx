@@ -7,6 +7,7 @@ import {
 } from "react";
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
   Clock3,
   Copy,
@@ -23,6 +24,7 @@ import {
   Truck,
   Wifi,
   WifiOff,
+  X,
   XCircle,
 } from "lucide-react";
 import { PageHeader } from "../../components/ui/PageHeader/PageHeader";
@@ -133,6 +135,10 @@ export function Printing() {
   const [showHistory, setShowHistory] = useState(false);
   const [agents, setAgents] = useState<PrintAgent[]>([]);
   const [pairing, setPairing] = useState<PrintPairing | null>(null);
+  const [viewPairingWizard, setViewPairingWizard] = useState(false);
+  const [testingPrint, setTestingPrint] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [pairingSuccess, setPairingSuccess] = useState(false);
   const selectedSite = sites.find((site) => String(site.id) === siteId) ?? null;
   const payloadLabels = useMemo<PackageLabel[]>(
     () =>
@@ -390,8 +396,13 @@ export function Printing() {
   const openSetup = async () => {
     if (!siteId) return;
     setShowSetup(true);
+    setViewPairingWizard(false);
+    setPairing(null);
+    setPairingSuccess(false);
     try {
-      setAgents(await printingService.agents(Number(siteId)));
+      const ags = await printingService.agents(Number(siteId));
+      setAgents(ags);
+      if (!ags.length) setViewPairingWizard(true);
     } catch (e) {
       showToast(
         getApiErrorMessage(e, "No se pudo consultar el conector."),
@@ -399,6 +410,98 @@ export function Printing() {
       );
     }
   };
+
+  const handleTestPrint = async (agent: PrintAgent) => {
+    setTestingPrint(true);
+    try {
+      const res = await printingService.testPrint(agent.id);
+      showToast(
+        `Prueba de calibración enviada exitosamente a ${res.printerName}.`,
+        "success",
+      );
+      await loadJobs(siteId);
+    } catch (e) {
+      showToast(
+        getApiErrorMessage(e, "No se pudo enviar la prueba de impresión."),
+        "error",
+      );
+    } finally {
+      setTestingPrint(false);
+    }
+  };
+
+  const handleUnlink = async (agent: PrintAgent) => {
+    const ok = await showConfirm({
+      title: "Desvincular estación de impresión",
+      message: `¿Estás seguro de desvincular el equipo ${agent.computerName || agent.name}? La sede no podrá imprimir hasta que se enlace un nuevo equipo.`,
+      confirmText: "Desvincular",
+      type: "danger",
+    });
+    if (!ok) return;
+    try {
+      await printingService.removeAgent(agent.id);
+      setAgents([]);
+      setViewPairingWizard(true);
+      await loadSites();
+      showToast("Estación desvinculada correctamente.", "info");
+    } catch (e) {
+      showToast(
+        getApiErrorMessage(e, "No se pudo desvincular el equipo."),
+        "error",
+      );
+    }
+  };
+
+  const handleGeneratePairing = async () => {
+    try {
+      const res = await printingService.createPairing(Number(siteId));
+      setPairing(res);
+      setCopiedCode(false);
+      setPairingSuccess(false);
+    } catch (e) {
+      showToast(
+        getApiErrorMessage(e, "No se pudo generar el código de vinculación."),
+        "error",
+      );
+    }
+  };
+
+  const copyPairingCode = () => {
+    if (!pairing?.code) return;
+    navigator.clipboard.writeText(pairing.code);
+    setCopiedCode(true);
+    showToast("Código copiado al portapapeles.", "info");
+    setTimeout(() => setCopiedCode(false), 2500);
+  };
+
+  useEffect(() => {
+    if (!showSetup || !pairing?.code || pairingSuccess || !siteId) return;
+    const interval = setInterval(async () => {
+      try {
+        const ags = await printingService.agents(Number(siteId));
+        const newlyLinked = ags.find((a) => {
+          if (!a.pairedAt) return false;
+          return Date.now() - new Date(a.pairedAt).getTime() < 60_000;
+        });
+        if (newlyLinked || ags.length > agents.length) {
+          setPairingSuccess(true);
+          showToast(
+            `¡Equipo ${newlyLinked?.computerName || "local"} vinculado exitosamente!`,
+            "success",
+          );
+          setAgents(ags);
+          await loadSites();
+          setTimeout(() => {
+            setPairing(null);
+            setPairingSuccess(false);
+            setViewPairingWizard(false);
+          }, 1800);
+        }
+      } catch {}
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [showSetup, pairing, pairingSuccess, siteId, agents.length]);
+
   const savePrinter = async (agent: PrintAgent, printer: string) => {
     try {
       await printingService.selectPrinter(agent.id, printer);
@@ -497,82 +600,252 @@ export function Printing() {
         </section>
       )}
       {showSetup && selectedSite && (
-        <section className={styles.setupPanel}>
-          <div className={styles.setupTitle}>
-            <div>
-              <span className={styles.eyebrow}>Configuración</span>
-              <h2>Impresora de {selectedSite.name}</h2>
-            </div>
-            <button type="button" onClick={() => setShowSetup(false)}>
-              Cerrar
-            </button>
-          </div>
-          {!agents.length ? (
-            <div className={styles.pairingBox}>
-              <div>
-                <strong>Vincular equipo de impresión</strong>
-                <p>
-                  Instala MyG Print Connector en la PC conectada por USB e
-                  ingresa el código una sola vez.
-                </p>
-              </div>
-              <div className={styles.pairingActions}>
-                <button
-                  type="button"
-                  onClick={() => void printingService.downloadConnector()}
-                >
-                  <Download /> Descargar instalador
-                </button>
-                {pairing ? (
-                  <code>{pairing.code}</code>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void printingService
-                        .createPairing(Number(siteId))
-                        .then(setPairing)
-                    }
-                  >
-                    Generar código
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            agents.map((agent) => (
-              <div className={styles.agentRow} key={agent.id}>
+        <div
+          className={styles.stationModalBackdrop}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowSetup(false);
+          }}
+        >
+          <div className={styles.stationModal} role="dialog" aria-modal="true">
+            <header className={styles.stationModalHeader}>
+              <div className={styles.stationModalTitleGroup}>
+                <span className={styles.stationModalIcon}>
+                  <Printer />
+                </span>
                 <div>
-                  <strong>{agent.computerName || agent.name}</strong>
-                  <small>
-                    {agent.online
-                      ? "Conectado"
-                      : `Último contacto ${formatDate(agent.lastSeenAt)}`}
-                  </small>
+                  <h2>Estación de Impresión · {selectedSite.name}</h2>
+                  <p>Administración de hardware local, vinculación y calibración</p>
                 </div>
-                <select
-                  value={agent.printerName || ""}
-                  onChange={(e) => void savePrinter(agent, e.target.value)}
-                >
-                  <option value="">Seleccionar impresora USB</option>
-                  {agent.printers.map((name) => (
-                    <option key={name}>{name}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await printingService.removeAgent(agent.id);
-                    setAgents([]);
-                    await loadSites();
-                  }}
-                >
-                  Desvincular
-                </button>
               </div>
-            ))
-          )}
-        </section>
+              <button
+                type="button"
+                className={styles.stationModalCloseBtn}
+                title="Cerrar ventana"
+                onClick={() => setShowSetup(false)}
+              >
+                <X />
+              </button>
+            </header>
+
+            <div className={styles.stationModalBody}>
+              {/* Si hay un agente vinculado y no estamos en el wizard de re-vinculación */}
+              {agents.length > 0 && !viewPairingWizard ? (
+                <>
+                  {agents.map((agent) => {
+                    const isOnline = agent.online;
+                    const isPrinterReady = isOnline && (agent.printerConnected ?? true) && Boolean(agent.printerName);
+                    const isPrinterMissing = isOnline && !isPrinterReady;
+
+                    return (
+                      <div key={agent.id} style={{ display: 'grid', gap: '16px' }}>
+                        {/* Banner de estado de salud del hardware */}
+                        {isPrinterReady ? (
+                          <div className={`${styles.healthBanner} ${styles.healthBannerOnline}`}>
+                            <CheckCircle2 style={{ width: 20, height: 20, flexShrink: 0, marginTop: 1 }} />
+                            <div>
+                              <strong>Estación Operativa y Lista</strong>
+                              <p>El equipo local y la impresora térmica están conectados y listos para despachar trabajos.</p>
+                            </div>
+                          </div>
+                        ) : isPrinterMissing ? (
+                          <div className={`${styles.healthBanner} ${styles.healthBannerWarning}`}>
+                            <AlertTriangle style={{ width: 20, height: 20, flexShrink: 0, marginTop: 1 }} />
+                            <div>
+                              <strong>Atención: Impresora Térmica No Detectada</strong>
+                              <p>
+                                El conector en la PC está activo, pero la impresora térmica no está encendida o el cable USB está desconectado.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`${styles.healthBanner} ${styles.healthBannerOffline}`}>
+                            <WifiOff style={{ width: 20, height: 20, flexShrink: 0, marginTop: 1 }} />
+                            <div>
+                              <strong>Equipo Local Fuera de Línea</strong>
+                              <p>
+                                La computadora de la sede no está transmitiendo. Inicia MyG Print Connector en la PC para reanudar la impresión.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Telemetría del equipo */}
+                        <div className={styles.stationTelemetryGrid}>
+                          <div className={styles.stationTelemetryCard}>
+                            <span className={styles.stationTelemetryLabel}>Equipo / Hostname</span>
+                            <span className={styles.stationTelemetryValue}>
+                              {agent.computerName || agent.name}
+                            </span>
+                          </div>
+                          <div className={styles.stationTelemetryCard}>
+                            <span className={styles.stationTelemetryLabel}>Software Conector</span>
+                            <span className={styles.stationTelemetryValue}>
+                              v{agent.connectorVersion || "1.3.0"}
+                            </span>
+                          </div>
+                          <div className={styles.stationTelemetryCard}>
+                            <span className={styles.stationTelemetryLabel}>Impresora Activa</span>
+                            <span className={styles.stationTelemetryValue}>
+                              {agent.printerName || "Sin asignar"}
+                            </span>
+                          </div>
+                          <div className={styles.stationTelemetryCard}>
+                            <span className={styles.stationTelemetryLabel}>Último Contacto</span>
+                            <span className={styles.stationTelemetryValue}>
+                              {formatDate(agent.lastSeenAt)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Selector de impresora asignada */}
+                        <div className={styles.stationSelectGroup}>
+                          <label>Impresora Térmica Seleccionada (Windows)</label>
+                          <select
+                            className={styles.stationSelectInput}
+                            value={agent.printerName || ""}
+                            onChange={(e) => void savePrinter(agent, e.target.value)}
+                          >
+                            <option value="">-- Seleccionar impresora física USB --</option>
+                            {agent.printers.map((name) => {
+                              const isThermal = /luxur|pos|zj|58|80|label|thermal|receipt|ticket|xprinter|gprinter|tsc|zebra/i.test(name);
+                              return (
+                                <option key={name} value={name}>
+                                  {name} {isThermal ? "★ (Recomendada)" : ""}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+
+                        {/* Botones de acción del hardware */}
+                        <div className={styles.stationModalFooter}>
+                          <button
+                            type="button"
+                            className={styles.testPrintBtn}
+                            disabled={testingPrint || !agent.printerName}
+                            onClick={() => void handleTestPrint(agent)}
+                          >
+                            <Printer style={{ width: 15, height: 15 }} />
+                            <span>{testingPrint ? "Enviando prueba..." : "Imprimir ticket de prueba"}</span>
+                          </button>
+
+                          <div className={styles.stationSecondaryBtns}>
+                            <button
+                              type="button"
+                              className={styles.relinkBtn}
+                              onClick={() => {
+                                setViewPairingWizard(true);
+                                setPairing(null);
+                              }}
+                            >
+                              <RotateCcw style={{ width: 14, height: 14 }} />
+                              <span>Vincular otra PC</span>
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.unlinkBtn}
+                              onClick={() => void handleUnlink(agent)}
+                            >
+                              <Trash2 style={{ width: 14, height: 14 }} />
+                              <span>Desvincular</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              ) : (
+                /* Asistente de vinculación paso a paso */
+                <div className={styles.wizardStepList}>
+                  {pairingSuccess ? (
+                    <div className={styles.pairSuccessBanner}>
+                      <CheckCircle2 style={{ width: 22, height: 22 }} />
+                      <span>¡Equipo vinculado con éxito! Cargando configuración...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Paso 1 */}
+                      <div className={styles.wizardStepCard}>
+                        <span className={styles.wizardStepBadge}>1</span>
+                        <div className={styles.wizardStepContent}>
+                          <strong>Descargar Aplicación Oficial</strong>
+                          <p>
+                            Descarga e instala <strong>MyG Print Connector</strong> en la computadora de la sede conectada a la impresora térmica por USB.
+                          </p>
+                          <button
+                            type="button"
+                            className={styles.downloadOfficialBtn}
+                            onClick={() => void printingService.downloadConnector()}
+                          >
+                            <Download style={{ width: 15, height: 15 }} />
+                            <span>Descargar instalador (.exe)</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Paso 2 */}
+                      <div className={styles.wizardStepCard}>
+                        <span className={styles.wizardStepBadge}>2</span>
+                        <div className={styles.wizardStepContent}>
+                          <strong>Código de Enlace Seguro</strong>
+                          <p>
+                            Ingresa este código de 8 dígitos en la pantalla del instalador o del conector en la PC local.
+                          </p>
+                          {pairing ? (
+                            <div>
+                              <div className={styles.corporateCodeBox}>
+                                <span className={styles.corporateCodeText}>
+                                  {pairing.code.length === 8
+                                    ? `${pairing.code.slice(0, 4)} - ${pairing.code.slice(4)}`
+                                    : pairing.code}
+                                </span>
+                                <button
+                                  type="button"
+                                  className={styles.copyCodeBtn}
+                                  onClick={copyPairingCode}
+                                >
+                                  {copiedCode ? <Check style={{ width: 14, height: 14 }} /> : <Copy style={{ width: 14, height: 14 }} />}
+                                  <span>{copiedCode ? "¡Copiado!" : "Copiar"}</span>
+                                </button>
+                              </div>
+
+                              <div className={styles.liveRadarBar}>
+                                <div className={styles.radarDot} />
+                                <span>Esperando conexión de la PC local en tiempo real...</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              className={styles.generatePairingBtn}
+                              onClick={() => void handleGeneratePairing()}
+                            >
+                              <RefreshCw style={{ width: 15, height: 15 }} />
+                              <span>Generar código de vinculación</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {agents.length > 0 && (
+                        <div style={{ textAlign: "right", marginTop: 4 }}>
+                          <button
+                            type="button"
+                            className={styles.relinkBtn}
+                            onClick={() => setViewPairingWizard(false)}
+                          >
+                            Volver a la estación actual
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
       <div className={styles.workspace}>
         <form className={styles.composer} onSubmit={submit}>

@@ -138,4 +138,50 @@ export async function buildPackageLabelsTspl(labels: readonly PackageLabel[], di
   }
   return { payload: `BASE64:${Buffer.concat(chunks).toString('base64')}`, labelCount: labels.length };
 }
+export async function buildTestCalibrationTspl(siteName: string, computerName: string, printerName: string) {
+  const dateStr = new Intl.DateTimeFormat('es-PE', {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+    timeZone: 'America/Lima',
+  }).format(new Date());
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="304" viewBox="0 0 400 304">
+    <rect width="400" height="304" fill="white"/>
+    <rect x="15" y="10" width="370" height="42" rx="4" fill="black"/>
+    <text x="200" y="39" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="26" font-weight="900" fill="white" letter-spacing="2">MYG EXPRESS</text>
+    
+    <text x="200" y="74" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="800" fill="black" letter-spacing="1">PRUEBA DE CONECTIVIDAD</text>
+    <line x1="20" y1="84" x2="380" y2="84" stroke="black" stroke-width="2"/>
+    
+    <text x="25" y="112" font-family="Arial,sans-serif" font-size="14" font-weight="700">SEDE:</text>
+    <text x="130" y="112" font-family="Arial,sans-serif" font-size="14" font-weight="800">${escapeSvg(toPrinterAscii(siteName).slice(0, 24))}</text>
+    
+    <text x="25" y="140" font-family="Arial,sans-serif" font-size="14" font-weight="700">EQUIPO:</text>
+    <text x="130" y="140" font-family="Arial,sans-serif" font-size="14" font-weight="800">${escapeSvg(toPrinterAscii(computerName).slice(0, 24))}</text>
+    
+    <text x="25" y="168" font-family="Arial,sans-serif" font-size="14" font-weight="700">IMPRESORA:</text>
+    <text x="130" y="168" font-family="Arial,sans-serif" font-size="14" font-weight="800">${escapeSvg(toPrinterAscii(printerName).slice(0, 24))}</text>
+    
+    <text x="25" y="196" font-family="Arial,sans-serif" font-size="13" font-weight="700">FECHA Y HORA:</text>
+    <text x="130" y="196" font-family="Arial,sans-serif" font-size="13" font-weight="800">${escapeSvg(dateStr)}</text>
+    
+    <rect x="20" y="218" width="360" height="48" rx="4" fill="black"/>
+    <text x="200" y="250" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="20" font-weight="900" fill="white" letter-spacing="2">CONEXION EXITOSA - OK</text>
+  </svg>`;
+
+  const { data, info } = await sharp(Buffer.from(svg)).flatten({ background: '#fff' }).greyscale().threshold(170).raw().toBuffer({ resolveWithObject: true });
+  const widthBytes = Math.ceil(info.width / 8);
+  const bitmap = Buffer.alloc(widthBytes * info.height);
+  for (let y = 0; y < info.height; y += 1) for (let x = 0; x < info.width; x += 1) {
+    if (data[y * info.width + x] >= 128) bitmap[y * widthBytes + Math.floor(x / 8)] |= 0x80 >> (x % 8);
+  }
+
+  const chunks = [
+    Buffer.from(`SIZE 50 mm, 38 mm\r\nGAP 3 mm, 0 mm\r\nSPEED 3\r\nDENSITY 8\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,50,304,0,`, 'ascii'),
+    bitmap,
+    Buffer.from(`\r\nPRINT 1,1\r\n`, 'ascii')
+  ];
+
+  return { payload: `BASE64:${Buffer.concat(chunks).toString('base64')}`, labelCount: 1 };
+}
 import sharp from 'sharp';

@@ -19,6 +19,8 @@ import {
   downloadPrintConnector,
   printAgentHeartbeat,
   retryPrintJob,
+  testPrintJob,
+  getPairingStatus,
 } from './printingController';
 
 const router = Router();
@@ -34,6 +36,8 @@ router.get('/sites', listPrintSites);
 router.get('/agents', listPrintAgents);
 router.get('/connector/download', downloadPrintConnector);
 router.post('/pairings', requirePermission(PERMISSIONS.PRINTING_MANAGE), createPrintPairing);
+router.get('/pairings/:id/status', requirePermission(PERMISSIONS.PRINTING_MANAGE), getPairingStatus);
+router.post('/agents/:id/test-print', requirePermission(PERMISSIONS.PRINTING_MANAGE), testPrintJob);
 router.patch('/agents/:id/printer', requirePermission(PERMISSIONS.PRINTING_MANAGE), selectPrintAgentPrinter);
 router.delete('/agents/:id', requirePermission(PERMISSIONS.PRINTING_MANAGE), removePrintAgent);
 router.get('/jobs', listPrintJobs);

@@ -16,10 +16,24 @@ export type PrintSite = {
 export type PrintAgent = {
   id: number; siteId: number; name: string; computerName: string | null;
   printerName: string | null; printers: string[]; connectorVersion: string | null;
-  status: 'ACTIVO' | 'INACTIVO'; online: boolean; lastSeenAt: string | null; pairedAt: string | null;
+  status: 'ACTIVO' | 'INACTIVO'; online: boolean; printerConnected?: boolean;
+  lastSeenAt: string | null; pairedAt: string | null;
 };
 
-export type PrintPairing = { code: string; expiresInSeconds: number };
+export type PrintPairing = { id?: number; code: string; expiresInSeconds: number };
+
+export type PairingStatus = {
+  id: number;
+  siteId: number;
+  paired: boolean;
+  expired: boolean;
+  agent: {
+    id: number;
+    name: string;
+    computerName: string | null;
+    printerName: string | null;
+  } | null;
+};
 
 export type PrintJobStatus = 'PENDIENTE' | 'PROCESANDO' | 'ENVIADO' | 'ERROR' | 'CANCELADO';
 

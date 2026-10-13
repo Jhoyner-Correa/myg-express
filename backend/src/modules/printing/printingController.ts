@@ -174,3 +174,21 @@ export async function completePrintJob(req: PrintAgentRequest, res: Response): P
     respondError(res, error, 'Confirmacion de trabajo');
   }
 }
+
+export async function testPrintJob(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const data = await printingService.testPrint(userScope(req), positiveId(req.params.id, 'El conector'));
+    res.status(201).json({ ok: true, data });
+  } catch (error) {
+    respondError(res, error, 'Prueba de impresion');
+  }
+}
+
+export async function getPairingStatus(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const data = await printingService.getPairingStatus(userScope(req), positiveId(req.params.id, 'La vinculacion'));
+    res.json({ ok: true, data });
+  } catch (error) {
+    respondError(res, error, 'Estado de la vinculacion');
+  }
+}

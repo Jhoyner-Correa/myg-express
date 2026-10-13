@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 
 import { pool, runInTransaction } from '../../core/database/database';
-import { buildPackageLabelsTspl, PrintJobInput, PrintingValidationError } from './printingDomain';
+import { buildPackageLabelsTspl, buildTestCalibrationTspl, PrintJobInput, PrintingValidationError } from './printingDomain';
 
 export type UserScope = {
   userId: number;
@@ -108,24 +108,28 @@ function parsePrinters(value: unknown): string[] {
 }
 
 function suggestPhysicalPrinter(printers: string[]): string | null {
-  const known = printers.find(name => /luxur|pos[- _]?l|label|thermal|xprinter|gprinter|tsc/i.test(name));
+  const known = printers.find(name => /luxur|pos|zj|58|80|label|thermal|receipt|ticket|xprinter|gprinter|tsc|zebra/i.test(name));
   if (known) return known;
-  const physical = printers.filter(name => !/pdf|xps|fax|onenote|anydesk/i.test(name));
+  const physical = printers.filter(name => !/pdf|xps|fax|onenote|anydesk|microsoft|virtual|document|writer/i.test(name));
   return physical.length === 1 ? physical[0] : null;
 }
 
 function mapAgent(row: AgentRow) {
   const lastSeen = row.ultimo_contacto_at ? new Date(row.ultimo_contacto_at) : null;
+  const printersList = parsePrinters(row.impresoras_json);
+  const isOnline = Boolean(lastSeen && !Number.isNaN(lastSeen.getTime()) && Date.now() - lastSeen.getTime() <= 90_000);
+  const isPrinterConnected = Boolean(row.impresora_nombre && printersList.includes(row.impresora_nombre));
   return {
     id: Number(row.id),
     siteId: Number(row.sede_id),
     name: row.nombre,
     computerName: row.equipo_nombre,
     printerName: row.impresora_nombre,
-    printers: parsePrinters(row.impresoras_json),
+    printers: printersList,
     connectorVersion: row.version_conector,
     status: row.estado,
-    online: Boolean(lastSeen && !Number.isNaN(lastSeen.getTime()) && Date.now() - lastSeen.getTime() <= 90_000),
+    online: isOnline,
+    printerConnected: isPrinterConnected,
     lastSeenAt: row.ultimo_contacto_at,
     pairedAt: row.vinculado_at,
   };
@@ -441,15 +445,35 @@ export class PrintingService {
   async heartbeat(agent: PrintAgent, rawPrinters?: unknown, rawVersion?: unknown) {
     const printers = rawPrinters === undefined ? null : normalizePrinters(rawPrinters);
     const version = rawVersion === undefined ? null : cleanText(rawVersion, 32, 'La version del conector');
-    const suggestedPrinter = printers ? suggestPhysicalPrinter(printers) : null;
+
+    const [currentRows] = await pool.query<AgentRow[]>('SELECT impresora_nombre FROM impresion_agentes WHERE id = ? LIMIT 1', [agent.id]);
+    let activePrinter = currentRows[0]?.impresora_nombre ?? null;
+
+    if (printers && printers.length > 0) {
+      if (activePrinter && !printers.includes(activePrinter)) {
+        // Auto-resolver si Windows renombró a "(Copiar 1)" o "(Copy 1)"
+        const normalize = (name: string) => name.toLowerCase().replace(/\s*\((?:copiar?|copy)\s*\d*\)/gi, '').trim();
+        const baseCurrent = normalize(activePrinter);
+        const match = printers.find(p => normalize(p) === baseCurrent);
+        if (match) {
+          activePrinter = match;
+        } else {
+          const suggested = suggestPhysicalPrinter(printers);
+          if (suggested) activePrinter = suggested;
+        }
+      } else if (!activePrinter) {
+        activePrinter = suggestPhysicalPrinter(printers);
+      }
+    }
+
     await pool.query(
       `UPDATE impresion_agentes
           SET ultimo_contacto_at = NOW(),
               impresoras_json = COALESCE(?, impresoras_json),
               version_conector = COALESCE(?, version_conector),
-              impresora_nombre = COALESCE(impresora_nombre, ?)
+              impresora_nombre = ?
         WHERE id = ?`,
-      [printers ? JSON.stringify(printers) : null, version, suggestedPrinter, agent.id],
+      [printers ? JSON.stringify(printers) : null, version, activePrinter, agent.id],
     );
     const [rows] = await pool.query<AgentRow[]>('SELECT * FROM impresion_agentes WHERE id = ? LIMIT 1', [agent.id]);
     return { serverTime: new Date(), agent: mapAgent(rows[0]) };
@@ -520,6 +544,88 @@ export class PrintingService {
       }
       await connection.query('UPDATE impresion_agentes SET ultimo_contacto_at = NOW() WHERE id = ?', [agent.id]);
     });
+  }
+
+  async testPrint(scope: UserScope, agentId: number) {
+    return runInTransaction(async connection => {
+      const [rows] = await connection.query<RowDataPacket[]>(
+        `SELECT agent.*, site.nombre AS sede_nombre
+           FROM impresion_agentes agent
+           JOIN sedes site ON site.id = agent.sede_id
+          WHERE agent.id = ? AND agent.estado = 'ACTIVO'
+          LIMIT 1 FOR UPDATE`,
+        [agentId],
+      );
+      if (!rows.length) throw new PrintingValidationError('El conector no existe.', 404);
+      const agent = rows[0] as AgentRow & { sede_nombre: string };
+      await assertAccessibleSite(connection, scope, Number(agent.sede_id));
+      if (!agent.impresora_nombre) {
+        throw new PrintingValidationError('Configura una impresora antes de imprimir una prueba.', 409);
+      }
+
+      const rendered = await buildTestCalibrationTspl(
+        String(agent.sede_nombre),
+        String(agent.equipo_nombre || agent.nombre),
+        String(agent.impresora_nombre),
+      );
+
+      const [result] = await connection.query<ResultSetHeader>(
+        `INSERT INTO impresion_trabajos
+          (sede_id, creado_por, solicitado_por_nombre, referencia, origen_json, payload_tspl,
+           numero_comandas, numero_etiquetas, copias, idempotency_key)
+         VALUES (?, ?, ?, ?, ?, ?, 1, 1, 1, ?)`,
+        [
+          agent.sede_id,
+          scope.userId,
+          scope.userName.slice(0, 120),
+          'Prueba de calibración',
+          JSON.stringify({ type: 'TEST_CALIBRATION', agentId }),
+          rendered.payload,
+          crypto.randomUUID(),
+        ],
+      );
+
+      await audit(connection, scope, 'IMPRESION_TRABAJO_PRUEBA_CREADO', result.insertId, Number(agent.sede_id), {
+        agentId,
+        printerName: agent.impresora_nombre,
+      });
+
+      return { jobId: result.insertId, printerName: agent.impresora_nombre };
+    });
+  }
+
+  async getPairingStatus(scope: UserScope, pairingId: number) {
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await connection.query<RowDataPacket[]>(
+        `SELECT p.id, p.sede_id, p.expira_at, p.usado_at, p.agente_id,
+                a.nombre AS agente_nombre, a.equipo_nombre, a.impresora_nombre
+           FROM impresion_vinculaciones p
+           LEFT JOIN impresion_agentes a ON a.id = p.agente_id
+          WHERE p.id = ?
+          LIMIT 1`,
+        [pairingId],
+      );
+      if (!rows.length) throw new PrintingValidationError('La vinculación no existe.', 404);
+      const row = rows[0];
+      await assertAccessibleSite(connection, scope, Number(row.sede_id));
+      const isPaired = Boolean(row.usado_at && row.agente_id);
+      const isExpired = !isPaired && new Date(row.expira_at).getTime() < Date.now();
+      return {
+        id: Number(row.id),
+        siteId: Number(row.sede_id),
+        paired: isPaired,
+        expired: isExpired,
+        agent: isPaired ? {
+          id: Number(row.agente_id),
+          name: String(row.agente_nombre),
+          computerName: row.equipo_nombre ? String(row.equipo_nombre) : null,
+          printerName: row.impresora_nombre ? String(row.impresora_nombre) : null,
+        } : null,
+      };
+    } finally {
+      connection.release();
+    }
   }
 }
 

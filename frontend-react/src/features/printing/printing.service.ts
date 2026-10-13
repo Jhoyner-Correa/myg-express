@@ -1,6 +1,6 @@
 import apiClient from '../../core/api/apiClient';
 import { unwrapApiData, type ApiEnvelope } from '../../core/api/types';
-import type { CreatePrintJobInput, PrintAgent, PrintJob, PrintPairing, PrintSite } from './types';
+import type { CreatePrintJobInput, PairingStatus, PrintAgent, PrintJob, PrintPairing, PrintSite } from './types';
 
 export const printingService = {
   async sites(signal?: AbortSignal): Promise<PrintSite[]> {
@@ -25,6 +25,14 @@ export const printingService = {
   },
   async selectPrinter(agentId: number, printerName: string): Promise<void> {
     await apiClient.patch(`/printing/agents/${agentId}/printer`, { printer_name: printerName });
+  },
+  async testPrint(agentId: number): Promise<{ jobId: number; printerName: string }> {
+    const response = await apiClient.post<ApiEnvelope<{ jobId: number; printerName: string }>>(`/printing/agents/${agentId}/test-print`);
+    return unwrapApiData(response.data);
+  },
+  async pairingStatus(pairingId: number): Promise<PairingStatus> {
+    const response = await apiClient.get<ApiEnvelope<PairingStatus>>(`/printing/pairings/${pairingId}/status`);
+    return unwrapApiData(response.data);
   },
   async removeAgent(agentId: number): Promise<void> { await apiClient.delete(`/printing/agents/${agentId}`); },
   async downloadConnector(): Promise<void> {
