@@ -9,7 +9,7 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 
 const exec = promisify(execFile);
-const VERSION = '1.3.0';
+const VERSION = '1.3.1';
 const SINGLE_INSTANCE_PORT = 41789;
 
 const dataDir = path.join(process.env.LOCALAPPDATA || os.homedir(), 'MyG Print Connector');
@@ -52,6 +52,37 @@ function arg(name) {
 }
 
 // -------------------------------------------------------------
+// Cuadro de diálogo nativo de Windows (sin consolas negras)
+// -------------------------------------------------------------
+function showNativeDialog(message, title = 'MyG Print Connector') {
+  return new Promise((resolve) => {
+    try {
+      const escaped = message.replace(/'/g, "''").replace(/\r?\n/g, '`n');
+      const cmd = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('${escaped}', '${title}', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)`;
+      execFile('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', cmd], { windowsHide: true }, () => resolve());
+    } catch {
+      resolve();
+    }
+  });
+}
+
+// -------------------------------------------------------------
+// Auto-registro permanente en el inicio de Windows
+// -------------------------------------------------------------
+async function ensureAutoStart() {
+  try {
+    const exe = process.execPath;
+    await exec('reg.exe', [
+      'add', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
+      '/v', 'MyG Print Connector',
+      '/t', 'REG_SZ',
+      '/d', `"${exe}" --background`,
+      '/f',
+    ], { windowsHide: true });
+  } catch {}
+}
+
+// -------------------------------------------------------------
 // Logging con rotación automática (2 MB)
 // -------------------------------------------------------------
 function log(level, message) {
@@ -82,12 +113,19 @@ function log(level, message) {
 // -------------------------------------------------------------
 // Mutex de instancia única mediante socket local
 // -------------------------------------------------------------
-function acquireSingleInstanceLock() {
+function acquireSingleInstanceLock(isBackground = false) {
   return new Promise((resolve) => {
     const server = net.createServer();
-    server.once('error', (err) => {
+    server.once('error', async (err) => {
       if (err.code === 'EADDRINUSE') {
-        log('INFO', 'MyG Print Connector ya está en ejecución en este equipo. Saliendo limpiamente.');
+        log('INFO', 'MyG Print Connector ya está en ejecución en segundo plano.');
+        if (!isBackground) {
+          const printer = currentPrinterName || 'Detectando...';
+          await showNativeDialog(
+            `🟢 MyG Print Connector ya está activo y funcionando en segundo plano.\n\nImpresora térmica: ${printer}\nEstado: Listo para imprimir.\n\nNo necesitas abrirlo manualmente ni mantener ninguna ventana abierta.`,
+            'MyG Print Connector'
+          );
+        }
         process.exit(0);
       }
       resolve(null);
@@ -104,7 +142,8 @@ function acquireSingleInstanceLock() {
 // -------------------------------------------------------------
 async function detectPrinters(force = false) {
   const now = Date.now();
-  if (!force && cachedPrinters.length > 0 && (now - lastPrinterDetect < 10000)) {
+  const cacheMaxAge = printerOfflineWarned ? 3000 : 10000;
+  if (!force && cachedPrinters.length > 0 && (now - lastPrinterDetect < cacheMaxAge)) {
     return cachedPrinters;
   }
   try {
@@ -228,6 +267,7 @@ async function firstSetup() {
     token: result.token,
     agentId: result.agentId,
     siteId: result.siteId,
+    printerName: result.printerName || null,
   };
 
   await fsp.writeFile(configPath, JSON.stringify(config, null, 2), 'utf8');
@@ -269,7 +309,14 @@ async function heartbeat() {
     version: VERSION,
   });
   if (data?.agent?.printerName) {
-    currentPrinterName = data.agent.printerName;
+    const newName = data.agent.printerName;
+    if (newName !== currentPrinterName) {
+      currentPrinterName = newName;
+      if (config) {
+        config.printerName = currentPrinterName;
+        fsp.writeFile(configPath, JSON.stringify(config, null, 2), 'utf8').catch(() => {});
+      }
+    }
   }
   lastHeartbeat = now;
 }
@@ -315,15 +362,19 @@ async function processNext() {
 // Función principal (Daemon Enterprise)
 // -------------------------------------------------------------
 async function main() {
+  const isBackground = args.includes('--background');
+
   if (!args.includes('--pair-only')) {
-    await acquireSingleInstanceLock();
+    await acquireSingleInstanceLock(isBackground);
   }
 
   await installHelper();
+  await ensureAutoStart();
 
   if (fs.existsSync(configPath) && !arg('--pair-code')) {
     try {
       config = JSON.parse(await fsp.readFile(configPath, 'utf8'));
+      if (config.printerName) currentPrinterName = config.printerName;
     } catch (e) {
       log('WARN', 'El archivo config.json estaba dañado. Iniciando configuración nueva.');
       await firstSetup();
@@ -340,16 +391,14 @@ async function main() {
   const detectedPrinters = await detectPrinters(true);
   const resolved = resolveActivePrinter(currentPrinterName, detectedPrinters);
 
-  console.log('\n==============================================================');
-  console.log(`        MyG Express · Print Connector Enterprise v${VERSION}        `);
-  console.log('==============================================================');
-  console.log(` Equipo:       ${os.hostname()}`);
-  console.log(` Servidor:     ${config.apiUrl}`);
-  console.log(` Impresora:    ${resolved ? `${resolved} [CONECTADA]` : (currentPrinterName || 'Sin impresora asignada')}`);
-  console.log(' Estado:       ACTIVO · Esperando trabajos de impresión');
-  console.log('==============================================================\n');
+  log('INFO', `Servicio de impresión iniciado en ${os.hostname()} (Impresora: ${resolved || currentPrinterName || 'Sin asignar'}).`);
 
-  log('INFO', `Servicio de impresión iniciado en ${os.hostname()}.`);
+  if (!isBackground) {
+    showNativeDialog(
+      `🟢 MyG Print Connector ha iniciado en segundo plano.\n\nEquipo: ${os.hostname()}\nImpresora térmica: ${resolved || currentPrinterName || 'Detectando...'}\nEstado: Listo para imprimir.\n\nEl servicio permanecerá activo automáticamente sin necesidad de ventanas abiertas.`,
+      'MyG Print Connector'
+    );
+  }
 
   while (!stopping) {
     try {

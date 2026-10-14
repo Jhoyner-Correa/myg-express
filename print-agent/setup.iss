@@ -1,5 +1,5 @@
 #define AppName "MyG Print Connector"
-#define AppVersion "1.3.0"
+#define AppVersion "1.3.1"
 #define AppExe "MyGPrintConnector.exe"
 
 [Setup]
@@ -26,7 +26,6 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Crear acceso directo en el Escritorio"; GroupDescription: "Accesos directos:"; Flags: checkedonce
-Name: "autostart"; Description: "Iniciar con Windows en segundo plano"; GroupDescription: "Opciones avanzadas:"; Flags: unchecked
 
 [Files]
 Source: "dist\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
@@ -34,13 +33,13 @@ Source: "dist\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
 Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
-Name: "{userstartup}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: autostart
+Name: "{userstartup}\{#AppName}"; Filename: "{app}\{#AppExe}"; Parameters: "--background"
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExe}"""; Flags: uninsdeletevalue; Tasks: autostart
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExe}"" --background"; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Iniciar MyG Print Connector ahora"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\{#AppExe}"; Parameters: "--background"; Description: "Iniciar MyG Print Connector en segundo plano"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""MyG Print Connector"" /F"; Flags: runhidden; RunOnceId: "RemoveLegacyTask"
@@ -100,7 +99,7 @@ var ResultCode: Integer; Parameters: String;
 begin
   if (CurStep = ssPostInstall) and (not HasExistingConfig()) then begin
     Parameters := '--api-url "' + ApiPage.Values[0] + '" --pair-code "' + CodePage.Values[0] + '" --pair-only';
-    if (not Exec(ExpandConstant('{app}\{#AppExe}'), Parameters, '', SW_SHOW, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then
+    if (not Exec(ExpandConstant('{app}\{#AppExe}'), Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then
       RaiseException('No se pudo vincular este equipo con el servidor. Verifica que el codigo no haya vencido y vuelve a intentarlo.');
   end;
 end;
