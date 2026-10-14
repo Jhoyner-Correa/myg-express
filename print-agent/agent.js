@@ -9,13 +9,16 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 
 const exec = promisify(execFile);
-const VERSION = '1.3.1';
+const VERSION = '1.3.2';
 const SINGLE_INSTANCE_PORT = 41789;
+const DEFAULT_API_URL = 'https://app.myg-express.com/api/printing';
 
 const dataDir = path.join(process.env.LOCALAPPDATA || os.homedir(), 'MyG Print Connector');
 const configPath = path.join(dataDir, 'config.json');
 const logPath = path.join(dataDir, 'connector.log');
 const helperPath = path.join(dataDir, 'raw-print.ps1');
+const dashboardPath = path.join(dataDir, 'dashboard.ps1');
+const icoPath = path.join(dataDir, 'app.ico');
 
 const RAW_PRINT_SCRIPT = `param([Parameter(Mandatory=$true)][string]$PrinterName,[Parameter(Mandatory=$true)][string]$FilePath)
 $source=@'
@@ -52,7 +55,28 @@ function arg(name) {
 }
 
 // -------------------------------------------------------------
-// Cuadro de diálogo nativo de Windows (sin consolas negras)
+// Panel de control nativo profesional
+// -------------------------------------------------------------
+function showDashboard(printerName) {
+  try {
+    const ps = execFile('powershell.exe', [
+      '-NoProfile',
+      '-WindowStyle', 'Hidden',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', dashboardPath,
+      '-Hostname', os.hostname(),
+      '-Printer', printerName || 'Detectando...',
+      '-ApiUrl', config?.apiUrl || DEFAULT_API_URL,
+      '-Status', 'ACTIVO Y LISTO',
+    ], { windowsHide: true }, () => {});
+    if (ps && ps.unref) ps.unref();
+  } catch {
+    showNativeDialog(`🟢 MyG Print Connector está activo.\n\nImpresora térmica: ${printerName || 'Detectando...'}`);
+  }
+}
+
+// -------------------------------------------------------------
+// Cuadro de diálogo de respaldo
 // -------------------------------------------------------------
 function showNativeDialog(message, title = 'MyG Print Connector') {
   return new Promise((resolve) => {
@@ -121,10 +145,7 @@ function acquireSingleInstanceLock(isBackground = false) {
         log('INFO', 'MyG Print Connector ya está en ejecución en segundo plano.');
         if (!isBackground) {
           const printer = currentPrinterName || 'Detectando...';
-          await showNativeDialog(
-            `🟢 MyG Print Connector ya está activo y funcionando en segundo plano.\n\nImpresora térmica: ${printer}\nEstado: Listo para imprimir.\n\nNo necesitas abrirlo manualmente ni mantener ninguna ventana abierta.`,
-            'MyG Print Connector'
-          );
+          showDashboard(printer);
         }
         process.exit(0);
       }
@@ -207,6 +228,8 @@ async function api(endpoint, body = {}, auth = true) {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
+      'user-agent': 'MyGPrintConnector/1.3.2',
+      'accept': 'application/json',
       ...(auth && config.token ? { 'x-print-agent-token': config.token } : {}),
     },
     body: JSON.stringify(body),
@@ -223,12 +246,30 @@ async function api(endpoint, body = {}, auth = true) {
 }
 
 // -------------------------------------------------------------
-// Instalación del script Winspool RAW
+// Instalación de scripts auxiliares y recursos locales
 // -------------------------------------------------------------
 async function installHelper() {
   await fsp.mkdir(dataDir, { recursive: true });
-  if (!fs.existsSync(helperPath)) {
-    await fsp.writeFile(helperPath, RAW_PRINT_SCRIPT, 'utf8');
+  await fsp.writeFile(helperPath, RAW_PRINT_SCRIPT, 'utf8');
+
+  const candidatesDashboard = [
+    path.join(__dirname, 'dashboard.ps1'),
+    path.join(process.cwd(), 'dashboard.ps1'),
+    path.join(path.dirname(process.execPath), 'dashboard.ps1'),
+  ];
+  const foundDash = candidatesDashboard.find(p => fs.existsSync(p));
+  if (foundDash) {
+    try { await fsp.copyFile(foundDash, dashboardPath); } catch {}
+  }
+
+  const candidatesIco = [
+    path.join(__dirname, 'app.ico'),
+    path.join(process.cwd(), 'app.ico'),
+    path.join(path.dirname(process.execPath), 'app.ico'),
+  ];
+  const foundIco = candidatesIco.find(p => fs.existsSync(p));
+  if (foundIco) {
+    try { await fsp.copyFile(foundIco, icoPath); } catch {}
   }
 }
 
@@ -236,16 +277,16 @@ async function installHelper() {
 // Vinculación inicial interactiva o por parámetros
 // -------------------------------------------------------------
 async function firstSetup() {
-  let apiUrl = arg('--api-url');
+  let apiUrl = arg('--api-url') || DEFAULT_API_URL;
   let code = arg('--pair-code');
 
-  if (!apiUrl || !code) {
+  if (!code) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     console.log('\n==============================================================');
     console.log('       MyG Express · MyG Print Connector Enterprise           ');
     console.log('                   Vinculación Inicial                        ');
     console.log('==============================================================\n');
-    const defaultUrl = process.env.PRINT_API_URL || 'https://sistema.mygexpress.com/api/printing';
+    const defaultUrl = process.env.PRINT_API_URL || DEFAULT_API_URL;
     apiUrl = (await rl.question(`Servidor [${defaultUrl}]: `)).trim() || defaultUrl;
     code = (await rl.question('Código de 8 dígitos mostrado en el sistema web: ')).trim();
     rl.close();
@@ -394,10 +435,7 @@ async function main() {
   log('INFO', `Servicio de impresión iniciado en ${os.hostname()} (Impresora: ${resolved || currentPrinterName || 'Sin asignar'}).`);
 
   if (!isBackground) {
-    showNativeDialog(
-      `🟢 MyG Print Connector ha iniciado en segundo plano.\n\nEquipo: ${os.hostname()}\nImpresora térmica: ${resolved || currentPrinterName || 'Detectando...'}\nEstado: Listo para imprimir.\n\nEl servicio permanecerá activo automáticamente sin necesidad de ventanas abiertas.`,
-      'MyG Print Connector'
-    );
+    showDashboard(resolved || currentPrinterName);
   }
 
   while (!stopping) {

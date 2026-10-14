@@ -1,6 +1,6 @@
 {
   "name": "myg-print-agent",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "private": true,
   "description": "Conector seguro para impresoras termicas USB de MyG",
   "scripts": {
@@ -10,7 +10,9 @@
   },
   "pkg": {
     "assets": [
-      "raw-print.ps1"
+      "raw-print.ps1",
+      "dashboard.ps1",
+      "app.ico"
     ]
   },
   "devDependencies": {
