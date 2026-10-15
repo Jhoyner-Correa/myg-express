@@ -56,12 +56,32 @@ function formatDate(value: string | null | undefined, includeTime = false) {
   return includeTime ? dateTime.format(parsed) : shortDate.format(parsed);
 }
 
-function duration(minutes: number) {
-  if (!minutes) return '0 min';
+function duration(minutes: number, natural = false) {
+  if (!minutes) return natural ? '0 minutos' : '0 min';
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  if (!hours) return `${rest} min`;
-  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+  if (!hours) return natural ? `${rest} ${rest === 1 ? 'minuto' : 'minutos'}` : `${rest} min`;
+  const hoursText = `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+  if (!rest) return natural ? hoursText : `${hours} h`;
+  const minsText = `${rest} ${rest === 1 ? 'minuto' : 'minutos'}`;
+  return natural ? `${hoursText} con ${minsText}` : `${hours} h ${rest} min`;
+}
+
+function formatDeductibleTime(minutes: number) {
+  const mins = Math.max(0, Math.trunc(Number(minutes) || 0));
+  if (mins === 0) return '0 minutos deducibles';
+  const hours = Math.floor(mins / 60);
+  const rest = mins % 60;
+  if (hours === 0) {
+    return `${rest} ${rest === 1 ? 'minuto deducible' : 'minutos deducibles'}`;
+  }
+  const hoursText = `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+  const deducibleWord = hours === 1 && rest === 0 ? 'deducible' : 'deducibles';
+  if (rest === 0) {
+    return `${hoursText} ${deducibleWord} (${mins} min)`;
+  }
+  const minsText = `${rest} ${rest === 1 ? 'minuto' : 'minutos'}`;
+  return `${hoursText} con ${minsText} deducibles (${mins} min)`;
 }
 
 function calendarCells(month: string) {
@@ -162,7 +182,7 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
   const discountDetail = pendingPartialAbsences > 0
     ? `${pendingPartialAbsences} jornada(s) parcial(es) por resolver`
     : partialAbsenceMinutes > 0
-      ? `${duration(partialAbsenceMinutes)} no laboradas: ${amount(partialAbsenceDiscount)}`
+      ? `${duration(partialAbsenceMinutes, true)} no laboradas: ${amount(partialAbsenceDiscount)}`
       : confirmedAbsences
         ? `${confirmedAbsences} falta(s): ${amount(absenceDiscount)}`
         : 'Sin faltas descontadas';
@@ -517,7 +537,7 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
                 {(ledger.attendance_summary.pending_justifications ?? 0) > 0 && <div className={styles.pendingSummary}><span>Justificaciones por revisar</span><strong>{ledger.attendance_summary.pending_justifications}</strong></div>}
                 {confirmedAbsences > 0 && <div className={styles.pendingSummary}><span>Faltas con descuento</span><strong>{confirmedAbsences} · {amount(absenceDiscount)}</strong></div>}
                 {pendingAbsences > 0 && <div className={styles.pendingSummary}><span>Faltas por resolver</span><strong>{pendingAbsences}</strong></div>}
-                {partialAbsenceMinutes > 0 && <div className={styles.pendingSummary}><span>Tiempo parcial descontado</span><strong>{duration(partialAbsenceMinutes)} Â· {amount(partialAbsenceDiscount)}</strong></div>}
+                {partialAbsenceMinutes > 0 && <div className={styles.pendingSummary}><span>Tiempo parcial descontado</span><strong>{duration(partialAbsenceMinutes, true)} · {amount(partialAbsenceDiscount)}</strong></div>}
                 {pendingPartialAbsences > 0 && <div className={styles.pendingSummary}><span>Jornadas parciales por resolver</span><strong>{pendingPartialAbsences}</strong></div>}
               </section>
 
@@ -642,7 +662,7 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
                       <tr>
                         <td>
                           Descuento tiempo parcial
-                          <br /><small>{duration(partialAbsenceMinutes)} no compensadas</small>
+                          <br /><small>{formatDeductibleTime(partialAbsenceMinutes)} no compensadas</small>
                         </td>
                         <td className={styles.voucherNum}>− {amount(partialAbsenceDiscount)}</td>
                       </tr>

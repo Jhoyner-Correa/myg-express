@@ -71,6 +71,39 @@ function getPeriodEnd(monthStr: string): string {
   return `${monthStr}-${String(lastDay).padStart(2, '0')}`;
 }
 
+function formatHoursAndMinutes(totalMinutes: number, natural = false) {
+  const mins = Math.max(0, Math.trunc(Number(totalMinutes) || 0));
+  if (mins === 0) return natural ? '0 minutos' : '0 min';
+  const hours = Math.floor(mins / 60);
+  const rest = mins % 60;
+  if (hours === 0) {
+    return natural ? `${rest} ${rest === 1 ? 'minuto' : 'minutos'}` : `${rest} min`;
+  }
+  const hoursText = `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+  if (rest === 0) {
+    return natural ? hoursText : `${hours} h`;
+  }
+  const minsText = `${rest} ${rest === 1 ? 'minuto' : 'minutos'}`;
+  return natural ? `${hoursText} con ${minsText}` : `${hours} h ${rest} min`;
+}
+
+function formatDeductibleTime(totalMinutes: number) {
+  const mins = Math.max(0, Math.trunc(Number(totalMinutes) || 0));
+  if (mins === 0) return '0 minutos deducibles';
+  const hours = Math.floor(mins / 60);
+  const rest = mins % 60;
+  if (hours === 0) {
+    return `${rest} ${rest === 1 ? 'minuto deducible' : 'minutos deducibles'}`;
+  }
+  const hoursText = `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+  const deducibleWord = hours === 1 && rest === 0 ? 'deducible' : 'deducibles';
+  if (rest === 0) {
+    return `${hoursText} ${deducibleWord} (${mins} min)`;
+  }
+  const minsText = `${rest} ${rest === 1 ? 'minuto' : 'minutos'}`;
+  return `${hoursText} con ${minsText} deducibles (${mins} min)`;
+}
+
 export function CutoffSettlementModal({
   employee,
   month,
@@ -178,11 +211,7 @@ export function CutoffSettlementModal({
     ?? (settlement && commercialDays > 0 ? settlement.projectedMonthlyPayment / commercialDays : 0);
 
 
-  const overtimeHours = settlement ? Math.floor(settlement.overtimeMinutes / 60) : 0;
-  const overtimeRestMins = settlement ? settlement.overtimeMinutes % 60 : 0;
-  const overtimeFormatted = overtimeHours > 0
-    ? `${overtimeHours} h ${overtimeRestMins > 0 ? `${overtimeRestMins} min` : ''}`
-    : `${overtimeRestMins} min`;
+  const overtimeFormatted = settlement ? formatHoursAndMinutes(settlement.overtimeMinutes) : '0 min';
 
   return (
     <Modal
@@ -428,7 +457,7 @@ export function CutoffSettlementModal({
                   − {amount(settlement.absenceDiscountAmount + settlement.partialAbsenceDiscountAmount)}
                 </div>
                 <div className={styles.kpiSubtext}>
-                  {settlement.confirmedAbsences} falta(s) · {settlement.partialAbsenceMinutes} min tardanza
+                  {settlement.confirmedAbsences} falta(s) · {settlement.partialAbsenceMinutes > 0 ? `${formatHoursAndMinutes(settlement.partialAbsenceMinutes, true)} de tardanza` : '0 min tardanza'}
                 </div>
                 <span className={styles.kpiTag}>Deducibles a la fecha</span>
               </div>
@@ -605,7 +634,7 @@ export function CutoffSettlementModal({
                               <strong>Descuento por tardanzas</strong>
                             </td>
                             <td style={{ color: '#64748b', fontSize: '11px' }}>
-                              {settlement.partialAbsenceMinutes} minutos deducibles
+                              {formatDeductibleTime(settlement.partialAbsenceMinutes)}
                             </td>
                             <td className={styles.amountDeduct}>
                               − {amount(settlement.partialAbsenceDiscountAmount)}
@@ -737,8 +766,8 @@ export function CutoffSettlementModal({
                         <td style={{ fontSize: '11px', color: '#64748b' }}>{row.tipo_asistencia}</td>
                         <td>
                           {row.minutos_tardanza > 0 ? (
-                            <span style={{ color: '#b45309', fontWeight: 700 }}>
-                              {row.minutos_tardanza} min
+                            <span style={{ color: '#b45309', fontWeight: 700 }} title={`${row.minutos_tardanza} minutos en total`}>
+                              {formatHoursAndMinutes(row.minutos_tardanza)}
                             </span>
                           ) : (
                             '0 min'
@@ -746,8 +775,8 @@ export function CutoffSettlementModal({
                         </td>
                         <td>
                           {row.minutos_tardanza_retorno > 0 ? (
-                            <span style={{ color: '#b45309', fontWeight: 700 }}>
-                              {row.minutos_tardanza_retorno} min
+                            <span style={{ color: '#b45309', fontWeight: 700 }} title={`${row.minutos_tardanza_retorno} minutos en total`}>
+                              {formatHoursAndMinutes(row.minutos_tardanza_retorno)}
                             </span>
                           ) : (
                             '0 min'
@@ -755,9 +784,8 @@ export function CutoffSettlementModal({
                         </td>
                         <td>
                           {row.minutos_horas_extra > 0 ? (
-                            <span style={{ color: '#7e22ce', fontWeight: 800 }}>
-                              {Math.floor(row.minutos_horas_extra / 60) > 0 ? `${Math.floor(row.minutos_horas_extra / 60)}h ` : ''}
-                              {row.minutos_horas_extra % 60}m ({row.minutos_horas_extra} min)
+                            <span style={{ color: '#7e22ce', fontWeight: 800 }} title={`${row.minutos_horas_extra} minutos en total`}>
+                              {formatHoursAndMinutes(row.minutos_horas_extra)} ({row.minutos_horas_extra} min)
                             </span>
                           ) : (
                             '—'
@@ -900,7 +928,7 @@ export function CutoffSettlementModal({
                               Descuento por Tardanzas
                               <br />
                               <small style={{ color: '#64748b' }}>
-                                {settlement.partialAbsenceMinutes} minutos deducibles
+                                {formatDeductibleTime(settlement.partialAbsenceMinutes)}
                               </small>
                             </td>
                             <td className={styles.docTableNum}>− {amount(settlement.partialAbsenceDiscountAmount)}</td>
