@@ -753,10 +753,14 @@ export class ServicePaymentService {
       `SELECT DATE_FORMAT(attendance.fecha, '%Y-%m-%d') AS fecha,
               attendance.estado_asistencia, attendance.tipo_asistencia,
               attendance.minutos_tardanza, attendance.minutos_tardanza_retorno,
-              attendance.minutos_horas_extra,
+              COALESCE(overtime.minutos_aprobados, 0) AS minutos_horas_extra,
               justification.estado AS justificacion_estado,
               justification.motivo AS justificacion_motivo
          FROM personal_asistencias attendance
+         LEFT JOIN (
+           SELECT asistencia_id, SUM(minutos_aprobados) AS minutos_aprobados
+             FROM personal_sobretiempo_solicitudes WHERE estado = 'APROBADO' GROUP BY asistencia_id
+         ) overtime ON overtime.asistencia_id = attendance.id
          LEFT JOIN personal_justificaciones_asistencia justification
            ON justification.id = (
              SELECT candidate.id FROM personal_justificaciones_asistencia candidate
