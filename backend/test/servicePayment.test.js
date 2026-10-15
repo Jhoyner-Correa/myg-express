@@ -6,12 +6,18 @@ const {
   resolveAbsencePaymentState,
 } = require('../dist/modules/rrhh/domain/paymentDomain');
 
-test('calcula automaticamente el valor diario y por hora segun el mes', () => {
+test('calcula automaticamente el valor diario y por hora usando siempre mes comercial de 30 dias', () => {
+  // Septiembre (30 dias)
   assert.deepEqual(calculateAutomaticOvertimeRate(1200, '2026-09-01'), {
     calendarDays: 30, dailyHours: 8, dailyRate: 40, hourlyRate: 5,
   });
-  assert.deepEqual(calculateAutomaticOvertimeRate(1240, '2026-10-01'), {
-    calendarDays: 31, dailyHours: 8, dailyRate: 40, hourlyRate: 5,
+  // Octubre (31 dias calendario -> 30 dias comerciales)
+  assert.deepEqual(calculateAutomaticOvertimeRate(1230, '2026-10-01'), {
+    calendarDays: 30, dailyHours: 8, dailyRate: 41, hourlyRate: 5.13,
+  });
+  // Febrero (28 dias calendario -> 30 dias comerciales)
+  assert.deepEqual(calculateAutomaticOvertimeRate(1200, '2026-02-01'), {
+    calendarDays: 30, dailyHours: 8, dailyRate: 40, hourlyRate: 5,
   });
 });
 

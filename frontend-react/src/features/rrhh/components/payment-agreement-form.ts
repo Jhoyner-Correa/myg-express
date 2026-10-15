@@ -70,11 +70,11 @@ export function canonicalCurrencyText(value: unknown): string {
   return parsed === null ? String(value ?? '') : parsed.toFixed(2);
 }
 
+export const COMMERCIAL_MONTH_DAYS = 30;
+
 export function automaticOvertimeRate(monthlyPayment: number, date: string, dailyHours = 8) {
   if (!Number.isFinite(monthlyPayment) || monthlyPayment < 0 || !ISO_DATE.test(date) || dailyHours <= 0) return null;
-  const start = new Date(`${monthStart(date)}T12:00:00Z`);
-  start.setUTCMonth(start.getUTCMonth() + 1, 0);
-  const calendarDays = start.getUTCDate();
+  const calendarDays = COMMERCIAL_MONTH_DAYS;
   const dailyRate = Math.round((monthlyPayment / calendarDays + Number.EPSILON) * 100) / 100;
   const hourlyRate = Math.round((monthlyPayment / calendarDays / dailyHours + Number.EPSILON) * 100) / 100;
   return { calendarDays, dailyHours, dailyRate, hourlyRate };

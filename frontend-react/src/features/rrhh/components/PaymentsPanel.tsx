@@ -686,11 +686,11 @@ function PaymentForm({ modal, month, submitting, onClose, onSubmit }: { modal: M
       {modal.action === 'agreement' && <>
         <FormSection number="01" title="Honorarios" detail="Montos en soles" />
         <Field label="Pago mensual" required><CurrencyInput autoFocus value={form.monthly_payment ?? ''} onChange={value => update('monthly_payment', value)} /></Field>
-        <Field label="Cálculo de hora extra" required><select value={form.overtime_rate_mode ?? 'AUTOMATICA'} onChange={event => update('overtime_rate_mode', event.target.value)}><option value="AUTOMATICA">Automático según el mes</option><option value="MANUAL">Tarifa manual</option></select></Field>
+        <Field label="Cálculo de hora extra" required><select value={form.overtime_rate_mode ?? 'AUTOMATICA'} onChange={event => update('overtime_rate_mode', event.target.value)}><option value="AUTOMATICA">Automático (30 días comerciales)</option><option value="MANUAL">Tarifa manual</option></select></Field>
         {form.overtime_rate_mode === 'MANUAL' && <Field label="Tarifa por hora extra" required><CurrencyInput value={form.overtime_hourly_rate ?? ''} onChange={value => update('overtime_hourly_rate', value)} /></Field>}
         <div className={styles.amountConfirmation} aria-live="polite"><span>Monto confirmado</span><strong>{previewMonthlyPayment !== null && previewMonthlyPayment > 0 ? money.format(previewMonthlyPayment) : '—'}</strong></div>
         {form.overtime_rate_mode !== 'MANUAL' && <>
-          <div className={styles.amountConfirmation}><span>Valor diario · {automaticRate?.calendarDays ?? '—'} días</span><strong>{automaticRate ? money.format(automaticRate.dailyRate) : '—'}</strong></div>
+          <div className={styles.amountConfirmation}><span>Valor diario · {automaticRate?.calendarDays ?? 30} días comerciales</span><strong>{automaticRate ? money.format(automaticRate.dailyRate) : '—'}</strong></div>
           <div className={styles.amountConfirmation}><span>Valor por hora · 8 h</span><strong>{automaticRate ? money.format(automaticRate.hourlyRate) : '—'}</strong></div>
         </>}
         <Field label="Pago en mes parcial" wide required><select value={form.proration_policy ?? 'DIAS_CALENDARIO'} onChange={e => update('proration_policy', e.target.value)}><option value="DIAS_CALENDARIO">Prorrateo diario</option><option value="HONORARIO_COMPLETO">Honorario completo</option></select></Field>

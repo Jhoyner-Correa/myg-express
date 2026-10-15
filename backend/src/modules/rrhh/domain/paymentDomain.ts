@@ -335,9 +335,9 @@ export function calculateAutomaticOvertimeRate(
   if (!Number.isFinite(dailyHours) || dailyHours <= 0 || dailyHours > 24) throw new Error('Jornada diaria no valida.');
   const period = validDate(periodStart, 'Periodo');
   if (!period.endsWith('-01')) throw new Error('El periodo debe iniciar el primer dia del mes.');
-  const calendarDays = inclusiveDays(period, monthEnd(period));
-  const dailyRate = money(monthlyPayment / calendarDays);
-  const hourlyRate = money(monthlyPayment / calendarDays / dailyHours);
+  const calendarDays = COMMERCIAL_MONTH_DAYS;
+  const dailyRate = money(monthlyPayment / COMMERCIAL_MONTH_DAYS);
+  const hourlyRate = money(monthlyPayment / COMMERCIAL_MONTH_DAYS / dailyHours);
   return { calendarDays, dailyHours, dailyRate, hourlyRate };
 }
 
