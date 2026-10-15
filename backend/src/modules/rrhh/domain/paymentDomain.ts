@@ -253,6 +253,36 @@ export function calculateMonthlyAgreementBase(input: {
   };
 }
 
+export const COMMERCIAL_MONTH_DAYS = 30;
+
+export function calculateCommercialCutoffDays(
+  serviceStart: string,
+  serviceEnd: string,
+  cutoffDate: string,
+  periodStart: string,
+): number {
+  if (cutoffDate < serviceStart) return 0;
+  const pEnd = monthEnd(periodStart);
+  const effectiveCutoff = cutoffDate > serviceEnd ? serviceEnd : cutoffDate;
+  if (effectiveCutoff < serviceStart) return 0;
+
+  const isFullMonth = serviceStart === periodStart && effectiveCutoff === pEnd;
+  if (isFullMonth) return COMMERCIAL_MONTH_DAYS;
+
+  const startDay = parseInt(serviceStart.slice(8, 10), 10);
+  const cutoffDay = parseInt(effectiveCutoff.slice(8, 10), 10);
+
+  if (startDay === 1) {
+    if (effectiveCutoff === pEnd) return COMMERCIAL_MONTH_DAYS;
+    return Math.min(COMMERCIAL_MONTH_DAYS, cutoffDay);
+  }
+
+  if (effectiveCutoff === pEnd) {
+    return Math.max(0, Math.min(COMMERCIAL_MONTH_DAYS, COMMERCIAL_MONTH_DAYS - startDay + 1));
+  }
+  return Math.max(0, Math.min(COMMERCIAL_MONTH_DAYS, cutoffDay - startDay + 1));
+}
+
 export function calculateMonthlyAccrual(input: {
   periodStart: string;
   currentDate: string;
@@ -262,19 +292,28 @@ export function calculateMonthlyAccrual(input: {
 }) {
   const currentDate = validDate(input.currentDate, 'Fecha de corte');
   const monthlyBase = calculateMonthlyAgreementBase(input);
+  const periodEnd = monthEnd(input.periodStart);
   const cutoff = currentDate < input.periodStart
     ? null
-    : [currentDate, monthEnd(input.periodStart)].sort()[0];
+    : [currentDate, periodEnd].sort()[0];
   let accruedDays = 0;
   let accruedAmount = 0;
 
   if (cutoff) {
     for (const segment of monthlyBase.segments) {
       if (!segment.serviceStart || !segment.serviceEnd || segment.serviceStart > cutoff) continue;
-      const accruedUntil = [segment.serviceEnd, cutoff].sort()[0];
-      const days = inclusiveDays(segment.serviceStart, accruedUntil);
+      const days = calculateCommercialCutoffDays(
+        segment.serviceStart,
+        segment.serviceEnd,
+        cutoff,
+        input.periodStart,
+      );
       accruedDays += days;
-      accruedAmount += segment.monthlyPayment * days / segment.periodDays;
+      accruedAmount += (segment.monthlyPayment / COMMERCIAL_MONTH_DAYS) * days;
+    }
+    accruedDays = Math.min(COMMERCIAL_MONTH_DAYS, accruedDays);
+    if (accruedDays === COMMERCIAL_MONTH_DAYS && monthlyBase.appliedMonthlyPayment > 0) {
+      accruedAmount = monthlyBase.appliedMonthlyPayment;
     }
   }
 
@@ -283,7 +322,7 @@ export function calculateMonthlyAccrual(input: {
     accruedDays,
     cutoffDate: cutoff,
     projectedAmount: monthlyBase.appliedMonthlyPayment,
-    periodDays: monthlyBase.periodDays,
+    periodDays: COMMERCIAL_MONTH_DAYS,
   };
 }
 
@@ -451,7 +490,9 @@ export type CutoffSettlementResult = {
   cutoffDate: string;
   periodStart: string;
   calendarDaysInPeriod: number;
+  commercialDaysInPeriod: number;
   serviceDaysToCutoff: number;
+  dailyRate: number;
   accruedBaseAmount: number;
   projectedMonthlyPayment: number;
   overtimeMinutes: number;
@@ -491,8 +532,10 @@ export function calculateCutoffSettlement(input: CutoffSettlementInput): CutoffS
 
   const accruedBaseAmount = accrual.accruedAmount;
   const serviceDaysToCutoff = accrual.accruedDays;
-  const calendarDaysInPeriod = accrual.periodDays;
+  const calendarDaysInPeriod = COMMERCIAL_MONTH_DAYS;
+  const commercialDaysInPeriod = COMMERCIAL_MONTH_DAYS;
   const projectedMonthlyPayment = accrual.projectedAmount;
+  const dailyRate = money(projectedMonthlyPayment / COMMERCIAL_MONTH_DAYS);
 
   const overtimeMinutes = Math.max(0, Number(input.overtimeMinutes || 0));
   const overtimeHourlyRate = Math.max(0, Number(input.overtimeHourlyRate || 0));
@@ -522,7 +565,7 @@ export function calculateCutoffSettlement(input: CutoffSettlementInput): CutoffS
     concept: 'Honorario mensual devengado a la fecha',
     type: 'EARNING',
     amount: accruedBaseAmount,
-    detail: `${serviceDaysToCutoff} de ${calendarDaysInPeriod} días laborados (Base: S/ ${projectedMonthlyPayment.toFixed(2)})`,
+    detail: `${serviceDaysToCutoff} de ${COMMERCIAL_MONTH_DAYS} días comerciales (Base: S/ ${projectedMonthlyPayment.toFixed(2)}, S/ ${dailyRate.toFixed(2)}/día)`,
     category: 'BASE',
   });
 
@@ -603,7 +646,9 @@ export function calculateCutoffSettlement(input: CutoffSettlementInput): CutoffS
     cutoffDate: effectiveCutoff,
     periodStart,
     calendarDaysInPeriod,
+    commercialDaysInPeriod,
     serviceDaysToCutoff,
+    dailyRate,
     accruedBaseAmount,
     projectedMonthlyPayment,
     overtimeMinutes,

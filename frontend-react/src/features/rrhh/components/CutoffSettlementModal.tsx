@@ -173,9 +173,10 @@ export function CutoffSettlementModal({
   const isTerminated = data?.employee.estado === 'INACTIVO' || Boolean(data?.employee.fecha_cese);
 
   // Computed metrics
-  const dailyBaseFee = settlement && settlement.calendarDaysInPeriod > 0
-    ? settlement.projectedMonthlyPayment / settlement.calendarDaysInPeriod
-    : 0;
+  const commercialDays = settlement?.commercialDaysInPeriod ?? settlement?.calendarDaysInPeriod ?? 30;
+  const dailyBaseFee = settlement?.dailyRate
+    ?? (settlement && commercialDays > 0 ? settlement.projectedMonthlyPayment / commercialDays : 0);
+
 
   const overtimeHours = settlement ? Math.floor(settlement.overtimeMinutes / 60) : 0;
   const overtimeRestMins = settlement ? settlement.overtimeMinutes % 60 : 0;
@@ -302,9 +303,9 @@ export function CutoffSettlementModal({
           <div className={styles.formulaBanner}>
             <Info size={16} style={{ flexShrink: 0 }} />
             <span>
-              <strong>Fórmula de liquidación proporcional:</strong> Honorario pactado de{' '}
+              <strong>Fórmula comercial estándar (30 días):</strong> Honorario pactado de{' '}
               <strong>{amount(settlement.projectedMonthlyPayment)}</strong> ÷{' '}
-              <strong>{settlement.calendarDaysInPeriod} días</strong> del mes ={' '}
+              <strong>{commercialDays} días comerciales</strong> ={' '}
               <strong>{amount(dailyBaseFee)} diario</strong> ×{' '}
               <strong>{settlement.serviceDaysToCutoff} días</strong> laborados al corte ={' '}
               <strong>{amount(settlement.accruedBaseAmount)}</strong> de honorario devengado.
@@ -399,7 +400,7 @@ export function CutoffSettlementModal({
                   {amount(settlement.accruedBaseAmount)}
                 </div>
                 <div className={styles.kpiSubtext}>
-                  {settlement.serviceDaysToCutoff} de {settlement.calendarDaysInPeriod} días ({amount(dailyBaseFee)}/día)
+                  {settlement.serviceDaysToCutoff} de {commercialDays} días comerciales ({amount(dailyBaseFee)}/día)
                 </div>
                 <span className={styles.kpiTag}>Pactado: {amount(settlement.projectedMonthlyPayment)}</span>
               </div>
@@ -519,7 +520,7 @@ export function CutoffSettlementModal({
                             <strong>Honorario base devengado</strong>
                           </td>
                           <td style={{ color: '#64748b', fontSize: '11px' }}>
-                            {settlement.serviceDaysToCutoff} de {settlement.calendarDaysInPeriod} días (Tarifa {amount(dailyBaseFee)}/día)
+                            {settlement.serviceDaysToCutoff} de {commercialDays} días comerciales (Tarifa {amount(dailyBaseFee)}/día)
                           </td>
                           <td className={styles.amountAdd}>
                             + {amount(settlement.accruedBaseAmount)}
@@ -843,7 +844,7 @@ export function CutoffSettlementModal({
                             Honorario Base Devengado
                             <br />
                             <small style={{ color: '#64748b' }}>
-                              {settlement.serviceDaysToCutoff} de {settlement.calendarDaysInPeriod} días ({amount(dailyBaseFee)}/día)
+                              {settlement.serviceDaysToCutoff} de {commercialDays} días comerciales ({amount(dailyBaseFee)}/día)
                             </small>
                           </td>
                           <td className={styles.docTableNum}>{amount(settlement.accruedBaseAmount)}</td>

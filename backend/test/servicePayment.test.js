@@ -285,6 +285,8 @@ test('calcula liquidacion y acumulado exacto a la fecha de corte (ej. cese al di
 
   assert.equal(settlement.serviceDaysToCutoff, 15);
   assert.equal(settlement.calendarDaysInPeriod, 30);
+  assert.equal(settlement.commercialDaysInPeriod, 30);
+  assert.equal(settlement.dailyRate, 40);
   assert.equal(settlement.accruedBaseAmount, 600);
   assert.equal(settlement.overtimeAmount, 10);
   assert.equal(settlement.otherIncome, 50);
@@ -297,4 +299,44 @@ test('calcula liquidacion y acumulado exacto a la fecha de corte (ej. cese al di
   assert.equal(settlement.itemizedLines.length, 6);
   assert.equal(settlement.itemizedLines[0].category, 'BASE');
 });
+
+test('calcula liquidacion a la fecha usando siempre mes comercial de 30 dias (incluso en meses de 31 o 28 dias)', () => {
+  // Octubre tiene 31 dias calendario. Al dia 15 (quincena), debe calcular exactamente el 50% (15/30)
+  const settlementOct = calculateCutoffSettlement({
+    periodStart: '2026-10-01',
+    cutoffDate: '2026-10-15',
+    employmentStart: '2025-01-01',
+    agreements: [{
+      agreementId: 1,
+      monthlyPayment: 1230,
+      agreementStart: '2026-01-01',
+      agreementEnd: null,
+      policy: 'DIAS_CALENDARIO',
+    }],
+  });
+  assert.equal(settlementOct.calendarDaysInPeriod, 30);
+  assert.equal(settlementOct.commercialDaysInPeriod, 30);
+  assert.equal(settlementOct.serviceDaysToCutoff, 15);
+  assert.equal(settlementOct.dailyRate, 41);
+  assert.equal(settlementOct.accruedBaseAmount, 615); // Exactamente 1230 / 30 * 15
+
+  // Febrero (28 dias). Al corte de fin de mes, debe reconocer el 100% del honorario (30 dias comerciales)
+  const settlementFeb = calculateCutoffSettlement({
+    periodStart: '2026-02-01',
+    cutoffDate: '2026-02-28',
+    employmentStart: '2025-01-01',
+    agreements: [{
+      agreementId: 1,
+      monthlyPayment: 1500,
+      agreementStart: '2026-01-01',
+      agreementEnd: null,
+      policy: 'DIAS_CALENDARIO',
+    }],
+  });
+  assert.equal(settlementFeb.calendarDaysInPeriod, 30);
+  assert.equal(settlementFeb.commercialDaysInPeriod, 30);
+  assert.equal(settlementFeb.serviceDaysToCutoff, 30);
+  assert.equal(settlementFeb.accruedBaseAmount, 1500); // 100% completo
+});
+
 

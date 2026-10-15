@@ -970,7 +970,9 @@ export type CutoffSettlement = {
   cutoffDate: string;
   periodStart: string;
   calendarDaysInPeriod: number;
+  commercialDaysInPeriod?: number;
   serviceDaysToCutoff: number;
+  dailyRate?: number;
   accruedBaseAmount: number;
   projectedMonthlyPayment: number;
   overtimeMinutes: number;
