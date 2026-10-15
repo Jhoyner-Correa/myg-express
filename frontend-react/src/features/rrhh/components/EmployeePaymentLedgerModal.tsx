@@ -1,8 +1,8 @@
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
-  Calculator, CalendarDays, CheckCircle2, CircleAlert, Clock3, FileText,
-  Landmark, NotebookPen, Printer, ReceiptText, ShieldCheck, Trash2, UserRound, WalletCards,
+  AlertTriangle, Calculator, CalendarDays, CheckCircle2, CircleAlert, Clock3, FileText,
+  Landmark, NotebookPen, Pencil, Plus, Printer, ReceiptText, ShieldCheck, Trash2, UserRound, WalletCards,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
 import { Modal } from '../../../components/ui/Modal/Modal';
@@ -20,6 +20,7 @@ type Props = {
   month: string;
   canManage: boolean;
   onClose: () => void;
+  onUpdated?: () => void | Promise<void>;
 };
 
 const currency = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', minimumFractionDigits: 2 });
@@ -76,7 +77,7 @@ function dayKey(month: string, day: number) {
   return `${month}-${String(day).padStart(2, '0')}`;
 }
 
-export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose }: Props) {
+export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose, onUpdated }: Props) {
   const [ledger, setLedger] = useState<ServicePaymentEmployeeLedger | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -87,6 +88,37 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
   const [cancelReason, setCancelReason] = useState('');
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [showCutoffModal, setShowCutoffModal] = useState<boolean>(false);
+
+  // Movements management state
+  const [movementModal, setMovementModal] = useState<{
+    mode: 'create' | 'edit';
+    movement?: ServicePaymentEmployeeLedger['movements'][number];
+  } | null>(null);
+  const [movementType, setMovementType] = useState<'ADELANTO' | 'OTRO_INGRESO' | 'OTRO_DESCUENTO'>('ADELANTO');
+  const [movementConcept, setMovementConcept] = useState('');
+  const [movementAmount, setMovementAmount] = useState('');
+  const [savingMovement, setSavingMovement] = useState(false);
+  const [movementError, setMovementError] = useState('');
+
+  const [cancelMovementTarget, setCancelMovementTarget] = useState<ServicePaymentEmployeeLedger['movements'][number] | null>(null);
+  const [cancelMovementReason, setCancelMovementReason] = useState('');
+  const [deletingMovement, setDeletingMovement] = useState(false);
+
+  // Loans management state
+  const [loanModal, setLoanModal] = useState<{
+    mode: 'create' | 'edit';
+    loan?: ServicePaymentEmployeeLedger['loans'][number];
+  } | null>(null);
+  const [loanTotalAmount, setLoanTotalAmount] = useState('');
+  const [loanInstallment, setLoanInstallment] = useState('');
+  const [loanStartMonth, setLoanStartMonth] = useState(month);
+  const [loanConcept, setLoanConcept] = useState('');
+  const [savingLoan, setSavingLoan] = useState(false);
+  const [loanError, setLoanError] = useState('');
+
+  const [cancelLoanTarget, setCancelLoanTarget] = useState<ServicePaymentEmployeeLedger['loans'][number] | null>(null);
+  const [cancelLoanReason, setCancelLoanReason] = useState('');
+  const [cancellingLoan, setCancellingLoan] = useState(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     if (!employee) return;
@@ -110,6 +142,10 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
     setCancelNoteId(null);
     setCancelReason('');
     setSelectedDayDate(null);
+    setMovementModal(null);
+    setCancelMovementTarget(null);
+    setLoanModal(null);
+    setCancelLoanTarget(null);
   }, [employee?.empleado_id, month]);
 
   const attendanceByDate = useMemo(() => new Map((ledger?.attendance ?? []).map(record => [record.fecha, record])), [ledger?.attendance]);
@@ -169,6 +205,186 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
       showToast('La nota fue anulada y permanece disponible para auditoría.', 'success');
     } catch (requestError) { showToast(getApiErrorMessage(requestError, 'No se pudo anular la nota.'), 'error'); }
     finally { setSavingNote(false); }
+  };
+
+  const isLiquidationLocked = ['PAGADO', 'EN_LOTE'].includes(String(liquidation?.estado ?? ''));
+  const isPeriodLocked = Boolean(ledger?.period && ledger.period.estado !== 'BORRADOR');
+  const canEditMovements = canManage && !isLiquidationLocked && !isPeriodLocked;
+
+  const handleOpenCreateMovement = () => {
+    setMovementModal({ mode: 'create' });
+    setMovementType('ADELANTO');
+    setMovementConcept('');
+    setMovementAmount('');
+    setMovementError('');
+  };
+
+  const handleOpenEditMovement = (mov: ServicePaymentEmployeeLedger['movements'][number]) => {
+    setMovementModal({ mode: 'edit', movement: mov });
+    setMovementType((mov.tipo as 'ADELANTO' | 'OTRO_INGRESO' | 'OTRO_DESCUENTO') || 'ADELANTO');
+    setMovementConcept(mov.concepto);
+    setMovementAmount(String(mov.monto));
+    setMovementError('');
+  };
+
+  const handleSubmitMovement = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!employee || !movementModal) return;
+    const amountVal = Number(movementAmount);
+    if (!amountVal || amountVal <= 0) {
+      setMovementError('Ingresa un monto válido mayor a 0.');
+      return;
+    }
+    if (movementConcept.trim().length < 3) {
+      setMovementError('El concepto debe tener al menos 3 caracteres.');
+      return;
+    }
+
+    setSavingMovement(true);
+    setMovementError('');
+    try {
+      if (movementModal.mode === 'create') {
+        await rrhhService.createPaymentMovement({
+          employee_id: employee.empleado_id,
+          month,
+          type: movementType,
+          concept: movementConcept.trim(),
+          amount: amountVal,
+        });
+        showToast('Movimiento registrado y liquidación recalculada.', 'success');
+      } else if (movementModal.movement) {
+        await rrhhService.updatePaymentMovement(movementModal.movement.id, {
+          type: movementType,
+          concept: movementConcept.trim(),
+          amount: amountVal,
+        });
+        showToast('Movimiento actualizado y liquidación recalculada.', 'success');
+      }
+      setMovementModal(null);
+      await load();
+      await onUpdated?.();
+    } catch (requestError) {
+      setMovementError(getApiErrorMessage(requestError, 'No se pudo guardar el movimiento.'));
+    } finally {
+      setSavingMovement(false);
+    }
+  };
+
+  const handleConfirmDeleteMovement = async () => {
+    if (!cancelMovementTarget) return;
+    if (cancelMovementReason.trim().length < 3) {
+      showToast('Debes indicar un motivo de anulación de al menos 3 caracteres.', 'error');
+      return;
+    }
+    setDeletingMovement(true);
+    try {
+      await rrhhService.deletePaymentMovement(cancelMovementTarget.id, cancelMovementReason.trim());
+      setCancelMovementTarget(null);
+      setCancelMovementReason('');
+      await load();
+      await onUpdated?.();
+      showToast('Movimiento anulado y liquidación recalculada.', 'success');
+    } catch (requestError) {
+      showToast(getApiErrorMessage(requestError, 'No se pudo anular el movimiento.'), 'error');
+    } finally {
+      setDeletingMovement(false);
+    }
+  };
+
+  const handleOpenCreateLoan = () => {
+    setLoanModal({ mode: 'create' });
+    setLoanTotalAmount('');
+    setLoanInstallment('');
+    setLoanStartMonth(month);
+    setLoanConcept('');
+    setLoanError('');
+  };
+
+  const handleOpenEditLoan = (loan: ServicePaymentEmployeeLedger['loans'][number]) => {
+    setLoanModal({ mode: 'edit', loan });
+    setLoanTotalAmount(String(loan.monto_original));
+    setLoanInstallment(String(loan.cuota_mensual));
+    setLoanStartMonth(loan.periodo_inicio);
+    setLoanConcept(loan.concepto);
+    setLoanError('');
+  };
+
+  const handleSubmitLoan = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!employee || !loanModal) return;
+    const totalVal = Number(loanTotalAmount);
+    const installmentVal = Number(loanInstallment);
+
+    if (installmentVal <= 0) {
+      setLoanError('La cuota mensual debe ser mayor a 0.');
+      return;
+    }
+    if (loanModal.mode === 'create') {
+      if (totalVal <= 0) {
+        setLoanError('El monto total del préstamo debe ser mayor a 0.');
+        return;
+      }
+      if (installmentVal > totalVal) {
+        setLoanError('La cuota mensual no puede superar el monto total del préstamo.');
+        return;
+      }
+    }
+    if (loanConcept.trim().length < 3) {
+      setLoanError('El concepto debe tener al menos 3 caracteres.');
+      return;
+    }
+
+    setSavingLoan(true);
+    setLoanError('');
+    try {
+      if (loanModal.mode === 'create') {
+        await rrhhService.createEmployeeLoan({
+          employee_id: employee.empleado_id,
+          total_amount: totalVal,
+          monthly_installment: installmentVal,
+          start_month: loanStartMonth,
+          concept: loanConcept.trim(),
+        });
+        showToast('Préstamo registrado exitosamente.', 'success');
+      } else if (loanModal.loan) {
+        await rrhhService.updateEmployeeLoan(loanModal.loan.id, {
+          monthly_installment: installmentVal,
+          concept: loanConcept.trim(),
+          ...(Number(loanModal.loan.saldo_pendiente) === Number(loanModal.loan.monto_original)
+            ? { total_amount: totalVal }
+            : {}),
+        });
+        showToast('Préstamo actualizado y liquidación recalculada.', 'success');
+      }
+      setLoanModal(null);
+      await load();
+      await onUpdated?.();
+    } catch (requestError) {
+      setLoanError(getApiErrorMessage(requestError, 'No se pudo guardar el préstamo.'));
+    } finally {
+      setSavingLoan(false);
+    }
+  };
+
+  const handleConfirmCancelLoan = async () => {
+    if (!cancelLoanTarget) return;
+    if (cancelLoanReason.trim().length < 3) {
+      showToast('Debes indicar un motivo de cancelación de al menos 3 caracteres.', 'error');
+      return;
+    }
+    setCancellingLoan(true);
+    try {
+      await rrhhService.cancelEmployeeLoan(cancelLoanTarget.id, cancelLoanReason.trim());
+      setCancelLoanTarget(null);
+      setCancelLoanReason('');
+      await load();
+      await onUpdated?.();
+      showToast('Préstamo cancelado y liquidación recalculada.', 'success');
+    } catch (requestError) {
+      showToast(getApiErrorMessage(requestError, 'No se pudo cancelar el préstamo.'), 'error');
+    } finally {
+      setCancellingLoan(false);
+    }
   };
 
   const fallbackEmployee = employee ? {
@@ -494,21 +710,205 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
             </footer>
           </article>
 
-          <div className={styles.detailGrid}>
-            <section className={styles.detailPanel}>
-              <div className={styles.sectionLabel}><ReceiptText />Composición de la liquidación</div>
-              {ledger.concepts.length ? <div className={styles.concepts}>{ledger.concepts.map(concept => <div key={concept.id}><span><strong>{concept.descripcion}</strong><small>{concept.cantidad ? `${concept.cantidad} ${concept.unidad ?? ''}` : concept.tipo.replaceAll('_', ' ')}</small></span><b className={['ADELANTO', 'CUOTA_PRESTAMO', 'OTRO_DESCUENTO'].includes(concept.tipo) ? styles.negative : ''}>{['ADELANTO', 'CUOTA_PRESTAMO', 'OTRO_DESCUENTO'].includes(concept.tipo) ? '− ' : '+ '}{amount(concept.monto)}</b></div>)}</div>
-                : <Empty text="El periodo aún no tiene una liquidación generada." />}
-            </section>
+          {/* Panel Ejecutivo: Movimientos, Adelantos y Préstamos */}
+          <section className={styles.financialSection} aria-label="Gestión de adelantos y préstamos">
+            <header className={styles.financialHeader}>
+              <div className={styles.financialHeaderTitle}>
+                <div className={styles.sectionLabel}>
+                  <Landmark />
+                  <span>Adelantos, préstamos y compensaciones financieras</span>
+                </div>
+                <small>Control auditable de retenciones, adelantos de quincena y amortización de préstamos empresariales.</small>
+              </div>
+              {canManage && (
+                <div className={styles.financialActions}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="corporate"
+                    icon={<Plus size={14} />}
+                    disabled={!canEditMovements}
+                    title={!canEditMovements ? 'El periodo o liquidación se encuentra cerrado/pagado' : 'Registrar nuevo adelanto o bono'}
+                    onClick={handleOpenCreateMovement}
+                  >
+                    + Adelanto / Ajuste
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    icon={<Landmark size={14} />}
+                    disabled={!canManage}
+                    title="Otorgar préstamo corporativo con descuento mensual"
+                    onClick={handleOpenCreateLoan}
+                  >
+                    + Nuevo préstamo
+                  </Button>
+                </div>
+              )}
+            </header>
 
-            <section className={styles.detailPanel}>
-              <div className={styles.sectionLabel}><Landmark />Adelantos y préstamos</div>
-              {(ledger.movements.length || ledger.loans.length) ? <div className={styles.financialItems}>
-                {ledger.movements.map(movement => <div key={`movement-${movement.id}`}><span><strong>{movement.concepto}</strong><small>{movement.tipo.replaceAll('_', ' ')} · {movement.estado}</small></span><b>{amount(movement.monto)}</b></div>)}
-                {ledger.loans.map(loan => <div key={`loan-${loan.id}`}><span><strong>{loan.concepto}</strong><small>Saldo {amount(loan.saldo_pendiente)} · {loan.estado}</small></span><b>Cuota {amount(loan.cuota_mensual)}</b></div>)}
-              </div> : <Empty text="No existen adelantos ni préstamos aplicables al periodo." />}
-            </section>
-          </div>
+            {isLiquidationLocked && (
+              <div className={styles.lockedNotice}>
+                <ShieldCheck size={16} />
+                <span>Liquidación {liquidation?.estado?.toLowerCase()}: Los adelantos y movimientos quedan bloqueados para proteger el registro bancario y fiscal.</span>
+              </div>
+            )}
+
+            <div className={styles.financialSplit}>
+              {/* Columna Izquierda: Adelantos y Movimientos del Mes */}
+              <div className={styles.financialBlock}>
+                <div className={styles.blockHeading}>
+                  <WalletCards size={15} />
+                  <span>Movimientos del periodo ({monthTitle.format(new Date(`${month}-01T00:00:00Z`))})</span>
+                  <span className={styles.blockCount}>{ledger.movements.length}</span>
+                </div>
+                {ledger.movements.length > 0 ? (
+                  <div className={styles.movementsList}>
+                    {ledger.movements.map(mov => {
+                      const isExpense = mov.tipo === 'ADELANTO' || mov.tipo === 'OTRO_DESCUENTO';
+                      return (
+                        <div key={`movement-${mov.id}`} className={styles.movementItem}>
+                          <div className={styles.movementLeading}>
+                            <span className={`${styles.movementBadge} ${styles[`badge_${mov.tipo.toLowerCase()}`]}`}>
+                              {mov.tipo === 'ADELANTO' ? 'Adelanto' : mov.tipo === 'OTRO_INGRESO' ? 'Bono / Ingreso' : 'Descuento'}
+                            </span>
+                            <div className={styles.movementTexts}>
+                              <strong>{mov.concepto}</strong>
+                              <small>
+                                Registrado el {formatDate(mov.created_at)} · {mov.estado === 'APLICADO' ? 'Aplicado en liquidación' : 'Borrador'}
+                              </small>
+                            </div>
+                          </div>
+                          <div className={styles.movementTrailing}>
+                            <b className={isExpense ? styles.amountNegative : styles.amountPositive}>
+                              {isExpense ? '− ' : '+ '}{amount(mov.monto)}
+                            </b>
+                            {canEditMovements && (
+                              <div className={styles.itemActions}>
+                                <button
+                                  type="button"
+                                  className={styles.actionBtnEdit}
+                                  title="Editar movimiento"
+                                  onClick={() => handleOpenEditMovement(mov)}
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.actionBtnDelete}
+                                  title="Anular movimiento"
+                                  onClick={() => {
+                                    setCancelMovementTarget(mov);
+                                    setCancelMovementReason('');
+                                  }}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className={styles.emptyBlock}>
+                    <p>Sin adelantos ni ajustes registrados en este mes.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Columna Derecha: Préstamos al Colaborador */}
+              <div className={styles.financialBlock}>
+                <div className={styles.blockHeading}>
+                  <Landmark size={15} />
+                  <span>Préstamos corporativos en curso</span>
+                  <span className={styles.blockCount}>{ledger.loans.length}</span>
+                </div>
+                {ledger.loans.length > 0 ? (
+                  <div className={styles.loansList}>
+                    {ledger.loans.map(loan => {
+                      const original = Number(loan.monto_original || 0);
+                      const balance = Number(loan.saldo_pendiente || 0);
+                      const amortized = Math.max(0, original - balance);
+                      const pct = original > 0 ? Math.min(100, Math.round((amortized / original) * 100)) : 0;
+                      const isActive = loan.estado === 'ACTIVO';
+                      return (
+                        <div key={`loan-${loan.id}`} className={styles.loanCard}>
+                          <div className={styles.loanCardHeader}>
+                            <div className={styles.loanTitleWrapper}>
+                              <strong>{loan.concepto}</strong>
+                              <small>Desde {loan.periodo_inicio} · Cuota {amount(loan.cuota_mensual)}/mes</small>
+                            </div>
+                            <div className={styles.loanStatusWrapper}>
+                              <span className={`${styles.loanStatusBadge} ${styles[`loanStatus_${loan.estado.toLowerCase()}`]}`}>
+                                {loan.estado}
+                              </span>
+                              {canManage && isActive && (
+                                <div className={styles.itemActions}>
+                                  <button
+                                    type="button"
+                                    className={styles.actionBtnEdit}
+                                    title="Modificar cuota del préstamo"
+                                    onClick={() => handleOpenEditLoan(loan)}
+                                  >
+                                    <Pencil size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={styles.actionBtnDelete}
+                                    title="Cancelar préstamo"
+                                    onClick={() => {
+                                      setCancelLoanTarget(loan);
+                                      setCancelLoanReason('');
+                                    }}
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className={styles.loanProgressSection}>
+                            <div className={styles.progressBarTrack}>
+                              <div className={styles.progressBarFill} style={{ width: `${pct}%` }} />
+                            </div>
+                            <div className={styles.progressLabels}>
+                              <span>Amortizado: {amount(amortized)} ({pct}%)</span>
+                              <span>Saldo restante: <b>{amount(balance)}</b></span>
+                            </div>
+                          </div>
+
+                          <div className={styles.loanFooterMetrics}>
+                            <div>
+                              <span>Monto total entregado:</span>
+                              <b>{amount(original)}</b>
+                            </div>
+                            <div>
+                              <span>Descuento este periodo:</span>
+                              <strong>− {amount(isActive ? Math.min(Number(loan.cuota_mensual), balance) : 0)}</strong>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className={styles.emptyBlock}>
+                    <p>El colaborador no tiene préstamos registrados.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className={styles.detailPanel}>
+            <div className={styles.sectionLabel}><ReceiptText />Composición contable de la liquidación</div>
+            {ledger.concepts.length ? <div className={styles.concepts}>{ledger.concepts.map(concept => <div key={concept.id}><span><strong>{concept.descripcion}</strong><small>{concept.cantidad ? `${concept.cantidad} ${concept.unidad ?? ''}` : concept.tipo.replaceAll('_', ' ')}</small></span><b className={['ADELANTO', 'CUOTA_PRESTAMO', 'OTRO_DESCUENTO'].includes(concept.tipo) ? styles.negative : ''}>{['ADELANTO', 'CUOTA_PRESTAMO', 'OTRO_DESCUENTO'].includes(concept.tipo) ? '− ' : '+ '}{amount(concept.monto)}</b></div>)}</div>
+              : <Empty text="El periodo aún no tiene una liquidación generada." />}
+          </section>
 
           <section className={styles.notesPanel}>
             <header>
@@ -575,6 +975,271 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
               await load();
             }}
           />
+
+          {/* Modales de Gestión de Movimientos */}
+          {movementModal && (
+            <Modal
+              open
+              title={movementModal.mode === 'create' ? 'Registrar Adelanto o Ajuste' : 'Editar Movimiento del Periodo'}
+              description="Los cambios se reflejan inmediatamente en la boleta y el neto a transferir."
+              icon={<WalletCards />}
+              maxWidth={500}
+              onClose={() => setMovementModal(null)}
+              footer={
+                <div className={styles.dialogFooter}>
+                  <Button variant="secondary" onClick={() => setMovementModal(null)}>Cancelar</Button>
+                  <Button type="submit" form="movement-form" variant="corporate" loading={savingMovement}>
+                    {movementModal.mode === 'create' ? 'Registrar' : 'Guardar cambios'}
+                  </Button>
+                </div>
+              }
+            >
+              <form id="movement-form" className={styles.dialogForm} onSubmit={handleSubmitMovement}>
+                {movementError && (
+                  <div className={styles.dialogAlertDanger} role="alert">
+                    <AlertTriangle size={16} />
+                    <span>{movementError}</span>
+                  </div>
+                )}
+                <div className={styles.dialogFormGroup}>
+                  <label htmlFor="movement-type">Tipo de movimiento</label>
+                  <select
+                    id="movement-type"
+                    value={movementType}
+                    onChange={e => setMovementType(e.target.value as 'ADELANTO' | 'OTRO_INGRESO' | 'OTRO_DESCUENTO')}
+                  >
+                    <option value="ADELANTO">Adelanto de honorarios (Descuenta al neto)</option>
+                    <option value="OTRO_INGRESO">Bono / Otro ingreso (Suma al neto)</option>
+                    <option value="OTRO_DESCUENTO">Otro descuento / Retención (Descuenta al neto)</option>
+                  </select>
+                </div>
+                <div className={styles.dialogFormGroup}>
+                  <label htmlFor="movement-amount">Importe en soles (S/)</label>
+                  <input
+                    id="movement-amount"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    autoFocus
+                    required
+                    value={movementAmount}
+                    onChange={e => setMovementAmount(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className={styles.dialogFormGroup}>
+                  <label htmlFor="movement-concept">Concepto o motivo</label>
+                  <input
+                    id="movement-concept"
+                    type="text"
+                    required
+                    value={movementConcept}
+                    onChange={e => setMovementConcept(e.target.value)}
+                    placeholder="Ej. Adelanto quincenal 15 de mes"
+                  />
+                </div>
+                <div className={styles.dialogAlertWarning}>
+                  <ShieldCheck size={16} />
+                  <span>
+                    Al guardar, la liquidación en borrador se recalculará automáticamente para actualizar el recibo SUNAT y el depósito neto.
+                  </span>
+                </div>
+              </form>
+            </Modal>
+          )}
+
+          {cancelMovementTarget && (
+            <Modal
+              open
+              title="Anular Movimiento Financiero"
+              description="Esta acción eliminará el concepto y recalculará la liquidación."
+              icon={<AlertTriangle />}
+              maxWidth={460}
+              onClose={() => setCancelMovementTarget(null)}
+              footer={
+                <div className={styles.dialogFooter}>
+                  <Button variant="secondary" onClick={() => setCancelMovementTarget(null)}>Volver</Button>
+                  <Button
+                    variant="danger"
+                    loading={deletingMovement}
+                    disabled={cancelMovementReason.trim().length < 3}
+                    onClick={handleConfirmDeleteMovement}
+                  >
+                    Sí, anular movimiento
+                  </Button>
+                </div>
+              }
+            >
+              <div className={styles.dialogForm}>
+                <div className={styles.dialogAlertDanger}>
+                  <AlertTriangle size={18} />
+                  <div>
+                    <strong>¿Deseas anular este movimiento?</strong>
+                    <p style={{ margin: '4px 0 0' }}>
+                      {cancelMovementTarget.concepto} · <b>{amount(cancelMovementTarget.monto)}</b> ({cancelMovementTarget.tipo.replaceAll('_', ' ')})
+                    </p>
+                  </div>
+                </div>
+                <div className={styles.dialogFormGroup}>
+                  <label htmlFor="cancel-movement-reason">Motivo obligatorio de anulación</label>
+                  <textarea
+                    id="cancel-movement-reason"
+                    autoFocus
+                    required
+                    rows={2}
+                    value={cancelMovementReason}
+                    onChange={e => setCancelMovementReason(e.target.value)}
+                    placeholder="Ej. Error en digitación de monto acordado con el colaborador"
+                  />
+                </div>
+              </div>
+            </Modal>
+          )}
+
+          {/* Modales de Gestión de Préstamos */}
+          {loanModal && (
+            <Modal
+              open
+              title={loanModal.mode === 'create' ? 'Registrar Préstamo al Colaborador' : 'Modificar Cuota de Préstamo'}
+              description="Las cuotas se deducirán mensualmente del neto a pagar hasta cancelar el saldo."
+              icon={<Landmark />}
+              maxWidth={500}
+              onClose={() => setLoanModal(null)}
+              footer={
+                <div className={styles.dialogFooter}>
+                  <Button variant="secondary" onClick={() => setLoanModal(null)}>Cancelar</Button>
+                  <Button type="submit" form="loan-form" variant="corporate" loading={savingLoan}>
+                    {loanModal.mode === 'create' ? 'Crear préstamo' : 'Guardar cambios'}
+                  </Button>
+                </div>
+              }
+            >
+              <form id="loan-form" className={styles.dialogForm} onSubmit={handleSubmitLoan}>
+                {loanError && (
+                  <div className={styles.dialogAlertDanger} role="alert">
+                    <AlertTriangle size={16} />
+                    <span>{loanError}</span>
+                  </div>
+                )}
+                <div className={styles.dialogFormGroup}>
+                  <label htmlFor="loan-concept">Concepto o descripción</label>
+                  <input
+                    id="loan-concept"
+                    type="text"
+                    autoFocus
+                    required
+                    value={loanConcept}
+                    onChange={e => setLoanConcept(e.target.value)}
+                    placeholder="Ej. Préstamo personal para gastos médicos"
+                  />
+                </div>
+                <div className={styles.dialogFormGroup}>
+                  <label htmlFor="loan-total">
+                    Monto total entregado (S/)
+                    {loanModal.mode === 'edit' && Number(loanModal.loan?.saldo_pendiente) < Number(loanModal.loan?.monto_original) && (
+                      <span style={{ fontSize: '10px', color: '#64748b' }}> (Protegido por amortizaciones previas)</span>
+                    )}
+                  </label>
+                  <input
+                    id="loan-total"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    disabled={loanModal.mode === 'edit' && Number(loanModal.loan?.saldo_pendiente) < Number(loanModal.loan?.monto_original)}
+                    value={loanTotalAmount}
+                    onChange={e => setLoanTotalAmount(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className={styles.dialogFormGroup}>
+                  <label htmlFor="loan-installment">Cuota mensual de descuento (S/)</label>
+                  <input
+                    id="loan-installment"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    value={loanInstallment}
+                    onChange={e => setLoanInstallment(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                {loanModal.mode === 'create' && (
+                  <div className={styles.dialogFormGroup}>
+                    <label htmlFor="loan-start-month">Mes de inicio de cobro</label>
+                    <input
+                      id="loan-start-month"
+                      type="month"
+                      required
+                      value={loanStartMonth}
+                      onChange={e => setLoanStartMonth(e.target.value)}
+                    />
+                  </div>
+                )}
+                <div className={styles.dialogAlertWarning}>
+                  <ShieldCheck size={16} />
+                  <span>
+                    {loanModal.mode === 'create'
+                      ? 'La cuota se descontará de forma automática en cada cierre de liquidación hasta agotar el saldo.'
+                      : 'Modificar la cuota ajusta el descuento del periodo actual y recalcula la liquidación en borrador.'}
+                  </span>
+                </div>
+              </form>
+            </Modal>
+          )}
+
+          {cancelLoanTarget && (
+            <Modal
+              open
+              title="Confirmar Cancelación de Préstamo"
+              description="Control de amortización y protección de liquidaciones históricas."
+              icon={<AlertTriangle />}
+              maxWidth={480}
+              onClose={() => setCancelLoanTarget(null)}
+              footer={
+                <div className={styles.dialogFooter}>
+                  <Button variant="secondary" onClick={() => setCancelLoanTarget(null)}>Volver</Button>
+                  <Button
+                    variant="danger"
+                    loading={cancellingLoan}
+                    disabled={cancelLoanReason.trim().length < 3}
+                    onClick={handleConfirmCancelLoan}
+                  >
+                    Confirmar cancelación
+                  </Button>
+                </div>
+              }
+            >
+              <div className={styles.dialogForm}>
+                <div className={styles.dialogAlertDanger}>
+                  <AlertTriangle size={20} />
+                  <div>
+                    <strong>{cancelLoanTarget.concepto}</strong>
+                    <p style={{ margin: '4px 0 0', fontSize: '11.5px' }}>
+                      {Number(cancelLoanTarget.saldo_pendiente) === Number(cancelLoanTarget.monto_original) ? (
+                        'Este préstamo aún no tiene pagos descontados. Será eliminado por completo de la base de datos sin afectar meses anteriores.'
+                      ) : (
+                        `Este préstamo ya cuenta con amortizaciones en meses cerrados. Al cancelarlo, el saldo restante de ${amount(cancelLoanTarget.saldo_pendiente)} dejará de descontarse en adelante, protegiendo la contabilidad histórica.`
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className={styles.dialogFormGroup}>
+                  <label htmlFor="cancel-loan-reason">Motivo obligatorio de cancelación</label>
+                  <textarea
+                    id="cancel-loan-reason"
+                    autoFocus
+                    required
+                    rows={2}
+                    value={cancelLoanReason}
+                    onChange={e => setCancelLoanReason(e.target.value)}
+                    placeholder="Ej. Condonación acordada por gerencia o saldo amortizado en efectivo"
+                  />
+                </div>
+              </div>
+            </Modal>
+          )}
         </div> : null}
   </Modal>;
 }

@@ -332,8 +332,20 @@ export const rrhhService = {
   createPaymentMovement(input: Record<string, unknown>) {
     return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number }>>('/rrhh/pagos/movimientos', input));
   },
+  updatePaymentMovement(movementId: number, input: Record<string, unknown>) {
+    return unwrapRequest(apiClient.put<ApiEnvelope<{ id: number; message: string }>>(`/rrhh/pagos/movimientos/${movementId}`, input));
+  },
+  deletePaymentMovement(movementId: number, reason?: string) {
+    return unwrapRequest(apiClient.delete<ApiEnvelope<{ id: number; message: string }>>(`/rrhh/pagos/movimientos/${movementId}`, { data: { reason }, params: reason ? { reason } : undefined }));
+  },
   createEmployeeLoan(input: Record<string, unknown>) {
     return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number }>>('/rrhh/pagos/prestamos', input));
+  },
+  updateEmployeeLoan(loanId: number, input: Record<string, unknown>) {
+    return unwrapRequest(apiClient.put<ApiEnvelope<{ id: number; message: string }>>(`/rrhh/pagos/prestamos/${loanId}`, input));
+  },
+  cancelEmployeeLoan(loanId: number, reason?: string) {
+    return unwrapRequest(apiClient.delete<ApiEnvelope<{ id: number; message: string }>>(`/rrhh/pagos/prestamos/${loanId}`, { data: { reason }, params: reason ? { reason } : undefined }));
   },
   generatePaymentPeriod(month: string) {
     return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number; collaborators: number }>>('/rrhh/pagos/periodos/generar', { periodo: month }));

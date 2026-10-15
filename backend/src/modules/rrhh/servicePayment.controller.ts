@@ -47,8 +47,20 @@ export class ServicePaymentController {
   createMovement = async (req: AuthRequest, res: Response) => this.respond(res, () =>
     this.service.createMovement(companyScope(req), actorId(req), req.body), 201);
 
+  updateMovement = async (req: AuthRequest, res: Response) => this.respond(res, () =>
+    this.service.updateMovement(companyScope(req), actorId(req), req.params.id, req.body));
+
+  deleteMovement = async (req: AuthRequest, res: Response) => this.respond(res, () =>
+    this.service.deleteMovement(companyScope(req), actorId(req), req.params.id, req.body?.reason || req.query?.reason));
+
   createLoan = async (req: AuthRequest, res: Response) => this.respond(res, () =>
     this.service.createLoan(companyScope(req), actorId(req), req.body), 201);
+
+  updateLoan = async (req: AuthRequest, res: Response) => this.respond(res, () =>
+    this.service.updateLoan(companyScope(req), actorId(req), req.params.id, req.body));
+
+  cancelLoan = async (req: AuthRequest, res: Response) => this.respond(res, () =>
+    this.service.cancelLoan(companyScope(req), actorId(req), req.params.id, req.body?.reason || req.query?.reason));
 
   generate = async (req: AuthRequest, res: Response) => this.respond(res, () =>
     this.service.generate(companyScope(req), actorId(req), req.body.periodo), 201);

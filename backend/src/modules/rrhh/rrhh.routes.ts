@@ -131,7 +131,11 @@ router.post('/pagos/periodos/:id/transicion', requirePermission(PERMISSIONS.RRHH
 router.post('/pagos/periodos/:id/lotes', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.createBatch);
 router.put('/pagos/empleados/:id/acuerdo', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.saveAgreement);
 router.post('/pagos/movimientos', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.createMovement);
+router.put('/pagos/movimientos/:id', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.updateMovement);
+router.delete('/pagos/movimientos/:id', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.deleteMovement);
 router.post('/pagos/prestamos', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.createLoan);
+router.put('/pagos/prestamos/:id', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.updateLoan);
+router.delete('/pagos/prestamos/:id', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.cancelLoan);
 router.put('/pagos/liquidaciones/:id/recibo', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.registerReceipt);
 router.post('/pagos/liquidaciones/:id/deposito', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.markPaid);
 

@@ -1507,3 +1507,475 @@
   }
 }
 
+/* ==========================================================================
+   Panel Ejecutivo: Gestión de Adelantos, Préstamos y Compensaciones
+   ========================================================================== */
+
+.financialSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.financialHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.financialHeaderTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.financialHeaderTitle small {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.financialActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lockedNotice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 8px;
+  font-size: 11.5px;
+  color: #92400e;
+  font-weight: 500;
+}
+
+.financialSplit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 860px) {
+  .financialSplit {
+    grid-template-columns: 1fr;
+  }
+}
+
+.financialBlock {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.blockHeading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 750;
+  color: #1e293b;
+}
+
+.blockHeading svg {
+  color: #475569;
+}
+
+.blockCount {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 8px;
+  border-radius: 12px;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.movementsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.movementItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.movementItem:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.movementLeading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.movementBadge {
+  font-size: 9px;
+  font-weight: 850;
+  padding: 3px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.badge_adelanto {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge_otro_ingreso {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.badge_otro_descuento {
+  background: #fff1f2;
+  color: #9f1239;
+  border: 1px solid #fecdd3;
+}
+
+.movementTexts {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.movementTexts strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.movementTexts small {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.movementTrailing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.amountNegative {
+  color: #e11d48;
+  font-size: 13px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+
+.amountPositive {
+  color: #059669;
+  font-size: 13px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+
+.itemActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.actionBtnEdit,
+.actionBtnDelete {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: transparent;
+  transition: all 0.15s ease;
+}
+
+.actionBtnEdit {
+  color: #475569;
+}
+
+.actionBtnEdit:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.actionBtnDelete {
+  color: #e11d48;
+}
+
+.actionBtnDelete:hover {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
+}
+
+.loansList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.loanCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.loanCard:hover {
+  border-color: #cbd5e1;
+}
+
+.loanCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.loanTitleWrapper {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.loanTitleWrapper strong {
+  font-size: 12px;
+  font-weight: 750;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loanTitleWrapper small {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.loanStatusWrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.loanStatusBadge {
+  font-size: 8.5px;
+  font-weight: 850;
+  padding: 2px 6px;
+  border-radius: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.loanStatus_activo {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.loanStatus_pagado {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.loanStatus_cancelado {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.loanProgressSection {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.progressBarTrack {
+  height: 6px;
+  width: 100%;
+  background: #f1f5f9;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.progressBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #10b981 100%);
+  border-radius: 999px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progressLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #64748b;
+}
+
+.progressLabels b {
+  color: #0f172a;
+}
+
+.loanFooterMetrics {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10.5px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.loanFooterMetrics span {
+  color: #64748b;
+}
+
+.loanFooterMetrics strong {
+  color: #e11d48;
+  font-weight: 850;
+  font-size: 12px;
+}
+
+.emptyBlock {
+  padding: 24px 14px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 11.5px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}
+
+/* ==========================================================================
+   Modales y Formularios de Movimientos y Préstamos
+   ========================================================================== */
+
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0;
+}
+
+.dialogFormGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dialogFormGroup label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #334155;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dialogFormGroup input,
+.dialogFormGroup select,
+.dialogFormGroup textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dialogFormGroup input:focus,
+.dialogFormGroup select:focus,
+.dialogFormGroup textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.dialogFormGroup input:disabled,
+.dialogFormGroup select:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.dialogAlertWarning {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  font-size: 11.5px;
+  color: #92400e;
+  line-height: 1.45;
+}
+
+.dialogAlertDanger {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 8px;
+  font-size: 11.5px;
+  color: #9f1239;
+  line-height: 1.45;
+}
+
+.dialogFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+

@@ -431,7 +431,15 @@ export function PaymentsPanel({
       catch (requestError) { showToast(getApiErrorMessage(requestError, 'No se pudo guardar la información.'), 'error'); }
       finally { setSubmitting(false); }
     }} />
-    <EmployeePaymentLedgerModal employee={ledgerEmployee} month={month} canManage={canManage} onClose={() => setLedgerEmployee(null)} />
+    <EmployeePaymentLedgerModal
+      employee={ledgerEmployee}
+      month={month}
+      canManage={canManage}
+      onClose={() => setLedgerEmployee(null)}
+      onUpdated={async () => {
+        await load();
+      }}
+    />
     <CutoffSettlementModal
       employee={cutoffEmployee}
       month={month}

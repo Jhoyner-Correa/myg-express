@@ -1130,6 +1130,236 @@ export class ServicePaymentService {
     return { id: result.insertId };
   }
 
+  async updateMovement(
+    companyIdValue: number | null,
+    actorId: number,
+    movementIdValue: unknown,
+    input: Record<string, unknown>,
+  ) {
+    const companyId = await this.resolveCompanyId(companyIdValue);
+    const movementId = positiveId(movementIdValue, 'Movimiento');
+    const [movementRows] = await pool.query<RowDataPacket[]>(
+      `SELECT m.id, m.empleado_id, DATE_FORMAT(m.periodo, '%Y-%m-01') AS periodo, m.tipo, m.concepto, m.monto, m.estado
+         FROM personal_pago_movimientos m
+         INNER JOIN personal_empleados e ON e.id = m.empleado_id
+         INNER JOIN sedes s ON s.id = e.sede_id
+        WHERE m.id = ? AND s.empresa_id = ? LIMIT 1`,
+      [movementId, companyId],
+    );
+    if (!movementRows.length) throw new ServicePaymentError('Movimiento no encontrado.', 404);
+    const movement = movementRows[0];
+    const period = String(movement.periodo);
+    const employeeId = Number(movement.empleado_id);
+
+    const [paidLiquidation] = await pool.query<RowDataPacket[]>(
+      `SELECT l.id, l.estado FROM personal_liquidaciones_pago l
+         JOIN personal_periodos_pago p ON p.id = l.periodo_pago_id
+        WHERE l.empleado_id = ? AND p.periodo = ? AND l.estado IN ('PAGADO', 'EN_LOTE') LIMIT 1`,
+      [employeeId, period],
+    );
+    if (paidLiquidation.length) {
+      throw new ServicePaymentError('No se puede modificar un movimiento de una liquidación que ya fue procesada o pagada.', 409);
+    }
+    const [lockedPeriods] = await pool.query<RowDataPacket[]>(
+      `SELECT estado FROM personal_periodos_pago WHERE empresa_id = ? AND periodo = ? AND estado <> 'BORRADOR' LIMIT 1`,
+      [companyId, period],
+    );
+    if (lockedPeriods.length) {
+      throw new ServicePaymentError('El periodo mensual se encuentra en revisión o cerrado y no admite modificaciones.', 409);
+    }
+
+    const type = input.type ? String(input.type).toUpperCase() : movement.tipo;
+    if (!['ADELANTO', 'OTRO_INGRESO', 'OTRO_DESCUENTO'].includes(type)) {
+      throw new ServicePaymentError('Tipo de movimiento no válido.');
+    }
+    const concept = input.concept !== undefined ? text(input.concept, 'Concepto') : movement.concepto;
+    const value = input.amount !== undefined ? amount(input.amount, 'Monto', false) : Number(movement.monto);
+
+    await pool.query(
+      `UPDATE personal_pago_movimientos SET tipo = ?, concepto = ?, monto = ? WHERE id = ?`,
+      [type, concept, value, movementId],
+    );
+
+    await this.audit(pool, 'PAGO_MOVIMIENTO_ACTUALIZADO', employeeId, actorId, {
+      movement_id: movementId,
+      period,
+      previous: { tipo: movement.tipo, concepto: movement.concepto, monto: Number(movement.monto) },
+      updated: { tipo: type, concepto: concept, monto: value },
+    });
+
+    const monthStr = period.slice(0, 7);
+    await this.refreshDraftEmployee(companyId, employeeId, monthStr, actorId, 'MOVIMIENTO_ACTUALIZADO');
+    return { id: movementId, message: 'Movimiento actualizado correctamente.' };
+  }
+
+  async deleteMovement(
+    companyIdValue: number | null,
+    actorId: number,
+    movementIdValue: unknown,
+    reasonValue?: unknown,
+  ) {
+    const companyId = await this.resolveCompanyId(companyIdValue);
+    const movementId = positiveId(movementIdValue, 'Movimiento');
+    const [movementRows] = await pool.query<RowDataPacket[]>(
+      `SELECT m.id, m.empleado_id, DATE_FORMAT(m.periodo, '%Y-%m-01') AS periodo, m.tipo, m.concepto, m.monto, m.estado
+         FROM personal_pago_movimientos m
+         INNER JOIN personal_empleados e ON e.id = m.empleado_id
+         INNER JOIN sedes s ON s.id = e.sede_id
+        WHERE m.id = ? AND s.empresa_id = ? LIMIT 1`,
+      [movementId, companyId],
+    );
+    if (!movementRows.length) throw new ServicePaymentError('Movimiento no encontrado.', 404);
+    const movement = movementRows[0];
+    const period = String(movement.periodo);
+    const employeeId = Number(movement.empleado_id);
+
+    const [paidLiquidation] = await pool.query<RowDataPacket[]>(
+      `SELECT l.id, l.estado FROM personal_liquidaciones_pago l
+         JOIN personal_periodos_pago p ON p.id = l.periodo_pago_id
+        WHERE l.empleado_id = ? AND p.periodo = ? AND l.estado IN ('PAGADO', 'EN_LOTE') LIMIT 1`,
+      [employeeId, period],
+    );
+    if (paidLiquidation.length) {
+      throw new ServicePaymentError('No se puede anular un movimiento de una liquidación que ya fue procesada o pagada.', 409);
+    }
+    const [lockedPeriods] = await pool.query<RowDataPacket[]>(
+      `SELECT estado FROM personal_periodos_pago WHERE empresa_id = ? AND periodo = ? AND estado <> 'BORRADOR' LIMIT 1`,
+      [companyId, period],
+    );
+    if (lockedPeriods.length) {
+      throw new ServicePaymentError('El periodo mensual se encuentra en revisión o cerrado y no admite anulaciones.', 409);
+    }
+
+    const reason = reasonValue ? String(reasonValue).trim() : 'Anulado por administración';
+
+    await pool.query(`DELETE FROM personal_pago_movimientos WHERE id = ?`, [movementId]);
+
+    await this.audit(pool, 'PAGO_MOVIMIENTO_ELIMINADO', employeeId, actorId, {
+      movement_id: movementId,
+      period,
+      tipo: movement.tipo,
+      concepto: movement.concepto,
+      monto: Number(movement.monto),
+      reason,
+    });
+
+    const monthStr = period.slice(0, 7);
+    await this.refreshDraftEmployee(companyId, employeeId, monthStr, actorId, 'MOVIMIENTO_ELIMINADO');
+    return { id: movementId, message: 'Movimiento anulado y liquidación actualizada.' };
+  }
+
+  async updateLoan(
+    companyIdValue: number | null,
+    actorId: number,
+    loanIdValue: unknown,
+    input: Record<string, unknown>,
+  ) {
+    const companyId = await this.resolveCompanyId(companyIdValue);
+    const loanId = positiveId(loanIdValue, 'Préstamo');
+    const [loanRows] = await pool.query<RowDataPacket[]>(
+      `SELECT loan.id, loan.empleado_id, loan.concepto, loan.monto_original,
+             loan.saldo_pendiente, loan.cuota_mensual, loan.estado,
+             DATE_FORMAT(loan.periodo_inicio, '%Y-%m-01') AS periodo_inicio
+        FROM personal_prestamos loan
+        INNER JOIN personal_empleados e ON e.id = loan.empleado_id
+        INNER JOIN sedes s ON s.id = e.sede_id
+       WHERE loan.id = ? AND s.empresa_id = ? LIMIT 1`,
+      [loanId, companyId],
+    );
+    if (!loanRows.length) throw new ServicePaymentError('Préstamo no encontrado.', 404);
+    const loan = loanRows[0];
+    if (loan.estado === 'CANCELADO' || loan.estado === 'PAGADO') {
+      throw new ServicePaymentError(`El préstamo ya se encuentra ${loan.estado.toLowerCase()} y no puede modificarse.`, 409);
+    }
+
+    const employeeId = Number(loan.empleado_id);
+    const hasAmortization = Number(loan.saldo_pendiente) < Number(loan.monto_original);
+
+    let total = Number(loan.monto_original);
+    let balance = Number(loan.saldo_pendiente);
+
+    if (input.total_amount !== undefined) {
+      if (hasAmortization) {
+        throw new ServicePaymentError('No se puede modificar el monto total de un préstamo que ya cuenta con cuotas amortizadas en meses anteriores.', 409);
+      }
+      total = amount(input.total_amount, 'Monto del préstamo', false);
+      balance = total;
+    }
+
+    let installment = Number(loan.cuota_mensual);
+    if (input.monthly_installment !== undefined) {
+      installment = amount(input.monthly_installment, 'Cuota mensual', false);
+      if (installment > balance) {
+        throw new ServicePaymentError('La cuota mensual no puede superar el saldo pendiente del préstamo.');
+      }
+    }
+
+    const concept = input.concept !== undefined ? text(input.concept, 'Concepto') : loan.concepto;
+
+    await pool.query(
+      `UPDATE personal_prestamos
+         SET concepto = ?, monto_original = ?, saldo_pendiente = ?, cuota_mensual = ?
+       WHERE id = ?`,
+      [concept, total, balance, installment, loanId],
+    );
+
+    await this.audit(pool, 'PAGO_PRESTAMO_ACTUALIZADO', employeeId, actorId, {
+      loan_id: loanId,
+      previous: { concepto: loan.concepto, cuota: Number(loan.cuota_mensual), total: Number(loan.monto_original) },
+      updated: { concepto: concept, cuota: installment, total },
+    });
+
+    const monthStr = businessDate().slice(0, 7);
+    await this.refreshDraftEmployee(companyId, employeeId, monthStr, actorId, 'PRESTAMO_ACTUALIZADO');
+    return { id: loanId, message: 'Préstamo actualizado correctamente.' };
+  }
+
+  async cancelLoan(
+    companyIdValue: number | null,
+    actorId: number,
+    loanIdValue: unknown,
+    reasonValue?: unknown,
+  ) {
+    const companyId = await this.resolveCompanyId(companyIdValue);
+    const loanId = positiveId(loanIdValue, 'Préstamo');
+    const [loanRows] = await pool.query<RowDataPacket[]>(
+      `SELECT loan.id, loan.empleado_id, loan.concepto, loan.monto_original,
+             loan.saldo_pendiente, loan.cuota_mensual, loan.estado,
+             DATE_FORMAT(loan.periodo_inicio, '%Y-%m-01') AS periodo_inicio
+        FROM personal_prestamos loan
+        INNER JOIN personal_empleados e ON e.id = loan.empleado_id
+        INNER JOIN sedes s ON s.id = e.sede_id
+       WHERE loan.id = ? AND s.empresa_id = ? LIMIT 1`,
+      [loanId, companyId],
+    );
+    if (!loanRows.length) throw new ServicePaymentError('Préstamo no encontrado.', 404);
+    const loan = loanRows[0];
+    if (loan.estado === 'CANCELADO') {
+      throw new ServicePaymentError('El préstamo ya se encuentra cancelado.', 409);
+    }
+
+    const employeeId = Number(loan.empleado_id);
+    const hasAmortization = Number(loan.saldo_pendiente) < Number(loan.monto_original);
+    const reason = reasonValue ? String(reasonValue).trim() : 'Cancelado por administración';
+
+    if (!hasAmortization) {
+      await pool.query(`DELETE FROM personal_prestamos WHERE id = ?`, [loanId]);
+    } else {
+      await pool.query(`UPDATE personal_prestamos SET estado = 'CANCELADO' WHERE id = ?`, [loanId]);
+    }
+
+    await this.audit(pool, 'PAGO_PRESTAMO_CANCELADO', employeeId, actorId, {
+      loan_id: loanId,
+      had_amortization: hasAmortization,
+      saldo_remanente: Number(loan.saldo_pendiente),
+      reason,
+    });
+
+    const monthStr = businessDate().slice(0, 7);
+    await this.refreshDraftEmployee(companyId, employeeId, monthStr, actorId, 'PRESTAMO_CANCELADO');
+    return { id: loanId, message: 'Préstamo cancelado y liquidación actualizada.' };
+  }
+
   async generate(companyIdValue: number | null, actorId: number, monthValue: unknown) {
     const companyId = await this.resolveCompanyId(companyIdValue);
     const period = normalizePaymentMonth(monthValue);
