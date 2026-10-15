@@ -122,6 +122,8 @@ router.patch('/vacaciones/:id/cancelar', requirePermission(PERMISSIONS.RRHH_ATTE
 router.get('/pagos', requirePermission(PERMISSIONS.RRHH_PAYMENTS_VIEW), servicePaymentController.dashboard);
 router.get('/pagos/historial', requirePermission(PERMISSIONS.RRHH_PAYMENTS_VIEW), servicePaymentController.history);
 router.get('/pagos/empleados/:id/expediente', requirePermission(PERMISSIONS.RRHH_PAYMENTS_VIEW), servicePaymentController.employeeLedger);
+router.get('/pagos/empleados/:id/corte-liquidacion', requirePermission(PERMISSIONS.RRHH_PAYMENTS_VIEW), servicePaymentController.cutoffSettlement);
+router.post('/pagos/empleados/:id/cese-liquidacion', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.terminateSettlement);
 router.post('/pagos/empleados/:id/notas', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.addEmployeeNote);
 router.patch('/pagos/notas/:id/anular', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.cancelEmployeeNote);
 router.post('/pagos/periodos/generar', requirePermission(PERMISSIONS.RRHH_PAYMENTS_MANAGE), servicePaymentController.generate);

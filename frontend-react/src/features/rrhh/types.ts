@@ -957,3 +957,90 @@ export type ServicePaymentEmployeeLedger = {
   }>;
   controls: ServicePaymentControls;
 };
+
+export type CutoffItemizedLine = {
+  type: 'BASE' | 'HORAS_EXTRA' | 'OTRO_INGRESO' | 'FALTA' | 'TARDANZA' | 'ADELANTO' | 'PRESTAMO' | 'OTRO_DESCUENTO';
+  concept: string;
+  details: string;
+  amount: number;
+  impact: 'ADD' | 'DEDUCT';
+};
+
+export type CutoffSettlement = {
+  periodStart: string;
+  cutoffDate: string;
+  calendarDaysInMonth: number;
+  cutoffElapsedDays: number;
+  serviceAccruedDays: number;
+  dailyBaseFee: number;
+  monthlyAgreedFee: number;
+  accruedBaseAmount: number;
+  payableOvertimeMinutes: number;
+  overtimeHourlyRate: number;
+  overtimeAmount: number;
+  confirmedAbsenceCount: number;
+  absenceDiscountAmount: number;
+  partialAbsenceMinutes: number;
+  partialAbsenceDiscountAmount: number;
+  advancesAmount: number;
+  loanInstallmentsAmount: number;
+  otherIncomeAmount: number;
+  otherDiscountsAmount: number;
+  grossServiceAmount: number;
+  totalDeductionsAmount: number;
+  netSettlementAmount: number;
+  isProrated: boolean;
+  itemizedLines: CutoffItemizedLine[];
+};
+
+export type CutoffSettlementResponse = {
+  employee: {
+    id: number;
+    codigo_empleado: string;
+    dni: string;
+    nombres: string;
+    apellidos: string;
+    sexo: string;
+    foto: string | null;
+    fecha_ingreso: string;
+    fecha_cese: string | null;
+    estado: string;
+    cargo: string;
+    sede_id: number;
+    sede: string;
+    acuerdo_configurado_id: number | null;
+    pago_mensual: number | string;
+    politica_prorrateo: string;
+    acuerdo_vigente_desde: string | null;
+    acuerdo_vigente_hasta: string | null;
+    tarifa_hora_extra: number | string;
+    tarifa_hora_extra_modo: string;
+    banco: string | null;
+    tipo_cuenta: string | null;
+    numero_cuenta_ultimos4: string | null;
+    cci_ultimos4: string | null;
+  };
+  settlement: CutoffSettlement;
+  daily_attendances: Array<{
+    fecha: string;
+    estado_asistencia: string;
+    tipo_asistencia: string;
+    minutos_tardanza: number;
+    minutos_tardanza_retorno: number;
+    minutos_horas_extra: number;
+    justificacion_estado?: string | null;
+    justificacion_motivo?: string | null;
+  }>;
+  movements: Array<{
+    id: number;
+    tipo: string;
+    concepto: string;
+    monto: number | string;
+    fecha: string;
+  }>;
+  loans: Array<{
+    id: number;
+    concepto: string;
+    installment: number | string;
+  }>;
+};

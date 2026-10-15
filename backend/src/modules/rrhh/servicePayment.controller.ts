@@ -29,6 +29,12 @@ export class ServicePaymentController {
   employeeLedger = async (req: AuthRequest, res: Response) => this.respond(res, () =>
     this.service.employeeLedger(companyScope(req), req.params.id, req.query.periodo));
 
+  cutoffSettlement = async (req: AuthRequest, res: Response) => this.respond(res, () =>
+    this.service.simulateCutoffSettlement(companyScope(req), req.params.id, req.query.periodo, req.query.fecha_corte));
+
+  terminateSettlement = async (req: AuthRequest, res: Response) => this.respond(res, () =>
+    this.service.applyEmploymentTermination(companyScope(req), req.params.id, actorId(req), req.body), 201);
+
   addEmployeeNote = async (req: AuthRequest, res: Response) => this.respond(res, () =>
     this.service.addEmployeeNote(companyScope(req), req.params.id, actorId(req), req.body), 201);
 

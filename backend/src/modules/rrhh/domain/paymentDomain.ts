@@ -420,3 +420,206 @@ export function normalizePaymentMonth(value: unknown): string {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('Periodo mensual no valido.');
   return `${month}-01`;
 }
+
+export type CutoffItemizedLine = {
+  concept: string;
+  type: 'EARNING' | 'DEDUCTION';
+  amount: number;
+  detail: string;
+  category: 'BASE' | 'OVERTIME' | 'BONUS' | 'ABSENCE' | 'TARDINESS' | 'ADVANCE' | 'LOAN' | 'OTHER_DISCOUNT';
+};
+
+export type CutoffSettlementInput = {
+  periodStart: string;
+  cutoffDate: string;
+  employmentStart: string;
+  employmentEnd?: string | null;
+  agreements: MonthlyAgreementSegmentInput[];
+  overtimeMinutes?: number;
+  overtimeHourlyRate?: number;
+  otherIncome?: number;
+  confirmedAbsences?: number;
+  absenceDailyDiscount?: number;
+  partialAbsenceMinutes?: number;
+  partialAbsenceDiscount?: number;
+  advances?: number;
+  loanInstallments?: number;
+  otherDiscounts?: number;
+};
+
+export type CutoffSettlementResult = {
+  cutoffDate: string;
+  periodStart: string;
+  calendarDaysInPeriod: number;
+  serviceDaysToCutoff: number;
+  accruedBaseAmount: number;
+  projectedMonthlyPayment: number;
+  overtimeMinutes: number;
+  overtimeHourlyRate: number;
+  overtimeAmount: number;
+  otherIncome: number;
+  confirmedAbsences: number;
+  absenceDiscountAmount: number;
+  partialAbsenceMinutes: number;
+  partialAbsenceDiscountAmount: number;
+  advancesAmount: number;
+  loanInstallmentsAmount: number;
+  otherDiscountsAmount: number;
+  grossServiceAmount: number;
+  totalDeductionsAmount: number;
+  netSettlementAmount: number;
+  itemizedLines: CutoffItemizedLine[];
+};
+
+export function calculateCutoffSettlement(input: CutoffSettlementInput): CutoffSettlementResult {
+  const cutoffDate = validDate(input.cutoffDate, 'Fecha de corte');
+  const periodStart = validDate(input.periodStart, 'Periodo');
+  if (!periodStart.endsWith('-01')) throw new Error('El periodo debe iniciar el primer dia del mes.');
+  if (cutoffDate < periodStart) {
+    throw new Error('La fecha de corte no puede ser anterior al inicio del periodo.');
+  }
+  const maxPeriodEnd = monthEnd(periodStart);
+  const effectiveCutoff = cutoffDate > maxPeriodEnd ? maxPeriodEnd : cutoffDate;
+
+  const accrual = calculateMonthlyAccrual({
+    periodStart,
+    currentDate: effectiveCutoff,
+    employmentStart: input.employmentStart,
+    employmentEnd: input.employmentEnd,
+    agreements: input.agreements,
+  });
+
+  const accruedBaseAmount = accrual.accruedAmount;
+  const serviceDaysToCutoff = accrual.accruedDays;
+  const calendarDaysInPeriod = accrual.periodDays;
+  const projectedMonthlyPayment = accrual.projectedAmount;
+
+  const overtimeMinutes = Math.max(0, Number(input.overtimeMinutes || 0));
+  const overtimeHourlyRate = Math.max(0, Number(input.overtimeHourlyRate || 0));
+  const overtimeAmount = money((overtimeMinutes / 60) * overtimeHourlyRate);
+  const otherIncome = money(Math.max(0, Number(input.otherIncome || 0)));
+
+  const confirmedAbsences = Math.max(0, Number(input.confirmedAbsences || 0));
+  const absenceDailyDiscount = Math.max(0, Number(input.absenceDailyDiscount || 0));
+  const absenceDiscountAmount = money(confirmedAbsences * absenceDailyDiscount);
+
+  const partialAbsenceMinutes = Math.max(0, Number(input.partialAbsenceMinutes || 0));
+  const partialAbsenceDiscountAmount = money(Math.max(0, Number(input.partialAbsenceDiscount || 0)));
+
+  const advancesAmount = money(Math.max(0, Number(input.advances || 0)));
+  const loanInstallmentsAmount = money(Math.max(0, Number(input.loanInstallments || 0)));
+  const otherDiscountsAmount = money(Math.max(0, Number(input.otherDiscounts || 0)));
+
+  const grossServiceAmount = money(accruedBaseAmount + overtimeAmount + otherIncome);
+  const totalDeductionsAmount = money(
+    absenceDiscountAmount + partialAbsenceDiscountAmount + advancesAmount + loanInstallmentsAmount + otherDiscountsAmount,
+  );
+  const netSettlementAmount = money(Math.max(0, grossServiceAmount - totalDeductionsAmount));
+
+  const itemizedLines: CutoffItemizedLine[] = [];
+
+  itemizedLines.push({
+    concept: 'Honorario mensual devengado a la fecha',
+    type: 'EARNING',
+    amount: accruedBaseAmount,
+    detail: `${serviceDaysToCutoff} de ${calendarDaysInPeriod} días laborados (Base: S/ ${projectedMonthlyPayment.toFixed(2)})`,
+    category: 'BASE',
+  });
+
+  if (overtimeAmount > 0) {
+    const hours = Math.floor(overtimeMinutes / 60);
+    const mins = overtimeMinutes % 60;
+    const durText = hours > 0 ? `${hours} h ${mins > 0 ? `${mins} min` : ''}` : `${mins} min`;
+    itemizedLines.push({
+      concept: 'Sobretiempo / Horas extras aprobadas',
+      type: 'EARNING',
+      amount: overtimeAmount,
+      detail: `${durText} acumuladas a tarifa S/ ${overtimeHourlyRate.toFixed(2)}/h`,
+      category: 'OVERTIME',
+    });
+  }
+
+  if (otherIncome > 0) {
+    itemizedLines.push({
+      concept: 'Bonificaciones / Otros ingresos',
+      type: 'EARNING',
+      amount: otherIncome,
+      detail: 'Bonos acumulados a la fecha',
+      category: 'BONUS',
+    });
+  }
+
+  if (absenceDiscountAmount > 0) {
+    itemizedLines.push({
+      concept: 'Descuento por inasistencias injustificadas',
+      type: 'DEDUCTION',
+      amount: absenceDiscountAmount,
+      detail: `${confirmedAbsences} falta(s) a razón de S/ ${absenceDailyDiscount.toFixed(2)} por día`,
+      category: 'ABSENCE',
+    });
+  }
+
+  if (partialAbsenceDiscountAmount > 0) {
+    itemizedLines.push({
+      concept: 'Descuento por tardanzas / salidas sin autorización',
+      type: 'DEDUCTION',
+      amount: partialAbsenceDiscountAmount,
+      detail: `${partialAbsenceMinutes} minutos acumulados no laborados`,
+      category: 'TARDINESS',
+    });
+  }
+
+  if (advancesAmount > 0) {
+    itemizedLines.push({
+      concept: 'Adelantos de honorarios recibidos',
+      type: 'DEDUCTION',
+      amount: advancesAmount,
+      detail: 'Anticipos entregados a la fecha en este periodo',
+      category: 'ADVANCE',
+    });
+  }
+
+  if (loanInstallmentsAmount > 0) {
+    itemizedLines.push({
+      concept: 'Cuota de préstamo empresarial',
+      type: 'DEDUCTION',
+      amount: loanInstallmentsAmount,
+      detail: 'Amortización de préstamo institucional vigente',
+      category: 'LOAN',
+    });
+  }
+
+  if (otherDiscountsAmount > 0) {
+    itemizedLines.push({
+      concept: 'Otros descuentos administrativos',
+      type: 'DEDUCTION',
+      amount: otherDiscountsAmount,
+      detail: 'Penalidades o ajustes del periodo',
+      category: 'OTHER_DISCOUNT',
+    });
+  }
+
+  return {
+    cutoffDate: effectiveCutoff,
+    periodStart,
+    calendarDaysInPeriod,
+    serviceDaysToCutoff,
+    accruedBaseAmount,
+    projectedMonthlyPayment,
+    overtimeMinutes,
+    overtimeHourlyRate,
+    overtimeAmount,
+    otherIncome,
+    confirmedAbsences,
+    absenceDiscountAmount,
+    partialAbsenceMinutes,
+    partialAbsenceDiscountAmount,
+    advancesAmount,
+    loanInstallmentsAmount,
+    otherDiscountsAmount,
+    grossServiceAmount,
+    totalDeductionsAmount,
+    netSettlementAmount,
+    itemizedLines,
+  };
+}

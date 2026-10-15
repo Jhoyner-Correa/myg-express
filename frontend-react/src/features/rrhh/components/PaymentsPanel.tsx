@@ -1,7 +1,7 @@
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
-  AlertTriangle, ArrowRight, BadgeDollarSign, Banknote, CalendarDays, CheckCircle2, CircleDollarSign,
+  AlertTriangle, ArrowRight, BadgeDollarSign, Banknote, Calculator, CalendarDays, CheckCircle2, CircleDollarSign,
   ClipboardCheck, Download, Eye, FileCheck2, FileSpreadsheet, History, Landmark, Layers3, LockKeyhole,
   PencilLine, Plus, ReceiptText, RefreshCw, Search, ShieldCheck, WalletCards,
 } from 'lucide-react';
@@ -15,6 +15,7 @@ import type {
   ServicePaymentRow, Site,
 } from '../types';
 import { EmployeePaymentLedgerModal } from './EmployeePaymentLedgerModal';
+import { CutoffSettlementModal } from './CutoffSettlementModal';
 import { formatDurationMinutes } from './attendance-formatters';
 import { employeePhotoFallbackHandler, getEmployeePhotoUrl } from './employee-avatar';
 import {
@@ -242,6 +243,7 @@ export function PaymentsPanel({
   const [queue, setQueue] = useState<QueueFilter>('TODOS');
   const [modal, setModal] = useState<ModalState>(null);
   const [ledgerEmployee, setLedgerEmployee] = useState<ServicePaymentRow | null>(null);
+  const [cutoffEmployee, setCutoffEmployee] = useState<ServicePaymentRow | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -412,6 +414,7 @@ export function PaymentsPanel({
             </div></td>
             <td><div className={styles.actions}>
               <Action title="Ver expediente mensual y boleta" icon={<Eye />} onClick={() => setLedgerEmployee(payment)} />
+              <Action title="Calcular liquidación / corte a la fecha (Finiquito)" icon={<Calculator />} onClick={() => setCutoffEmployee(payment)} />
               {canManage && <Action title="Configurar pago y cuenta" icon={<PencilLine />} onClick={() => setModal({ action: 'agreement', payment })} />}
               {canManage && <Action title="Registrar adelanto o ajuste" icon={<Plus />} onClick={() => setModal({ action: 'movement', payment })} />}
               {canManage && <Action title="Registrar préstamo" icon={<Landmark />} onClick={() => setModal({ action: 'loan', payment })} />}
@@ -429,6 +432,15 @@ export function PaymentsPanel({
       finally { setSubmitting(false); }
     }} />
     <EmployeePaymentLedgerModal employee={ledgerEmployee} month={month} canManage={canManage} onClose={() => setLedgerEmployee(null)} />
+    <CutoffSettlementModal
+      employee={cutoffEmployee}
+      month={month}
+      canManage={canManage}
+      onClose={() => setCutoffEmployee(null)}
+      onUpdated={async () => {
+        await load();
+      }}
+    />
     </>}
   </section>;
 }

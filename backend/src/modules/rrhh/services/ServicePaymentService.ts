@@ -3,7 +3,7 @@ import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool, runInTransaction } from '../../../core/database/database';
 import { businessDate } from '../../../core/utils/time';
 import {
-  calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateMonthlyAccrual, calculateMonthlyAgreementBase,
+  calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateCutoffSettlement, calculateMonthlyAccrual, calculateMonthlyAgreementBase,
   calculatePartialAbsenceDiscount,
   calculateServicePayment, classifyPaymentWorkQueue,
   evaluatePaymentControls, MonthlyProrationPolicy, normalizePaymentMonth,
@@ -635,6 +635,264 @@ export class ServicePaymentService {
       liquidation, payment_preview: paymentPreview, concepts, attendance, attendance_summary: attendanceSummary,
       movements: movementResult, loans: loanResult, notes: noteResult, timeline, controls,
     };
+  }
+
+  async simulateCutoffSettlement(
+    companyIdValue: number | null,
+    employeeIdValue: unknown,
+    periodValue: unknown,
+    cutoffDateValue: unknown,
+  ) {
+    const companyId = await this.resolveCompanyId(companyIdValue);
+    const employeeId = positiveId(employeeIdValue, 'Colaborador');
+    const period = normalizePaymentMonth(periodValue);
+    const maxEnd = periodEnd(period);
+    const rawCutoff = String(cutoffDateValue ?? '').trim() || businessDate();
+    const cutoffDate = rawCutoff > maxEnd ? maxEnd : (rawCutoff < period ? period : rawCutoff);
+    await this.assertEmployee(companyId, employeeId);
+
+    const [employeeRows] = await pool.query<RowDataPacket[]>(
+      `SELECT employee.id, employee.codigo_empleado, employee.dni, employee.nombres, employee.apellidos,
+              employee.sexo, employee.foto,
+              DATE_FORMAT(employee.fecha_ingreso, '%Y-%m-%d') AS fecha_ingreso,
+              DATE_FORMAT(employee.fecha_cese, '%Y-%m-%d') AS fecha_cese,
+              employee.estado,
+              role.nombre AS cargo, site.id AS sede_id, site.nombre AS sede,
+              agreement.id AS acuerdo_configurado_id,
+              agreement.pago_mensual, agreement.politica_prorrateo,
+              DATE_FORMAT(agreement.vigente_desde, '%Y-%m-%d') AS acuerdo_vigente_desde,
+              DATE_FORMAT(agreement.vigente_hasta, '%Y-%m-%d') AS acuerdo_vigente_hasta,
+              agreement.tarifa_hora_extra, agreement.tarifa_hora_extra_modo, agreement.banco,
+              agreement.tipo_cuenta, agreement.numero_cuenta_ultimos4, agreement.cci_ultimos4
+         FROM personal_empleados employee
+         INNER JOIN sedes site ON site.id = employee.sede_id AND site.empresa_id = ?
+         INNER JOIN personal_cargos role ON role.id = employee.cargo_id
+         LEFT JOIN personal_pago_acuerdos agreement
+           ON agreement.id = (
+             SELECT current_agreement.id FROM personal_pago_acuerdos current_agreement
+              WHERE current_agreement.empleado_id = employee.id
+                AND current_agreement.vigente_desde <= ?
+                AND (current_agreement.vigente_hasta IS NULL OR current_agreement.vigente_hasta >= ?)
+              ORDER BY current_agreement.vigente_desde DESC, current_agreement.id DESC LIMIT 1
+           )
+        WHERE employee.id = ? LIMIT 1`,
+      [companyId, maxEnd, period, employeeId],
+    );
+    if (!employeeRows.length) throw new ServicePaymentError('Colaborador fuera del alcance autorizado.', 403);
+    const employee = employeeRows[0];
+
+    const [employeeAgreements] = await pool.query<RowDataPacket[]>(
+      `SELECT agreement.*,
+              DATE_FORMAT(agreement.vigente_desde, '%Y-%m-%d') AS vigente_desde_fecha,
+              DATE_FORMAT(agreement.vigente_hasta, '%Y-%m-%d') AS vigente_hasta_fecha
+         FROM personal_pago_acuerdos agreement
+        WHERE agreement.empleado_id = ? AND agreement.vigente_desde <= ?
+          AND (agreement.vigente_hasta IS NULL OR agreement.vigente_hasta >= ?)
+        ORDER BY agreement.vigente_desde, agreement.id`,
+      [employeeId, maxEnd, period],
+    );
+
+    const [[overtime]] = await pool.query<RowDataPacket[]>(
+      `SELECT COALESCE(SUM(request.minutos_aprobados), 0) AS minutes
+         FROM personal_sobretiempo_solicitudes request
+         INNER JOIN personal_asistencias attendance ON attendance.id = request.asistencia_id
+        WHERE request.empleado_id = ? AND request.estado = 'APROBADO'
+          AND attendance.fecha BETWEEN ? AND ?`,
+      [employeeId, period, cutoffDate],
+    );
+
+    const [absenceRows] = await pool.query<RowDataPacket[]>(
+      `SELECT attendance.id, DATE_FORMAT(attendance.fecha, '%Y-%m-%d') AS fecha,
+              justification.estado AS justificacion_estado,
+              review.decision AS decision_administrativa
+         FROM personal_asistencias attendance
+         LEFT JOIN personal_justificaciones_asistencia justification
+           ON justification.id = (
+             SELECT candidate.id FROM personal_justificaciones_asistencia candidate
+              WHERE candidate.asistencia_id = attendance.id ORDER BY candidate.id DESC LIMIT 1
+           )
+         LEFT JOIN personal_incidencias_asistencia_revisiones review
+           ON review.empleado_id = attendance.empleado_id
+          AND review.fecha = attendance.fecha
+          AND review.tipo_incidencia IN ('FALTA', 'INASISTENCIA')
+        WHERE attendance.empleado_id = ? AND attendance.estado_asistencia = 'FALTA'
+          AND attendance.fecha BETWEEN ? AND ?
+        ORDER BY attendance.fecha, attendance.id`,
+      [employeeId, period, cutoffDate],
+    );
+
+    const [partialAbsenceRows] = await pool.query<RowDataPacket[]>(
+      `SELECT partial_absence.id, DATE_FORMAT(partial_absence.fecha, '%Y-%m-%d') AS fecha,
+              partial_absence.estado, partial_absence.minutos_ausencia_detectados,
+              partial_absence.minutos_justificados, partial_absence.minutos_compensados,
+              partial_absence.minutos_descontables
+         FROM personal_inasistencias_parciales partial_absence
+        WHERE partial_absence.empleado_id = ? AND partial_absence.fecha BETWEEN ? AND ?
+          AND partial_absence.estado <> 'INVALIDADA'
+        ORDER BY partial_absence.fecha, partial_absence.id`,
+      [employeeId, period, cutoffDate],
+    );
+
+    const [movements] = await pool.query<RowDataPacket[]>(
+      `SELECT id, tipo, concepto, monto, DATE_FORMAT(created_at, '%Y-%m-%d') AS fecha
+         FROM personal_pago_movimientos
+        WHERE empleado_id = ? AND periodo = ?
+          AND DATE(created_at) <= ?
+          AND estado IN ('PENDIENTE', 'APLICADO') ORDER BY id`,
+      [employeeId, period, cutoffDate],
+    );
+
+    const [loans] = await pool.query<RowDataPacket[]>(
+      `SELECT id, concepto, LEAST(cuota_mensual, saldo_pendiente) AS installment
+         FROM personal_prestamos
+        WHERE empleado_id = ? AND estado = 'ACTIVO' AND periodo_inicio <= ? ORDER BY id`,
+      [employeeId, period],
+    );
+
+    const [dailyAttendances] = await pool.query<RowDataPacket[]>(
+      `SELECT DATE_FORMAT(attendance.fecha, '%Y-%m-%d') AS fecha,
+              attendance.estado_asistencia, attendance.tipo_asistencia,
+              attendance.minutos_tardanza, attendance.minutos_tardanza_retorno,
+              attendance.minutos_horas_extra,
+              justification.estado AS justificacion_estado,
+              justification.motivo AS justificacion_motivo
+         FROM personal_asistencias attendance
+         LEFT JOIN personal_justificaciones_asistencia justification
+           ON justification.id = (
+             SELECT candidate.id FROM personal_justificaciones_asistencia candidate
+              WHERE candidate.asistencia_id = attendance.id ORDER BY candidate.id DESC LIMIT 1
+           )
+        WHERE attendance.empleado_id = ? AND attendance.fecha BETWEEN ? AND ?
+        ORDER BY attendance.fecha`,
+      [employeeId, period, cutoffDate],
+    );
+
+    const sums = movements.reduce((acc, movement) => {
+      const val = Number(movement.monto || 0);
+      if (movement.tipo === 'ADELANTO') acc.advances += val;
+      else if (movement.tipo === 'OTRO_INGRESO') acc.income += val;
+      else acc.discounts += val;
+      return acc;
+    }, { advances: 0, income: 0, discounts: 0 });
+
+    const loanTotal = loans.reduce((sum, loan) => sum + Number(loan.installment || 0), 0);
+
+    const agreements = agreementSegments(employeeAgreements);
+    const latestAgreement = agreements.at(-1);
+    const agreedPayment = latestAgreement ? latestAgreement.monthlyPayment : 0;
+
+    const absenceDecisions = absenceRows.map(row => {
+      const date = String(row.fecha);
+      const state = resolveAbsencePaymentState({
+        attendanceDate: date,
+        currentDate: cutoffDate,
+        justificationStatus: row.justificacion_estado ? String(row.justificacion_estado) : null,
+        administrativeDecision: row.decision_administrativa ? String(row.decision_administrativa) : null,
+      });
+      const applicableAgreement = employeeAgreements.find(candidate => {
+        const start = String(candidate.vigente_desde_fecha);
+        const finish = candidate.vigente_hasta_fecha ? String(candidate.vigente_hasta_fecha) : '9999-12-31';
+        return start <= date && finish >= date;
+      });
+      const discount = state === 'DESCONTABLE' && applicableAgreement
+        ? calculateAbsenceDailyDiscount(Number(applicableAgreement.pago_mensual || 0), period)
+        : 0;
+      return { id: Number(row.id), date, state, discount };
+    });
+
+    const confirmedAbsences = absenceDecisions.filter(item => item.state === 'DESCONTABLE');
+    const absenceDiscount = Math.round(confirmedAbsences.reduce((sum, item) => sum + item.discount, 0) * 100) / 100;
+
+    const partialAbsences = partialAbsenceRows.map(row => {
+      const date = String(row.fecha);
+      const deductibleMinutes = Number(row.minutos_descontables || 0);
+      const applicableAgreement = employeeAgreements.find(candidate => {
+        const start = String(candidate.vigente_desde_fecha);
+        const finish = candidate.vigente_hasta_fecha ? String(candidate.vigente_hasta_fecha) : '9999-12-31';
+        return start <= date && finish >= date;
+      });
+      return {
+        id: Number(row.id), date, status: String(row.estado),
+        compensatedMinutes: Number(row.minutos_compensados || 0), deductibleMinutes,
+        discount: deductibleMinutes > 0 && applicableAgreement
+          ? calculatePartialAbsenceDiscount(Number(applicableAgreement.pago_mensual || 0), period, deductibleMinutes)
+          : 0,
+      };
+    });
+
+    const resolvedPartials = partialAbsences.filter(item => item.status !== 'PENDIENTE');
+    const partialDeductibleMinutes = resolvedPartials.reduce((sum, item) => sum + item.deductibleMinutes, 0);
+    const compensatedOvertimeMinutes = resolvedPartials.reduce((sum, item) => sum + item.compensatedMinutes, 0);
+    const payableOvertimeMinutes = Math.max(0, Number(overtime.minutes || 0) - compensatedOvertimeMinutes);
+    const partialAbsenceDiscount = Math.round(resolvedPartials.reduce((sum, item) => sum + item.discount, 0) * 100) / 100;
+
+    const appliedOvertimeRate = employee.tarifa_hora_extra_modo === 'AUTOMATICA'
+      ? calculateAutomaticOvertimeRate(agreedPayment, period).hourlyRate
+      : Number(employee.tarifa_hora_extra || 0);
+
+    const settlement = calculateCutoffSettlement({
+      periodStart: period,
+      cutoffDate,
+      employmentStart: String(employee.fecha_ingreso),
+      employmentEnd: employee.fecha_cese ? String(employee.fecha_cese) : null,
+      agreements,
+      overtimeMinutes: payableOvertimeMinutes,
+      overtimeHourlyRate: appliedOvertimeRate,
+      otherIncome: sums.income,
+      confirmedAbsences: confirmedAbsences.length,
+      absenceDailyDiscount: calculateAbsenceDailyDiscount(agreedPayment, period),
+      partialAbsenceMinutes: partialDeductibleMinutes,
+      partialAbsenceDiscount,
+      advances: sums.advances,
+      loanInstallments: loanTotal,
+      otherDiscounts: sums.discounts,
+    });
+
+    return {
+      employee,
+      settlement,
+      daily_attendances: dailyAttendances,
+      movements,
+      loans,
+    };
+  }
+
+  async applyEmploymentTermination(
+    companyIdValue: number | null,
+    employeeIdValue: unknown,
+    actorId: number,
+    input: Record<string, unknown>,
+  ) {
+    const companyId = await this.resolveCompanyId(companyIdValue);
+    const employeeId = positiveId(employeeIdValue, 'Colaborador');
+    const terminationDate = String(input.fecha_cese || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(terminationDate)) {
+      throw new ServicePaymentError('Fecha de cese no valida (formato YYYY-MM-DD).');
+    }
+    const reason = String(input.motivo || 'Cese / Retiro del personal').trim();
+    const notes = String(input.observaciones || '').trim();
+
+    await this.assertEmployee(companyId, employeeId);
+
+    const result = await runInTransaction(async connection => {
+      await connection.query(
+        `UPDATE personal_empleados
+            SET fecha_cese = ?, estado = 'INACTIVO', updated_at = NOW()
+          WHERE id = ? AND sede_id IN (SELECT id FROM sedes WHERE empresa_id = ?)`,
+        [terminationDate, employeeId, companyId],
+      );
+
+      await this.audit(connection, 'EMPLEADO_CESE', employeeId, actorId, {
+        terminationDate, reason, notes,
+      });
+
+      return { ok: true, employeeId, terminationDate, status: 'INACTIVO' };
+    });
+
+    const month = `${terminationDate.slice(0, 7)}-01`;
+    await this.refreshDraftEmployee(companyId, employeeId, month, actorId, 'EMPLEADO_CESADO');
+
+    return result;
   }
 
   async addEmployeeNote(companyIdValue: number | null, employeeIdValue: unknown, actorId: number, input: Record<string, unknown>) {

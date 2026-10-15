@@ -1,0 +1,695 @@
+.modal {
+  max-height: min(92vh, 880px);
+  --settle-ink: #0f172a;
+  --settle-text: #1e293b;
+  --settle-muted: #64748b;
+  --settle-border: #cbd5e1;
+  --settle-canvas: #f8fafc;
+  --settle-brand: #0284c7;
+  --settle-success: #059669;
+  --settle-danger: #dc2626;
+  --settle-amber: #d97706;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  background: var(--settle-canvas);
+  color: var(--settle-text);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loadingState,
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  gap: 12px;
+  text-align: center;
+  color: var(--settle-muted);
+}
+
+.errorState strong {
+  color: var(--settle-danger);
+  font-size: 15px;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e2e8f0;
+  border-top-color: var(--settle-brand);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Header & Employee Strip */
+.employeeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.employeeProfile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e2e8f0;
+}
+
+.employeeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.employeeInfo h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.employeeInfo p {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statusBadgeActive {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.statusBadgeInactive {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+/* Cutoff Date Selector Toolbar */
+.cutoffToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 18px;
+  background: #ffffff;
+  border: 1px solid #bae6fd;
+  border-left: 4px solid var(--settle-brand);
+  border-radius: 10px;
+}
+
+.cutoffControl {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cutoffLabel {
+  display: flex;
+  flex-direction: column;
+}
+
+.cutoffLabel span {
+  font-size: 10px;
+  font-weight: 700;
+  color: #0369a1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cutoffLabel strong {
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.cutoffInput {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.cutoffInput:focus {
+  border-color: var(--settle-brand);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.cutoffShortcuts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shortcutBtn {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.shortcutBtn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.shortcutBtnActive {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}
+
+/* KPI Banner */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.kpiCard {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.kpiHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.kpiValue {
+  font-size: 18px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+}
+
+.kpiSubtext {
+  font-size: 10.5px;
+  color: #64748b;
+  line-height: 1.3;
+}
+
+.kpiIncome {
+  border-left: 3px solid #0284c7;
+}
+.kpiIncome .kpiValue {
+  color: #0369a1;
+}
+
+.kpiOvertime {
+  border-left: 3px solid #9333ea;
+}
+.kpiOvertime .kpiValue {
+  color: #7e22ce;
+}
+
+.kpiDeduction {
+  border-left: 3px solid #dc2626;
+}
+.kpiDeduction .kpiValue {
+  color: #b91c1c;
+}
+
+.kpiNet {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-left: 4px solid #059669;
+}
+.kpiNet .kpiHeader {
+  color: #065f46;
+}
+.kpiNet .kpiValue {
+  color: #047857;
+  font-size: 22px;
+}
+
+/* Navigation Tabs */
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 2px;
+}
+
+.tabBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 750;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tabBtn:hover {
+  color: #0f172a;
+}
+
+.tabBtnActive {
+  color: var(--settle-brand);
+  border-bottom-color: var(--settle-brand);
+}
+
+/* Itemized Breakdown Table */
+.itemizedCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.itemizedTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.itemizedTable th {
+  background: #f8fafc;
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.itemizedTable td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+}
+
+.itemizedTable tr:last-child td {
+  border-bottom: none;
+}
+
+.conceptBadge {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.conceptBase { background: #e0f2fe; color: #0369a1; }
+.conceptOvertime { background: #f3e8ff; color: #7e22ce; }
+.conceptBonus { background: #dcfce7; color: #15803d; }
+.conceptDeduction { background: #fee2e2; color: #b91c1c; }
+.conceptAdvance { background: #fef3c7; color: #b45309; }
+.conceptLoan { background: #ffedd5; color: #c2410c; }
+
+.impactAdd {
+  color: #059669;
+  font-weight: 800;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.impactDeduct {
+  color: #dc2626;
+  font-weight: 800;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tableTotalRow td {
+  background: #f8fafc;
+  font-weight: 800;
+  border-top: 2px solid #e2e8f0;
+}
+
+/* Attendance Timeline Table */
+.attendanceTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.attendanceTable th {
+  background: #f8fafc;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 800;
+  color: #475569;
+  text-transform: uppercase;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.attendanceTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.statusPresent { background: #ecfdf5; color: #047857; }
+.statusLate { background: #fef3c7; color: #b45309; }
+.statusAbsent { background: #fee2e2; color: #b91c1c; }
+.statusHoliday { background: #f1f5f9; color: #475569; }
+
+/* Formalize Termination Panel */
+.terminationPanel {
+  padding: 16px 20px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.terminationHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #be123c;
+}
+
+.terminationHeader h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.terminationForm {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.terminationForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.terminationForm select,
+.terminationForm input,
+.terminationForm textarea {
+  padding: 8px 10px;
+  font-size: 12.5px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  outline: none;
+}
+
+.terminationForm textarea {
+  grid-column: 1 / -1;
+  resize: vertical;
+  min-height: 50px;
+}
+
+/* PRINTABLE SETTLEMENT DOCUMENT (VOUCHER) */
+.printableDocument {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: #0f172a;
+}
+
+.docLetterhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #0f172a;
+}
+
+.docCompany strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.docCompany span {
+  font-size: 10px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.docTitle {
+  text-align: right;
+}
+
+.docTitle h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.docTitle span {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.docMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.docMetaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.docMetaItem span {
+  font-size: 9px;
+  font-weight: 750;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.docMetaItem strong {
+  font-size: 11.5px;
+  color: #0f172a;
+}
+
+.docTablesRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.docTableCard {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.docTableHeader {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.docTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+
+.docTable td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.docTableNum {
+  text-align: right;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.docTableSubtotal td {
+  background: #f8fafc;
+  font-weight: 800;
+  border-top: 1px solid #cbd5e1;
+}
+
+.docGrandTotal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f0fdf4;
+  border: 2px solid #86efac;
+  border-radius: 8px;
+}
+
+.docGrandTotal span {
+  font-size: 12px;
+  font-weight: 800;
+  color: #166534;
+  text-transform: uppercase;
+}
+
+.docGrandTotal strong {
+  font-size: 18px;
+  font-weight: 900;
+  color: #14532d;
+  font-variant-numeric: tabular-nums;
+}
+
+.docConformity {
+  font-size: 9.5px;
+  color: #475569;
+  line-height: 1.5;
+  text-align: justify;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+}
+
+.docSignatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+  margin-top: 36px;
+}
+
+.docSignBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+
+.docSignLine {
+  width: 100%;
+  border-top: 1px solid #0f172a;
+  margin-bottom: 4px;
+}
+
+.docSignBox strong {
+  font-size: 10px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.docSignBox span {
+  font-size: 8.5px;
+  color: #64748b;
+}
+
+/* Print Styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .printableDocument,
+  .printableDocument * {
+    visibility: visible;
+  }
+  .printableDocument {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    padding: 20mm !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}

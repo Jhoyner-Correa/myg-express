@@ -1,7 +1,7 @@
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
-  CalendarDays, CheckCircle2, CircleAlert, Clock3, FileText,
+  Calculator, CalendarDays, CheckCircle2, CircleAlert, Clock3, FileText,
   Landmark, NotebookPen, Printer, ReceiptText, ShieldCheck, Trash2, UserRound, WalletCards,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
@@ -12,6 +12,7 @@ import { rrhhService } from '../rrhh.service';
 import type { ServicePaymentEmployeeLedger, ServicePaymentRow } from '../types';
 import { employeePhotoFallbackHandler, getEmployeePhotoUrl } from './employee-avatar';
 import { PaymentDayDetailModal } from './PaymentDayDetailModal';
+import { CutoffSettlementModal } from './CutoffSettlementModal';
 import styles from './EmployeePaymentLedgerModal.module.css';
 
 type Props = {
@@ -85,6 +86,7 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
   const [cancelNoteId, setCancelNoteId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
+  const [showCutoffModal, setShowCutoffModal] = useState<boolean>(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     if (!employee) return;
@@ -183,6 +185,9 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
     className={styles.modal}
     onClose={onClose}
     footer={<>
+      <Button variant="corporate" icon={<Calculator size={16} />} onClick={() => setShowCutoffModal(true)}>
+        Corte / Finiquito a la fecha
+      </Button>
       <Button variant="secondary" icon={<Printer size={16} />} onClick={() => window.print()}>
         Imprimir liquidación
       </Button>
@@ -558,6 +563,15 @@ export function EmployeePaymentLedgerModal({ employee, month, canManage, onClose
             canManage={canManage}
             onClose={() => setSelectedDayDate(null)}
             onResolved={async () => {
+              await load();
+            }}
+          />
+          <CutoffSettlementModal
+            employee={showCutoffModal ? employee : null}
+            month={month}
+            canManage={canManage}
+            onClose={() => setShowCutoffModal(false)}
+            onUpdated={async () => {
               await load();
             }}
           />

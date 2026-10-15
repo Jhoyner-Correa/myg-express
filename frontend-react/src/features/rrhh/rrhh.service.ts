@@ -29,6 +29,7 @@ import type {
   HolidaySyncResult,
   WeeklySchedulePolicy,
   ServicePaymentDashboard, ServicePaymentEmployeeLedger, ServicePaymentHistory,
+  CutoffSettlementResponse,
 } from './types';
 
 async function unwrapRequest<T>(request: Promise<{ data: ApiEnvelope<T> }>, fallback?: T) {
@@ -350,5 +351,19 @@ export const rrhhService = {
     return unwrapRequest(apiClient.post<ApiEnvelope<{ id: number; status: string }>>(`/rrhh/pagos/liquidaciones/${liquidationId}/deposito`, {
       operation_number: operationNumber,
     }));
+  },
+  getCutoffSettlement(employeeId: number, month: string, cutoffDate?: string, signal?: AbortSignal) {
+    return unwrapRequest(apiClient.get<ApiEnvelope<CutoffSettlementResponse>>(
+      `/rrhh/pagos/empleados/${employeeId}/corte-liquidacion`, {
+        params: { periodo: month, ...(cutoffDate ? { fecha_corte: cutoffDate } : {}) },
+        signal,
+      },
+    ));
+  },
+  applyTerminationSettlement(employeeId: number, input: { fecha_cese: string; motivo?: string; observaciones?: string }) {
+    return unwrapRequest(apiClient.post<ApiEnvelope<{ ok: boolean; employeeId: number; terminationDate: string; status: string }>>(
+      `/rrhh/pagos/empleados/${employeeId}/cese-liquidacion`,
+      input,
+    ));
   },
 };

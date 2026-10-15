@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateMonthlyAccrual, calculateMonthlyAgreementBase, calculateMonthlyServiceBase, calculatePartialAbsenceDiscount, calculateServicePayment, classifyPaymentWorkQueue,
+  calculateAbsenceDailyDiscount, calculateAutomaticOvertimeRate, calculateCutoffSettlement, calculateMonthlyAccrual, calculateMonthlyAgreementBase, calculateMonthlyServiceBase, calculatePartialAbsenceDiscount, calculateServicePayment, classifyPaymentWorkQueue,
   evaluatePaymentControls, normalizePaymentMonth, parsePaymentAmount, planPaymentAgreementWrite,
   resolveAbsencePaymentState,
 } = require('../dist/modules/rrhh/domain/paymentDomain');
@@ -257,3 +257,44 @@ test('clasifica liquidaciones en bandejas operativas sin depender del frontend',
     liquidationStatus: 'PAGADO', pendingForReview: [], readyForBatch: true,
   }), 'PAGADOS');
 });
+
+test('calcula liquidacion y acumulado exacto a la fecha de corte (ej. cese al dia 15)', () => {
+  const settlement = calculateCutoffSettlement({
+    periodStart: '2026-09-01',
+    cutoffDate: '2026-09-15',
+    employmentStart: '2025-01-01',
+    employmentEnd: null,
+    agreements: [{
+      agreementId: 1,
+      monthlyPayment: 1200,
+      agreementStart: '2026-01-01',
+      agreementEnd: null,
+      policy: 'DIAS_CALENDARIO',
+    }],
+    overtimeMinutes: 120, // 2 horas
+    overtimeHourlyRate: 5, // S/ 5/h = S/ 10.00
+    otherIncome: 50, // Bono S/ 50.00
+    confirmedAbsences: 1, // 1 falta
+    absenceDailyDiscount: 40, // S/ 40.00
+    partialAbsenceMinutes: 60,
+    partialAbsenceDiscount: 12.50,
+    advances: 150, // Adelanto S/ 150.00
+    loanInstallments: 0,
+    otherDiscounts: 0,
+  });
+
+  assert.equal(settlement.serviceDaysToCutoff, 15);
+  assert.equal(settlement.calendarDaysInPeriod, 30);
+  assert.equal(settlement.accruedBaseAmount, 600);
+  assert.equal(settlement.overtimeAmount, 10);
+  assert.equal(settlement.otherIncome, 50);
+  assert.equal(settlement.grossServiceAmount, 660);
+  assert.equal(settlement.absenceDiscountAmount, 40);
+  assert.equal(settlement.partialAbsenceDiscountAmount, 12.5);
+  assert.equal(settlement.advancesAmount, 150);
+  assert.equal(settlement.totalDeductionsAmount, 202.5);
+  assert.equal(settlement.netSettlementAmount, 457.5);
+  assert.equal(settlement.itemizedLines.length, 6);
+  assert.equal(settlement.itemizedLines[0].category, 'BASE');
+});
+
