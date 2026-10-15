@@ -5,10 +5,13 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  DollarSign,
+  Coins,
   FileSpreadsheet,
   FileText,
+  Info,
   Landmark,
+  MinusCircle,
+  PlusCircle,
   Printer,
   TrendingDown,
   UserCheck,
@@ -147,7 +150,7 @@ export function CutoffSettlementModal({
         motivo: terminationReason,
         observaciones: terminationNotes.trim() || undefined,
       });
-      showToast('Cese laboral formalizado correctamente.', 'success');
+      showToast('Cese laboral formalizado correctamente y liquidación actualizada.', 'success');
       setShowTerminationForm(false);
       onUpdated?.();
       void loadCutoff(cutoffDate);
@@ -169,14 +172,25 @@ export function CutoffSettlementModal({
   const settlement = data?.settlement;
   const isTerminated = data?.employee.estado === 'INACTIVO' || Boolean(data?.employee.fecha_cese);
 
+  // Computed metrics
+  const dailyBaseFee = settlement && settlement.calendarDaysInPeriod > 0
+    ? settlement.projectedMonthlyPayment / settlement.calendarDaysInPeriod
+    : 0;
+
+  const overtimeHours = settlement ? Math.floor(settlement.overtimeMinutes / 60) : 0;
+  const overtimeRestMins = settlement ? settlement.overtimeMinutes % 60 : 0;
+  const overtimeFormatted = overtimeHours > 0
+    ? `${overtimeHours} h ${overtimeRestMins > 0 ? `${overtimeRestMins} min` : ''}`
+    : `${overtimeRestMins} min`;
+
   return (
     <Modal
       open={Boolean(employee)}
       title="Liquidación / Corte a la Fecha de Honorarios"
-      description="Cálculo dinámico en tiempo real de haberes devengados, sobretiempo y descuentos a una fecha de corte específica."
+      description="Cálculo proporcional exacto de haberes devengados, horas extras y deducciones a la fecha de corte seleccionada."
       icon={<FileSpreadsheet />}
       iconVariant="plain"
-      maxWidth={1080}
+      maxWidth={1120}
       className={styles.modal}
       onClose={onClose}
       footer={
@@ -221,20 +235,21 @@ export function CutoffSettlementModal({
                 {data?.employee.nombres ?? employee.nombres} {data?.employee.apellidos ?? employee.apellidos}
               </h3>
               <p>
-                <span>{data?.employee.codigo_empleado ?? employee.codigo_empleado}</span> ·{' '}
-                <span>{data?.employee.cargo ?? employee.cargo}</span> ·{' '}
-                <span>{data?.employee.sede ?? employee.sede}</span>
+                <span>Código: <strong>{data?.employee.codigo_empleado ?? employee.codigo_empleado}</strong></span> ·{' '}
+                <span>DNI: <strong>{data?.employee.dni ?? employee.dni ?? '—'}</strong></span> ·{' '}
+                <span>Cargo: <strong>{data?.employee.cargo ?? employee.cargo}</strong></span> ·{' '}
+                <span>Sede: <strong>{data?.employee.sede ?? employee.sede}</strong></span>
               </p>
             </div>
           </div>
           <div>
             {isTerminated ? (
               <span className={styles.statusBadgeInactive}>
-                <UserX size={12} /> Cesado el {formatDateDisplay(data?.employee.fecha_cese)}
+                <UserX size={13} /> Cese Registrado: {formatDateDisplay(data?.employee.fecha_cese)}
               </span>
             ) : (
               <span className={styles.statusBadgeActive}>
-                <UserCheck size={12} /> Colaborador Activo
+                <UserCheck size={13} /> Colaborador Activo
               </span>
             )}
           </div>
@@ -245,7 +260,7 @@ export function CutoffSettlementModal({
           <div className={styles.cutoffControl}>
             <Calendar size={18} color="#0284c7" />
             <div className={styles.cutoffLabel}>
-              <span>Fecha de Corte / Liquidación</span>
+              <span>Fecha de Corte del Cálculo</span>
               <strong>{formatDateDisplay(cutoffDate)}</strong>
             </div>
             <input
@@ -277,10 +292,25 @@ export function CutoffSettlementModal({
               className={`${styles.shortcutBtn} ${cutoffDate === periodEnd ? styles.shortcutBtnActive : ''}`}
               onClick={() => handleShortcutClick(periodEnd)}
             >
-              Fin de Mes
+              Cierre de Mes ({formatDateDisplay(periodEnd).slice(0, 5)})
             </button>
           </div>
         </section>
+
+        {/* Formula Explanation Callout */}
+        {settlement && (
+          <div className={styles.formulaBanner}>
+            <Info size={16} style={{ flexShrink: 0 }} />
+            <span>
+              <strong>Fórmula de liquidación proporcional:</strong> Honorario pactado de{' '}
+              <strong>{amount(settlement.projectedMonthlyPayment)}</strong> ÷{' '}
+              <strong>{settlement.calendarDaysInPeriod} días</strong> del mes ={' '}
+              <strong>{amount(dailyBaseFee)} diario</strong> ×{' '}
+              <strong>{settlement.serviceDaysToCutoff} días</strong> laborados al corte ={' '}
+              <strong>{amount(settlement.accruedBaseAmount)}</strong> de honorario devengado.
+            </span>
+          </div>
+        )}
 
         {/* Termination Form if toggled */}
         {showTerminationForm && canManage && (
@@ -314,7 +344,7 @@ export function CutoffSettlementModal({
               <label>
                 <span>Observaciones Administrativas</span>
                 <textarea
-                  placeholder="Detalles sobre entrega de cargo, herramientas o constancias..."
+                  placeholder="Detalles sobre entrega de cargo, herramientas, uniforme o constancias..."
                   value={terminationNotes}
                   onChange={e => setTerminationNotes(e.target.value)}
                 />
@@ -358,19 +388,20 @@ export function CutoffSettlementModal({
           </div>
         ) : settlement ? (
           <>
-            {/* KPI Banner */}
+            {/* KPI Cards Banner */}
             <section className={styles.kpiGrid}>
               <div className={`${styles.kpiCard} ${styles.kpiIncome}`}>
                 <div className={styles.kpiHeader}>
-                  <span>Honorario Base</span>
+                  <span>Honorario Devengado</span>
                   <Wallet size={15} />
                 </div>
                 <div className={styles.kpiValue}>
                   {amount(settlement.accruedBaseAmount)}
                 </div>
                 <div className={styles.kpiSubtext}>
-                  {settlement.serviceAccruedDays} de {settlement.calendarDaysInMonth} días ({amount(settlement.dailyBaseFee)}/día)
+                  {settlement.serviceDaysToCutoff} de {settlement.calendarDaysInPeriod} días ({amount(dailyBaseFee)}/día)
                 </div>
+                <span className={styles.kpiTag}>Pactado: {amount(settlement.projectedMonthlyPayment)}</span>
               </div>
 
               <div className={`${styles.kpiCard} ${styles.kpiOvertime}`}>
@@ -382,8 +413,9 @@ export function CutoffSettlementModal({
                   + {amount(settlement.overtimeAmount)}
                 </div>
                 <div className={styles.kpiSubtext}>
-                  {Math.round(settlement.payableOvertimeMinutes / 60 * 10) / 10}h ({settlement.payableOvertimeMinutes} min a {amount(settlement.overtimeHourlyRate)}/h)
+                  {overtimeFormatted} ({settlement.overtimeMinutes} min a {amount(settlement.overtimeHourlyRate)}/h)
                 </div>
+                <span className={styles.kpiTag}>Aprobadas en sistema</span>
               </div>
 
               <div className={`${styles.kpiCard} ${styles.kpiDeduction}`}>
@@ -395,8 +427,9 @@ export function CutoffSettlementModal({
                   − {amount(settlement.absenceDiscountAmount + settlement.partialAbsenceDiscountAmount)}
                 </div>
                 <div className={styles.kpiSubtext}>
-                  {settlement.confirmedAbsenceCount} falta(s), {settlement.partialAbsenceMinutes} min tardanza
+                  {settlement.confirmedAbsences} falta(s) · {settlement.partialAbsenceMinutes} min tardanza
                 </div>
+                <span className={styles.kpiTag}>Deducibles a la fecha</span>
               </div>
 
               <div className={`${styles.kpiCard} ${styles.kpiDeduction}`}>
@@ -411,12 +444,13 @@ export function CutoffSettlementModal({
                   {settlement.advancesAmount > 0 ? `${amount(settlement.advancesAmount)} adelanto` : 'Sin adelanto'}
                   {settlement.loanInstallmentsAmount > 0 ? `, ${amount(settlement.loanInstallmentsAmount)} préstamo` : ''}
                 </div>
+                <span className={styles.kpiTag}>Retenciones aplicadas</span>
               </div>
 
               <div className={`${styles.kpiCard} ${styles.kpiNet}`}>
                 <div className={styles.kpiHeader}>
                   <span>TOTAL NETO A LIQUIDAR</span>
-                  <DollarSign size={16} />
+                  <Coins size={16} />
                 </div>
                 <div className={styles.kpiValue}>
                   {amount(settlement.netSettlementAmount)}
@@ -424,6 +458,9 @@ export function CutoffSettlementModal({
                 <div className={styles.kpiSubtext} style={{ color: '#065f46', fontWeight: 700 }}>
                   Abono exacto al {formatDateDisplay(cutoffDate)}
                 </div>
+                <span className={styles.kpiTag} style={{ background: '#dcfce7', color: '#15803d' }}>
+                  Bruto {amount(settlement.grossServiceAmount)} − Deducciones {amount(settlement.totalDeductionsAmount)}
+                </span>
               </div>
             </section>
 
@@ -435,7 +472,7 @@ export function CutoffSettlementModal({
                 onClick={() => setActiveTab('itemized')}
               >
                 <FileSpreadsheet size={15} />
-                Desglose Itemizado de Conceptos
+                Resumen y Desglose Financiero
               </button>
               <button
                 type="button"
@@ -443,7 +480,7 @@ export function CutoffSettlementModal({
                 onClick={() => setActiveTab('attendance')}
               >
                 <Clock size={15} />
-                Asistencias y Marcaciones ({data.daily_attendances.length} días)
+                Marcaciones y Asistencias a la Fecha ({data.daily_attendances.length} días)
               </button>
               <button
                 type="button"
@@ -455,74 +492,223 @@ export function CutoffSettlementModal({
               </button>
             </nav>
 
-            {/* Tab: Itemized Concept Breakdown */}
+            {/* Tab: Resumen y Desglose Financiero (Two Parallel Tables) */}
             {activeTab === 'itemized' && (
-              <div className={styles.itemizedCard}>
-                <table className={styles.itemizedTable}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: '130px' }}>Tipo</th>
-                      <th>Concepto</th>
-                      <th>Detalle y Fórmula</th>
-                      <th style={{ textAlign: 'right', width: '140px' }}>Importe</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {settlement.itemizedLines.map((line, idx) => (
-                      <tr key={`item-${idx}`}>
-                        <td>
-                          <span
-                            className={`${styles.conceptBadge} ${
-                              line.type === 'BASE'
-                                ? styles.conceptBase
-                                : line.type === 'HORAS_EXTRA'
-                                ? styles.conceptOvertime
-                                : line.type === 'OTRO_INGRESO'
-                                ? styles.conceptBonus
-                                : line.type === 'ADELANTO'
-                                ? styles.conceptAdvance
-                                : line.type === 'PRESTAMO'
-                                ? styles.conceptLoan
-                                : styles.conceptDeduction
-                            }`}
-                          >
-                            {line.type.replace('_', ' ')}
-                          </span>
-                        </td>
-                        <td>
-                          <strong>{line.concept}</strong>
-                        </td>
-                        <td style={{ color: '#64748b', fontSize: '11.5px' }}>{line.details}</td>
-                        <td className={line.impact === 'ADD' ? styles.impactAdd : styles.impactDeduct}>
-                          {line.impact === 'ADD' ? '+ ' : '− '}
-                          {amount(line.amount)}
-                        </td>
-                      </tr>
-                    ))}
-                    <tr className={styles.tableTotalRow}>
-                      <td colSpan={3}>
-                        <strong>TOTAL NETO A DEPOSITAR AL CORTE</strong>
-                      </td>
-                      <td style={{ textAlign: 'right', color: '#047857', fontSize: '14px' }}>
-                        <strong>{amount(settlement.netSettlementAmount)}</strong>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <section className={styles.breakdownSection}>
+                  {/* Incomes Card */}
+                  <article className={styles.breakdownCard}>
+                    <div className={styles.breakdownHeader}>
+                      <strong>
+                        <PlusCircle size={15} color="#059669" />
+                        1. Haberes e Ingresos Devengados
+                      </strong>
+                      <span className={styles.conceptBadgeEarning}>+ INGRESOS</span>
+                    </div>
+                    <table className={styles.breakdownTable}>
+                      <thead>
+                        <tr>
+                          <th>Concepto</th>
+                          <th>Detalle de Cálculo</th>
+                          <th style={{ textAlign: 'right' }}>Importe</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>
+                            <strong>Honorario base devengado</strong>
+                          </td>
+                          <td style={{ color: '#64748b', fontSize: '11px' }}>
+                            {settlement.serviceDaysToCutoff} de {settlement.calendarDaysInPeriod} días (Tarifa {amount(dailyBaseFee)}/día)
+                          </td>
+                          <td className={styles.amountAdd}>
+                            + {amount(settlement.accruedBaseAmount)}
+                          </td>
+                        </tr>
+
+                        {settlement.overtimeAmount > 0 && (
+                          <tr>
+                            <td>
+                              <strong>Horas extras aprobadas</strong>
+                            </td>
+                            <td style={{ color: '#64748b', fontSize: '11px' }}>
+                              {overtimeFormatted} acumuladas a tarifa {amount(settlement.overtimeHourlyRate)}/h
+                            </td>
+                            <td className={styles.amountAdd}>
+                              + {amount(settlement.overtimeAmount)}
+                            </td>
+                          </tr>
+                        )}
+
+                        {settlement.otherIncome > 0 && (
+                          <tr>
+                            <td>
+                              <strong>Bonificaciones / Otros ingresos</strong>
+                            </td>
+                            <td style={{ color: '#64748b', fontSize: '11px' }}>
+                              Bonos vigentes a la fecha de corte
+                            </td>
+                            <td className={styles.amountAdd}>
+                              + {amount(settlement.otherIncome)}
+                            </td>
+                          </tr>
+                        )}
+
+                        <tr className={styles.breakdownSubtotal}>
+                          <td colSpan={2}>
+                            <strong>TOTAL BRUTO DEVENGADO</strong>
+                          </td>
+                          <td className={styles.amountAdd} style={{ fontSize: '13px' }}>
+                            <strong>+ {amount(settlement.grossServiceAmount)}</strong>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </article>
+
+                  {/* Deductions Card */}
+                  <article className={styles.breakdownCard}>
+                    <div className={styles.breakdownHeader}>
+                      <strong>
+                        <MinusCircle size={15} color="#dc2626" />
+                        2. Deducciones y Retenciones
+                      </strong>
+                      <span className={styles.conceptBadgeDeduction}>− DEDUCCIONES</span>
+                    </div>
+                    <table className={styles.breakdownTable}>
+                      <thead>
+                        <tr>
+                          <th>Concepto</th>
+                          <th>Detalle de Cálculo</th>
+                          <th style={{ textAlign: 'right' }}>Importe</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {settlement.absenceDiscountAmount > 0 && (
+                          <tr>
+                            <td>
+                              <strong>Descuento por inasistencia</strong>
+                            </td>
+                            <td style={{ color: '#64748b', fontSize: '11px' }}>
+                              {settlement.confirmedAbsences} falta(s) no justificada(s)
+                            </td>
+                            <td className={styles.amountDeduct}>
+                              − {amount(settlement.absenceDiscountAmount)}
+                            </td>
+                          </tr>
+                        )}
+
+                        {settlement.partialAbsenceDiscountAmount > 0 && (
+                          <tr>
+                            <td>
+                              <strong>Descuento por tardanzas</strong>
+                            </td>
+                            <td style={{ color: '#64748b', fontSize: '11px' }}>
+                              {settlement.partialAbsenceMinutes} minutos deducibles
+                            </td>
+                            <td className={styles.amountDeduct}>
+                              − {amount(settlement.partialAbsenceDiscountAmount)}
+                            </td>
+                          </tr>
+                        )}
+
+                        {settlement.advancesAmount > 0 && (
+                          <tr>
+                            <td>
+                              <strong>Adelanto de honorarios</strong>
+                            </td>
+                            <td style={{ color: '#64748b', fontSize: '11px' }}>
+                              Adelantos entregados en el mes
+                            </td>
+                            <td className={styles.amountDeduct}>
+                              − {amount(settlement.advancesAmount)}
+                            </td>
+                          </tr>
+                        )}
+
+                        {settlement.loanInstallmentsAmount > 0 && (
+                          <tr>
+                            <td>
+                              <strong>Cuota de préstamo</strong>
+                            </td>
+                            <td style={{ color: '#64748b', fontSize: '11px' }}>
+                              Cuota de préstamo activo
+                            </td>
+                            <td className={styles.amountDeduct}>
+                              − {amount(settlement.loanInstallmentsAmount)}
+                            </td>
+                          </tr>
+                        )}
+
+                        {settlement.otherDiscountsAmount > 0 && (
+                          <tr>
+                            <td>
+                              <strong>Otros descuentos aplicados</strong>
+                            </td>
+                            <td style={{ color: '#64748b', fontSize: '11px' }}>
+                              Ajustes y retenciones administrativas
+                            </td>
+                            <td className={styles.amountDeduct}>
+                              − {amount(settlement.otherDiscountsAmount)}
+                            </td>
+                          </tr>
+                        )}
+
+                        {settlement.totalDeductionsAmount === 0 && (
+                          <tr>
+                            <td colSpan={3} className={styles.breakdownEmpty}>
+                              Sin deducciones registradas hasta la fecha de corte
+                            </td>
+                          </tr>
+                        )}
+
+                        <tr className={styles.breakdownSubtotal}>
+                          <td colSpan={2}>
+                            <strong>TOTAL DEDUCCIONES</strong>
+                          </td>
+                          <td className={styles.amountDeduct} style={{ fontSize: '13px' }}>
+                            <strong>
+                              {settlement.totalDeductionsAmount > 0
+                                ? `− ${amount(settlement.totalDeductionsAmount)}`
+                                : amount(0)}
+                            </strong>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </article>
+                </section>
+
+                {/* Consolidated Bottom Strip */}
+                <section className={styles.consolidatedSummary}>
+                  <div className={styles.summaryCol}>
+                    <span>Total Bruto Devengado</span>
+                    <strong style={{ color: '#0369a1' }}>+ {amount(settlement.grossServiceAmount)}</strong>
+                  </div>
+                  <div className={styles.summaryCol}>
+                    <span>Total Deducciones</span>
+                    <strong style={{ color: '#b91c1c' }}>− {amount(settlement.totalDeductionsAmount)}</strong>
+                  </div>
+                  <div className={styles.summaryNet}>
+                    <span>Neto a Liquidar:</span>
+                    <strong>{amount(settlement.netSettlementAmount)}</strong>
+                  </div>
+                </section>
+              </>
             )}
 
             {/* Tab: Attendance Log */}
             {activeTab === 'attendance' && (
-              <div className={styles.itemizedCard}>
+              <div className={styles.attendanceCard}>
                 <table className={styles.attendanceTable}>
                   <thead>
                     <tr>
                       <th>Fecha</th>
-                      <th>Estado</th>
+                      <th>Estado de Asistencia</th>
                       <th>Tipo</th>
-                      <th>Tardanza</th>
-                      <th>Horas Extra</th>
+                      <th>Tardanza Ingreso</th>
+                      <th>Tardanza Retorno</th>
+                      <th>Horas Extra Aprobadas</th>
                       <th>Justificación</th>
                     </tr>
                   </thead>
@@ -554,13 +740,23 @@ export function CutoffSettlementModal({
                               {row.minutos_tardanza} min
                             </span>
                           ) : (
-                            '—'
+                            '0 min'
+                          )}
+                        </td>
+                        <td>
+                          {row.minutos_tardanza_retorno > 0 ? (
+                            <span style={{ color: '#b45309', fontWeight: 700 }}>
+                              {row.minutos_tardanza_retorno} min
+                            </span>
+                          ) : (
+                            '0 min'
                           )}
                         </td>
                         <td>
                           {row.minutos_horas_extra > 0 ? (
-                            <span style={{ color: '#7e22ce', fontWeight: 700 }}>
-                              {row.minutos_horas_extra} min
+                            <span style={{ color: '#7e22ce', fontWeight: 800 }}>
+                              {Math.floor(row.minutos_horas_extra / 60) > 0 ? `${Math.floor(row.minutos_horas_extra / 60)}h ` : ''}
+                              {row.minutos_horas_extra % 60}m ({row.minutos_horas_extra} min)
                             </span>
                           ) : (
                             '—'
@@ -589,7 +785,7 @@ export function CutoffSettlementModal({
                   <div className={styles.docCompany}>
                     <strong>MYG EXPRESS LOGÍSTICA & DISTRIBUCIÓN S.A.C.</strong>
                     <span>R.U.C. N° 20601234567 · Gestión de Recursos Humanos</span>
-                    <span>Sede Central / Operativa: {data.employee.sede}</span>
+                    <span>Sede Operativa: {data.employee.sede}</span>
                   </div>
                   <div className={styles.docTitle}>
                     <h2>Liquidación de Cese / Finiquito de Honorarios</h2>
@@ -647,7 +843,7 @@ export function CutoffSettlementModal({
                             Honorario Base Devengado
                             <br />
                             <small style={{ color: '#64748b' }}>
-                              {settlement.serviceAccruedDays} de {settlement.calendarDaysInMonth} días ({amount(settlement.dailyBaseFee)}/día)
+                              {settlement.serviceDaysToCutoff} de {settlement.calendarDaysInPeriod} días ({amount(dailyBaseFee)}/día)
                             </small>
                           </td>
                           <td className={styles.docTableNum}>{amount(settlement.accruedBaseAmount)}</td>
@@ -658,16 +854,16 @@ export function CutoffSettlementModal({
                               Horas Extras Aprobadas
                               <br />
                               <small style={{ color: '#64748b' }}>
-                                {settlement.payableOvertimeMinutes} min a {amount(settlement.overtimeHourlyRate)}/h
+                                {overtimeFormatted} a {amount(settlement.overtimeHourlyRate)}/h
                               </small>
                             </td>
                             <td className={styles.docTableNum}>{amount(settlement.overtimeAmount)}</td>
                           </tr>
                         )}
-                        {settlement.otherIncomeAmount > 0 && (
+                        {settlement.otherIncome > 0 && (
                           <tr>
                             <td>Otros Ingresos / Bonos</td>
-                            <td className={styles.docTableNum}>{amount(settlement.otherIncomeAmount)}</td>
+                            <td className={styles.docTableNum}>{amount(settlement.otherIncome)}</td>
                           </tr>
                         )}
                         <tr className={styles.docTableSubtotal}>
@@ -691,7 +887,7 @@ export function CutoffSettlementModal({
                               Descuento por Inasistencias
                               <br />
                               <small style={{ color: '#64748b' }}>
-                                {settlement.confirmedAbsenceCount} falta(s) injustificada(s)
+                                {settlement.confirmedAbsences} falta(s) no justificada(s)
                               </small>
                             </td>
                             <td className={styles.docTableNum}>− {amount(settlement.absenceDiscountAmount)}</td>

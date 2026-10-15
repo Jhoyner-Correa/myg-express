@@ -959,37 +959,34 @@ export type ServicePaymentEmployeeLedger = {
 };
 
 export type CutoffItemizedLine = {
-  type: 'BASE' | 'HORAS_EXTRA' | 'OTRO_INGRESO' | 'FALTA' | 'TARDANZA' | 'ADELANTO' | 'PRESTAMO' | 'OTRO_DESCUENTO';
   concept: string;
-  details: string;
+  type: 'EARNING' | 'DEDUCTION';
   amount: number;
-  impact: 'ADD' | 'DEDUCT';
+  detail: string;
+  category: 'BASE' | 'OVERTIME' | 'BONUS' | 'ABSENCE' | 'TARDINESS' | 'ADVANCE' | 'LOAN' | 'OTHER_DISCOUNT';
 };
 
 export type CutoffSettlement = {
-  periodStart: string;
   cutoffDate: string;
-  calendarDaysInMonth: number;
-  cutoffElapsedDays: number;
-  serviceAccruedDays: number;
-  dailyBaseFee: number;
-  monthlyAgreedFee: number;
+  periodStart: string;
+  calendarDaysInPeriod: number;
+  serviceDaysToCutoff: number;
   accruedBaseAmount: number;
-  payableOvertimeMinutes: number;
+  projectedMonthlyPayment: number;
+  overtimeMinutes: number;
   overtimeHourlyRate: number;
   overtimeAmount: number;
-  confirmedAbsenceCount: number;
+  otherIncome: number;
+  confirmedAbsences: number;
   absenceDiscountAmount: number;
   partialAbsenceMinutes: number;
   partialAbsenceDiscountAmount: number;
   advancesAmount: number;
   loanInstallmentsAmount: number;
-  otherIncomeAmount: number;
   otherDiscountsAmount: number;
   grossServiceAmount: number;
   totalDeductionsAmount: number;
   netSettlementAmount: number;
-  isProrated: boolean;
   itemizedLines: CutoffItemizedLine[];
 };
 
