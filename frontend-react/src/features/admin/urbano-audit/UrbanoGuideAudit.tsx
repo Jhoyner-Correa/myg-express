@@ -1,19 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowRight,
   Building2,
   CheckCircle2,
   ChevronDown,
   Clock,
   Download,
   FileSpreadsheet,
+  MapPin,
   Package,
   PackageSearch,
   RefreshCw,
   Search,
   ShieldCheck,
+  Smartphone,
   Trash2,
   Truck,
+  User,
 } from 'lucide-react';
 
 import { PageHeader } from '../../../components/ui/PageHeader/PageHeader';
@@ -31,6 +35,24 @@ type TabKey = 'ALL' | 'CLEAN' | 'MOTIVATED' | 'DISCREPANCY' | 'MANAGEMENT';
 function present(val: unknown, fallback = '—'): string {
   const text = String(val ?? '').trim();
   return text || fallback;
+}
+
+function formatOutForDelivery(val: string | null | undefined, attempts: number, motives: number) {
+  if (!val) return { dateText: 'Sin registro', explanation: 'No salió a ruta' };
+  if (val.toUpperCase().includes('PEND')) {
+    return { dateText: 'Pendiente', explanation: 'Aún en almacén' };
+  }
+  const cleanDate = val.replace(/\s*\(\d+\)/, '').trim();
+  if (attempts <= 1) {
+    return {
+      dateText: cleanDate || val,
+      explanation: '1ª salida · Entrega limpia (0 motivos)',
+    };
+  }
+  return {
+    dateText: cleanDate || val,
+    explanation: `${attempts}ª salida · ${motives} ${motives === 1 ? 'motivo previo' : 'motivos previos'}`,
+  };
 }
 
 export const UrbanoGuideAudit: React.FC = () => {
@@ -580,6 +602,11 @@ export const UrbanoGuideAudit: React.FC = () => {
                   ) : (
                     filteredRecords.map((item) => {
                       const isExpanded = expandedGuide === item.guide;
+                      const outForDeliveryInfo = formatOutForDelivery(
+                        item.urbano?.dates.outForDelivery,
+                        item.audit.attempts,
+                        item.audit.motives,
+                      );
                       return (
                         <React.Fragment key={item.guide}>
                           <tr>
@@ -669,113 +696,197 @@ export const UrbanoGuideAudit: React.FC = () => {
                             </td>
                           </tr>
 
-                          {/* Fila de Detalle Expandible */}
+                          {/* Fila de Detalle Expandible Organizada */}
                           {isExpanded && (
                             <tr className={styles.detailsRow}>
                               <td colSpan={8}>
                                 <div className={styles.detailDrawer}>
+                                  {/* Header del Detalle */}
                                   <div className={styles.detailDrawerHeader}>
-                                    <div>
-                                      <strong>Detalle Guía · {item.guide}</strong>
-                                      <span style={{ color: '#64748b', marginLeft: '8px' }}>
+                                    <div className={styles.detailDrawerHeaderLeft}>
+                                      <span className={styles.detailGuidePill}>{item.guide}</span>
+                                      {item.urbano?.tracking && (
+                                        <span className={styles.detailTrackingText}>
+                                          Tracking Urbano: <strong>{item.urbano.tracking}</strong>
+                                        </span>
+                                      )}
+                                      <span className={styles.detailSummaryPill}>
                                         {item.audit.summaryText}
                                       </span>
                                     </div>
                                     <div>{renderStatusPill(item)}</div>
                                   </div>
 
-                                  <div className={styles.detailGrid}>
-                                    <section className={styles.detailSection}>
-                                      <h4>Recepción y Firma</h4>
-                                      <dl className={styles.detailDl}>
-                                        <div>
-                                          <dt>Firmante</dt>
-                                          <dd>{present(item.audit.recipientSignature)}</dd>
-                                        </div>
-                                        <div>
-                                          <dt>DNI Receptor</dt>
-                                          <dd>{present(item.audit.recipientDni)}</dd>
-                                        </div>
-                                        <div>
-                                          <dt>Destinatario</dt>
-                                          <dd>{present(item.urbano?.recipient)}</dd>
-                                        </div>
-                                        <div>
-                                          <dt>Teléfono</dt>
-                                          <dd>{present(item.urbano?.phone)}</dd>
-                                        </div>
-                                      </dl>
-                                    </section>
+                                  {/* Stepper Cronológico Visual del Paquete */}
+                                  <div className={styles.stepperWrap}>
+                                    <div className={styles.stepperTitle}>
+                                      <Clock size={13} />
+                                      <span>Cronología y Ruta del Paquete en Urbano</span>
+                                    </div>
+                                    <div className={styles.stepperTimeline}>
+                                      {/* 1. Registro */}
+                                      <div className={styles.stepCard}>
+                                        <span className={styles.stepIndex}>1. Registro</span>
+                                        <strong className={styles.stepValue}>
+                                          {present(item.urbano?.registeredAt || item.urbano?.dates.pickup)}
+                                        </strong>
+                                        <small className={styles.stepSub}>Ingreso al sistema</small>
+                                      </div>
 
-                                    <section className={styles.detailSection}>
-                                      <h4>Ubicación y Operación</h4>
-                                      <dl className={styles.detailDl}>
-                                        <div>
-                                          <dt>Dirección</dt>
-                                          <dd>{present(item.urbano?.address)}</dd>
-                                        </div>
-                                        <div>
-                                          <dt>Localidad</dt>
-                                          <dd>{present(item.urbano?.destination)}</dd>
-                                        </div>
-                                        <div>
-                                          <dt>Remitente</dt>
-                                          <dd>{present(item.urbano?.sender)}</dd>
-                                        </div>
-                                        <div>
-                                          <dt>Obs. Urbano</dt>
-                                          <dd>{present(item.urbano?.statusDetail)}</dd>
-                                        </div>
-                                      </dl>
-                                    </section>
+                                      <ArrowRight size={13} className={styles.stepArrow} />
 
-                                    <section className={styles.detailSection}>
-                                      <h4>WhatsApp y Liquidación</h4>
-                                      <dl className={styles.detailDl}>
-                                        <div>
-                                          <dt>Estado WhatsApp</dt>
-                                          <dd>{item.localNotice ? item.localNotice.estadoAviso : 'No registrado'}</dd>
-                                        </div>
-                                        <div>
-                                          <dt>Fecha Envío</dt>
-                                          <dd>{item.localNotice ? item.localNotice.fechaEnvio || 'En cola' : '—'}</dd>
-                                        </div>
-                                        <div>
-                                          <dt>Tel. Notificado</dt>
-                                          <dd>{item.localNotice ? item.localNotice.telefono : '—'}</dd>
-                                        </div>
-                                        <div>
-                                          <dt>Costo Declarado</dt>
-                                          <dd>{item.declared.cost !== null ? `S/ ${item.declared.cost.toFixed(2)}` : '—'}</dd>
-                                        </div>
-                                      </dl>
-                                    </section>
-                                  </div>
+                                      {/* 2. Despacho */}
+                                      <div className={styles.stepCard}>
+                                        <span className={styles.stepIndex}>2. Despacho</span>
+                                        <strong className={styles.stepValue}>
+                                          {present(item.urbano?.dates.dispatched)}
+                                        </strong>
+                                        <small className={styles.stepSub}>Tránsito entre sedes</small>
+                                      </div>
 
-                                  {item.urbano && (
-                                    <div className={styles.detailTimeline}>
-                                      <div className={styles.timelineItem}>
-                                        <small>Admisión</small>
-                                        <strong>{present(item.urbano.dates.admitted)}</strong>
+                                      <ArrowRight size={13} className={styles.stepArrow} />
+
+                                      {/* 3. Admisión */}
+                                      <div className={styles.stepCard}>
+                                        <span className={styles.stepIndex}>3. Admisión</span>
+                                        <strong className={styles.stepValue}>
+                                          {present(item.urbano?.dates.admitted)}
+                                        </strong>
+                                        <small className={styles.stepSub}>Llegada a agencia</small>
                                       </div>
-                                      <div className={styles.timelineItem}>
-                                        <small>Despachado</small>
-                                        <strong>{present(item.urbano.dates.dispatched)}</strong>
+
+                                      <ArrowRight size={13} className={styles.stepArrow} />
+
+                                      {/* 4. Salida a Ruta */}
+                                      <div
+                                        className={`${styles.stepCard} ${
+                                          item.audit.motives > 0 ? styles.stepCardMotivated : styles.stepCardClean
+                                        }`}
+                                      >
+                                        <span className={styles.stepIndex}>4. Salida a Ruta</span>
+                                        <strong className={styles.stepValue}>{outForDeliveryInfo.dateText}</strong>
+                                        <small className={styles.stepSubHighlight}>
+                                          {outForDeliveryInfo.explanation}
+                                        </small>
                                       </div>
-                                      <div className={styles.timelineItem}>
-                                        <small>Salida a Ruta</small>
-                                        <strong>{present(item.urbano.dates.outForDelivery)}</strong>
-                                      </div>
-                                      <div className={styles.timelineItem}>
-                                        <small>Est. Entrega</small>
-                                        <strong>{present(item.urbano.estimatedDeliveryDate)}</strong>
-                                      </div>
-                                      <div className={styles.timelineItem}>
-                                        <small>Reg. Urbano</small>
-                                        <strong>{present(item.urbano.registeredAt)}</strong>
+
+                                      <ArrowRight size={13} className={styles.stepArrow} />
+
+                                      {/* 5. Estado Final */}
+                                      <div
+                                        className={`${styles.stepCard} ${
+                                          item.audit.isDiscrepancy ? styles.stepCardDanger : styles.stepCardSuccess
+                                        }`}
+                                      >
+                                        <span className={styles.stepIndex}>5. Estado Final</span>
+                                        <strong className={styles.stepValue}>
+                                          {present(item.urbano?.status)}
+                                        </strong>
+                                        <small className={styles.stepSub}>
+                                          {item.urbano?.estimatedDeliveryDate
+                                            ? `Est: ${item.urbano.estimatedDeliveryDate}`
+                                            : 'Cierre de gestión'}
+                                        </small>
                                       </div>
                                     </div>
-                                  )}
+                                  </div>
+
+                                  {/* Grid de 3 Tarjetas de Datos Claras */}
+                                  <div className={styles.detailGridCards}>
+                                    {/* Card 1: Datos de Recepción y Firmante */}
+                                    <div className={styles.detailBlockCard}>
+                                      <div className={styles.detailBlockHeader}>
+                                        <User size={13} color="#1d5fc7" />
+                                        <h4>Recepción y Entrega Real</h4>
+                                      </div>
+                                      <div className={styles.detailList}>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>Firmante / Receptor</span>
+                                          <span className={styles.itemValueBold}>
+                                            {present(item.audit.recipientSignature || item.urbano?.recipient)}
+                                          </span>
+                                        </div>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>DNI Receptor</span>
+                                          <span className={styles.itemValueBadge}>
+                                            {present(item.audit.recipientDni, 'Sin DNI registrado')}
+                                          </span>
+                                        </div>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>Destinatario Oficial</span>
+                                          <span className={styles.itemValue}>{present(item.urbano?.recipient)}</span>
+                                        </div>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>Teléfono Contacto</span>
+                                          <span className={styles.itemValue}>{present(item.urbano?.phone)}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Card 2: Destino y Observación de Urbano */}
+                                    <div className={styles.detailBlockCard}>
+                                      <div className={styles.detailBlockHeader}>
+                                        <MapPin size={13} color="#0891b2" />
+                                        <h4>Ubicación y Observación</h4>
+                                      </div>
+                                      <div className={styles.detailList}>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>Dirección de Entrega</span>
+                                          <span className={styles.itemValue}>{present(item.urbano?.address)}</span>
+                                        </div>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>Localidad / Destino</span>
+                                          <span className={styles.itemValue}>{present(item.urbano?.destination)}</span>
+                                        </div>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>Remitente / Cliente</span>
+                                          <span className={styles.itemValue}>
+                                            {present(item.urbano?.sender || item.urbano?.contract)}
+                                          </span>
+                                        </div>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>Detalle Operativo Urbano</span>
+                                          <span className={styles.itemValueObs}>
+                                            {present(item.urbano?.statusDetail, 'Sin observaciones')}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Card 3: Auditoría y WhatsApp */}
+                                    <div className={styles.detailBlockCard}>
+                                      <div className={styles.detailBlockHeader}>
+                                        <Smartphone size={13} color="#16a34a" />
+                                        <h4>WhatsApp y Liquidación</h4>
+                                      </div>
+                                      <div className={styles.detailList}>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>Aviso Diario WhatsApp</span>
+                                          <span className={item.localNotice ? styles.waNoticeOk : styles.waNoticeNone}>
+                                            {item.localNotice
+                                              ? `✓ Enviado al ${item.localNotice.telefono}`
+                                              : 'Sin aviso registrado'}
+                                          </span>
+                                        </div>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>Fecha Aviso WhatsApp</span>
+                                          <span className={styles.itemValue}>
+                                            {present(item.localNotice?.fechaEnvio, '—')}
+                                          </span>
+                                        </div>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>Estado Declarado Courier</span>
+                                          <span className={styles.itemValue}>{present(item.declared.status, '—')}</span>
+                                        </div>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>Costo Declarado en Ruta</span>
+                                          <span className={styles.itemValueCost}>
+                                            {item.declared.cost !== null ? `S/ ${item.declared.cost.toFixed(2)}` : '—'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               </td>
                             </tr>
