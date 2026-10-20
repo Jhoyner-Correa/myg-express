@@ -2,6 +2,7 @@ import React from 'react';
 import {
   CalendarCheck2,
   CalendarClock,
+  ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
   MapPinned,
@@ -135,5 +136,12 @@ export const sidebarMenuConfig: MenuItem[] = [
     permission: 'urbano.despachos.ver',
     group: 'administration',
     icon: <Truck aria-hidden="true" />,
+  },
+  {
+    title: 'Auditoría Guías WYB',
+    path: '/admin/auditoria-guias',
+    permission: 'urbano.despachos.ver',
+    group: 'administration',
+    icon: <ClipboardCheck aria-hidden="true" />,
   }
 ];

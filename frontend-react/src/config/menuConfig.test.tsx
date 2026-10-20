@@ -67,4 +67,12 @@ describe('sidebarMenuConfig', () => {
     expect(printing?.permission).toBe('impresion.ver');
     expect(printing?.group).toBe('tools');
   });
+
+  it('registra Auditoría Guías WYB bajo el grupo administrativo', () => {
+    const audit = sidebarMenuConfig.find(item => item.path === '/admin/auditoria-guias');
+
+    expect(audit?.title).toBe('Auditoría Guías WYB');
+    expect(audit?.permission).toBe('urbano.despachos.ver');
+    expect(audit?.group).toBe('administration');
+  });
 });

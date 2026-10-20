@@ -26,6 +26,7 @@ import {
   listarDespachosUrbano,
   listarSedesDespachosUrbano,
 } from '../controllers/urbanoDispatchController';
+import { auditarGuiasUrbano } from '../controllers/urbanoGuideAuditController';
 
 const router = Router();
 
@@ -35,6 +36,7 @@ router.get('/urbano-despachos/sedes', requirePermission(PERMISSIONS.URBANO_DISPA
 router.get('/urbano-despachos', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), listarDespachosUrbano);
 router.get('/urbano-despachos/guias', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), consultarGuiasDespachoUrbano);
 router.get('/urbano-despachos/guias/detalle', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), consultarDetalleGuiaUrbano);
+router.post('/urbano-guias/auditoria', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), auditarGuiasUrbano);
 
 router.use(requirePermission(PERMISSIONS.ADMIN_PANEL_VIEW));
 
