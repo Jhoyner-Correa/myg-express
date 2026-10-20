@@ -12,6 +12,8 @@ function escapeCsvField(value: unknown): string {
 export function buildAuditCsvRows(records: AuditedGuideResult[]): string {
   const headers = [
     'GUIA WYB',
+    'PIEZAS',
+    'PESO (KG)',
     'PROVEEDOR DECLARADO',
     'AGENCIA DECLARADA',
     'RUTA DECLARADA',
@@ -39,8 +41,14 @@ export function buildAuditCsvRows(records: AuditedGuideResult[]): string {
   const lines = [headers.join(',')];
 
   for (const item of records) {
+    const weightVal = item.urbano?.weightKg !== null && item.urbano?.weightKg !== undefined
+      ? item.urbano.weightKg.toFixed(2)
+      : (item.declared.weightKg !== null ? item.declared.weightKg.toFixed(2) : '—');
+
     const row = [
       escapeCsvField(item.guide),
+      escapeCsvField(item.urbano?.pieces ?? 1),
+      escapeCsvField(weightVal),
       escapeCsvField(item.declared.provider || '—'),
       escapeCsvField(item.declared.agency || '—'),
       escapeCsvField(item.declared.route || '—'),
@@ -97,6 +105,8 @@ export async function downloadAuditExcel(records: AuditedGuideResult[], filename
 
   worksheet.columns = [
     { header: 'GUÍA WYB', key: 'guide', width: 18 },
+    { header: 'PIEZAS', key: 'pieces', width: 10 },
+    { header: 'PESO (KG)', key: 'weightKg', width: 13 },
     { header: 'PROVEEDOR DECLARADO', key: 'provider', width: 26 },
     { header: 'AGENCIA', key: 'agency', width: 18 },
     { header: 'RUTA', key: 'route', width: 14 },
@@ -144,6 +154,10 @@ export async function downloadAuditExcel(records: AuditedGuideResult[], filename
 
     const row = worksheet.addRow({
       guide: item.guide,
+      pieces: item.urbano?.pieces ?? 1,
+      weightKg: item.urbano?.weightKg !== null && item.urbano?.weightKg !== undefined
+        ? item.urbano.weightKg
+        : (item.declared.weightKg !== null ? item.declared.weightKg : null),
       provider: item.declared.provider || '—',
       agency: item.declared.agency || '—',
       route: item.declared.route || '—',
@@ -176,7 +190,19 @@ export async function downloadAuditExcel(records: AuditedGuideResult[], filename
         right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
       };
 
-      if (colNumber === 12 && typeof cell.value === 'number') {
+      if (colNumber === 2) {
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.font = { name: 'Arial', size: 9.5, bold: true };
+      }
+
+      if (colNumber === 3) {
+        cell.alignment = { vertical: 'middle', horizontal: 'right' };
+        if (typeof cell.value === 'number') {
+          cell.numFmt = '#,##0.00';
+        }
+      }
+
+      if (colNumber === 14 && typeof cell.value === 'number') {
         cell.numFmt = '"S/" #,##0.00';
       }
 
@@ -187,7 +213,7 @@ export async function downloadAuditExcel(records: AuditedGuideResult[], filename
           fgColor: { argb: 'FFFFF1F2' },
         };
       } else if (isClean) {
-        if (colNumber === 8 || colNumber === 7) {
+        if (colNumber === 9 || colNumber === 10) {
           cell.fill = {
             type: 'pattern',
             pattern: 'solid',
@@ -195,7 +221,7 @@ export async function downloadAuditExcel(records: AuditedGuideResult[], filename
           };
         }
       } else if (isMotivated) {
-        if (colNumber === 8 || colNumber === 10) {
+        if (colNumber === 10 || colNumber === 12) {
           cell.fill = {
             type: 'pattern',
             pattern: 'solid',

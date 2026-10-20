@@ -76,7 +76,7 @@ describe('exportExcel - buildAuditCsvRows', () => {
           sender: 'Mercado Libre',
           service: 'Distribución',
           contract: 'Mercado Libre',
-          pieces: 1,
+          pieces: 10,
           weightKg: 45.0,
           registeredAt: '04/08/2026',
           estimatedDeliveryDate: '23/09/2026',
@@ -103,8 +103,9 @@ describe('exportExcel - buildAuditCsvRows', () => {
 
     const csv = buildAuditCsvRows(mockRecords);
     expect(csv.startsWith('\uFEFF')).toBe(true);
-    expect(csv).toContain('GUIA WYB,PROVEEDOR DECLARADO');
-    expect(csv).toContain('WYB473662620,PALOMINO CUBA GARY');
+    expect(csv).toContain('GUIA WYB,PIEZAS,PESO (KG),PROVEEDOR DECLARADO');
+    expect(csv).toContain('WYB473662620,1,0.99,PALOMINO CUBA GARY');
+    expect(csv).toContain('WYB465612843,10,45.00,PALOMINO CUBA GARY');
     expect(csv).toContain('ENTREGA A TITULAR');
     expect(csv).toContain('WYB465612843');
     expect(csv).toContain('SI (FALSA ENTREGA)');

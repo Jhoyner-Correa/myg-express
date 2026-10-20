@@ -177,6 +177,13 @@ export const UrbanoGuideAudit: React.FC = () => {
     return list;
   }, [auditData, activeTab, searchQuery]);
 
+  const totalPieces = useMemo(() => {
+    if (auditData?.kpis?.totalPieces !== undefined) {
+      return auditData.kpis.totalPieces;
+    }
+    return auditData?.records?.reduce((acc, r) => acc + (r.urbano?.pieces ?? 1), 0) ?? 0;
+  }, [auditData]);
+
   const toggleExpand = (guide: string) => {
     setExpandedGuide((prev) => (prev === guide ? null : guide));
   };
@@ -399,11 +406,16 @@ export const UrbanoGuideAudit: React.FC = () => {
                   <span className={styles.metricPct} style={{ color: '#64748b' }}>
                     guías
                   </span>
+                  {auditData && (
+                    <span className={styles.metricPct} style={{ color: '#1d4ed8', fontWeight: 700, marginLeft: '3px' }}>
+                      ({totalPieces} {totalPieces === 1 ? 'pza' : 'piezas'})
+                    </span>
+                  )}
                 </div>
                 <span className={styles.metricFoot}>
                   {auditData && auditData.kpis.totalDeclaredCost > 0
                     ? `Declarado: S/ ${auditData.kpis.totalDeclaredCost.toFixed(2)}`
-                    : 'Total de guías consultadas'}
+                    : `${totalPieces} piezas en lote`}
                 </span>
               </div>
 
@@ -561,6 +573,7 @@ export const UrbanoGuideAudit: React.FC = () => {
                   <tr>
                     <th>Guía WYB</th>
                     <th>Estado Real Urbano</th>
+                    <th>Piezas</th>
                     <th>Salidas a Ruta</th>
                     <th>Motivos Previos</th>
                     <th>Diagnóstico Auditoría</th>
@@ -572,7 +585,7 @@ export const UrbanoGuideAudit: React.FC = () => {
                 <tbody>
                   {loadingAudit ? (
                     <tr>
-                      <td colSpan={8} className={styles.loadingTableState}>
+                      <td colSpan={9} className={styles.loadingTableState}>
                         <div className={styles.loadingContent}>
                           <RefreshCw size={24} className={styles.spin} />
                           <strong>Consultando API de Urbano Express...</strong>
@@ -582,7 +595,7 @@ export const UrbanoGuideAudit: React.FC = () => {
                     </tr>
                   ) : !auditData ? (
                     <tr>
-                      <td colSpan={8} className={styles.emptyTableState}>
+                      <td colSpan={9} className={styles.emptyTableState}>
                         <div className={styles.emptyTableContent}>
                           <PackageSearch size={38} />
                           <strong>Sin guías consultadas</strong>
@@ -595,7 +608,7 @@ export const UrbanoGuideAudit: React.FC = () => {
                     </tr>
                   ) : filteredRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className={styles.emptyTableState}>
+                      <td colSpan={9} className={styles.emptyTableState}>
                         No se encontraron guías en la vista actual o con el filtro ingresado.
                       </td>
                     </tr>
@@ -628,6 +641,25 @@ export const UrbanoGuideAudit: React.FC = () => {
                                 <span className={styles.urbanoRawStatus} title={item.urbano?.status || 'No registrada'}>
                                   {item.urbano?.status || 'No registrada en Urbano'}
                                 </span>
+                              </div>
+                            </td>
+
+                            <td>
+                              <div className={styles.piecesWrap}>
+                                <span
+                                  className={`${styles.piecesBadge} ${
+                                    (item.urbano?.pieces ?? 1) > 1 ? styles.piecesMulti : styles.piecesSingle
+                                  }`}
+                                  title={`${item.urbano?.pieces ?? 1} ${(item.urbano?.pieces ?? 1) === 1 ? 'pieza / bulto' : 'piezas / bultos'}`}
+                                >
+                                  <Package size={11} />
+                                  {item.urbano?.pieces ?? 1} {(item.urbano?.pieces ?? 1) === 1 ? 'pza' : 'pzs'}
+                                </span>
+                                {(item.urbano?.weightKg || item.declared.weightKg) && (
+                                  <span className={styles.piecesWeight}>
+                                    {(item.urbano?.weightKg ?? item.declared.weightKg)?.toFixed(2)} kg
+                                  </span>
+                                )}
                               </div>
                             </td>
 
@@ -699,12 +731,19 @@ export const UrbanoGuideAudit: React.FC = () => {
                           {/* Fila de Detalle Expandible Organizada */}
                           {isExpanded && (
                             <tr className={styles.detailsRow}>
-                              <td colSpan={8}>
+                              <td colSpan={9}>
                                 <div className={styles.detailDrawer}>
                                   {/* Header del Detalle */}
                                   <div className={styles.detailDrawerHeader}>
                                     <div className={styles.detailDrawerHeaderLeft}>
                                       <span className={styles.detailGuidePill}>{item.guide}</span>
+                                      <span className={styles.detailPiecesPill} title="Total de piezas / bultos del envío">
+                                        <Package size={12} />
+                                        {item.urbano?.pieces ?? 1} {(item.urbano?.pieces ?? 1) === 1 ? 'pieza' : 'piezas'}
+                                        {(item.urbano?.weightKg || item.declared.weightKg) && (
+                                          <> · {(item.urbano?.weightKg ?? item.declared.weightKg)?.toFixed(2)} kg</>
+                                        )}
+                                      </span>
                                       {item.urbano?.tracking && (
                                         <span className={styles.detailTrackingText}>
                                           Tracking Urbano: <strong>{item.urbano.tracking}</strong>
@@ -842,6 +881,13 @@ export const UrbanoGuideAudit: React.FC = () => {
                                           <span className={styles.itemLabel}>Remitente / Cliente</span>
                                           <span className={styles.itemValue}>
                                             {present(item.urbano?.sender || item.urbano?.contract)}
+                                          </span>
+                                        </div>
+                                        <div className={styles.detailListItem}>
+                                          <span className={styles.itemLabel}>Piezas / Bultos</span>
+                                          <span className={styles.itemValueBold}>
+                                            {item.urbano?.pieces ?? 1} {(item.urbano?.pieces ?? 1) === 1 ? 'pieza' : 'piezas'}
+                                            {(item.urbano?.weightKg || item.declared.weightKg) ? ` · ${(item.urbano?.weightKg ?? item.declared.weightKg)?.toFixed(2)} kg` : ''}
                                           </span>
                                         </div>
                                         <div className={styles.detailListItem}>

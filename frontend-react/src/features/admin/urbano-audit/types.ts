@@ -76,6 +76,7 @@ export type AuditSummaryKpi = {
   inManagementPct: number;
   totalDeclaredCost: number;
   discrepantDeclaredCost: number;
+  totalPieces?: number;
 };
 
 export type GuideAuditBatchResponse = {

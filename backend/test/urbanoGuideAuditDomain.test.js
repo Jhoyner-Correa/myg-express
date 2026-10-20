@@ -141,6 +141,7 @@ test('calcula KPIs ejecutivos consolidados', () => {
       guide: 'WYB3',
       found: true,
       declared: { cost: 20 },
+      urbano: { pieces: 10 },
       audit: { classification: 'DISCREPANCIA_NO_ENTREGADO', attempts: 0, motives: 0 },
     },
     {
@@ -161,6 +162,7 @@ test('calcula KPIs ejecutivos consolidados', () => {
   assert.equal(kpis.discrepancies, 1);
   assert.equal(kpis.totalDeclaredCost, 31);
   assert.equal(kpis.discrepantDeclaredCost, 20);
+  assert.equal(kpis.totalPieces, 13); // 1 + 1 + 10 + 1 = 13
 });
 
 test('rechaza lotes vacíos o superiores al límite permitido', () => {

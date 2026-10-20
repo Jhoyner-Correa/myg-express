@@ -96,6 +96,7 @@ export type AuditSummaryKpi = {
   inManagementPct: number;
   totalDeclaredCost: number;
   discrepantDeclaredCost: number;
+  totalPieces: number;
 };
 
 export const MAX_AUDIT_BATCH_ROWS = 350;
@@ -367,10 +368,12 @@ export function computeAuditSummaryKpis(results: AuditedGuideResult[]): AuditSum
   let inManagement = 0;
   let totalDeclaredCost = 0;
   let discrepantDeclaredCost = 0;
+  let totalPieces = 0;
 
   for (const item of results) {
     const cost = item.declared.cost ?? 0;
     totalDeclaredCost += cost;
+    totalPieces += item.urbano?.pieces ?? 1;
 
     if (!item.found) {
       notFound++;
@@ -415,5 +418,6 @@ export function computeAuditSummaryKpis(results: AuditedGuideResult[]): AuditSum
     inManagementPct,
     totalDeclaredCost: Number(totalDeclaredCost.toFixed(2)),
     discrepantDeclaredCost: Number(discrepantDeclaredCost.toFixed(2)),
+    totalPieces,
   };
 }
