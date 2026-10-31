@@ -11,6 +11,7 @@ import { showToast } from '../../../core/utils/toast';
 import { rrhhService } from '../rrhh.service';
 import type { AttendanceDetail } from '../types';
 import { formatAttendanceClock, formatDurationMinutes, formatScheduleRange } from './attendance-formatters';
+import { COMMERCIAL_MONTH_DAYS } from './payment-agreement-form';
 import styles from './PaymentDayDetailModal.module.css';
 
 export type PaymentDayEmployeeInfo = {
@@ -29,7 +30,7 @@ export type PaymentDayEmployeeInfo = {
 type Props = {
   date: string | null;
   employee: PaymentDayEmployeeInfo | null;
-  periodDays: number;
+  periodDays?: number;
   canManage: boolean;
   onClose: () => void;
   onResolved: () => void;
@@ -58,7 +59,7 @@ function formatLongDate(dateStr: string) {
 }
 
 export function PaymentDayDetailModal({
-  date, employee, periodDays, canManage, onClose, onResolved,
+  date, employee, canManage, onClose, onResolved,
 }: Props) {
   const [detail, setDetail] = useState<AttendanceDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -104,11 +105,10 @@ export function PaymentDayDetailModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [date, employee, onClose]);
 
-  // Cálculos de tarifas económicas
+  // Cálculos de tarifas económicas: La normativa laboral y la lógica del sistema siempre calcula sobre la base comercial de 30 días
   const monthlySalary = Number(employee?.pago_mensual || 0);
-  const daysInPeriod = periodDays > 0 ? periodDays : 30;
-  const dailyRate = Math.round((monthlySalary / daysInPeriod) * 100) / 100;
-  const minuteRate = monthlySalary / daysInPeriod / 8 / 60;
+  const dailyRate = Math.round((monthlySalary / COMMERCIAL_MONTH_DAYS) * 100) / 100;
+  const minuteRate = monthlySalary / COMMERCIAL_MONTH_DAYS / 8 / 60;
   const hourlyOvertimeRate = employee?.tarifa_hora_extra_modo === 'MANUAL' && Number(employee?.tarifa_hora_extra || 0) > 0
     ? Number(employee.tarifa_hora_extra)
     : Math.round((dailyRate / 8) * 100) / 100;
