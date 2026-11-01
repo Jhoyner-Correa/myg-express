@@ -14,8 +14,8 @@
 .heroActions .workflowAction:hover:not(:disabled) { border-color:#075c3e; background:linear-gradient(135deg,#10855a 0%,#064f36 100%); transform:translateY(-1px); }
 .heroActions .refreshAction:focus-visible,.heroActions .periodAction:focus-visible,.heroActions .workflowAction:focus-visible { outline:3px solid rgba(36,95,159,.2); outline-offset:2px; }
 .heroActions .refreshAction svg,.heroActions .periodAction svg,.heroActions .workflowAction svg { width:16px; height:16px; stroke-width:1.9; }
-.siteControl { min-height:38px; display:flex; align-items:center; gap:8px; padding:0 11px; border:1px solid #d6e0ec; border-radius:9px; background:#fbfcfe; color:#51627a; }
-.siteControl select { min-width:135px; border:0; outline:0; background:transparent; color:#263650; font:600 12px inherit; cursor:pointer; }
+.siteControl, .periodControl { min-height:38px; display:flex; align-items:center; gap:8px; padding:0 11px; border:1px solid #d6e0ec; border-radius:9px; background:#fbfcfe; color:#51627a; }
+.siteControl select, .periodControl select { min-width:135px; border:0; outline:0; background:transparent; color:#263650; font:600 12px inherit; cursor:pointer; }
 .workflow { overflow:hidden; border:1px solid #d6e0eb; border-radius:14px; background:#fff; box-shadow:0 8px 24px rgba(20,43,75,.055); }
 .workflowHeading { min-height:62px; padding:11px 17px; display:flex; align-items:center; justify-content:space-between; gap:20px; border-bottom:1px solid #e2e8f0; background:linear-gradient(90deg,#fbfcfe 0%,#fff 48%); }
 .workflowIdentity { display:flex; flex-direction:column; gap:3px; }

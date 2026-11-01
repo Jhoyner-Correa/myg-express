@@ -276,6 +276,23 @@ export function PaymentsPanel({
     Number(payment.dias_periodo) > 0 && Number(payment.dias_servicio) < Number(payment.dias_periodo)
   )).length, [data?.payments]);
 
+  const monthOptionsList = useMemo(() => {
+    const center = new Date(`${today().slice(0, 7)}-01T12:00:00Z`);
+    const options = Array.from({ length: 36 }, (_, index) => {
+      const value = new Date(center);
+      value.setUTCMonth(value.getUTCMonth() + index - 24);
+      const key = value.toISOString().slice(0, 7);
+      const label = new Intl.DateTimeFormat('es-PE', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(value);
+      return { key, label: label.charAt(0).toLocaleUpperCase('es') + label.slice(1) };
+    });
+    if (month && !options.some(opt => opt.key === month)) {
+      const value = new Date(`${month}-01T12:00:00Z`);
+      const label = new Intl.DateTimeFormat('es-PE', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(value);
+      options.push({ key: month, label: label.charAt(0).toLocaleUpperCase('es') + label.slice(1) });
+    }
+    return options.sort((left, right) => right.key.localeCompare(left.key));
+  }, [month]);
+
   const generate = async () => {
     const confirmed = await showConfirm({
       title: 'Abrir expediente mensual',
@@ -329,6 +346,14 @@ export function PaymentsPanel({
           <button type="button" className={view === 'current' ? styles.activeView : ''} onClick={() => setView('current')}><WalletCards />Mes seleccionado</button>
           <button type="button" className={view === 'history' ? styles.activeView : ''} onClick={() => setView('history')}><History />Historial mensual</button>
         </nav>
+        {view === 'current' && (
+          <label className={styles.periodControl} title="Seleccionar periodo de pago">
+            <CalendarDays size={16} />
+            <select aria-label="Mes de pago" value={month} onChange={event => onMonthChange(event.target.value)}>
+              {monthOptionsList.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
+            </select>
+          </label>
+        )}
         <label className={styles.siteControl}><Landmark size={16} /><select value={siteId ?? 'all'} onChange={event => onSiteChange(event.target.value === 'all' ? null : Number(event.target.value))}><option value="all">Todas las sedes</option>{sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label>
         {view === 'current' && <Button className={styles.refreshAction} variant="secondary" icon={<RefreshCw size={16} />} onClick={() => void load()} loading={loading}>Actualizar</Button>}
         {view === 'current' && canManage && !period && <Button className={styles.periodAction} variant="corporate" icon={<WalletCards size={17} />} onClick={() => void generate()} loading={submitting}>Abrir mes</Button>}
