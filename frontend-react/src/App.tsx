@@ -26,6 +26,7 @@ const Admin = lazy(() => import('./features/admin/Admin').then((m) => ({ default
 const UrbanoDispatches = lazy(() => import('./features/admin/urbano-dispatch/UrbanoDispatches').then((m) => ({ default: m.UrbanoDispatches })));
 const Printing = lazy(() => import('./features/printing/Printing').then((m) => ({ default: m.Printing })));
 const UrbanoGuideAudit = lazy(() => import('./features/admin/urbano-audit/UrbanoGuideAudit').then((m) => ({ default: m.UrbanoGuideAudit })));
+const UrbanoGuidePhotos = lazy(() => import('./features/admin/urbano-photos/UrbanoGuidePhotos').then((m) => ({ default: m.UrbanoGuidePhotos })));
 
 // Guardián de Rutas Protegidas
 const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: string }> = ({ children, permission }) => {
@@ -83,6 +84,7 @@ export const AppContent: React.FC = () => {
           <Route path="admin" element={<ProtectedRoute permission="admin.panel.ver"><Admin /></ProtectedRoute>} />
           <Route path="admin/despachos-urbano" element={<ProtectedRoute permission="urbano.despachos.ver"><UrbanoDispatches /></ProtectedRoute>} />
           <Route path="admin/auditoria-guias" element={<ProtectedRoute permission="urbano.despachos.ver"><UrbanoGuideAudit /></ProtectedRoute>} />
+          <Route path="admin/fotos-guias" element={<ProtectedRoute permission="urbano.despachos.ver"><UrbanoGuidePhotos /></ProtectedRoute>} />
         </Route>
 
         {/* Ruta por defecto redirecciona al login */}

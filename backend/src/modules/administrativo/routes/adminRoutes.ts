@@ -27,6 +27,16 @@ import {
   listarSedesDespachosUrbano,
 } from '../controllers/urbanoDispatchController';
 import { auditarGuiasUrbano } from '../controllers/urbanoGuideAuditController';
+import {
+  asociarManIdDetGuia,
+  consultarFotosGuia,
+  consultarGuiasFotos,
+  eliminarFotoGuia,
+  obtenerHistorialFotos,
+  resolverRutaManifiesto,
+  subirFotoGuia,
+  uploadPhotoMiddleware,
+} from '../controllers/urbanoPhotosController';
 
 const router = Router();
 
@@ -37,6 +47,15 @@ router.get('/urbano-despachos', requirePermission(PERMISSIONS.URBANO_DISPATCHES_
 router.get('/urbano-despachos/guias', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), consultarGuiasDespachoUrbano);
 router.get('/urbano-despachos/guias/detalle', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), consultarDetalleGuiaUrbano);
 router.post('/urbano-guias/auditoria', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), auditarGuiasUrbano);
+
+// Gestión masiva de fotografías de guías Urbano
+router.post('/urbano-fotos/consultar', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), consultarGuiasFotos);
+router.get('/urbano-fotos/guia/:manIdDet', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), consultarFotosGuia);
+router.post('/urbano-fotos/asociar', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), asociarManIdDetGuia);
+router.post('/urbano-fotos/resolver-ruta', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), resolverRutaManifiesto);
+router.post('/urbano-fotos/subir', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), uploadPhotoMiddleware, subirFotoGuia);
+router.post('/urbano-fotos/eliminar', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), eliminarFotoGuia);
+router.get('/urbano-fotos/historial', requirePermission(PERMISSIONS.URBANO_DISPATCHES_VIEW), obtenerHistorialFotos);
 
 router.use(requirePermission(PERMISSIONS.ADMIN_PANEL_VIEW));
 

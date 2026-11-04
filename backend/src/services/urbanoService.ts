@@ -3,7 +3,7 @@ import {
   touchUrbanoCredentialLogin
 } from './urbanoCredentialsService';
 
-type UrbanoSession = {
+export type UrbanoSession = {
   phpSessionId: string;
   username: string;
   connectedAt: string;
@@ -123,15 +123,15 @@ type UrbanoRouteRecord = {
   contenido_paquete: string | null;
 };
 
-const URBANO_BASE_URL = 'https://app.urbano.com.pe';
-const URBANO_LOGIN_PAGE = `${URBANO_BASE_URL}/`;
-const URBANO_LOGIN_VALIDATE = `${URBANO_BASE_URL}/login/index/valida`;
-const URBANO_HOME = `${URBANO_BASE_URL}/inicio`;
-const URBANO_ROUTE_DETAILS = `${URBANO_BASE_URL}/gestion/salidaRutas/scm_rutas_detalle_manifiestos/`;
-const URBANO_TRACK_DETAILS = `${URBANO_BASE_URL}/gestion/consultaEspecifica/get_scm_api_track_guias/`;
-const URBANO_DISPATCH_MODULE = `${URBANO_BASE_URL}/gestion/gestiondespachos/`;
-const URBANO_DISPATCHES = `${URBANO_BASE_URL}/gestion/gestiondespachos/scm_despachos_panel/`;
-const URBANO_DISPATCH_GUIDES = `${URBANO_BASE_URL}/gestion/gestiondespachos/scm_despachos_lista_guias/`;
+export const URBANO_BASE_URL = 'https://app.urbano.com.pe';
+export const URBANO_LOGIN_PAGE = `${URBANO_BASE_URL}/`;
+export const URBANO_LOGIN_VALIDATE = `${URBANO_BASE_URL}/login/index/valida`;
+export const URBANO_HOME = `${URBANO_BASE_URL}/inicio`;
+export const URBANO_ROUTE_DETAILS = `${URBANO_BASE_URL}/gestion/salidaRutas/scm_rutas_detalle_manifiestos/`;
+export const URBANO_TRACK_DETAILS = `${URBANO_BASE_URL}/gestion/consultaEspecifica/get_scm_api_track_guias/`;
+export const URBANO_DISPATCH_MODULE = `${URBANO_BASE_URL}/gestion/gestiondespachos/`;
+export const URBANO_DISPATCHES = `${URBANO_BASE_URL}/gestion/gestiondespachos/scm_despachos_panel/`;
+export const URBANO_DISPATCH_GUIDES = `${URBANO_BASE_URL}/gestion/gestiondespachos/scm_despachos_lista_guias/`;
 
 const urbanoSessions = new Map<string, UrbanoSession>();
 const urbanoLoginRequests = new Map<string, Promise<UrbanoSession>>();
@@ -215,7 +215,7 @@ function extractCookieValue(setCookies: string[], cookieName: string): string {
   return '';
 }
 
-async function parseJsonResponse(response: Response) {
+export async function parseJsonResponse(response: Response) {
   const text = await response.text();
 
   try {
@@ -238,7 +238,7 @@ async function parseJsonResponse(response: Response) {
   }
 }
 
-function buildAjaxHeaders(phpSessionId: string): Record<string, string> {
+export function buildAjaxHeaders(phpSessionId: string): Record<string, string> {
   return {
     Accept: 'application/json, text/javascript, */*; q=0.01',
     Cookie: `PHPSESSID=${phpSessionId}`,
@@ -464,7 +464,7 @@ export function normalizeGuideDetail(item: unknown, requestedGuide: string): Urb
   };
 }
 
-async function mapWithConcurrency<T, R>(
+export async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
   worker: (item: T, index: number) => Promise<R | null>
@@ -828,6 +828,20 @@ async function performSilentLogin(context: UrbanoSessionContext): Promise<Urbano
   });
   urbanoLoginRequests.set(scope, request);
   return request;
+}
+
+export async function getUrbanoSessionForContext(context: UrbanoSessionContext): Promise<UrbanoSession> {
+  const scope = getSessionScope(context);
+  let session = urbanoSessions.get(scope);
+  if (!session) {
+    session = await performSilentLogin(context);
+  }
+  return session;
+}
+
+export function invalidateUrbanoSession(context: UrbanoSessionContext): void {
+  const scope = getSessionScope(context);
+  urbanoSessions.delete(scope);
 }
 
 export async function fetchRouteData(context: UrbanoSessionContext, routeId: string) {

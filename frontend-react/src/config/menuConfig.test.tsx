@@ -75,4 +75,12 @@ describe('sidebarMenuConfig', () => {
     expect(audit?.permission).toBe('urbano.despachos.ver');
     expect(audit?.group).toBe('administration');
   });
+
+  it('registra Fotos de Guías bajo el grupo administrativo protegido por urbano.despachos.ver', () => {
+    const photos = sidebarMenuConfig.find(item => item.path === '/admin/fotos-guias');
+
+    expect(photos?.title).toBe('Fotos de Guías');
+    expect(photos?.permission).toBe('urbano.despachos.ver');
+    expect(photos?.group).toBe('administration');
+  });
 });
