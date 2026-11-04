@@ -1,4 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import {
+  AlertCircle,
+  Building2,
+  Camera,
+  CheckCircle2,
+  Clock,
+  Download,
+  Package,
+  PackageSearch,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Trash2,
+  Truck,
+} from 'lucide-react';
 import type {
   AuditLogEntry,
   UrbanoGuidePhotoStatus,
@@ -9,6 +24,7 @@ import type {
 import { urbanoPhotosService } from './urbanoPhotos.service';
 import { PhotoGalleryDrawer } from './PhotoGalleryDrawer';
 import { AssignRouteModal } from './AssignRouteModal';
+import { PageHeader } from '../../../components/ui/PageHeader/PageHeader';
 import styles from './UrbanoGuidePhotos.module.css';
 
 export const UrbanoGuidePhotos: React.FC = () => {
@@ -65,6 +81,11 @@ export const UrbanoGuidePhotos: React.FC = () => {
       isMounted = false;
     };
   }, []);
+
+  const selectedSite = useMemo(
+    () => sites.find((s) => s.id === selectedSiteId) ?? null,
+    [sites, selectedSiteId]
+  );
 
   // 2. Contador de guías en tiempo real
   const detectedGuideCount = useMemo(() => {
@@ -138,11 +159,9 @@ export const UrbanoGuidePhotos: React.FC = () => {
   // 6. Filtrar resultados
   const filteredResults = useMemo(() => {
     return results.filter((item) => {
-      // Filtro por estado
       if (statusFilter !== 'ALL' && item.status !== statusFilter) {
         return false;
       }
-      // Filtro por texto
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
         const matchGuide = item.guia.toLowerCase().includes(query);
@@ -166,7 +185,6 @@ export const UrbanoGuidePhotos: React.FC = () => {
     if (activeGuideForGallery && activeGuideForGallery.guia === updated.guia) {
       setActiveGuideForGallery(updated);
     }
-    // Recalcular resumen
     setSummary(() => {
       const all = results.map((r) => (r.guia === updated.guia ? updated : r));
       return {
@@ -239,173 +257,307 @@ export const UrbanoGuidePhotos: React.FC = () => {
   const renderStatusBadge = (status: UrbanoGuidePhotoStatus) => {
     switch (status) {
       case 'CON_FOTOS':
-        return <span className={styles.statusBadgeConFotos}>✓ Con fotos</span>;
+        return (
+          <span className={`${styles.pillStatus} ${styles.pillConFotos}`}>
+            <i /> Con fotos
+          </span>
+        );
       case 'SIN_FOTOS':
-        return <span className={styles.statusBadgeSinFotos}>⚠ Sin fotos</span>;
+        return (
+          <span className={`${styles.pillStatus} ${styles.pillSinFotos}`}>
+            <i /> Sin fotos
+          </span>
+        );
       case 'SIN_DETALLE_RUTA':
-        return <span className={styles.statusBadgeSinDetalle}>⚡ Sin detalle ruta</span>;
+        return (
+          <span className={`${styles.pillStatus} ${styles.pillSinDetalle}`}>
+            <i /> Sin detalle ruta
+          </span>
+        );
       case 'NO_ENCONTRADA':
-        return <span className={styles.statusBadgeNoEncontrada}>✕ No encontrada</span>;
+        return (
+          <span className={`${styles.pillStatus} ${styles.pillNoEncontrada}`}>
+            <i /> No encontrada
+          </span>
+        );
       case 'ERROR':
       default:
-        return <span className={styles.statusBadgeError}>! Error</span>;
+        return (
+          <span className={`${styles.pillStatus} ${styles.pillError}`}>
+            <i /> Error
+          </span>
+        );
     }
   };
 
   return (
-    <div className={styles.page}>
-      {/* Header Corporativo */}
-      <header className={styles.header}>
-        <div className={styles.headerTitleGroup}>
-          <h1>Gestión Masiva de Fotografías de Guías – Urbano</h1>
-          <span className={styles.headerSubtitle}>
-            Consulta, visualización, subida y eliminación de fotos asociadas a guías de distribución
-          </span>
-        </div>
-
-        <div className={styles.headerControls}>
-          <div className={styles.siteSelectWrapper}>
-            <label htmlFor="site-select" className={styles.siteSelectLabel}>
-              Sede operativa:
-            </label>
-            <select
-              id="site-select"
-              value={selectedSiteId || ''}
-              onChange={(e) => setSelectedSiteId(Number(e.target.value))}
-              className={styles.siteSelect}
-            >
-              {sites.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} {s.integrationStatus === 'activo' ? '(Urbano Activo)' : '(Sin credenciales)'}
-                </option>
-              ))}
-            </select>
+    <main className={`main ${styles.page}`} id="main-content">
+      {/* Header Corporativo con PageHeader estándar de MyG Express */}
+      <PageHeader
+        icon={<Camera />}
+        title="Fotos de Guías Urbano"
+        subtitle="Consulta masiva, visualización, carga y eliminación de fotografías de guías"
+        metadata={
+          <div className={styles.headerMeta}>
+            <span>
+              <ShieldCheck size={14} color="#15803d" />
+              Acceso Administrador
+            </span>
+            <span>
+              <i />
+              Urbano SCM API
+            </span>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       {/* Contenido Principal */}
       <div className={styles.content}>
-        {/* KPI Summary Cards */}
-        <section className={styles.kpiGrid}>
-          <div className={styles.kpiCard}>
-            <span className={styles.kpiLabel}>Total Consultadas</span>
-            <span className={styles.kpiValue}>{summary.total}</span>
-          </div>
-          <div className={`${styles.kpiCard} ${styles.kpiConFotos}`}>
-            <span className={styles.kpiLabel}>Con Fotografías</span>
-            <span className={styles.kpiValue}>{summary.conFotos}</span>
-          </div>
-          <div className={`${styles.kpiCard} ${styles.kpiSinFotos}`}>
-            <span className={styles.kpiLabel}>Sin Fotografías</span>
-            <span className={styles.kpiValue}>{summary.sinFotos}</span>
-          </div>
-          <div className={`${styles.kpiCard} ${styles.kpiSinDetalle}`}>
-            <span className={styles.kpiLabel}>Sin Detalle Ruta</span>
-            <span className={styles.kpiValue}>{summary.sinDetalleRuta}</span>
-          </div>
-          <div className={`${styles.kpiCard} ${styles.kpiErrores}`}>
-            <span className={styles.kpiLabel}>No Encontradas / Error</span>
-            <span className={styles.kpiValue}>{summary.noEncontradas + summary.errores}</span>
-          </div>
-        </section>
-
-        {/* Workspace Dual Pane */}
         <div className={styles.workspace}>
-          {/* Panel Izquierdo: Consola de Ingesta */}
-          <aside className={styles.sidebarPanel}>
-            <h3 className={styles.sidebarTitle}>Ingreso Masivo de Guías</h3>
-
-            <div className={styles.fieldGroup}>
-              <label htmlFor="route_id_input" className={styles.fieldLabel}>
-                Ruta / Manifiesto Urbano (Opcional):
-              </label>
-              <input
-                id="route_id_input"
-                type="text"
-                placeholder="Ejemplo: 1164838"
-                value={routeId}
-                onChange={(e) => setRouteId(e.target.value)}
-                className={styles.textInput}
-              />
-            </div>
-
-            <div className={styles.fieldGroup}>
-              <div className={styles.guideCounterRow}>
-                <label htmlFor="guides_textarea" className={styles.fieldLabel}>
-                  Guías (una por línea o pegadas de Excel):
-                </label>
-                <span className={styles.guideCounterCount}>
-                  {detectedGuideCount} guías detectadas
-                </span>
+          {/* ========================================================
+              PANEL IZQUIERDO: CONSOLA DE INGESTA
+              ======================================================== */}
+          <aside className={styles.sidebarPanel} aria-label="Ingesta de Guías">
+            <div className={styles.controlCard}>
+              <div className={styles.cardHeading}>
+                <div className={styles.cardHeadingLeft}>
+                  <div className={styles.cardIconWrap}>
+                    <PackageSearch size={16} />
+                  </div>
+                  <div>
+                    <span className={styles.eyebrow}>CONSULTA DIRECTA</span>
+                    <h3>Fotografías Urbano</h3>
+                  </div>
+                </div>
               </div>
-              <textarea
-                id="guides_textarea"
-                placeholder="WYB477212514&#10;WYB478229399&#10;WYB478229400..."
-                value={rawText}
-                onChange={(e) => setRawText(e.target.value)}
-                className={styles.textAreaInput}
-              />
-            </div>
 
-            <div className={styles.guideCounterRow}>
-              <button
-                type="button"
-                className={styles.linkBtn}
-                onClick={handleLoadExample}
-              >
-                Cargar guías de ejemplo
-              </button>
-              <button
-                type="button"
-                className={styles.linkBtn}
-                onClick={() => {
-                  setRawText('');
-                  setErrorMsg(null);
-                }}
-              >
-                Limpiar campo
-              </button>
-            </div>
+              {/* Sede Operativa */}
+              <div className={styles.fieldGroup}>
+                <div className={styles.fieldLabel}>
+                  <span>Sede Operativa</span>
+                  {selectedSite && (
+                    <span
+                      className={
+                        selectedSite.available
+                          ? `${styles.statusIndicator} ${styles.statusIndicatorOk}`
+                          : `${styles.statusIndicator} ${styles.statusIndicatorWarn}`
+                      }
+                    >
+                      <i /> {selectedSite.available ? 'En línea' : 'Sin acceso'}
+                    </span>
+                  )}
+                </div>
+                <div className={styles.selectShell}>
+                  <Building2 size={15} />
+                  <select
+                    id="photos-site-select"
+                    className={styles.siteSelect}
+                    value={selectedSiteId || ''}
+                    onChange={(e) => setSelectedSiteId(Number(e.target.value))}
+                    disabled={isLoading}
+                  >
+                    {sites.map((s) => (
+                      <option key={s.id} value={s.id} disabled={!s.available}>
+                        {s.name} {!s.available ? '(Sin credenciales)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-            <div className={styles.buttonRow}>
+              {/* Ruta / Manifiesto Urbano (Opcional) */}
+              <div className={styles.fieldGroup}>
+                <div className={styles.fieldLabel}>
+                  <span>Ruta / Manifiesto (Opcional)</span>
+                </div>
+                <div className={styles.textInputShell}>
+                  <Truck size={15} />
+                  <input
+                    id="photos-route-input"
+                    type="text"
+                    placeholder="Ejemplo: 1164838"
+                    value={routeId}
+                    onChange={(e) => setRouteId(e.target.value)}
+                    className={styles.routeInput}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Textarea para Códigos de Guía */}
+              <div className={styles.textareaSection}>
+                <div className={styles.textareaHeader}>
+                  <label htmlFor="photos-guide-textarea">Códigos de Guía</label>
+                  <span
+                    className={
+                      detectedGuideCount > 0
+                        ? `${styles.detectedCountBadge} ${styles.badgeActive}`
+                        : `${styles.detectedCountBadge} ${styles.badgeNeutral}`
+                    }
+                  >
+                    {detectedGuideCount > 0 ? `✓ ${detectedGuideCount} guías` : '0 guías'}
+                  </span>
+                </div>
+
+                <textarea
+                  id="photos-guide-textarea"
+                  className={styles.textarea}
+                  value={rawText}
+                  onChange={(e) => setRawText(e.target.value)}
+                  disabled={isLoading}
+                  placeholder={`WYB477212514\nWYB478229399\nWYB478229400...`}
+                />
+
+                <div className={styles.textareaActions}>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    onClick={handleLoadExample}
+                    disabled={isLoading}
+                    title="Cargar guías de ejemplo"
+                  >
+                    Ejemplo WYB
+                  </button>
+
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    onClick={() => {
+                      setRawText('');
+                      setErrorMsg(null);
+                    }}
+                    disabled={isLoading || !rawText}
+                    title="Limpiar entrada"
+                  >
+                    <Trash2 size={12} />
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+
+              {/* Botón Principal de Consulta */}
               <button
                 type="button"
-                className={styles.primaryBtn}
+                className={styles.btnAuditPrimary}
                 onClick={handleConsultar}
-                disabled={isLoading || !rawText.trim()}
+                disabled={isLoading || detectedGuideCount === 0 || !selectedSiteId}
               >
-                {isLoading ? 'Consultando en Urbano...' : '🔍 Consultar Fotografías'}
+                {isLoading ? (
+                  <>
+                    <RefreshCw size={15} className={styles.spin} />
+                    Consultando en Urbano...
+                  </>
+                ) : (
+                  <>
+                    <Search size={15} />
+                    Consultar {detectedGuideCount > 0 ? `${detectedGuideCount} Guías` : 'Fotografías'}
+                  </>
+                )}
               </button>
-            </div>
 
-            {errorMsg && <div className={styles.alertError}>{errorMsg}</div>}
+              {errorMsg && <div className={styles.alertError}>{errorMsg}</div>}
 
-            <div className={styles.helperBox}>
-              <strong>Formatos admitidos:</strong>
-              <ul>
-                <li>Códigos de guía WYB (uno por línea).</li>
-                <li>Columnas copiadas directamente de Excel.</li>
-                <li>Pares directos: <code>GUIA,man_id_det</code>.</li>
-                <li>Normalización automática y deduplicación.</li>
-              </ul>
+              <div className={styles.helperBox}>
+                <strong>Tipos de ingesta aceptados:</strong>
+                <ul>
+                  <li>Guías WYB (una por línea o pegadas de Excel).</li>
+                  <li>Pares directos: <code>GUIA,man_id_det</code>.</li>
+                  <li>Normalización y deduplicación automática.</li>
+                </ul>
+              </div>
             </div>
           </aside>
 
-          {/* Panel Derecho: Tabla de Resultados e Historial */}
-          <main className={styles.mainPanel}>
-            <div className={styles.mainPanelHeader}>
-              <div className={styles.navTabs}>
+          {/* ========================================================
+              PANEL DERECHO: CONSOLA DE RESULTADOS
+              ======================================================== */}
+          <section className={styles.mainPanel} aria-label="Resultados de Fotografías">
+            {/* Barra Superior de Métricas (KPIs) */}
+            <div className={styles.metricsBar}>
+              <div className={styles.metricCard}>
+                <div className={styles.metricTop}>
+                  <span className={styles.metricLabel}>Total Consultadas</span>
+                  <Package size={13} color="#64748b" />
+                </div>
+                <div className={styles.metricValueGroup}>
+                  <span className={styles.metricNum}>{summary.total}</span>
+                  <span className={styles.metricPct}>guías</span>
+                </div>
+                <span className={styles.metricFoot}>
+                  {summary.total > 0 ? 'Lote procesado' : 'Sin lote activo'}
+                </span>
+              </div>
+
+              <div className={`${styles.metricCard} ${styles.metricConFotos}`}>
+                <div className={styles.metricTop}>
+                  <span className={styles.metricLabel}>Con Fotos</span>
+                  <CheckCircle2 size={13} color="#15803d" />
+                </div>
+                <div className={styles.metricValueGroup}>
+                  <span className={styles.metricNum}>{summary.conFotos}</span>
+                  <span className={styles.metricPct}>
+                    ({summary.total > 0 ? Math.round((summary.conFotos / summary.total) * 100) : 0}%)
+                  </span>
+                </div>
+                <span className={styles.metricFoot}>Fotos confirmadas</span>
+              </div>
+
+              <div className={`${styles.metricCard} ${styles.metricSinFotos}`}>
+                <div className={styles.metricTop}>
+                  <span className={styles.metricLabel}>Sin Fotos</span>
+                  <Clock size={13} color="#b45309" />
+                </div>
+                <div className={styles.metricValueGroup}>
+                  <span className={styles.metricNum}>{summary.sinFotos}</span>
+                  <span className={styles.metricPct}>
+                    ({summary.total > 0 ? Math.round((summary.sinFotos / summary.total) * 100) : 0}%)
+                  </span>
+                </div>
+                <span className={styles.metricFoot}>Pendientes de carga</span>
+              </div>
+
+              <div className={`${styles.metricCard} ${styles.metricSinDetalle}`}>
+                <div className={styles.metricTop}>
+                  <span className={styles.metricLabel}>Sin Detalle Ruta</span>
+                  <Truck size={13} color="#6d28d9" />
+                </div>
+                <div className={styles.metricValueGroup}>
+                  <span className={styles.metricNum}>{summary.sinDetalleRuta}</span>
+                  <span className={styles.metricPct}>
+                    ({summary.total > 0 ? Math.round((summary.sinDetalleRuta / summary.total) * 100) : 0}%)
+                  </span>
+                </div>
+                <span className={styles.metricFoot}>Requiere ruta / ID</span>
+              </div>
+
+              <div className={`${styles.metricCard} ${styles.metricErrores}`}>
+                <div className={styles.metricTop}>
+                  <span className={styles.metricLabel}>No Encontrada/Error</span>
+                  <AlertCircle size={13} color="#b91c1c" />
+                </div>
+                <div className={styles.metricValueGroup}>
+                  <span className={styles.metricNum}>{summary.noEncontradas + summary.errores}</span>
+                  <span className={styles.metricPct}>
+                    ({summary.total > 0 ? Math.round(((summary.noEncontradas + summary.errores) / summary.total) * 100) : 0}%)
+                  </span>
+                </div>
+                <span className={styles.metricFoot}>Revisar en Urbano</span>
+              </div>
+            </div>
+
+            {/* Barra de Filtros, Pestañas y Acciones */}
+            <div className={styles.toolbar}>
+              <div className={styles.tabGroup}>
                 <button
                   type="button"
-                  className={`${styles.navTab} ${activeTab === 'RESULTS' ? styles.navTabActive : ''}`}
+                  className={`${styles.tabItem} ${activeTab === 'RESULTS' ? styles.tabItemActive : ''}`}
                   onClick={() => setActiveTab('RESULTS')}
                 >
                   Resultados de Guías ({filteredResults.length})
                 </button>
                 <button
                   type="button"
-                  className={`${styles.navTab} ${activeTab === 'HISTORY' ? styles.navTabActive : ''}`}
+                  className={`${styles.tabItem} ${activeTab === 'HISTORY' ? styles.tabItemActive : ''}`}
                   onClick={() => setActiveTab('HISTORY')}
                 >
                   Historial de Auditoría
@@ -413,14 +565,17 @@ export const UrbanoGuidePhotos: React.FC = () => {
               </div>
 
               {activeTab === 'RESULTS' && (
-                <div className={styles.filterControls}>
-                  <input
-                    type="text"
-                    placeholder="Filtrar por guía, cliente..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className={styles.searchInput}
-                  />
+                <div className={styles.toolbarRight}>
+                  <div className={styles.searchBox}>
+                    <Search size={13} />
+                    <input
+                      type="text"
+                      placeholder="Buscar guía, cliente, destino..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className={styles.searchInput}
+                    />
+                  </div>
 
                   <select
                     value={statusFilter}
@@ -438,37 +593,43 @@ export const UrbanoGuidePhotos: React.FC = () => {
                   {results.length > 0 && (
                     <button
                       type="button"
-                      className={styles.secondaryBtn}
+                      className={styles.btnExport}
                       onClick={handleExportCsv}
                       title="Exportar listado a archivo CSV"
                     >
-                      📥 Exportar CSV
+                      <Download size={13} />
+                      Exportar CSV
                     </button>
                   )}
                 </div>
               )}
 
               {activeTab === 'HISTORY' && (
-                <button
-                  type="button"
-                  className={styles.secondaryBtn}
-                  onClick={loadHistory}
-                  disabled={isLoadingHistory}
-                >
-                  {isLoadingHistory ? 'Actualizando...' : '🔄 Actualizar Bitácora'}
-                </button>
+                <div className={styles.toolbarRight}>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    onClick={loadHistory}
+                    disabled={isLoadingHistory}
+                  >
+                    <RefreshCw size={12} className={isLoadingHistory ? styles.spin : ''} />
+                    {isLoadingHistory ? 'Actualizando...' : 'Actualizar Bitácora'}
+                  </button>
+                </div>
               )}
             </div>
 
-            {/* Vista 1: Tabla de Resultados */}
+            {/* Vista 1: Tabla de Resultados de Guías */}
             {activeTab === 'RESULTS' && (
-              <div className={styles.tableContainer}>
+              <div className={styles.tableWrap}>
                 {results.length === 0 ? (
                   <div className={styles.emptyState}>
-                    <div className={styles.emptyStateIcon}>📷</div>
-                    <h3>Sin consultas realizadas</h3>
+                    <div className={styles.emptyStateIcon}>
+                      <Camera size={22} />
+                    </div>
+                    <h4>Sin consultas realizadas</h4>
                     <p>
-                      Pega una lista de guías en el panel izquierdo y presiona <strong>Consultar Fotografías</strong> para procesar.
+                      Pega una lista de guías en el panel izquierdo y presiona <strong>Consultar Fotografías</strong> para procesar en Urbano.
                     </p>
                   </div>
                 ) : filteredResults.length === 0 ? (
@@ -476,7 +637,7 @@ export const UrbanoGuidePhotos: React.FC = () => {
                     <p>No hay guías que coincidan con los filtros aplicados.</p>
                   </div>
                 ) : (
-                  <table className={styles.resultsTable}>
+                  <table className={styles.dataTable}>
                     <thead>
                       <tr>
                         <th>Guía</th>
@@ -491,11 +652,16 @@ export const UrbanoGuidePhotos: React.FC = () => {
                     <tbody>
                       {filteredResults.map((item) => (
                         <tr key={item.guia}>
-                          <td className={styles.guideCell}>{item.guia}</td>
+                          <td>
+                            <span className={styles.guideCode}>{item.guia}</span>
+                            {item.gui_numero && (
+                              <span className={styles.guideTracking}>Nº: {item.gui_numero}</span>
+                            )}
+                          </td>
                           <td>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <strong>{item.destinatario || '—'}</strong>
-                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                              <span style={{ fontSize: '9.5px', color: '#64748b' }}>
                                 {item.destino || item.direccion || ''}
                               </span>
                             </div>
@@ -506,36 +672,42 @@ export const UrbanoGuidePhotos: React.FC = () => {
                               {item.man_id_det ? (
                                 <span className={styles.manIdBadge}>ID: {item.man_id_det}</span>
                               ) : (
-                                <span className={styles.missingBadge}>Sin ID</span>
+                                <span style={{ color: '#dc2626', fontWeight: 700, fontSize: '9.5px' }}>
+                                  Sin ID
+                                </span>
                               )}
                               {item.route_id && (
-                                <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                                  Ruta: {item.route_id}
-                                </span>
+                                <span className={styles.routeBadge}>Ruta: {item.route_id}</span>
                               )}
                             </div>
                           </td>
                           <td>
-                            <span className={styles.photoCountPill}>
-                              📷 {item.fotos_count} foto{item.fotos_count === 1 ? '' : 's'}
+                            <span
+                              className={
+                                item.fotos_count > 0
+                                  ? `${styles.photoBadge} ${styles.photoBadgeActive}`
+                                  : styles.photoBadge
+                              }
+                            >
+                              <Camera size={11} /> {item.fotos_count} foto{item.fotos_count === 1 ? '' : 's'}
                             </span>
                           </td>
                           <td>{renderStatusBadge(item.status)}</td>
                           <td>
-                            <div className={styles.tableActions}>
+                            <div className={styles.actionBtns}>
                               <button
                                 type="button"
-                                className={styles.viewPhotosBtn}
+                                className={styles.btnActionView}
                                 onClick={() => setActiveGuideForGallery(item)}
                                 title="Ver galería y subir fotografías"
                               >
-                                {item.man_id_det ? '🖼 Ver / Subir' : 'Ver ficha'}
+                                {item.man_id_det ? '🖼 Ver / Subir' : 'Ver Ficha'}
                               </button>
 
                               {!item.man_id_det && (
                                 <button
                                   type="button"
-                                  className={styles.assignRouteBtn}
+                                  className={styles.btnActionAssign}
                                   onClick={() => setActiveGuideForAssign(item)}
                                   title="Asignar ruta o man_id_det"
                                 >
@@ -545,7 +717,7 @@ export const UrbanoGuidePhotos: React.FC = () => {
 
                               <button
                                 type="button"
-                                className={styles.secondaryBtn}
+                                className={styles.btnActionRefresh}
                                 onClick={() => handleRecheckSingleGuide(item)}
                                 title="Reconsultar esta guía en Urbano"
                               >
@@ -563,13 +735,13 @@ export const UrbanoGuidePhotos: React.FC = () => {
 
             {/* Vista 2: Historial de Auditoría */}
             {activeTab === 'HISTORY' && (
-              <div className={styles.tableContainer}>
+              <div className={styles.tableWrap}>
                 {historyLogs.length === 0 ? (
                   <div className={styles.emptyState}>
                     <p>No se registran operaciones recientes en la bitácora.</p>
                   </div>
                 ) : (
-                  <table className={styles.resultsTable}>
+                  <table className={styles.dataTable}>
                     <thead>
                       <tr>
                         <th>Fecha / Hora</th>
@@ -584,43 +756,40 @@ export const UrbanoGuidePhotos: React.FC = () => {
                     <tbody>
                       {historyLogs.map((log) => (
                         <tr key={log.id}>
-                          <td style={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
+                          <td style={{ whiteSpace: 'nowrap', fontSize: '10px' }}>
                             {new Date(log.created_at).toLocaleString('es-PE')}
                           </td>
                           <td>{log.usuario_nombre || `ID ${log.usuario_id}`}</td>
                           <td>
                             <span
                               style={{
-                                fontWeight: 700,
-                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                fontSize: '9.5px',
                                 color:
                                   log.tipo_operacion === 'SUBIDA'
-                                    ? '#16a34a'
+                                    ? '#15803d'
                                     : log.tipo_operacion === 'ELIMINACION'
                                     ? '#dc2626'
-                                    : '#2563eb',
+                                    : '#1d5fc7',
                               }}
                             >
                               {log.tipo_operacion}
                             </span>
                           </td>
-                          <td className={styles.guideCell}>{log.guia}</td>
+                          <td>
+                            <span className={styles.guideCode}>{log.guia}</span>
+                          </td>
                           <td>{log.man_id_det || '—'}</td>
                           <td>
                             <span
-                              style={{
-                                fontWeight: 600,
-                                fontSize: '0.72rem',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                background: log.resultado === 'EXITOSO' ? '#dcfce7' : '#fee2e2',
-                                color: log.resultado === 'EXITOSO' ? '#15803d' : '#b91c1c',
-                              }}
+                              className={`${styles.pillStatus} ${
+                                log.resultado === 'EXITOSO' ? styles.pillConFotos : styles.pillError
+                              }`}
                             >
-                              {log.resultado}
+                              <i /> {log.resultado}
                             </span>
                           </td>
-                          <td style={{ fontSize: '0.75rem', color: '#475569' }}>
+                          <td style={{ fontSize: '10.5px', color: '#475569' }}>
                             {log.mensaje || '—'}
                           </td>
                         </tr>
@@ -630,7 +799,7 @@ export const UrbanoGuidePhotos: React.FC = () => {
                 )}
               </div>
             )}
-          </main>
+          </section>
         </div>
       </div>
 
@@ -663,7 +832,7 @@ export const UrbanoGuidePhotos: React.FC = () => {
           }}
         />
       )}
-    </div>
+    </main>
   );
 };
 

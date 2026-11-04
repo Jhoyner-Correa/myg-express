@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CheckCircle2, Route, Tag, X } from 'lucide-react';
 import type { UrbanoGuidePhotosResult } from './types';
 import { urbanoPhotosService } from './urbanoPhotos.service';
 import styles from './UrbanoGuidePhotos.module.css';
@@ -45,7 +46,6 @@ export const AssignRouteModal: React.FC<AssignRouteModalProps> = ({
         const res = await urbanoPhotosService.resolverRuta(siteId, cleanRoute);
         setSuccessMsg(res.message);
 
-        // Volvemos a consultar la guía o intentamos obtener el man_id_det asociado
         setTimeout(() => {
           onSuccess('', cleanRoute);
           onClose();
@@ -79,82 +79,98 @@ export const AssignRouteModal: React.FC<AssignRouteModalProps> = ({
   };
 
   return (
-    <div className={styles.confirmModalOverlay} onClick={onClose} role="dialog" aria-modal="true">
-      <div className={styles.assignModalCard} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.assignModalHeader}>
-          <h3>Resolver / Asignar Identificador de Ruta</h3>
-          <button className={styles.closeModalBtn} onClick={onClose}>✕</button>
-        </div>
-
-        <div className={styles.assignGuideTarget}>
-          <span>Guía objetivo:</span>
-          <strong>{guide.guia}</strong>
-          {guide.destinatario && <span>• {guide.destinatario}</span>}
-        </div>
-
-        <div className={styles.assignModeTabs}>
+    <div className={styles.modalOverlay} onClick={onClose} role="dialog" aria-modal="true">
+      <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '13px', fontWeight: 800 }}>
+            Resolver / Asignar Identificador de Ruta
+          </h3>
           <button
             type="button"
-            className={mode === 'ROUTE' ? styles.activeTabBtn : styles.tabBtn}
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div style={{ background: '#f1f5f9', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', color: '#334155' }}>
+          <span>Guía objetivo: </span>
+          <strong className={styles.guideCode}>{guide.guia}</strong>
+          {guide.destinatario && <span> · {guide.destinatario}</span>}
+        </div>
+
+        <div className={styles.tabGroup} style={{ width: '100%' }}>
+          <button
+            type="button"
+            className={`${styles.tabItem} ${mode === 'ROUTE' ? styles.tabItemActive : ''}`}
+            style={{ flex: 1, textAlign: 'center' }}
             onClick={() => setMode('ROUTE')}
           >
-            1. Por Ruta de Manifiesto (Automático)
+            <Route size={12} style={{ display: 'inline', marginRight: '4px' }} />
+            1. Por Ruta de Manifiesto
           </button>
           <button
             type="button"
-            className={mode === 'MANUAL' ? styles.activeTabBtn : styles.tabBtn}
+            className={`${styles.tabItem} ${mode === 'MANUAL' ? styles.tabItemActive : ''}`}
+            style={{ flex: 1, textAlign: 'center' }}
             onClick={() => setMode('MANUAL')}
           >
+            <Tag size={12} style={{ display: 'inline', marginRight: '4px' }} />
             2. Ingreso Directo de man_id_det
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className={styles.assignForm}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {mode === 'ROUTE' ? (
-            <div className={styles.formField}>
-              <label htmlFor="route_id_input">
-                Número de Ruta / Manifiesto Urbano (<code>vp_rou_id</code>):
-              </label>
+            <div className={styles.fieldGroup}>
+              <div className={styles.fieldLabel}>
+                <span>Número de Ruta Urbano (vp_rou_id)</span>
+              </div>
               <input
-                id="route_id_input"
                 type="text"
                 placeholder="Ejemplo: 1164838"
                 value={routeId}
                 onChange={(e) => setRouteId(e.target.value)}
-                className={styles.modalInput}
+                className={styles.routeInput}
                 autoFocus
               />
-              <span className={styles.fieldHelp}>
-                El sistema consultará el manifiesto de esta ruta en Urbano e indexará automáticamente el <code>man_id_det</code> de todas sus guías.
+              <span style={{ fontSize: '9.5px', color: '#64748b', marginTop: '2px' }}>
+                Consulta el manifiesto de la ruta e indexa el <code>man_id_det</code> de todas sus guías automáticamente.
               </span>
             </div>
           ) : (
-            <div className={styles.formField}>
-              <label htmlFor="man_id_input">
-                Identificador Interno (<code>man_id_det</code>):
-              </label>
+            <div className={styles.fieldGroup}>
+              <div className={styles.fieldLabel}>
+                <span>Identificador Interno (man_id_det)</span>
+              </div>
               <input
-                id="man_id_input"
                 type="text"
                 placeholder="Ejemplo: 44383496"
                 value={manualManIdDet}
                 onChange={(e) => setManualManIdDet(e.target.value)}
-                className={styles.modalInput}
+                className={styles.routeInput}
                 autoFocus
               />
-              <span className={styles.fieldHelp}>
-                Guarda la asociación directa de esta guía con su <code>man_id_det</code> para permitir la consulta y subida de fotos.
+              <span style={{ fontSize: '9.5px', color: '#64748b', marginTop: '2px' }}>
+                Asocia directamente este identificador para habilitar la consulta y carga de fotos de esta guía.
               </span>
             </div>
           )}
 
           {error && <div className={styles.alertError}>{error}</div>}
-          {successMsg && <div className={styles.alertSuccess}>{successMsg}</div>}
+          {successMsg && (
+            <div className={styles.alertSuccess}>
+              <CheckCircle2 size={13} style={{ display: 'inline', marginRight: '4px' }} />
+              {successMsg}
+            </div>
+          )}
 
-          <div className={styles.assignModalFooter}>
+          <div className={styles.modalFooter}>
             <button
               type="submit"
-              className={styles.primaryBtn}
+              className={styles.btnAuditPrimary}
+              style={{ flex: 1, height: '32px' }}
               disabled={isLoading}
             >
               {isLoading
@@ -165,7 +181,8 @@ export const AssignRouteModal: React.FC<AssignRouteModalProps> = ({
             </button>
             <button
               type="button"
-              className={styles.secondaryBtn}
+              className={styles.btnSecondary}
+              style={{ height: '32px' }}
               onClick={onClose}
               disabled={isLoading}
             >

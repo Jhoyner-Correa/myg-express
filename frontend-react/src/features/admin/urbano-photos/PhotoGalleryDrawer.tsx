@@ -1,4 +1,15 @@
 import React, { useState } from 'react';
+import {
+  ExternalLink,
+  Eye,
+  Image as ImageIcon,
+  RotateCw,
+  Trash2,
+  UploadCloud,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react';
 import type { UrbanoGuidePhotosResult, UrbanoPhotoItem } from './types';
 import { urbanoPhotosService } from './urbanoPhotos.service';
 import styles from './UrbanoGuidePhotos.module.css';
@@ -58,7 +69,9 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
     setUploadError(null);
     setUploadSuccess(null);
     const validFiles = files.filter((f) => {
-      const valid = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'].includes(f.type.toLowerCase());
+      const valid = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'].includes(
+        f.type.toLowerCase()
+      );
       const underSize = f.size <= 10 * 1024 * 1024;
       return valid && underSize;
     });
@@ -111,14 +124,13 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
       }
     }
 
-    // Limpiar previews
     filePreviews.forEach((p) => URL.revokeObjectURL(p.preview));
     setSelectedFiles([]);
     setFilePreviews([]);
     setIsUploading(false);
 
     if (successCount > 0) {
-      setUploadSuccess(`Se subieron con éxito ${successCount} fotografía(s).`);
+      setUploadSuccess(`Se subieron con éxito ${successCount} fotografía(s) a Urbano.`);
       const updated: UrbanoGuidePhotosResult = {
         ...guide,
         fotos: lastPhotos,
@@ -181,11 +193,13 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
         <div className={styles.drawerHeader}>
           <div className={styles.drawerHeaderInfo}>
             <div className={styles.guideBadgeRow}>
-              <span className={styles.guideCode}>{guide.guia}</span>
+              <span className={styles.guideCodeDrawer}>{guide.guia}</span>
               {manIdDet ? (
                 <span className={styles.manIdBadge}>man_id_det: {manIdDet}</span>
               ) : (
-                <span className={styles.missingBadge}>Sin man_id_det</span>
+                <span style={{ color: '#dc2626', fontWeight: 750, fontSize: '10px' }}>
+                  Sin man_id_det
+                </span>
               )}
               {guide.route_id && (
                 <span className={styles.routeBadge}>Ruta: {guide.route_id}</span>
@@ -195,18 +209,18 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
               {guide.destinatario && <span>Destinatario: <strong>{guide.destinatario}</strong></span>}
               {guide.destino && <span>Destino: <strong>{guide.destino}</strong></span>}
               {guide.estado_rastreo && (
-                <span>Estado: <span className={styles.statusBadge}>{guide.estado_rastreo}</span></span>
+                <span>Estado: <strong style={{ color: '#1d5fc7' }}>{guide.estado_rastreo}</strong></span>
               )}
             </div>
           </div>
           <button className={styles.closeDrawerBtn} onClick={onClose} title="Cerrar panel">
-            ✕
+            <X size={18} />
           </button>
         </div>
 
         {/* Body */}
         <div className={styles.drawerBody}>
-          {/* Seccion Galeria */}
+          {/* Sección Galería */}
           <div className={styles.gallerySection}>
             <div className={styles.sectionTitleRow}>
               <h4>Fotografías en Urbano ({guide.fotos.length})</h4>
@@ -223,10 +237,12 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
               </div>
             ) : guide.fotos.length === 0 ? (
               <div className={styles.emptyGallery}>
-                <div className={styles.emptyIcon}>📷</div>
-                <p>No se encontraron fotografías registradas en Urbano para esta guía.</p>
-                <span className={styles.emptyHint}>
-                  Puedes adjuntar y subir fotografías en la sección inferior.
+                <ImageIcon size={28} color="#94a3b8" />
+                <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>
+                  No se encontraron fotografías registradas en Urbano para esta guía.
+                </p>
+                <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+                  Puedes subir fotografías utilizando la zona inferior.
                 </span>
               </div>
             ) : (
@@ -241,7 +257,7 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
                         loading="lazy"
                       />
                       <div className={styles.photoOverlay}>
-                        <span>🔍 Ampliar</span>
+                        <Eye size={14} /> Ampliar
                       </div>
                     </div>
                     <div className={styles.photoDetails}>
@@ -254,19 +270,19 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
                       <div className={styles.photoCardActions}>
                         <button
                           type="button"
-                          className={styles.actionBtnSmall}
+                          className={styles.btnCardView}
                           onClick={() => openLightbox(photo)}
-                          title="Ver en tamaño completo"
+                          title="Ver en pantalla completa"
                         >
-                          👁 Ver
+                          <Eye size={11} /> Ver
                         </button>
                         <button
                           type="button"
-                          className={styles.deletePhotoBtn}
+                          className={styles.btnCardDelete}
                           onClick={() => setPhotoToDelete(photo)}
                           title="Eliminar fotografía"
                         >
-                          🗑 Eliminar
+                          <Trash2 size={11} /> Eliminar
                         </button>
                       </div>
                     </div>
@@ -276,12 +292,12 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
             )}
           </div>
 
-          {/* Seccion Subida de Fotografias */}
+          {/* Sección Subida de Fotografías */}
           {manIdDet && (
             <div className={styles.uploadSection}>
               <h4>Subir Nuevas Fotografías</h4>
               <p className={styles.uploadDescription}>
-                Arrastra imágenes o haz clic para seleccionarlas desde tu equipo (JPG, PNG, WEBP - máx 10MB por archivo).
+                Arrastra imágenes o haz clic para seleccionarlas (JPG, PNG, WEBP - máx 10MB por archivo).
               </p>
 
               <div
@@ -289,10 +305,10 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
               >
-                <div className={styles.dropIcon}>☁️</div>
-                <p>Arrastra las imágenes aquí o</p>
-                <label className={styles.browseButton}>
-                  Seleccionar archivos
+                <UploadCloud size={24} color="#3b82f6" />
+                <p style={{ margin: 0 }}>Arrastra las imágenes aquí o</p>
+                <label className={styles.browseBtn}>
+                  Examinar archivos
                   <input
                     type="file"
                     multiple
@@ -303,23 +319,20 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
                 </label>
               </div>
 
-              {/* Previews de archivos por subir */}
+              {/* Previews de archivos seleccionados */}
               {filePreviews.length > 0 && (
-                <div className={styles.previewsContainer}>
-                  <h5>Archivos seleccionados ({filePreviews.length}):</h5>
+                <div>
+                  <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#334155' }}>
+                    Archivos por subir ({filePreviews.length}):
+                  </span>
                   <div className={styles.previewsGrid}>
                     {filePreviews.map((p, i) => (
                       <div key={i} className={styles.previewCard}>
                         <img src={p.preview} alt={p.file.name} className={styles.previewThumb} />
-                        <div className={styles.previewInfo}>
-                          <span className={styles.previewName}>{p.file.name}</span>
-                          <span className={styles.previewSize}>
-                            {(p.file.size / 1024).toFixed(1)} KB
-                          </span>
-                        </div>
+                        <span className={styles.previewName}>{p.file.name}</span>
                         <button
                           type="button"
-                          className={styles.removePreviewBtn}
+                          className={styles.btnRemovePreview}
                           onClick={() => handleRemoveSelectedFile(i)}
                           disabled={isUploading}
                           title="Quitar"
@@ -330,20 +343,20 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
                     ))}
                   </div>
 
-                  <div className={styles.uploadActionsRow}>
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
                     <button
                       type="button"
-                      className={styles.primaryUploadBtn}
+                      className={styles.btnUploadConfirm}
                       onClick={handleUploadAll}
                       disabled={isUploading}
                     >
                       {isUploading
-                        ? 'Subiendo fotografías a Urbano...'
-                        : `Subir ${filePreviews.length} fotografía(s)`}
+                        ? 'Subiendo a Urbano...'
+                        : `Confirmar y Subir ${filePreviews.length} Foto(s)`}
                     </button>
                     <button
                       type="button"
-                      className={styles.secondaryBtn}
+                      className={styles.btnSecondary}
                       onClick={() => {
                         filePreviews.forEach((p) => URL.revokeObjectURL(p.preview));
                         setSelectedFiles([]);
@@ -365,28 +378,28 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
 
         {/* Modal de Confirmación de Eliminación */}
         {photoToDelete && (
-          <div className={styles.confirmModalOverlay} onClick={() => setPhotoToDelete(null)}>
-            <div className={styles.confirmModalCard} onClick={(e) => e.stopPropagation()}>
-              <h3>¿Confirmar eliminación?</h3>
-              <p>
-                Estás a punto de eliminar la fotografía ID <strong>{photoToDelete.img_id}</strong> perteneciente a la guía <strong>{guide.guia}</strong>.
+          <div className={styles.modalOverlay} onClick={() => setPhotoToDelete(null)}>
+            <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+              <h3>Confirmar Eliminación</h3>
+              <p style={{ fontSize: '11px', color: '#475569', margin: 0 }}>
+                Estás a punto de eliminar la foto ID <strong>{photoToDelete.img_id}</strong> de la guía <strong>{guide.guia}</strong>.
               </p>
-              <p className={styles.warningText}>
-                ⚠️ Esta acción eliminará permanentemente la foto en la plataforma de Urbano.
-              </p>
+              <div className={styles.alertWarning}>
+                ⚠️ Esta acción eliminará permanentemente la fotografía de los servidores de Urbano.
+              </div>
               {deleteError && <div className={styles.alertError}>{deleteError}</div>}
-              <div className={styles.confirmModalActions}>
+              <div className={styles.modalFooter}>
                 <button
                   type="button"
-                  className={styles.dangerBtn}
+                  className={styles.btnDanger}
                   onClick={handleDeletePhoto}
                   disabled={isDeleting}
                 >
-                  {isDeleting ? 'Eliminando en Urbano...' : 'Sí, eliminar foto'}
+                  {isDeleting ? 'Eliminando en Urbano...' : 'Sí, Eliminar Fotografía'}
                 </button>
                 <button
                   type="button"
-                  className={styles.secondaryBtn}
+                  className={styles.btnSecondary}
                   onClick={() => setPhotoToDelete(null)}
                   disabled={isDeleting}
                 >
@@ -405,7 +418,7 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
                 <div className={styles.lightboxTitle}>
                   <span>Guía: {guide.guia}</span>
                   <span className={styles.photoTypeBadge}>{selectedPhoto.img_tipo || 'FOTO'}</span>
-                  {selectedPhoto.img_fecha_hora && <span>{selectedPhoto.img_fecha_hora}</span>}
+                  {selectedPhoto.img_fecha_hora && <span>· {selectedPhoto.img_fecha_hora}</span>}
                 </div>
                 <div className={styles.lightboxControls}>
                   <button
@@ -413,40 +426,40 @@ export const PhotoGalleryDrawer: React.FC<PhotoGalleryDrawerProps> = ({
                     onClick={() => setZoomLevel((z) => Math.max(0.5, z - 0.25))}
                     title="Alejar"
                   >
-                    ➖
+                    <ZoomOut size={13} />
                   </button>
-                  <span>{Math.round(zoomLevel * 100)}%</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700 }}>{Math.round(zoomLevel * 100)}%</span>
                   <button
                     type="button"
                     onClick={() => setZoomLevel((z) => Math.min(3, z + 0.25))}
                     title="Acercar"
                   >
-                    ➕
+                    <ZoomIn size={13} />
                   </button>
                   <button
                     type="button"
                     onClick={() => setRotation((r) => (r + 90) % 360)}
                     title="Rotar 90°"
                   >
-                    🔄
+                    <RotateCw size={13} />
                   </button>
                   <a
                     href={selectedPhoto.img_path}
                     target="_blank"
                     rel="noreferrer"
-                    download
-                    className={styles.lightboxDownloadBtn}
-                    title="Abrir imagen original"
+                    className={styles.btnSecondary}
+                    style={{ background: '#2563eb', color: '#ffffff', border: 'none' }}
+                    title="Abrir imagen original de Google Cloud"
                   >
-                    ↗ Original
+                    <ExternalLink size={12} /> Original
                   </a>
                   <button
                     type="button"
-                    className={styles.lightboxCloseBtn}
                     onClick={closeLightbox}
+                    style={{ background: '#dc2626', color: '#ffffff' }}
                     title="Cerrar visor"
                   >
-                    ✕
+                    <X size={14} />
                   </button>
                 </div>
               </div>
