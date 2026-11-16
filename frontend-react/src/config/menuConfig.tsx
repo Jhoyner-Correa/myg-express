@@ -2,7 +2,6 @@ import React from 'react';
 import {
   CalendarCheck2,
   CalendarClock,
-  Camera,
   ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
@@ -144,12 +143,5 @@ export const sidebarMenuConfig: MenuItem[] = [
     permission: 'urbano.despachos.ver',
     group: 'administration',
     icon: <ClipboardCheck aria-hidden="true" />,
-  },
-  {
-    title: 'Fotos de Guías',
-    path: '/admin/fotos-guias',
-    permission: 'urbano.despachos.ver',
-    group: 'administration',
-    icon: <Camera aria-hidden="true" />,
   }
 ];
