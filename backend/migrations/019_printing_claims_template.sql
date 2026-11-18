@@ -8,4 +8,4 @@ ALTER TABLE `impresion_trabajos`
 
 -- 2. Agregar campo opcional de teléfono de reclamos en sedes
 ALTER TABLE `sedes`
-  ADD COLUMN IF NOT EXISTS `telefono_reclamos` varchar(20) DEFAULT NULL AFTER `telefono`;
+  ADD COLUMN `telefono_reclamos` varchar(20) DEFAULT NULL AFTER `telefono`;
