@@ -4,9 +4,25 @@ export type LabelDesign = {
   recipient_size: number; phone_size: number; day_size: number; density: number; show_sequence_circle: boolean;
 };
 
+export type ClaimsLabelConfig = {
+  siteName: string;
+  phone: string;
+  brand?: string;
+  subtitle?: string;
+  title?: string;
+  message?: string;
+  callToAction?: string;
+  schedule?: string;
+  address?: string;
+  density?: number;
+};
+
 export type PrintSite = {
   id: number;
   name: string;
+  phone?: string;
+  address?: string;
+  claimsPhone?: string;
   agentConfigured: boolean;
   agentOnline: boolean;
   lastSeenAt: string | null;
@@ -42,10 +58,12 @@ export type PrintJob = {
   siteId: number;
   siteName: string;
   requestedBy: string;
+  type?: 'COMANDA' | 'RECLAMOS';
   status: PrintJobStatus;
   reference: string;
   labels: PackageLabel[];
   dispatchDay: string;
+  claimsConfig?: ClaimsLabelConfig | null;
   packageCount: number;
   labelCount: number;
   copies: number;
@@ -65,4 +83,22 @@ export type CreatePrintJobInput = {
   dispatch_day: string;
   labels: PackageLabel[];
   design: LabelDesign;
+};
+
+export type CreateClaimsPrintJobInput = {
+  job_type: 'RECLAMOS';
+  site_id: number;
+  site_name: string;
+  phone: string;
+  copies: number;
+  idempotency_key: string;
+  reference?: string;
+  brand?: string;
+  subtitle?: string;
+  title?: string;
+  message?: string;
+  call_to_action?: string;
+  schedule?: string;
+  address?: string;
+  density?: number;
 };

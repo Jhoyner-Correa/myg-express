@@ -1,6 +1,14 @@
 import apiClient from '../../core/api/apiClient';
 import { unwrapApiData, type ApiEnvelope } from '../../core/api/types';
-import type { CreatePrintJobInput, PairingStatus, PrintAgent, PrintJob, PrintPairing, PrintSite } from './types';
+import type {
+  CreateClaimsPrintJobInput,
+  CreatePrintJobInput,
+  PairingStatus,
+  PrintAgent,
+  PrintJob,
+  PrintPairing,
+  PrintSite,
+} from './types';
 
 export const printingService = {
   async sites(signal?: AbortSignal): Promise<PrintSite[]> {
@@ -45,7 +53,7 @@ export const printingService = {
     URL.revokeObjectURL(url);
   },
 
-  async create(input: CreatePrintJobInput): Promise<PrintJob> {
+  async create(input: CreatePrintJobInput | CreateClaimsPrintJobInput): Promise<PrintJob> {
     const response = await apiClient.post<ApiEnvelope<PrintJob>>('/printing/jobs', input);
     return unwrapApiData(response.data);
   },

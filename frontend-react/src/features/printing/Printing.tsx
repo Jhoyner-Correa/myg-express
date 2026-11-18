@@ -13,6 +13,9 @@ import {
   Copy,
   Download,
   Eye,
+  MapPin,
+  Phone,
+  PhoneCall,
   Plus,
   Printer,
   RefreshCw,
@@ -139,6 +142,17 @@ export function Printing() {
   const [testingPrint, setTestingPrint] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [pairingSuccess, setPairingSuccess] = useState(false);
+  const [templateMode, setTemplateMode] = useState<"PACKAGES" | "CLAIMS">("PACKAGES");
+  const [claimsPhone, setClaimsPhone] = useState("");
+  const [claimsSiteName, setClaimsSiteName] = useState("");
+  const [claimsTitle, setClaimsTitle] = useState("CONSULTAS Y RECLAMOS");
+  const [claimsMessage, setClaimsMessage] = useState("¿TIENES DUDAS CON TU PAQUETE?");
+  const [claimsCallToAction, setClaimsCallToAction] = useState("LLÁMANOS O ESCRÍBENOS DIRECTAMENTE");
+  const [claimsSchedule, setClaimsSchedule] = useState("ATENCIÓN: LUNES A SÁBADO");
+  const [claimsAddress, setClaimsAddress] = useState("");
+  const [claimsCopies, setClaimsCopies] = useState(10);
+  const [claimsDensity, setClaimsDensity] = useState(8);
+  const [submittingClaims, setSubmittingClaims] = useState(false);
   const selectedSite = sites.find((site) => String(site.id) === siteId) ?? null;
   const payloadLabels = useMemo<PackageLabel[]>(
     () =>
@@ -367,6 +381,78 @@ export function Printing() {
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedSite) {
+      const defaultPhone = selectedSite.claimsPhone || selectedSite.phone || "";
+      setClaimsPhone((prev) => (prev ? prev : defaultPhone));
+      setClaimsSiteName((prev) => (prev ? prev : `SEDE ${selectedSite.name.toUpperCase()}`));
+      setClaimsAddress((prev) =>
+        prev
+          ? prev
+          : selectedSite.address
+            ? `${selectedSite.address} - ${selectedSite.name}`
+            : selectedSite.name,
+      );
+    }
+  }, [selectedSite]);
+
+  const handleSelectSiteForClaims = (newSiteId: string) => {
+    setSiteId(newSiteId);
+    const targetSite = sites.find((s) => String(s.id) === newSiteId);
+    if (targetSite) {
+      setClaimsPhone(targetSite.claimsPhone || targetSite.phone || "");
+      setClaimsSiteName(`SEDE ${targetSite.name.toUpperCase()}`);
+      setClaimsAddress(
+        targetSite.address ? `${targetSite.address} - ${targetSite.name}` : targetSite.name,
+      );
+    }
+  };
+
+  const submitClaims = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedSite) {
+      showToast("Selecciona una sede para imprimir.", "error");
+      return;
+    }
+    const digits = claimsPhone.replace(/\D/g, "");
+    if (digits.length < 6 || digits.length > 15) {
+      showToast("Ingresa un número telefónico de atención válido (entre 6 y 15 dígitos).", "error");
+      return;
+    }
+    if (!claimsCopies || claimsCopies < 1 || claimsCopies > 200) {
+      showToast("La cantidad de etiquetas debe estar entre 1 y 200.", "error");
+      return;
+    }
+
+    setSubmittingClaims(true);
+    try {
+      const job = await printingService.create({
+        job_type: "RECLAMOS",
+        site_id: selectedSite.id,
+        site_name: claimsSiteName.trim() || selectedSite.name,
+        phone: digits,
+        copies: claimsCopies,
+        idempotency_key: crypto.randomUUID(),
+        reference: `Etiquetas de Reclamos - ${selectedSite.name} (${claimsCopies} uds)`,
+        title: claimsTitle.trim() || "CONSULTAS Y RECLAMOS",
+        message: claimsMessage.trim() || "¿TIENES DUDAS CON TU PAQUETE?",
+        call_to_action: claimsCallToAction.trim() || "LLÁMANOS O ESCRÍBENOS DIRECTAMENTE",
+        schedule: claimsSchedule.trim() || "ATENCIÓN: LUNES A SÁBADO",
+        address: claimsAddress.trim(),
+        density: claimsDensity,
+      });
+      showToast(
+        `¡Trabajo #${job.id} enviado a la cola! Se imprimirán ${claimsCopies} etiquetas de reclamos en ${selectedSite.name}.`,
+        "success",
+      );
+      void loadJobs(String(selectedSite.id));
+    } catch (error) {
+      showToast(getApiErrorMessage(error, "No se pudo enviar el trabajo de etiquetas de reclamos."), "error");
+    } finally {
+      setSubmittingClaims(false);
     }
   };
   const runAction = async (job: PrintJob, action: "cancel" | "retry") => {
@@ -847,8 +933,39 @@ export function Printing() {
           </div>
         </div>
       )}
+      <div className={styles.templateSwitcherBar} role="tablist" aria-label="Modo de plantilla de impresión">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={templateMode === "PACKAGES"}
+          className={`${styles.templateTabBtn} ${templateMode === "PACKAGES" ? styles.templateTabBtnActive : ""}`}
+          onClick={() => setTemplateMode("PACKAGES")}
+        >
+          <Truck className={styles.templateTabIcon} />
+          <div>
+            <strong>Etiquetas de Paquetes</strong>
+            <small>Rutas Urbano y registro con destinatario</small>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={templateMode === "CLAIMS"}
+          className={`${styles.templateTabBtn} ${templateMode === "CLAIMS" ? styles.templateTabBtnActive : ""}`}
+          onClick={() => setTemplateMode("CLAIMS")}
+        >
+          <PhoneCall className={styles.templateTabIcon} />
+          <div>
+            <strong>Etiquetas de Consultas y Reclamos por Sede</strong>
+            <small>Atención al cliente con teléfono y dirección oficial</small>
+          </div>
+        </button>
+      </div>
+
       <div className={styles.workspace}>
-        <form className={styles.composer} onSubmit={submit}>
+        {templateMode === "PACKAGES" ? (
+          <form className={styles.composer} onSubmit={submit}>
           <div className={styles.leftColumn}>
             <aside
               className={styles.workflowNav}
@@ -1579,6 +1696,275 @@ export function Printing() {
             </section>
           </aside>
         </form>
+        ) : (
+          <form className={styles.claimsComposer} onSubmit={submitClaims}>
+            <div className={styles.claimsConfigColumn}>
+              <section className={styles.claimsConfigCard}>
+                <div className={styles.claimsCardHeader}>
+                  <div className={styles.claimsCardTitleGroup}>
+                    <PhoneCall className={styles.claimsCardIcon} />
+                    <div>
+                      <h3>Plantilla de Consultas y Reclamos por Sede</h3>
+                      <p>Configura el teléfono oficial de atención y la cantidad de etiquetas a imprimir.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.claimsFormGrid}>
+                  <div className={styles.fieldGroupFull}>
+                    <label htmlFor="claims-site-select">Sede de Despacho / Atención</label>
+                    <select
+                      id="claims-site-select"
+                      className={styles.claimsSelect}
+                      value={siteId}
+                      onChange={(e) => handleSelectSiteForClaims(e.target.value)}
+                    >
+                      {sites.map((site) => (
+                        <option key={site.id} value={site.id}>
+                          {site.name} {site.agentOnline ? "· Conectada (LUXUR 58F)" : "· Sin conector activo"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.fieldGroupHalf}>
+                    <label htmlFor="claims-phone-input">Teléfono de Reclamos / WhatsApp *</label>
+                    <div className={styles.inputWithIcon}>
+                      <Phone className={styles.inputIcon} />
+                      <input
+                        id="claims-phone-input"
+                        type="tel"
+                        className={styles.claimsInput}
+                        value={claimsPhone}
+                        onChange={(e) => setClaimsPhone(e.target.value)}
+                        placeholder="Ej. 937 742 137"
+                        required
+                      />
+                    </div>
+                    <small className={styles.fieldHint}>Número que se mostrará en tamaño gigante en la etiqueta térmica.</small>
+                  </div>
+
+                  <div className={styles.fieldGroupHalf}>
+                    <label htmlFor="claims-sitename-input">Nombre de Sede en la Etiqueta</label>
+                    <input
+                      id="claims-sitename-input"
+                      type="text"
+                      className={styles.claimsInput}
+                      value={claimsSiteName}
+                      onChange={(e) => setClaimsSiteName(e.target.value)}
+                      placeholder="Ej. SEDE SATIPO"
+                      maxLength={25}
+                    />
+                    <small className={styles.fieldHint}>Texto en cápsula blanca superior.</small>
+                  </div>
+
+                  <div className={styles.fieldGroupHalf}>
+                    <label htmlFor="claims-title-input">Título del Cintillo</label>
+                    <input
+                      id="claims-title-input"
+                      type="text"
+                      className={styles.claimsInput}
+                      value={claimsTitle}
+                      onChange={(e) => setClaimsTitle(e.target.value)}
+                      placeholder="CONSULTAS Y RECLAMOS"
+                      maxLength={30}
+                    />
+                  </div>
+
+                  <div className={styles.fieldGroupHalf}>
+                    <label htmlFor="claims-schedule-input">Horario de Atención</label>
+                    <input
+                      id="claims-schedule-input"
+                      type="text"
+                      className={styles.claimsInput}
+                      value={claimsSchedule}
+                      onChange={(e) => setClaimsSchedule(e.target.value)}
+                      placeholder="ATENCIÓN: LUNES A SÁBADO"
+                      maxLength={40}
+                    />
+                  </div>
+
+                  <div className={styles.fieldGroupHalf}>
+                    <label htmlFor="claims-message-input">Mensaje Guía al Cliente</label>
+                    <input
+                      id="claims-message-input"
+                      type="text"
+                      className={styles.claimsInput}
+                      value={claimsMessage}
+                      onChange={(e) => setClaimsMessage(e.target.value)}
+                      placeholder="¿TIENES DUDAS CON TU PAQUETE?"
+                      maxLength={40}
+                    />
+                  </div>
+
+                  <div className={styles.fieldGroupHalf}>
+                    <label htmlFor="claims-cta-input">Llamado a la Acción</label>
+                    <input
+                      id="claims-cta-input"
+                      type="text"
+                      className={styles.claimsInput}
+                      value={claimsCallToAction}
+                      onChange={(e) => setClaimsCallToAction(e.target.value)}
+                      placeholder="LLÁMANOS O ESCRÍBENOS DIRECTAMENTE"
+                      maxLength={40}
+                    />
+                  </div>
+
+                  <div className={styles.fieldGroupFull}>
+                    <label htmlFor="claims-address-input">Dirección de la Sede</label>
+                    <div className={styles.inputWithIcon}>
+                      <MapPin className={styles.inputIcon} />
+                      <input
+                        id="claims-address-input"
+                        type="text"
+                        className={styles.claimsInput}
+                        value={claimsAddress}
+                        onChange={(e) => setClaimsAddress(e.target.value)}
+                        placeholder="Ej. Jr. San Martín 854 - Satipo"
+                        maxLength={60}
+                      />
+                    </div>
+                  </div>
+
+                  <div className={styles.fieldGroupFull}>
+                    <label>Cantidad de Etiquetas a Imprimir (Lote de Copias)</label>
+                    <div className={styles.copiesSelectorRow}>
+                      <div className={styles.quickCopiesGroup}>
+                        {[5, 10, 25, 50, 100].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            className={`${styles.quickCopyBtn} ${claimsCopies === num ? styles.quickCopyBtnActive : ""}`}
+                            onClick={() => setClaimsCopies(num)}
+                          >
+                            {num} etiquetas
+                          </button>
+                        ))}
+                      </div>
+                      <div className={styles.customCopiesBox}>
+                        <input
+                          type="number"
+                          min="1"
+                          max="200"
+                          className={styles.customCopiesInput}
+                          value={claimsCopies}
+                          onChange={(e) => setClaimsCopies(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
+                        />
+                        <span>copias</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={styles.fieldGroupFull}>
+                    <div className={styles.densitySliderRow}>
+                      <label htmlFor="claims-density-range">
+                        <span>Intensidad Térmica (DENSITY): <strong>{claimsDensity}</strong></span>
+                        <small>Recomendado: 8 para LUXUR 58F</small>
+                      </label>
+                      <input
+                        id="claims-density-range"
+                        type="range"
+                        min="3"
+                        max="12"
+                        value={claimsDensity}
+                        onChange={(e) => setClaimsDensity(Number(e.target.value))}
+                        className={styles.densityRange}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.claimsActionRow}>
+                  <button
+                    type="submit"
+                    className={styles.claimsPrintSubmitBtn}
+                    disabled={submittingClaims}
+                  >
+                    <Printer />
+                    <span>
+                      {submittingClaims
+                        ? "Enviando trabajo a la cola..."
+                        : `Imprimir ${claimsCopies} ${claimsCopies === 1 ? "Etiqueta" : "Etiquetas"} de Reclamos`}
+                    </span>
+                  </button>
+
+                  {!selectedSite?.agentOnline && (
+                    <p className={styles.stationOfflineNotice}>
+                      ⚠️ La estación local de {selectedSite?.name || "la sede"} no está en línea actualmente. Puedes enviar el trabajo de igual forma y la impresora lo despachará al reconectar la PC.
+                    </p>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            <div className={styles.claimsPreviewColumn}>
+              <div className={styles.claimsPreviewStickyCard}>
+                <div className={styles.claimsPreviewHeader}>
+                  <div>
+                    <small>Previsualización Térmica Real</small>
+                    <h4>Rollo Adhesivo 50 × 38 mm</h4>
+                  </div>
+                  <span className={styles.claimsFormatBadge}>LUXUR 58F / TSPL</span>
+                </div>
+
+                <div className={styles.claimsPreviewArtboard}>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 400 304"
+                    className={styles.claimsPreviewSvg}
+                  >
+                    <rect width="400" height="304" fill="#ffffff" />
+                    <rect x="8" y="8" width="384" height="288" rx="10" fill="none" stroke="#000000" strokeWidth="3" />
+                    <rect x="12" y="12" width="376" height="280" rx="7" fill="none" stroke="#000000" strokeWidth="1" />
+                    <path d="M 12 20 Q 12 12 20 12 L 380 12 Q 388 12 388 20 L 388 56 L 12 56 Z" fill="#000000" />
+                    <text x="24" y="42" fontFamily="Arial Black,Arial,sans-serif" fontSize="24" fontWeight="900" fill="#ffffff" letterSpacing="-1">MyG</text>
+                    <text x="84" y="42" fontFamily="Arial,sans-serif" fontSize="15" fontWeight="900" fill="#ffffff" letterSpacing="3">EXPRESS</text>
+                    <rect x="230" y="20" width="148" height="26" rx="13" fill="#ffffff" />
+                    <text x="304" y="38" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="12.5" fontWeight="900" fill="#000000" letterSpacing="0.5">
+                      {(claimsSiteName || selectedSite?.name || "SEDE").toUpperCase().slice(0, 20)}
+                    </text>
+                    <rect x="26" y="66" width="348" height="30" rx="4" fill="#000000" />
+                    <text x="200" y="87" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="15" fontWeight="900" fill="#ffffff" letterSpacing="2.5">
+                      ★ {(claimsTitle || "CONSULTAS Y RECLAMOS").toUpperCase()} ★
+                    </text>
+                    <text x="200" y="120" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="13" fontWeight="800" fill="#000000" letterSpacing="0.5">
+                      {(claimsMessage || "¿TIENES DUDAS CON TU PAQUETE?").toUpperCase()}
+                    </text>
+                    <text x="200" y="137" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="11" fontWeight="700" fill="#000000">
+                      {(claimsCallToAction || "LLÁMANOS O ESCRÍBENOS DIRECTAMENTE").toUpperCase()}
+                    </text>
+                    <rect x="24" y="148" width="352" height="68" rx="8" fill="none" stroke="#000000" strokeWidth="3" strokeDasharray="8,4" />
+                    <text x="200" y="196" textAnchor="middle" fontFamily="Arial Black,Arial,sans-serif" fontSize="35" fontWeight="900" fill="#000000" letterSpacing="1">
+                      {formatPhone(claimsPhone) || "9XX XXX XXX"}
+                    </text>
+                    <line x1="20" y1="228" x2="380" y2="228" stroke="#000000" strokeWidth="1.5" />
+                    <text x="200" y="248" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="12" fontWeight="800" fill="#000000">
+                      {(claimsSchedule || "ATENCIÓN: LUNES A SÁBADO").toUpperCase()}
+                    </text>
+                    <text x="200" y="270" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="11" fontWeight="700" fill="#000000">
+                      {claimsAddress ? claimsAddress.slice(0, 48) : "CONSERVA ESTE NÚMERO PARA TU SEGUIMIENTO"}
+                    </text>
+                  </svg>
+                </div>
+
+                <div className={styles.claimsPreviewFooter}>
+                  <div className={styles.previewMetaItem}>
+                    <small>Destino</small>
+                    <strong>{selectedSite?.name || "Sede"}</strong>
+                  </div>
+                  <div className={styles.previewMetaItem}>
+                    <small>Lote configurado</small>
+                    <strong>{claimsCopies} {claimsCopies === 1 ? "etiqueta" : "etiquetas"}</strong>
+                  </div>
+                  <div className={styles.previewMetaItem}>
+                    <small>Resolución</small>
+                    <strong>203 DPI (Monocromo)</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+        )}
         {showHistory && (
           <div
             className={styles.historyBackdrop}
@@ -1655,11 +2041,16 @@ export function Printing() {
                             >
                               {meta.label}
                             </span>
+                            {job.type === "RECLAMOS" && (
+                              <span className={styles.jobTypePillReclamos}>
+                                Reclamos
+                              </span>
+                            )}
                           </div>
                           <p>
-                            {job.packageCount} paquetes ·{" "}
-                            {job.labelCount * job.copies} etiquetas ·{" "}
-                            {job.requestedBy}
+                            {job.type === "RECLAMOS"
+                              ? `${job.labelCount} etiquetas de contacto · ${job.requestedBy}`
+                              : `${job.packageCount} paquetes · ${job.labelCount * job.copies} etiquetas · ${job.requestedBy}`}
                           </p>
                           {job.error && (
                             <small className={styles.errorText}>

@@ -1742,3 +1742,459 @@
   font-weight: 700;
   animation: modalFadeIn 0.3s ease-out;
 }
+
+/* ============================================================
+   Selector de Modo de Plantilla (Paquetes vs Reclamos por Sede)
+   ============================================================ */
+.templateSwitcherBar {
+  display: flex;
+  gap: 12px;
+  margin: 16px 0 20px 0;
+  padding: 6px;
+  background: #f1f5f9;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.templateTabBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #64748b;
+}
+
+.templateTabBtn:hover {
+  background: #ffffff90;
+  color: #1e293b;
+}
+
+.templateTabBtnActive {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+}
+
+.templateTabIcon {
+  width: 24px;
+  height: 24px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #e2e8f0;
+  color: #475569;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.templateTabBtnActive .templateTabIcon {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.templateTabBtn strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.templateTabBtn small {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+.templateTabBtnActive small {
+  color: #0369a1;
+  font-weight: 600;
+}
+
+/* ============================================================
+   Plantilla de Consultas y Reclamos por Sede
+   ============================================================ */
+.claimsComposer {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .claimsComposer {
+    grid-template-columns: 1fr;
+  }
+}
+
+.claimsConfigColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.claimsConfigCard {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  padding: 24px;
+}
+
+.claimsCardHeader {
+  padding-bottom: 18px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 20px;
+}
+
+.claimsCardTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.claimsCardIcon {
+  width: 22px;
+  height: 22px;
+  color: #0284c7;
+  flex-shrink: 0;
+}
+
+.claimsCardTitleGroup h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.claimsCardTitleGroup p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.claimsFormGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.fieldGroupFull {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldGroupHalf {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldGroupFull label,
+.fieldGroupHalf label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.claimsSelect,
+.claimsInput {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  transition: all 0.15s;
+}
+
+.claimsSelect:focus,
+.claimsInput:focus {
+  outline: none;
+  background: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.inputWithIcon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.inputWithIcon .claimsInput {
+  padding-left: 36px;
+}
+
+.fieldHint {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* Selector de copias */
+.copiesSelectorRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.quickCopiesGroup {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.quickCopyBtn {
+  padding: 8px 14px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.quickCopyBtn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.quickCopyBtnActive {
+  background: #0284c7 !important;
+  border-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+.customCopiesBox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.customCopiesInput {
+  width: 75px;
+  height: 38px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.customCopiesBox span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Densidad / Intensidad */
+.densitySliderRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.densitySliderRow label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #334155;
+}
+
+.densityRange {
+  width: 100%;
+  accent-color: #0284c7;
+  cursor: pointer;
+}
+
+/* Acciones principales de reclamos */
+.claimsActionRow {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.claimsPrintSubmitBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 48px;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.25);
+}
+
+.claimsPrintSubmitBtn:hover:not(:disabled) {
+  background: #0369a1;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px -2px rgba(2, 132, 199, 0.35);
+}
+
+.claimsPrintSubmitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.stationOfflineNotice {
+  margin: 0;
+  padding: 10px 14px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-radius: 7px;
+  font-size: 12px;
+  color: #92400e;
+  line-height: 1.4;
+}
+
+/* ============================================================
+   Previsualizador de Etiqueta Térmica en Vivo
+   ============================================================ */
+.claimsPreviewColumn {
+  position: sticky;
+  top: 24px;
+}
+
+.claimsPreviewStickyCard {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.claimsPreviewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.claimsPreviewHeader small {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #38bdf8;
+}
+
+.claimsPreviewHeader h4 {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.claimsFormatBadge {
+  padding: 4px 10px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+}
+
+.claimsPreviewArtboard {
+  padding: 24px;
+  background: #f1f5f9;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.claimsPreviewSvg {
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+  aspect-ratio: 400 / 304;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  display: block;
+}
+
+.claimsPreviewFooter {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 14px 18px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  gap: 10px;
+  text-align: center;
+}
+
+.previewMetaItem small {
+  display: block;
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.previewMetaItem strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.jobTypePillReclamos {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+

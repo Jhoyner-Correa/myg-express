@@ -2,7 +2,14 @@ import crypto from 'crypto';
 import { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 
 import { pool, runInTransaction } from '../../core/database/database';
-import { buildPackageLabelsTspl, buildTestCalibrationTspl, PrintJobInput, PrintingValidationError } from './printingDomain';
+import {
+  buildClaimsLabelsTspl,
+  buildPackageLabelsTspl,
+  buildTestCalibrationTspl,
+  ClaimsPrintJobInput,
+  PrintJobInput,
+  PrintingValidationError,
+} from './printingDomain';
 
 export type UserScope = {
   userId: number;
@@ -36,6 +43,7 @@ type JobRow = RowDataPacket & {
   sede_id: number;
   sede_nombre: string;
   solicitado_por_nombre: string;
+  tipo: 'COMANDA' | 'RECLAMOS';
   estado: 'PENDIENTE' | 'PROCESANDO' | 'ENVIADO' | 'ERROR' | 'CANCELADO';
   referencia: string;
   origen_json: string;
@@ -54,10 +62,16 @@ type JobRow = RowDataPacket & {
 function mapJob(row: JobRow, includePayload = false) {
   let labels: unknown[] = [];
   let dispatchDay = '';
+  let claimsConfig: unknown = null;
+  const jobType = row.tipo || 'COMANDA';
   try {
     const parsed = JSON.parse(String(row.origen_json));
-    labels = Array.isArray(parsed?.labels) ? parsed.labels : [];
-    dispatchDay = String(parsed?.dispatchDay ?? '');
+    if (parsed?.type === 'RECLAMOS') {
+      claimsConfig = parsed.config ?? null;
+    } else {
+      labels = Array.isArray(parsed?.labels) ? parsed.labels : [];
+      dispatchDay = String(parsed?.dispatchDay ?? '');
+    }
   } catch {
     labels = [];
   }
@@ -66,10 +80,12 @@ function mapJob(row: JobRow, includePayload = false) {
     siteId: Number(row.sede_id),
     siteName: row.sede_nombre,
     requestedBy: row.solicitado_por_nombre,
+    type: jobType,
     status: row.estado,
     reference: row.referencia,
     labels,
     dispatchDay,
+    claimsConfig,
     packageCount: Number(row.numero_comandas),
     labelCount: Number(row.numero_etiquetas),
     copies: Number(row.copias),
@@ -289,7 +305,7 @@ export class PrintingService {
     const siteRestriction = scope.siteId ? 'AND site.id = ?' : '';
     if (scope.siteId) params.push(scope.siteId);
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT site.id, site.nombre,
+      `SELECT site.id, site.nombre, site.telefono, site.direccion, site.telefono_reclamos,
           COUNT(agent.id) AS agent_count,
           MAX(agent.ultimo_contacto_at) AS last_seen_at,
           GROUP_CONCAT(DISTINCT agent.impresora_nombre ORDER BY agent.nombre SEPARATOR ', ') AS printers
@@ -299,7 +315,7 @@ export class PrintingService {
        WHERE site.estado = 'activo'
          AND (? IS NULL OR site.empresa_id = ?)
          ${siteRestriction}
-       GROUP BY site.id, site.nombre
+       GROUP BY site.id, site.nombre, site.telefono, site.direccion, site.telefono_reclamos
        ORDER BY site.nombre ASC`,
       params,
     );
@@ -310,6 +326,9 @@ export class PrintingService {
       return {
         id: Number(row.id),
         name: String(row.nombre),
+        phone: row.telefono ? String(row.telefono) : '',
+        address: row.direccion ? String(row.direccion) : '',
+        claimsPhone: row.telefono_reclamos ? String(row.telefono_reclamos) : '',
         agentConfigured: Number(row.agent_count) > 0,
         agentOnline: online,
         lastSeenAt: lastSeen,
@@ -336,8 +355,27 @@ export class PrintingService {
     }
   }
 
-  async createJob(scope: UserScope, input: PrintJobInput) {
-    const rendered = await buildPackageLabelsTspl(input.labels, input.dispatchDay, input.copies, input.design);
+  async createJob(scope: UserScope, input: PrintJobInput | ClaimsPrintJobInput) {
+    let rendered: { payload: string; labelCount: number };
+    let packageCount = 1;
+    let labelCount = input.copies;
+    let origenJson: string;
+    let jobType: 'COMANDA' | 'RECLAMOS' = 'COMANDA';
+
+    if ('jobType' in input && input.jobType === 'RECLAMOS') {
+      jobType = 'RECLAMOS';
+      rendered = await buildClaimsLabelsTspl(input.config, input.copies);
+      packageCount = 1;
+      labelCount = rendered.labelCount;
+      origenJson = JSON.stringify({ type: 'RECLAMOS', config: input.config, copies: input.copies });
+    } else {
+      const pkgInput = input as PrintJobInput;
+      rendered = await buildPackageLabelsTspl(pkgInput.labels, pkgInput.dispatchDay, pkgInput.copies, pkgInput.design);
+      packageCount = pkgInput.labels.length;
+      labelCount = rendered.labelCount;
+      origenJson = JSON.stringify({ labels: pkgInput.labels, dispatchDay: pkgInput.dispatchDay, design: pkgInput.design });
+    }
+
     return runInTransaction(async connection => {
       await assertAccessibleSite(connection, scope, input.siteId);
       const [existing] = await connection.query<JobRow[]>(
@@ -348,28 +386,28 @@ export class PrintingService {
 
       const [result] = await connection.query<ResultSetHeader>(
         `INSERT INTO impresion_trabajos
-          (sede_id, creado_por, solicitado_por_nombre, referencia, origen_json, payload_tspl,
+          (sede_id, creado_por, solicitado_por_nombre, tipo, referencia, origen_json, payload_tspl,
            numero_comandas, numero_etiquetas, copias, idempotency_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)`,
         [
           input.siteId,
           scope.userId,
           scope.userName.slice(0, 120),
+          jobType,
           input.reference,
-          JSON.stringify({ labels: input.labels, dispatchDay: input.dispatchDay, design: input.design }),
+          origenJson,
           rendered.payload,
-          input.labels.length,
-          rendered.labelCount,
+          packageCount,
+          labelCount,
           input.copies,
           input.idempotencyKey,
         ],
       );
       if (result.affectedRows === 1) {
-        await audit(connection, scope, 'IMPRESION_TRABAJO_CREADO', result.insertId, input.siteId, {
+        await audit(connection, scope, jobType === 'RECLAMOS' ? 'IMPRESION_RECLAMOS_CREADO' : 'IMPRESION_TRABAJO_CREADO', result.insertId, input.siteId, {
           reference: input.reference,
-          packages: input.labels.length,
-          dispatchDay: input.dispatchDay,
+          tipo: jobType,
           labels: rendered.labelCount,
           copies: input.copies,
         });

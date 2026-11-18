@@ -6,6 +6,28 @@ export type LabelDesign = {
 export const DEFAULT_LABEL_DESIGN: LabelDesign = { brand: 'MyG', subtitle: 'EXPRESS', fontFamily: 'ARIAL', recipientSize: 22, phoneSize: 43, daySize: 19, density: 7, showSequenceCircle: true };
 export type PrintJobInput = { siteId: number; reference: string; dispatchDay: string; labels: PackageLabel[]; design: LabelDesign; copies: number; idempotencyKey: string };
 
+export type ClaimsLabelConfig = {
+  siteName: string;
+  phone: string;
+  brand?: string;
+  subtitle?: string;
+  title?: string;
+  message?: string;
+  callToAction?: string;
+  schedule?: string;
+  address?: string;
+  density?: number;
+};
+
+export type ClaimsPrintJobInput = {
+  jobType: 'RECLAMOS';
+  siteId: number;
+  reference: string;
+  config: ClaimsLabelConfig;
+  copies: number;
+  idempotencyKey: string;
+};
+
 export class PrintingValidationError extends Error {
   constructor(message: string, public readonly status = 400) { super(message); this.name = 'PrintingValidationError'; }
 }
@@ -51,7 +73,54 @@ function normalizeDesign(value: unknown): LabelDesign {
   };
 }
 
-export function normalizePrintJobInput(raw: Record<string, unknown>): PrintJobInput {
+export function normalizeClaimsJobInput(raw: Record<string, unknown>): ClaimsPrintJobInput {
+  const siteId = positiveInteger(raw.site_id, 'La sede', 2_147_483_647);
+  const siteName = compactText(raw.site_name || 'SEDE', 'El nombre de la sede', 30);
+  const rawPhone = String(raw.phone ?? '').replace(/\D/g, '');
+  if (rawPhone.length < 6 || rawPhone.length > 15) {
+    throw new PrintingValidationError('El telefono de contacto/reclamos debe tener entre 6 y 15 digitos.');
+  }
+  const copies = raw.copies == null ? 1 : positiveInteger(raw.copies, 'Las copias', 200);
+  const reference = compactText(raw.reference || `Etiquetas de Reclamos - ${siteName}`, 'La referencia', 120);
+  const idempotencyKey = String(raw.idempotency_key ?? '').trim().toLowerCase();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(idempotencyKey)) {
+    throw new PrintingValidationError('La solicitud de impresion no tiene un identificador valido.');
+  }
+
+  const density = boundedNumber(raw.density, 8, 3, 12, 'La intensidad de impresion');
+  const brand = raw.brand ? compactText(raw.brand, 'El nombre de marca', 12) : 'MyG';
+  const subtitle = raw.subtitle ? compactText(raw.subtitle, 'El subtitulo de marca', 16).toUpperCase() : 'EXPRESS';
+  const title = raw.title ? compactText(raw.title, 'El titulo de la etiqueta', 30) : 'CONSULTAS Y RECLAMOS';
+  const message = raw.message ? compactText(raw.message, 'El mensaje principal', 45) : '¿TIENES DUDAS CON TU PAQUETE?';
+  const callToAction = raw.call_to_action ? compactText(raw.call_to_action, 'El llamado a la accion', 45) : 'LLAMANOS O ESCRIBENOS DIRECTAMENTE';
+  const schedule = raw.schedule ? compactText(raw.schedule, 'El horario de atencion', 45) : 'ATENCION: LUNES A SABADO';
+  const address = raw.address ? String(raw.address).trim().slice(0, 60) : '';
+
+  return {
+    jobType: 'RECLAMOS',
+    siteId,
+    reference,
+    copies,
+    idempotencyKey,
+    config: {
+      siteName,
+      phone: rawPhone,
+      brand,
+      subtitle,
+      title,
+      message,
+      callToAction,
+      schedule,
+      address,
+      density,
+    },
+  };
+}
+
+export function normalizePrintJobInput(raw: Record<string, unknown>): PrintJobInput | ClaimsPrintJobInput {
+  if (raw.job_type === 'RECLAMOS' || raw.tipo === 'RECLAMOS') {
+    return normalizeClaimsJobInput(raw);
+  }
   const siteId = positiveInteger(raw.site_id, 'La sede', 2_147_483_647);
   const reference = compactText(raw.reference || 'Etiquetas de paquetes', 'La referencia', 120);
   const copies = raw.copies == null ? 1 : positiveInteger(raw.copies, 'Las copias', 10);
@@ -138,6 +207,74 @@ export async function buildPackageLabelsTspl(labels: readonly PackageLabel[], di
   }
   return { payload: `BASE64:${Buffer.concat(chunks).toString('base64')}`, labelCount: labels.length };
 }
+
+export async function buildClaimsLabelsTspl(config: ClaimsLabelConfig, copies = 1) {
+  if (!Number.isInteger(copies) || copies < 1 || copies > 200) {
+    throw new PrintingValidationError('Las copias deben estar entre 1 y 200.');
+  }
+
+  const siteName = toPrinterAscii(config.siteName || 'SEDE');
+  const rawDigits = String(config.phone || '').replace(/\D/g, '');
+  const phone = formatPackagePhone(rawDigits);
+  const brand = toPrinterAscii(config.brand || 'MyG');
+  const subtitle = toPrinterAscii(config.subtitle || 'EXPRESS');
+  const title = toPrinterAscii(config.title || 'CONSULTAS Y RECLAMOS');
+  const message = toPrinterAscii(config.message || '¿TIENES DUDAS CON TU PAQUETE?');
+  const callToAction = toPrinterAscii(config.callToAction || 'LLAMANOS O ESCRIBENOS DIRECTAMENTE');
+  const schedule = toPrinterAscii(config.schedule || 'ATENCION: LUNES A SABADO');
+  const address = toPrinterAscii(config.address || '');
+  const density = config.density ?? 8;
+
+  const addressLine = address
+    ? `<text x="200" y="270" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="black">${escapeSvg(address.slice(0, 48))}</text>`
+    : `<text x="200" y="270" text-anchor="middle" font-family="Arial,sans-serif" font-size="10.5" font-weight="700" fill="black">CONSERVA ESTE NUMERO PARA TU SEGUIMIENTO</text>`;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="304" viewBox="0 0 400 304">
+    <rect width="400" height="304" fill="white"/>
+    <rect x="8" y="8" width="384" height="288" rx="10" fill="none" stroke="black" stroke-width="3"/>
+    <rect x="12" y="12" width="376" height="280" rx="7" fill="none" stroke="black" stroke-width="1"/>
+    <path d="M 12 20 Q 12 12 20 12 L 380 12 Q 388 12 388 20 L 388 56 L 12 56 Z" fill="black"/>
+    <text x="24" y="42" font-family="Arial Black,Arial,sans-serif" font-size="24" font-weight="900" fill="white" letter-spacing="-1">${escapeSvg(brand)}</text>
+    <text x="84" y="42" font-family="Arial,sans-serif" font-size="15" font-weight="900" fill="white" letter-spacing="3">${escapeSvg(subtitle)}</text>
+    <rect x="230" y="20" width="148" height="26" rx="13" fill="white"/>
+    <text x="304" y="38" text-anchor="middle" font-family="Arial,sans-serif" font-size="12.5" font-weight="900" fill="black" letter-spacing="0.5">${escapeSvg(siteName.toUpperCase().slice(0, 20))}</text>
+    <rect x="26" y="66" width="348" height="30" rx="4" fill="black"/>
+    <text x="200" y="87" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="900" fill="white" letter-spacing="2.5">&#9733; ${escapeSvg(title)} &#9733;</text>
+    <text x="200" y="120" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" font-weight="800" fill="black" letter-spacing="0.5">${escapeSvg(message)}</text>
+    <text x="200" y="137" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="black">${escapeSvg(callToAction)}</text>
+    <rect x="24" y="148" width="352" height="68" rx="8" fill="none" stroke="black" stroke-width="3" stroke-dasharray="8,4"/>
+    <text x="200" y="196" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="35" font-weight="900" fill="black" letter-spacing="1">${escapeSvg(phone)}</text>
+    <line x1="20" y1="228" x2="380" y2="228" stroke="black" stroke-width="1.5"/>
+    <text x="200" y="248" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="800" fill="black">${escapeSvg(schedule)}</text>
+    ${addressLine}
+  </svg>`;
+
+  const { data, info } = await sharp(Buffer.from(svg))
+    .flatten({ background: '#fff' })
+    .greyscale()
+    .threshold(170)
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const widthBytes = Math.ceil(info.width / 8);
+  const bitmap = Buffer.alloc(widthBytes * info.height);
+  for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+      if (data[y * info.width + x] >= 128) {
+        bitmap[y * widthBytes + Math.floor(x / 8)] |= 0x80 >> (x % 8);
+      }
+    }
+  }
+
+  const chunks = [
+    Buffer.from(`SIZE 50 mm, 38 mm\r\nGAP 3 mm, 0 mm\r\nSPEED 3\r\nDENSITY ${density}\r\nDIRECTION 1\r\nCLS\r\nBITMAP 0,0,50,304,0,`, 'ascii'),
+    bitmap,
+    Buffer.from(`\r\nPRINT 1,${copies}\r\n`, 'ascii'),
+  ];
+
+  return { payload: `BASE64:${Buffer.concat(chunks).toString('base64')}`, labelCount: copies };
+}
+
 export async function buildTestCalibrationTspl(siteName: string, computerName: string, printerName: string) {
   const dateStr = new Intl.DateTimeFormat('es-PE', {
     dateStyle: 'short',
