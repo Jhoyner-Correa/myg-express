@@ -156,7 +156,7 @@ describe('JntExpress Component', () => {
     fireEvent.click(screen.getByText('Mandar a Ruta'));
     await waitFor(() => {
       expect(screen.getByText('Mandar Paquetes a Ruta')).toBeInTheDocument();
-      expect(screen.getByText('Satipo Tarde')).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: /Satipo Tarde/i })).toBeInTheDocument();
     });
     fireEvent.click(screen.getByText('Cancelar'));
 

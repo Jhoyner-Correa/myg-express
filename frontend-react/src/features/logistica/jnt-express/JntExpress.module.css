@@ -1046,71 +1046,40 @@
 .formLabel { font-size: 0.78125rem; font-weight: 600; color: #334155; }
 .formInput { width: 100%; height: 36px; padding: 0 10px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.84375rem; color: #0f172a; background: #ffffff; outline: none; }
 .formInput:focus { border-color: #10924d; }
-/* ─── Two-Column Enterprise Dispatch Console (Modal) ─────────── */
-.dispatchConsoleGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.95fr);
-  gap: 20px;
-  align-items: start;
+/* ─── Calm & Clean Send-to-Route Modal ───────────────────────── */
+.calmModalStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-@media (max-width: 760px) {
-  .dispatchConsoleGrid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.consoleConfigPane {
+.calmSection {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  min-width: 0;
+  gap: 8px;
 }
 
-.consoleSection {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-
-.consoleSectionHead {
+.calmSectionHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
 
-.stepTitleGroup {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.stepTag {
-  font-size: 0.65625rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  padding: 2px 6px;
-  border-radius: 5px;
-  background: #0f172a;
-  color: #ffffff;
-}
-
-.consoleSectionHead h3 {
-  margin: 0;
+.calmLabel {
   font-size: 0.8125rem;
-  font-weight: 650;
-  color: #0f172a;
+  font-weight: 600;
+  color: #1e293b;
 }
 
-.modeToggleLink {
+.calmTextBtn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   border: 0;
   background: transparent;
-  color: #1f64bd;
+  color: #2563eb;
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
@@ -1118,111 +1087,86 @@
   border-radius: 5px;
 }
 
-.modeToggleLink:hover {
+.calmTextBtn:hover {
   background: #eff6ff;
 }
 
-.routeListBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.consoleSearchRow {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid #d5dfeb;
-  border-radius: 7px;
-  background: #f8fafc;
-  color: #64748b;
-}
-
-.consoleSearchRow input {
-  width: 100%;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  font-size: 0.75rem;
-  color: #0f172a;
-}
-
-.consoleEmptyBox {
+.calmBoxPlaceholder {
   padding: 14px;
   border: 1px dashed #cbd5e1;
   border-radius: 8px;
   background: #f8fafc;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  font-size: 0.78125rem;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.8125rem;
   color: #64748b;
 }
 
-.consoleRouteList {
+.calmRouteList {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 150px;
+  max-height: 170px;
   overflow-y: auto;
 }
 
-.consoleRouteRow {
+.calmRouteOption {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 11px;
   padding: 10px 12px;
-  border: 1px solid #dde6ef;
-  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
   background: #ffffff;
   text-align: left;
   cursor: pointer;
   transition: border-color 130ms ease, background-color 130ms ease;
 }
 
-.consoleRouteRow:hover {
-  border-color: #94a3b8;
+.calmRouteOption:hover {
+  border-color: #cbd5e1;
   background: #fafbfd;
 }
 
-.consoleRouteRowSelected {
-  border-color: #0f172a;
-  background: #f8fafd;
-  box-shadow: inset 3px 0 0 #0f172a;
+.calmRouteSelected {
+  border-color: #93c5fd;
+  background: #f5f9ff;
 }
 
-.consoleRouteInfo {
+.calmRadioDot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid #cbd5e1;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.calmRouteSelected .calmRadioDot {
+  border-color: #2563eb;
+}
+
+.calmRouteSelected .calmRadioDot i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2563eb;
+}
+
+.calmRouteText {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1;
 }
 
-.consoleRouteTop {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-
-.routeCodePill {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: #334155;
-  background: #f1f5f9;
-  padding: 1px 6px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
-.consoleRouteTop strong {
-  font-size: 0.8125rem;
-  font-weight: 650;
+.calmRouteText strong {
+  font-size: 0.84375rem;
+  font-weight: 600;
   color: #0f172a;
   text-transform: capitalize;
   overflow: hidden;
@@ -1230,366 +1174,185 @@
   white-space: nowrap;
 }
 
-.consoleRouteSub {
+.calmRouteText span {
   font-size: 0.72rem;
   color: #64748b;
   font-variant-numeric: tabular-nums;
 }
 
-.consoleRouteStatus {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.statusTagPlain {
+.calmRouteStatus {
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: capitalize;
-  color: #475569;
+  padding: 2px 8px;
+  border-radius: 999px;
   background: #f1f5f9;
-  padding: 2px 7px;
-  border-radius: 5px;
+  color: #475569;
+  flex-shrink: 0;
 }
 
-.selectedIndicator {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #0f172a;
-  color: #ffffff;
-  display: grid;
-  place-items: center;
+.calmInput {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.84375rem;
+  outline: none;
 }
 
-.newRouteInputBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+.calmInput:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.strategyGrid {
+.calmOptionPair {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.strategyCard {
+.calmChoiceBtn {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 2px;
   padding: 10px 12px;
-  border: 1px solid #dde6ef;
-  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
   background: #ffffff;
   text-align: left;
   cursor: pointer;
   transition: border-color 130ms ease, background-color 130ms ease;
 }
 
-.strategyCard:hover {
-  border-color: #94a3b8;
-}
-
-.strategyCardSelected {
-  border-color: #0f172a;
-  background: #f8fafd;
-  box-shadow: inset 0 0 0 1px #0f172a;
-}
-
-.strategyHead {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #0f172a;
-  font-size: 0.78125rem;
-}
-
-.strategyHead strong {
-  font-weight: 650;
-  flex: 1;
-}
-
-.strategyCount {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  padding: 1px 6px;
-  border-radius: 5px;
-  background: #f1f5f9;
-  color: #334155;
-}
-
-.strategyCardSelected .strategyCount {
-  background: #0f172a;
-  color: #ffffff;
-}
-
-.strategyCard p {
-  margin: 0;
-  font-size: 0.72rem;
-  color: #64748b;
-  line-height: 1.35;
-}
-
-.districtChecklistGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  max-height: 142px;
-  overflow-y: auto;
-}
-
-.districtCheckRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 7px;
-  background: #ffffff;
-  text-align: left;
-  cursor: pointer;
-  font-size: 0.75rem;
-  color: #475569;
-  transition: border-color 120ms ease, background-color 120ms ease;
-}
-
-.districtCheckRow:hover {
+.calmChoiceBtn:hover {
   border-color: #cbd5e1;
 }
 
-.districtCheckRowActive {
-  background: #f8fafd;
-  border-color: #cbd5e1;
+.calmChoiceActive {
+  border-color: #93c5fd;
+  background: #f5f9ff;
+}
+
+.calmChoiceBtn strong {
+  font-size: 0.8125rem;
+  font-weight: 600;
   color: #0f172a;
 }
 
-.districtCheckBox {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-}
-
-.districtCheckRowActive .districtCheckBox {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #ffffff;
-}
-
-.districtCheckName {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-}
-
-.districtCheckMeta {
-  font-size: 0.6875rem;
-  font-variant-numeric: tabular-nums;
+.calmChoiceBtn span {
+  font-size: 0.72rem;
   color: #64748b;
-  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Right Executive Navy Telemetry Pane */
-.consolePreviewPane {
-  background: linear-gradient(180deg, #0d2138 0%, #091727 100%);
-  border-radius: 11px;
-  padding: 18px;
-  color: #e2e8f0;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  border: 1px solid #1e354d;
-}
-
-.previewHeader {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.previewEyebrow {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #4ade80;
-}
-
-.previewTargetLine {
+.calmCheckboxRow {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: #ffffff;
-  font-size: 0.84375rem;
-}
-
-.previewTargetLine strong {
-  font-weight: 650;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.previewHeroMetric {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.previewHeroMetric span {
-  font-size: 0.72rem;
-  color: #94a3b8;
-}
-
-.previewHeroMetric strong {
-  font-size: 2rem;
-  font-weight: 750;
-  color: #ffffff;
-  line-height: 1.05;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.03em;
-}
-
-.previewBreakdown {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  padding: 10px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.previewStatItem {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.previewStatItem span {
-  font-size: 0.65625rem;
-  color: #94a3b8;
-}
-
-.previewStatItem strong {
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: #ffffff;
-  font-variant-numeric: tabular-nums;
-}
-
-.previewPhoneWarning {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  padding: 8px 10px;
-  border-radius: 7px;
-  background: rgba(245, 158, 11, 0.14);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  color: #fde68a;
-  font-size: 0.72rem;
-  line-height: 1.35;
-}
-
-.previewSampleBox {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.previewSampleLabel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.6875rem;
-  color: #94a3b8;
-  font-weight: 600;
-}
-
-.sampleMultiTag {
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(245, 158, 11, 0.2);
-  color: #fcd34d;
-}
-
-.previewSampleCard {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 9px 12px;
   border-radius: 8px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.sampleRow {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.sampleRow small {
-  font-size: 0.625rem;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.sampleRow strong,
-.sampleRow span,
-.sampleRow code {
-  font-size: 0.75rem;
-  color: #f8fafc;
-  font-family: inherit;
-  word-break: break-word;
-}
-
-.sampleRow code {
-  font-weight: 650;
-  color: #4ade80;
-  font-variant-numeric: tabular-nums;
-}
-
-.previewTrustNote {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 0.6875rem;
-  color: #94a3b8;
-  padding-top: 2px;
-}
-
-.selectionCheckboxLabel {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 7px;
-  background: #f0f6ff;
-  border: 1px solid #bfdbfe;
-  font-size: 0.78125rem;
+  background: #f5f9ff;
+  border: 1px solid #dbeafe;
+  font-size: 0.8125rem;
   color: #1e3a8a;
   cursor: pointer;
 }
 
-.selectionCheckboxLabel input {
+.calmCheckboxRow input {
   width: 15px;
   height: 15px;
-  accent-color: #0f172a;
+  accent-color: #2563eb;
+}
+
+.calmDistrictToggleBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 0.78125rem;
+  color: #475569;
+}
+
+.calmDistrictToggleBar strong {
+  color: #0f172a;
+}
+
+.calmDistrictPanel {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calmDistrictPanelTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.calmDistrictPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.calmDistrictPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.calmDistrictPillActive {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.calmDistrictPill small {
+  font-size: 0.6875rem;
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
+.calmSummaryNote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.78125rem;
+  line-height: 1.4;
+}
+
+.calmSummaryNote svg {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.calmSummaryNote strong {
+  color: #0f172a;
 }
 
 .selectionScopeBanner {
