@@ -24,3 +24,8 @@ test('reconoce Despachos Urbano como modulo visible independiente', () => {
 test('reconoce Impresion como modulo visible independiente', () => {
   assert.deepEqual(normalizeVisibleModules(['impresion.ver']), ['impresion.ver']);
 });
+
+test('reconoce J&T Express como modulo visible independiente', () => {
+  assert.deepEqual(normalizeVisibleModules(['jnt.ver']), ['jnt.ver']);
+});
+
