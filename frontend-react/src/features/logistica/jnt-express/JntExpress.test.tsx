@@ -130,7 +130,7 @@ describe('JntExpress Component', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Total Paquetes')).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Todos/i })).toBeInTheDocument();
       expect(screen.getByText('JPE00001')).toBeInTheDocument();
       expect(screen.getByText('JPE00002')).toBeInTheDocument();
       expect(screen.getAllByText('MARIO VARGAS')[0]).toBeInTheDocument();
