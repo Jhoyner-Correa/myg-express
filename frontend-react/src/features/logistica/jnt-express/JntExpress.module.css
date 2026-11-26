@@ -1046,199 +1046,550 @@
 .formLabel { font-size: 0.78125rem; font-weight: 600; color: #334155; }
 .formInput { width: 100%; height: 36px; padding: 0 10px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.84375rem; color: #0f172a; background: #ffffff; outline: none; }
 .formInput:focus { border-color: #10924d; }
-.modeCards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.modeCard { border: 1px solid #d5dfeb; border-radius: 8px; padding: 10px 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; background: #ffffff; transition: border-color 140ms ease, background-color 140ms ease; }
-.modeCard:hover { border-color: #94a3b8; }
-.modeCardActive { border-color: #10924d; background: #f2fbf6; box-shadow: inset 0 0 0 1px #10924d; }
-.modeIcon { color: #08783d; flex-shrink: 0; }
-.modeContent { display: flex; flex-direction: column; gap: 1px; }
-.modeContent strong { font-size: 0.8125rem; font-weight: 600; color: #0f172a; }
-.modeContent span { font-size: 0.72rem; color: #64748b; }
-.districtHeader { display: flex; align-items: center; justify-content: space-between; }
-.linkButton { background: none; border: none; color: #1f64bd; font-size: 0.75rem; font-weight: 600; cursor: pointer; padding: 0; }
-.districtChips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 112px; overflow-y: auto; padding: 8px; background: #f8fafc; border: 1px solid #dde6ef; border-radius: 8px; }
-.districtChip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 6px; border: 1px solid #d5dfeb; background: #ffffff; color: #475569; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 120ms ease; }
-.districtChip:hover { border-color: #94a3b8; color: #0f172a; }
-.districtChipActive { background: #edf8f1; border-color: #86efac; color: #08783d; font-weight: 600; }
-.chipCount { background: #f1f5f9; color: #475569; padding: 1px 5px; border-radius: 4px; font-size: 0.6875rem; font-variant-numeric: tabular-nums; }
-.districtChipActive .chipCount { background: #d1fae5; color: #065f46; }
-.dispatchSummaryInline { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 9px 12px; background: #f8fafc; border: 1px solid #dde6ef; border-radius: 8px; font-size: 0.78125rem; color: #475569; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
-.dispatchSummaryInline strong { color: #0f172a; }
-.highlightText { color: #08783d !important; font-weight: 700; }
-.successContainer { text-align: center; padding: 1.25rem 1rem; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.successIcon { color: #10924d; }
-.successTitle { font-size: 1.125rem; font-weight: 700; color: #0f172a; margin: 0; }
-.successDescription { font-size: 0.875rem; color: #475569; margin: 0; line-height: 1.5; }
-.successActions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
-
-/* ─── Send-to-Route Picker inside Modal ──────────────────────── */
-.routeModeSwitch {
+/* ─── Two-Column Enterprise Dispatch Console (Modal) ─────────── */
+.dispatchConsoleGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-  padding: 3px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.95fr);
+  gap: 20px;
+  align-items: start;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-.routeModeSwitch button {
+@media (max-width: 760px) {
+  .dispatchConsoleGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.consoleConfigPane {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.consoleSection {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.consoleSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.stepTitleGroup {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 32px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #64748b;
-  font-size: 0.78125rem;
-  font-weight: 550;
-  cursor: pointer;
+  gap: 8px;
 }
 
-.routeModeSwitch button.routeModeActive {
-  background: #ffffff;
-  color: #0f172a;
+.stepTag {
+  font-size: 0.65625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.consoleSectionHead h3 {
+  margin: 0;
+  font-size: 0.8125rem;
   font-weight: 650;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  color: #0f172a;
 }
 
-.routeMiniSearch {
+.modeToggleLink {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 8px;
+  border: 0;
+  background: transparent;
+  color: #1f64bd;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 5px;
+}
+
+.modeToggleLink:hover {
+  background: #eff6ff;
+}
+
+.routeListBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.consoleSearchRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 10px;
   border: 1px solid #d5dfeb;
-  border-radius: 6px;
-  background: #ffffff;
+  border-radius: 7px;
+  background: #f8fafc;
   color: #64748b;
 }
 
-.routeMiniSearch input {
+.consoleSearchRow input {
+  width: 100%;
   border: 0;
   outline: 0;
+  background: transparent;
   font-size: 0.75rem;
-  width: 130px;
   color: #0f172a;
 }
 
-.routesLoadingBox,
-.routesEmptyBox {
+.consoleEmptyBox {
   padding: 14px;
-  border: 1px solid #dde6ef;
+  border: 1px dashed #cbd5e1;
   border-radius: 8px;
   background: #f8fafc;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 6px;
-  font-size: 0.8125rem;
+  font-size: 0.78125rem;
   color: #64748b;
-  flex-direction: column;
 }
 
-.routePickerList {
+.consoleRouteList {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 155px;
+  max-height: 150px;
   overflow-y: auto;
-  padding: 6px;
-  border: 1px solid #dde6ef;
-  border-radius: 8px;
-  background: #f8fafc;
 }
 
-.routeOptionCard {
+.consoleRouteRow {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 10px 12px;
   border: 1px solid #dde6ef;
-  border-radius: 7px;
+  border-radius: 8px;
   background: #ffffff;
   text-align: left;
   cursor: pointer;
-  transition: border-color 140ms ease, background-color 140ms ease;
+  transition: border-color 130ms ease, background-color 130ms ease;
 }
 
-.routeOptionCard:hover {
+.consoleRouteRow:hover {
   border-color: #94a3b8;
+  background: #fafbfd;
 }
 
-.routeOptionSelected {
-  border-color: #10924d !important;
-  background: #f2fbf6 !important;
-  box-shadow: inset 0 0 0 1px #10924d;
+.consoleRouteRowSelected {
+  border-color: #0f172a;
+  background: #f8fafd;
+  box-shadow: inset 3px 0 0 #0f172a;
 }
 
-.routeOptionIcon {
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  background: #f1f5f9;
-  color: #475569;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-}
-
-.routeOptionSelected .routeOptionIcon {
-  background: #d1fae5;
-  color: #08783d;
-}
-
-.routeOptionLeft {
+.consoleRouteInfo {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  flex: 1;
 }
 
-.routeOptionLeft strong {
+.consoleRouteTop {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.routeCodePill {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #334155;
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.consoleRouteTop strong {
   font-size: 0.8125rem;
   font-weight: 650;
   color: #0f172a;
   text-transform: capitalize;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.routeOptionLeft span {
+.consoleRouteSub {
   font-size: 0.72rem;
   color: #64748b;
   font-variant-numeric: tabular-nums;
 }
 
-.routeOptionRight {
+.consoleRouteStatus {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
 }
 
-.routeStatusTag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+.statusTagPlain {
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: capitalize;
-  padding: 2px 8px;
-  border-radius: 999px;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+
+.selectedIndicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #0f172a;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+}
+
+.newRouteInputBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.strategyGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.strategyCard {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid #dde6ef;
+  border-radius: 8px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 130ms ease, background-color 130ms ease;
+}
+
+.strategyCard:hover {
+  border-color: #94a3b8;
+}
+
+.strategyCardSelected {
+  border-color: #0f172a;
+  background: #f8fafd;
+  box-shadow: inset 0 0 0 1px #0f172a;
+}
+
+.strategyHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #0f172a;
+  font-size: 0.78125rem;
+}
+
+.strategyHead strong {
+  font-weight: 650;
+  flex: 1;
+}
+
+.strategyCount {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  border-radius: 5px;
   background: #f1f5f9;
   color: #334155;
 }
 
-.routeStatusTag i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #10b869;
+.strategyCardSelected .strategyCount {
+  background: #0f172a;
+  color: #ffffff;
 }
 
-.routeCheckIcon {
-  color: #08783d;
+.strategyCard p {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.districtChecklistGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  max-height: 142px;
+  overflow-y: auto;
+}
+
+.districtCheckRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: #475569;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.districtCheckRow:hover {
+  border-color: #cbd5e1;
+}
+
+.districtCheckRowActive {
+  background: #f8fafd;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.districtCheckBox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.districtCheckRowActive .districtCheckBox {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+.districtCheckName {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.districtCheckMeta {
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+/* Right Executive Navy Telemetry Pane */
+.consolePreviewPane {
+  background: linear-gradient(180deg, #0d2138 0%, #091727 100%);
+  border-radius: 11px;
+  padding: 18px;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  border: 1px solid #1e354d;
+}
+
+.previewHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.previewEyebrow {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4ade80;
+}
+
+.previewTargetLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ffffff;
+  font-size: 0.84375rem;
+}
+
+.previewTargetLine strong {
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewHeroMetric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.previewHeroMetric span {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.previewHeroMetric strong {
+  font-size: 2rem;
+  font-weight: 750;
+  color: #ffffff;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.previewBreakdown {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.previewStatItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.previewStatItem span {
+  font-size: 0.65625rem;
+  color: #94a3b8;
+}
+
+.previewStatItem strong {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.previewPhoneWarning {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fde68a;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.previewSampleBox {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.previewSampleLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.sampleMultiTag {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+
+.previewSampleCard {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.sampleRow {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sampleRow small {
+  font-size: 0.625rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sampleRow strong,
+.sampleRow span,
+.sampleRow code {
+  font-size: 0.75rem;
+  color: #f8fafc;
+  font-family: inherit;
+  word-break: break-word;
+}
+
+.sampleRow code {
+  font-weight: 650;
+  color: #4ade80;
+  font-variant-numeric: tabular-nums;
+}
+
+.previewTrustNote {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  padding-top: 2px;
+}
+
+.selectionCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: #f0f6ff;
+  border: 1px solid #bfdbfe;
+  font-size: 0.78125rem;
+  color: #1e3a8a;
+  cursor: pointer;
+}
+
+.selectionCheckboxLabel input {
+  width: 15px;
+  height: 15px;
+  accent-color: #0f172a;
 }
 
 .selectionScopeBanner {
