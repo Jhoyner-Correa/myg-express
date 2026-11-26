@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { History, Eye, Trash2, ExternalLink, Calendar, Package, FileText, Loader2 } from 'lucide-react';
 import { Modal } from '../../../../components/ui/Modal/Modal';
 import { Button } from '../../../../components/ui/Button/Button';
+import { showConfirm, showToast } from '../../../../core/utils/toast';
 import { jntService } from '../jnt.service';
 import type { JntBatchHeader } from '../types';
 import styles from '../JntExpress.module.css';
@@ -43,13 +44,20 @@ export const JntBatchHistoryModal: React.FC<JntBatchHistoryModalProps> = ({
 
   const handleDelete = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm('¿Estás seguro de eliminar este lote importado de J&T Express?')) return;
+    const confirmed = await showConfirm({
+      title: 'Eliminar lote de J&T Express',
+      message: '¿Estás seguro de eliminar permanentemente este manifiesto importado y todas sus guías?',
+      confirmText: 'Eliminar lote',
+      type: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await jntService.deleteBatch(id);
       setBatches(prev => prev.filter(b => b.id !== id));
-    } catch (err: any) {
+      showToast('Lote eliminado del historial', 'success');
+    } catch (err: unknown) {
       console.error(err);
-      alert('Error al eliminar lote');
+      showToast('Error al eliminar lote', 'error');
     }
   };
 
