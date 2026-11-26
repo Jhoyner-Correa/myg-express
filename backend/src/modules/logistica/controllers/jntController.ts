@@ -306,13 +306,14 @@ export const listarRutasDisponiblesJnt = async (req: AuthRequest, res: Response)
   try {
     const sedeId = Number(req.user?.sede_id || 0);
     const isGlobal = !sedeId || isGlobalJntRole(req.user?.rol);
+    const hoy = businessDate();
 
     const baseSelect = `
       SELECT
         l.id,
         l.sede_id,
         s.nombre AS sede_nombre,
-        l.fecha,
+        DATE_FORMAT(l.fecha, '%Y-%m-%d') AS fecha,
         l.zona,
         l.nombre_lote,
         CASE WHEN l.estado = 'borrador' THEN 'pendiente' ELSE l.estado END AS estado,
@@ -321,14 +322,16 @@ export const listarRutasDisponiblesJnt = async (req: AuthRequest, res: Response)
       FROM lotes_carga l
       INNER JOIN sedes s ON s.id = l.sede_id
       WHERE l.fecha_eliminacion IS NULL
+        AND l.fecha = ?
         AND l.estado IN ('borrador', 'pendiente', 'procesando', 'pausado')
     `;
 
     const query = isGlobal
-      ? `${baseSelect} ORDER BY l.fecha DESC, l.id DESC LIMIT 80`
-      : `${baseSelect} AND l.sede_id = ? ORDER BY l.fecha DESC, l.id DESC LIMIT 80`;
+      ? `${baseSelect} ORDER BY l.id DESC LIMIT 50`
+      : `${baseSelect} AND l.sede_id = ? ORDER BY l.id DESC LIMIT 50`;
 
-    const [rows] = await pool.query(query, isGlobal ? [] : [sedeId]);
+    const params = isGlobal ? [hoy] : [hoy, sedeId];
+    const [rows] = await pool.query(query, params);
     return res.json({ ok: true, data: rows });
   } catch (error: any) {
     console.error('[jntController] listarRutasDisponiblesJnt error:', error);

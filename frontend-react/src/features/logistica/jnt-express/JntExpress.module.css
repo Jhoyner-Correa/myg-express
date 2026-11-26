@@ -1046,24 +1046,25 @@
 .formLabel { font-size: 0.78125rem; font-weight: 600; color: #334155; }
 .formInput { width: 100%; height: 36px; padding: 0 10px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.84375rem; color: #0f172a; background: #ffffff; outline: none; }
 .formInput:focus { border-color: #10924d; }
-.modeCards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.modeCard { border: 1px solid #e2e8f0; border-radius: 8px; padding: 11px; cursor: pointer; display: flex; align-items: flex-start; gap: 9px; background: #ffffff; }
-.modeCardActive { border-color: #10924d; background: #f0fdf4; box-shadow: 0 0 0 1px #10924d; }
-.modeIcon { color: #15803d; flex-shrink: 0; margin-top: 2px; }
-.modeContent { display: flex; flex-direction: column; gap: 2px; }
-.modeContent strong { font-size: 0.8125rem; color: #0f172a; }
-.modeContent span { font-size: 0.72rem; color: #64748b; line-height: 1.35; }
+.modeCards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.modeCard { border: 1px solid #d5dfeb; border-radius: 8px; padding: 10px 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; background: #ffffff; transition: border-color 140ms ease, background-color 140ms ease; }
+.modeCard:hover { border-color: #94a3b8; }
+.modeCardActive { border-color: #10924d; background: #f2fbf6; box-shadow: inset 0 0 0 1px #10924d; }
+.modeIcon { color: #08783d; flex-shrink: 0; }
+.modeContent { display: flex; flex-direction: column; gap: 1px; }
+.modeContent strong { font-size: 0.8125rem; font-weight: 600; color: #0f172a; }
+.modeContent span { font-size: 0.72rem; color: #64748b; }
 .districtHeader { display: flex; align-items: center; justify-content: space-between; }
 .linkButton { background: none; border: none; color: #1f64bd; font-size: 0.75rem; font-weight: 600; cursor: pointer; padding: 0; }
-.districtChips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 136px; overflow-y: auto; padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 7px; }
-.districtChip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 6px; border: 1px solid #d5dfeb; background: #ffffff; color: #334155; font-size: 0.75rem; font-weight: 500; cursor: pointer; }
-.districtChipActive { background: #10924d; border-color: #10924d; color: #ffffff; }
-.chipCount { background: rgba(0,0,0,0.08); padding: 1px 5px; border-radius: 4px; font-size: 0.6875rem; }
-.dispatchSummaryBox { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; }
-.summaryItem { display: flex; flex-direction: column; gap: 2px; text-align: center; }
-.summaryItem span { font-size: 0.65rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
-.summaryItem strong { font-size: 1rem; color: #0f172a; font-weight: 700; }
-.highlightText { color: #08783d !important; }
+.districtChips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 112px; overflow-y: auto; padding: 8px; background: #f8fafc; border: 1px solid #dde6ef; border-radius: 8px; }
+.districtChip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 6px; border: 1px solid #d5dfeb; background: #ffffff; color: #475569; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: all 120ms ease; }
+.districtChip:hover { border-color: #94a3b8; color: #0f172a; }
+.districtChipActive { background: #edf8f1; border-color: #86efac; color: #08783d; font-weight: 600; }
+.chipCount { background: #f1f5f9; color: #475569; padding: 1px 5px; border-radius: 4px; font-size: 0.6875rem; font-variant-numeric: tabular-nums; }
+.districtChipActive .chipCount { background: #d1fae5; color: #065f46; }
+.dispatchSummaryInline { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 9px 12px; background: #f8fafc; border: 1px solid #dde6ef; border-radius: 8px; font-size: 0.78125rem; color: #475569; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.dispatchSummaryInline strong { color: #0f172a; }
+.highlightText { color: #08783d !important; font-weight: 700; }
 .successContainer { text-align: center; padding: 1.25rem 1rem; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .successIcon { color: #10924d; }
 .successTitle { font-size: 1.125rem; font-weight: 700; color: #0f172a; margin: 0; }
@@ -1074,11 +1075,11 @@
 .routeModeSwitch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  padding: 4px;
+  gap: 4px;
+  padding: 3px;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
-  border-radius: 9px;
+  border-radius: 8px;
 }
 
 .routeModeSwitch button {
@@ -1086,20 +1087,21 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 34px;
+  height: 32px;
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #475569;
+  color: #64748b;
   font-size: 0.78125rem;
-  font-weight: 600;
+  font-weight: 550;
   cursor: pointer;
 }
 
 .routeModeSwitch button.routeModeActive {
   background: #ffffff;
   color: #0f172a;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+  font-weight: 650;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .routeMiniSearch {
@@ -1123,14 +1125,14 @@
 
 .routesLoadingBox,
 .routesEmptyBox {
-  padding: 16px;
-  border: 1px solid #e2e8f0;
+  padding: 14px;
+  border: 1px solid #dde6ef;
   border-radius: 8px;
   background: #f8fafc;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 0.8125rem;
   color: #64748b;
   flex-direction: column;
@@ -1140,10 +1142,10 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 185px;
+  max-height: 155px;
   overflow-y: auto;
-  padding: 4px;
-  border: 1px solid #e2e8f0;
+  padding: 6px;
+  border: 1px solid #dde6ef;
   border-radius: 8px;
   background: #f8fafc;
 }
@@ -1151,14 +1153,14 @@
 .routeOptionCard {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
   padding: 9px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #dde6ef;
   border-radius: 7px;
   background: #ffffff;
   text-align: left;
   cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
 }
 
 .routeOptionCard:hover {
@@ -1167,8 +1169,24 @@
 
 .routeOptionSelected {
   border-color: #10924d !important;
-  background: #f0fdf4 !important;
-  box-shadow: 0 0 0 1px #10924d;
+  background: #f2fbf6 !important;
+  box-shadow: inset 0 0 0 1px #10924d;
+}
+
+.routeOptionIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: #f1f5f9;
+  color: #475569;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.routeOptionSelected .routeOptionIcon {
+  background: #d1fae5;
+  color: #08783d;
 }
 
 .routeOptionLeft {
@@ -1176,12 +1194,14 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1;
 }
 
 .routeOptionLeft strong {
   font-size: 0.8125rem;
   font-weight: 650;
   color: #0f172a;
+  text-transform: capitalize;
 }
 
 .routeOptionLeft span {
@@ -1190,15 +1210,35 @@
   font-variant-numeric: tabular-nums;
 }
 
+.routeOptionRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .routeStatusTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 0.6875rem;
   font-weight: 600;
   text-transform: capitalize;
-  padding: 2px 7px;
-  border-radius: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
   background: #f1f5f9;
   color: #334155;
-  flex-shrink: 0;
+}
+
+.routeStatusTag i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b869;
+}
+
+.routeCheckIcon {
+  color: #08783d;
 }
 
 .selectionScopeBanner {

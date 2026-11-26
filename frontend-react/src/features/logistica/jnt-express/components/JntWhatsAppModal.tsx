@@ -8,7 +8,8 @@ import {
   Package,
   MapPin,
   PlusCircle,
-  Search
+  Search,
+  Check
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../../../components/ui/Modal/Modal';
@@ -24,6 +25,20 @@ interface JntWhatsAppModalProps {
   batchId: number;
   selectedGuias?: string[];
   onSentSuccess?: (result: JntSendToRouteResult) => void;
+}
+
+function formatRouteDateLabel(rawDate: string): string {
+  const isoDay = String(rawDate || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDay)) return 'Hoy';
+  const todayIso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Lima',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+  if (isoDay === todayIso) return 'Hoy';
+  const [y, m, d] = isoDay.split('-');
+  return `${d}/${m}/${y}`;
 }
 
 export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
@@ -57,6 +72,7 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
     if (!isOpen) return;
     setError(null);
     setSuccessResult(null);
+    setRouteSearch('');
     setUseSelectionOnly(selectedGuias.length > 0);
     setSelectedDistritos(Object.keys(batchData.distritos || {}));
     setNombreRuta(cleanBatchBaseName);
@@ -131,7 +147,7 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
 
   const handleSubmit = async () => {
     if (targetMode === 'existing' && !selectedRouteId) {
-      setError('Selecciona una ruta destino disponible o cambia a "Crear ruta nueva".');
+      setError('Selecciona una ruta disponible de hoy o crea una nueva.');
       return;
     }
     if (targetMode === 'new' && !nombreRuta.trim()) {
@@ -139,7 +155,7 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
       return;
     }
     if (!useSelectionOnly && selectedDistritos.length === 0) {
-      setError('Debes seleccionar al menos un distrito para enviar.');
+      setError('Debes seleccionar al menos un distrito.');
       return;
     }
     if (paquetesFiltrados.length === 0) {
@@ -172,48 +188,72 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
     }
   };
 
+  const modalFooter = successResult ? (
+    <>
+      <Button variant="secondary" size="sm" onClick={onClose}>
+        Cerrar
+      </Button>
+      <Button
+        variant="primary"
+        size="sm"
+        icon={<Send size={14} />}
+        onClick={() => {
+          onClose();
+          navigate(`/rutas/${successResult.lote_carga_id}`);
+        }}
+      >
+        Abrir Ruta en Logística
+      </Button>
+    </>
+  ) : (
+    <>
+      <Button variant="secondary" size="sm" onClick={onClose} disabled={loading}>
+        Cancelar
+      </Button>
+      <Button
+        variant="primary"
+        size="sm"
+        icon={<Send size={14} />}
+        loading={loading}
+        onClick={handleSubmit}
+        disabled={loading || paquetesFiltrados.length === 0 || (targetMode === 'existing' && !selectedRouteId)}
+      >
+        {loading
+          ? 'Enviando...'
+          : targetMode === 'existing'
+            ? 'Mandar a Ruta'
+            : 'Crear Ruta y Mandar'}
+      </Button>
+    </>
+  );
+
   return (
     <Modal
       open={isOpen}
       onClose={loading ? () => {} : onClose}
       title="Mandar Paquetes a Ruta"
+      description="Asigna estos paquetes a una ruta de hoy o crea una nueva para despacho."
+      icon={<Send />}
+      maxWidth={600}
+      footer={modalFooter}
     >
       <div className={styles.modalBody}>
         {successResult ? (
           <div className={styles.successContainer}>
-            <CheckCircle2 size={48} className={styles.successIcon} />
+            <CheckCircle2 size={44} className={styles.successIcon} />
             <h3 className={styles.successTitle}>
-              {successResult.total_avisos > 0 ? 'Paquetes enviados a la ruta' : 'Sin cambios nuevos'}
+              {successResult.total_avisos > 0 ? 'Paquetes enviados a la ruta' : 'Sin registros nuevos'}
             </h3>
             <p className={styles.successDescription}>
               Ruta destino: <strong>{successResult.nombre_ruta}</strong> (MYG-{successResult.lote_carga_id}).
               <br />
               Se agregaron <strong>{successResult.total_avisos}</strong> avisos
-              {successResult.omitidos > 0 && ` (${successResult.omitidos} omitidos por estar ya en la ruta)`}.
+              {successResult.omitidos > 0 && ` (${successResult.omitidos} omitidos por estar ya registrados)`}.
             </p>
-            <div className={styles.successActions}>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  onClose();
-                  navigate(`/rutas/${successResult.lote_carga_id}`);
-                }}
-              >
-                <Send size={15} />
-                Abrir Ruta en Logística
-              </Button>
-              <Button variant="ghost" onClick={onClose}>
-                Cerrar
-              </Button>
-            </div>
           </div>
         ) : (
           <>
-            <p className={styles.modalDescription}>
-              Elige una ruta existente creada en el módulo <strong>Rutas</strong> o crea una nueva para despachar los avisos de WhatsApp.
-            </p>
-
-            {/* Target Route Mode Switch */}
+            {/* Segmented Mode Switch */}
             <div className={styles.routeModeSwitch} role="tablist" aria-label="Destino de ruta">
               <button
                 type="button"
@@ -224,7 +264,7 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
                 disabled={loading}
               >
                 <MapPin size={14} />
-                <span>Ruta existente ({availableRoutes.length})</span>
+                <span>Ruta de hoy ({availableRoutes.length})</span>
               </button>
               <button
                 type="button"
@@ -242,8 +282,8 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
             {targetMode === 'existing' ? (
               <div className={styles.formGroup}>
                 <div className={styles.districtHeader}>
-                  <label className={styles.formLabel}>Rutas disponibles en el módulo Rutas:</label>
-                  {availableRoutes.length > 5 && (
+                  <label className={styles.formLabel}>Rutas disponibles de hoy</label>
+                  {availableRoutes.length > 4 && (
                     <div className={styles.routeMiniSearch}>
                       <Search size={12} />
                       <input
@@ -260,17 +300,17 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
                 {loadingRoutes ? (
                   <div className={styles.routesLoadingBox}>
                     <Loader2 size={16} className={styles.spinner} />
-                    <span>Cargando rutas disponibles...</span>
+                    <span>Consultando rutas de hoy...</span>
                   </div>
                 ) : filteredRoutes.length === 0 ? (
                   <div className={styles.routesEmptyBox}>
-                    <p>No hay rutas activas o pendientes disponibles.</p>
+                    <p>No hay rutas creadas para hoy todavía.</p>
                     <button
                       type="button"
                       className={styles.linkButton}
                       onClick={() => setTargetMode('new')}
                     >
-                      Crear ruta nueva aquí
+                      Crear una ruta nueva aquí
                     </button>
                   </div>
                 ) : (
@@ -287,14 +327,23 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
                           onClick={() => setSelectedRouteId(route.id)}
                           disabled={loading}
                         >
+                          <div className={styles.routeOptionIcon}>
+                            <MapPin size={15} />
+                          </div>
                           <div className={styles.routeOptionLeft}>
                             <strong>{route.nombre_lote}</strong>
                             <span>
-                              MYG-{route.id} · {route.fecha} · {route.total_registros} {route.total_registros === 1 ? 'registro' : 'registros'}
+                              MYG-{route.id} · {formatRouteDateLabel(route.fecha)} · {route.total_registros} {route.total_registros === 1 ? 'registro' : 'registros'}
                               {route.sede_nombre ? ` · ${route.sede_nombre}` : ''}
                             </span>
                           </div>
-                          <span className={styles.routeStatusTag}>{route.estado}</span>
+                          <div className={styles.routeOptionRight}>
+                            <span className={styles.routeStatusTag}>
+                              <i />
+                              {route.estado}
+                            </span>
+                            {isSelected && <Check size={15} className={styles.routeCheckIcon} />}
+                          </div>
                         </button>
                       );
                     })}
@@ -303,14 +352,14 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
               </div>
             ) : (
               <div className={styles.formGroup}>
-                <label className={styles.formLabel} htmlFor="jnt-new-route-name">Nombre de la nueva ruta:</label>
+                <label className={styles.formLabel} htmlFor="jnt-new-route-name">Nombre de la nueva ruta</label>
                 <input
                   id="jnt-new-route-name"
                   type="text"
                   className={styles.formInput}
                   value={nombreRuta}
                   onChange={e => setNombreRuta(e.target.value)}
-                  placeholder="Ej. J&T Express Satipo y Mazamari"
+                  placeholder="Ej. J&T Express Satipo"
                   disabled={loading}
                 />
               </div>
@@ -318,16 +367,16 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
 
             {/* Grouping mode */}
             <div className={styles.formGroup}>
-              <label className={styles.formLabel}>Modo de envío por cliente:</label>
+              <label className={styles.formLabel}>Modo de agrupación</label>
               <div className={styles.modeCards}>
                 <div
                   className={`${styles.modeCard} ${modoAgrupacion === 'individual' ? styles.modeCardActive : ''}`}
                   onClick={() => !loading && setModoAgrupacion('individual')}
                 >
-                  <Package size={20} className={styles.modeIcon} />
+                  <Package size={18} className={styles.modeIcon} />
                   <div className={styles.modeContent}>
                     <strong>1 aviso por paquete</strong>
-                    <span>Envía un aviso separado por cada guía ({paquetesFiltrados.length}).</span>
+                    <span>Individual ({paquetesFiltrados.length} avisos)</span>
                   </div>
                 </div>
 
@@ -335,16 +384,15 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
                   className={`${styles.modeCard} ${modoAgrupacion === 'agrupado_por_cliente' ? styles.modeCardActive : ''}`}
                   onClick={() => !loading && setModoAgrupacion('agrupado_por_cliente')}
                 >
-                  <Users size={20} className={styles.modeIcon} />
+                  <Users size={18} className={styles.modeIcon} />
                   <div className={styles.modeContent}>
                     <strong>Agrupar por consignado</strong>
-                    <span>Consolida múltiples guías en 1 mensaje ({clientesFiltrados}).</span>
+                    <span>Consolidado ({clientesFiltrados} avisos)</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Scope: Either selected rows OR district chips */}
             {selectedGuias.length > 0 && (
               <div className={styles.selectionScopeBanner}>
                 <label className={styles.selectionCheckboxLabel}>
@@ -354,7 +402,7 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
                     onChange={e => setUseSelectionOnly(e.target.checked)}
                     disabled={loading}
                   />
-                  <span>Enviar solo los <strong>{selectedGuias.length}</strong> paquetes marcados en la tabla</span>
+                  <span>Enviar únicamente los <strong>{selectedGuias.length}</strong> paquetes marcados en la tabla</span>
                 </label>
               </div>
             )}
@@ -362,7 +410,7 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
             {!useSelectionOnly && (
               <div className={styles.formGroup}>
                 <div className={styles.districtHeader}>
-                  <label className={styles.formLabel}>Filtrar por distrito:</label>
+                  <label className={styles.formLabel}>Distritos a incluir</label>
                   <button
                     type="button"
                     className={styles.linkButton}
@@ -393,52 +441,26 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
               </div>
             )}
 
-            <div className={styles.dispatchSummaryBox}>
-              <div className={styles.summaryItem}>
-                <span>Paquetes</span>
-                <strong>{paquetesFiltrados.length}</strong>
-              </div>
-              <div className={styles.summaryItem}>
-                <span>Consignados</span>
-                <strong>{clientesFiltrados}</strong>
-              </div>
-              <div className={styles.summaryItem}>
-                <span>Avisos a generar</span>
+            {/* Clean inline summary strip */}
+            <div className={styles.dispatchSummaryInline}>
+              <span>Paquetes: <strong>{paquetesFiltrados.length}</strong></span>
+              <span>·</span>
+              <span>Consignados: <strong>{clientesFiltrados}</strong></span>
+              <span>·</span>
+              <span>
+                Avisos a generar:{' '}
                 <strong className={styles.highlightText}>
                   {modoAgrupacion === 'individual' ? paquetesFiltrados.length : clientesFiltrados}
                 </strong>
-              </div>
+              </span>
             </div>
 
             {error && (
               <div className={styles.errorMessage}>
-                <AlertCircle size={17} />
+                <AlertCircle size={16} />
                 <span>{error}</span>
               </div>
             )}
-
-            <div className={styles.modalActions}>
-              <Button variant="ghost" onClick={onClose} disabled={loading}>
-                Cancelar
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleSubmit}
-                disabled={loading || paquetesFiltrados.length === 0 || (targetMode === 'existing' && !selectedRouteId)}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 size={15} className={styles.spinner} />
-                    Enviando a ruta...
-                  </>
-                ) : (
-                  <>
-                    <Send size={15} />
-                    {targetMode === 'existing' ? 'Mandar a Ruta Seleccionada' : 'Crear Ruta y Mandar'}
-                  </>
-                )}
-              </Button>
-            </div>
           </>
         )}
       </div>
