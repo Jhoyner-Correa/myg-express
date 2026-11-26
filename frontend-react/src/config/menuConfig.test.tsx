@@ -75,4 +75,12 @@ describe('sidebarMenuConfig', () => {
     expect(audit?.permission).toBe('urbano.despachos.ver');
     expect(audit?.group).toBe('administration');
   });
+
+  it('registra J&T Express bajo herramientas con permiso propio', () => {
+    const jnt = sidebarMenuConfig.find(item => item.path === '/logistica/jnt');
+
+    expect(jnt?.title).toBe('J&T Express');
+    expect(jnt?.permission).toBe('jnt.ver');
+    expect(jnt?.group).toBe('tools');
+  });
 });

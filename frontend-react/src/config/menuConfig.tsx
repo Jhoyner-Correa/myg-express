@@ -6,6 +6,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   MapPinned,
+  Package,
   Printer,
   Settings2,
   Truck,
@@ -92,6 +93,13 @@ export const sidebarMenuConfig: MenuItem[] = [
         <path d="M3 5v14M21 5v14M7 5v14M17 5v14M11 5v14M14 5v14" />
       </svg>
     )
+  },
+  {
+    title: 'J&T Express',
+    path: '/logistica/jnt',
+    permission: 'jnt.ver',
+    group: 'tools',
+    icon: <Package aria-hidden="true" />,
   },
   {
     title: 'Recursos Humanos',

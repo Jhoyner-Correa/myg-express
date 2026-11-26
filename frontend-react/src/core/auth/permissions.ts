@@ -17,6 +17,8 @@ export const PERMISSIONS = {
   PRINTING_MANAGE: 'impresion.gestionar',
   SAVAR_SCAN_VIEW: 'savarscan.ver',
   SAVAR_SCAN_MANAGE: 'savarscan.gestionar',
+  JNT_VIEW: 'jnt.ver',
+  JNT_MANAGE: 'jnt.gestionar',
   RRHH_VIEW: 'rrhh.ver',
   RRHH_MANAGE: 'rrhh.gestionar',
   RRHH_ATTENDANCE_MANAGE: 'rrhh.asistencia.gestionar',
