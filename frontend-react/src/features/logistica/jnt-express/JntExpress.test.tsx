@@ -24,6 +24,7 @@ vi.mock('./jnt.service', () => ({
     renameBatch: vi.fn(),
     deleteBatch: vi.fn(),
     uploadPdf: vi.fn(),
+    listAvailableRoutes: vi.fn(),
     createWhatsAppRoute: vi.fn(),
   },
 }));
@@ -135,8 +136,29 @@ describe('JntExpress Component', () => {
       expect(screen.getByText('JPE00001')).toBeInTheDocument();
       expect(screen.getByText('JPE00002')).toBeInTheDocument();
       expect(screen.getAllByText('MARIO VARGAS')[0]).toBeInTheDocument();
-      expect(screen.getByText('Enviar WhatsApp')).toBeInTheDocument();
+      expect(screen.getByText('Mandar a Ruta')).toBeInTheDocument();
     });
+
+    vi.mocked(jntService.listAvailableRoutes).mockResolvedValueOnce([
+      {
+        id: 77,
+        sede_id: 1,
+        sede_nombre: 'LA MERCED',
+        fecha: '2026-11-26',
+        zona: 'Satipo',
+        nombre_lote: 'Satipo Tarde',
+        estado: 'pendiente',
+        total_registros: 0,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    fireEvent.click(screen.getByText('Mandar a Ruta'));
+    await waitFor(() => {
+      expect(screen.getByText('Mandar Paquetes a Ruta')).toBeInTheDocument();
+      expect(screen.getByText('Satipo Tarde')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('Cancelar'));
 
     fireEvent.click(screen.getByText('JPE00001'));
     await waitFor(() => {

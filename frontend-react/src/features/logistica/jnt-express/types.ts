@@ -50,11 +50,32 @@ export interface JntBatchDetailData {
   consignados: JntConsigneeGroup[];
 }
 
+export interface JntAvailableRoute {
+  id: number;
+  sede_id: number;
+  sede_nombre?: string;
+  fecha: string;
+  zona?: string;
+  nombre_lote: string;
+  estado: string;
+  total_registros: number;
+  created_at: string;
+}
+
 export interface JntWhatsAppCreatePayload {
   lote_jnt_id: number;
+  lote_destino_id?: number | null;
   nombre_lote?: string;
   modo_agrupacion: 'individual' | 'agrupado_por_cliente';
   id_plantilla?: number | null;
   mensaje_personalizado?: string | null;
   distritos_filtro?: string[];
+  guias_seleccionadas?: string[];
+}
+
+export interface JntSendToRouteResult {
+  lote_carga_id: number;
+  nombre_ruta: string;
+  total_avisos: number;
+  omitidos: number;
 }

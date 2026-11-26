@@ -6,6 +6,7 @@ import {
   obtenerDetalleLoteJnt,
   renombrarLoteJnt,
   eliminarLoteJnt,
+  listarRutasDisponiblesJnt,
   crearLoteWhatsAppDesdeJnt
 } from '../controllers/jntController';
 import { verificarToken } from '../../../core/middlewares/authMiddleware';
@@ -41,6 +42,12 @@ router.get(
   '/lotes',
   requirePermission(PERMISSIONS.JNT_VIEW),
   listarLotesJnt
+);
+
+router.get(
+  '/rutas-disponibles',
+  requirePermission(PERMISSIONS.JNT_VIEW),
+  listarRutasDisponiblesJnt
 );
 
 router.get(

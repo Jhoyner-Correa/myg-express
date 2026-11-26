@@ -498,7 +498,7 @@ export const JntExpress: React.FC = () => {
                 onClick={() => setShowWhatsAppModal(true)}
                 disabled={loading}
               >
-                Enviar WhatsApp
+                Mandar a Ruta
               </Button>
             )}
           </div>
@@ -651,6 +651,9 @@ export const JntExpress: React.FC = () => {
             {selectedGuias.size > 0 && activeTab === 'todos' && (
               <div className={styles.bulkActionStrip}>
                 <span><strong>{selectedGuias.size}</strong> seleccionados</span>
+                <button type="button" onClick={() => setShowWhatsAppModal(true)}>
+                  <Send size={13} /> Mandar a ruta
+                </button>
                 <button type="button" onClick={handleCopySelectedGuias}>
                   <Copy size={13} /> Copiar guías
                 </button>
@@ -1045,6 +1048,17 @@ export const JntExpress: React.FC = () => {
           onClose={() => setShowWhatsAppModal(false)}
           batchData={batchData}
           batchId={activeBatchId}
+          selectedGuias={Array.from(selectedGuias)}
+          onSentSuccess={(res) => {
+            setBatchData(prev => (prev?.lote ? {
+              ...prev,
+              lote: {
+                ...prev.lote,
+                lote_carga_id: res.lote_carga_id,
+                ruta_whatsapp_nombre: res.nombre_ruta
+              }
+            } : prev));
+          }}
         />
       )}
     </main>

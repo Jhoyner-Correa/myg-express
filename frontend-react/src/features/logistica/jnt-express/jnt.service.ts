@@ -2,8 +2,10 @@ import apiClient from '../../../core/api/apiClient';
 import type { ApiEnvelope } from '../../../core/api/types';
 import { unwrapApiData } from '../../../core/api/types';
 import type {
+  JntAvailableRoute,
   JntBatchDetailData,
   JntBatchHeader,
+  JntSendToRouteResult,
   JntWhatsAppCreatePayload
 } from './types';
 
@@ -54,14 +56,21 @@ export const jntService = {
     await apiClient.delete(`/jnt/lotes/${id}`);
   },
 
-  async createWhatsAppRoute(payload: JntWhatsAppCreatePayload): Promise<{ lote_carga_id: number; total_avisos: number }> {
-    const response = await apiClient.post<ApiEnvelope<unknown> & { lote_carga_id: number; total_avisos: number }>(
+  async listAvailableRoutes(signal?: AbortSignal): Promise<JntAvailableRoute[]> {
+    const response = await apiClient.get<ApiEnvelope<JntAvailableRoute[]>>('/jnt/rutas-disponibles', { signal });
+    return unwrapApiData(response.data, []);
+  },
+
+  async createWhatsAppRoute(payload: JntWhatsAppCreatePayload): Promise<JntSendToRouteResult> {
+    const response = await apiClient.post<ApiEnvelope<unknown> & JntSendToRouteResult>(
       '/jnt/crear-lote-whatsapp',
       payload
     );
     return {
       lote_carga_id: response.data.lote_carga_id,
-      total_avisos: response.data.total_avisos
+      nombre_ruta: response.data.nombre_ruta || payload.nombre_lote || 'Ruta J&T',
+      total_avisos: response.data.total_avisos,
+      omitidos: Number(response.data.omitidos || 0)
     };
   }
 };

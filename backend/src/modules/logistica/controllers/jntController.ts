@@ -302,16 +302,52 @@ export const eliminarLoteJnt = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const listarRutasDisponiblesJnt = async (req: AuthRequest, res: Response) => {
+  try {
+    const sedeId = Number(req.user?.sede_id || 0);
+    const isGlobal = !sedeId || isGlobalJntRole(req.user?.rol);
+
+    const baseSelect = `
+      SELECT
+        l.id,
+        l.sede_id,
+        s.nombre AS sede_nombre,
+        l.fecha,
+        l.zona,
+        l.nombre_lote,
+        CASE WHEN l.estado = 'borrador' THEN 'pendiente' ELSE l.estado END AS estado,
+        (SELECT COUNT(*) FROM avisos_diarios a WHERE a.lote_id = l.id AND a.sede_id = l.sede_id) AS total_registros,
+        l.created_at
+      FROM lotes_carga l
+      INNER JOIN sedes s ON s.id = l.sede_id
+      WHERE l.fecha_eliminacion IS NULL
+        AND l.estado IN ('borrador', 'pendiente', 'procesando', 'pausado')
+    `;
+
+    const query = isGlobal
+      ? `${baseSelect} ORDER BY l.fecha DESC, l.id DESC LIMIT 80`
+      : `${baseSelect} AND l.sede_id = ? ORDER BY l.fecha DESC, l.id DESC LIMIT 80`;
+
+    const [rows] = await pool.query(query, isGlobal ? [] : [sedeId]);
+    return res.json({ ok: true, data: rows });
+  } catch (error: any) {
+    console.error('[jntController] listarRutasDisponiblesJnt error:', error);
+    return res.status(500).json({ ok: false, message: 'Error al consultar rutas disponibles' });
+  }
+};
+
 export const crearLoteWhatsAppDesdeJnt = async (req: AuthRequest, res: Response) => {
   const connection = await pool.getConnection();
   try {
     const {
       lote_jnt_id,
+      lote_destino_id,
       nombre_lote,
       modo_agrupacion = 'individual',
       id_plantilla,
       mensaje_personalizado,
-      distritos_filtro
+      distritos_filtro,
+      guias_seleccionadas
     } = req.body;
 
     const loteJntId = Number(lote_jnt_id);
@@ -319,8 +355,8 @@ export const crearLoteWhatsAppDesdeJnt = async (req: AuthRequest, res: Response)
       return res.status(400).json({ ok: false, message: 'lote_jnt_id es obligatorio' });
     }
 
-    const sedeId = requireSede(req, res);
-    if (!sedeId) return;
+    const userSedeId = Number(req.user?.sede_id || 0);
+    const isGlobal = !userSedeId || isGlobalJntRole(req.user?.rol);
     const userId = Number(req.user?.id);
 
     // Verify J&T batch exists
@@ -333,11 +369,21 @@ export const crearLoteWhatsAppDesdeJnt = async (req: AuthRequest, res: Response)
       return res.status(404).json({ ok: false, message: 'Lote J&T no encontrado' });
     }
 
+    if (!isGlobal && Number(loteJnt.sede_id) !== userSedeId) {
+      return res.status(403).json({ ok: false, message: 'No tienes acceso a este manifiesto J&T' });
+    }
+
     // Fetch packages
     let queryPaquetes = `SELECT * FROM jnt_paquetes WHERE lote_jnt_id = ?`;
     const queryParams: any[] = [loteJntId];
 
-    if (Array.isArray(distritos_filtro) && distritos_filtro.length > 0) {
+    if (Array.isArray(guias_seleccionadas) && guias_seleccionadas.length > 0) {
+      const cleanGuias = guias_seleccionadas.map((g: unknown) => String(g || '').trim()).filter(Boolean);
+      if (cleanGuias.length > 0) {
+        queryPaquetes += ` AND guia IN (?)`;
+        queryParams.push(cleanGuias);
+      }
+    } else if (Array.isArray(distritos_filtro) && distritos_filtro.length > 0) {
       queryPaquetes += ` AND distrito IN (?)`;
       queryParams.push(distritos_filtro);
     }
@@ -346,49 +392,105 @@ export const crearLoteWhatsAppDesdeJnt = async (req: AuthRequest, res: Response)
     const [paquetes]: any = await connection.query(queryPaquetes, queryParams);
 
     if (paquetes.length === 0) {
-      return res.status(400).json({ ok: false, message: 'No hay paquetes que coincidan con los filtros seleccionados' });
+      return res.status(400).json({ ok: false, message: 'No hay paquetes que coincidan con la selección o filtros' });
     }
 
     await connection.beginTransaction();
 
-    // 1. Create route in lotes_carga
-    const routeName = (nombre_lote || `J&T Express ${businessDate()}`).trim();
-    const [loteCargaRes]: any = await connection.query(
-      `INSERT INTO lotes_carga (sede_id, id_usuario_creador, fecha, zona, nombre_lote, estado)
-       VALUES (?, ?, ?, 'J&T Express', ?, 'pendiente')`,
-      [sedeId, userId, businessDate(), routeName]
-    );
-    const newLoteCargaId = loteCargaRes.insertId;
+    let targetLoteId = Number(lote_destino_id || 0);
+    let targetSedeId = Number(loteJnt.sede_id || userSedeId);
+    let routeName = '';
 
-    // Link in jnt_lotes
+    if (targetLoteId > 0) {
+      const [[existingLote]]: any = await connection.query(
+        `SELECT id, sede_id, nombre_lote, estado
+         FROM lotes_carga
+         WHERE id = ? AND fecha_eliminacion IS NULL
+         LIMIT 1
+         FOR UPDATE`,
+        [targetLoteId]
+      );
+
+      if (!existingLote) {
+        await connection.rollback();
+        return res.status(404).json({ ok: false, message: 'La ruta destino seleccionada no existe o fue eliminada' });
+      }
+
+      if (!isGlobal && Number(existingLote.sede_id) !== userSedeId) {
+        await connection.rollback();
+        return res.status(403).json({ ok: false, message: 'La ruta destino pertenece a otra sede' });
+      }
+
+      if (existingLote.estado === 'cancelado' || existingLote.estado === 'completado') {
+        await connection.rollback();
+        return res.status(409).json({ ok: false, message: `La ruta "${existingLote.nombre_lote}" ya está ${existingLote.estado} y no admite nuevos envíos` });
+      }
+
+      targetSedeId = Number(existingLote.sede_id);
+      routeName = String(existingLote.nombre_lote || `Ruta #${targetLoteId}`);
+    } else {
+      routeName = cleanJntText(nombre_lote, 160) || `J&T Express ${businessDate()}`;
+      const [loteCargaRes]: any = await connection.query(
+        `INSERT INTO lotes_carga (sede_id, id_usuario_creador, fecha, zona, nombre_lote, estado)
+         VALUES (?, ?, ?, 'J&T Express', ?, 'pendiente')`,
+        [targetSedeId, userId, businessDate(), routeName]
+      );
+      targetLoteId = loteCargaRes.insertId;
+    }
+
+    // Link latest destination route on jnt_lotes
     await connection.query(
       `UPDATE jnt_lotes SET lote_carga_id = ? WHERE id = ?`,
-      [newLoteCargaId, loteJntId]
+      [targetLoteId, loteJntId]
     );
+
+    // Fetch existing package codes in destination route for deduplication
+    const existingCodes = new Set<string>();
+    const [existingRows]: any = await connection.query(
+      `SELECT codigo_paquete FROM avisos_diarios WHERE lote_id = ? AND sede_id = ? AND codigo_paquete IS NOT NULL`,
+      [targetLoteId, targetSedeId]
+    );
+    for (const row of existingRows) {
+      String(row.codigo_paquete || '')
+        .split(',')
+        .map((c: string) => c.trim().toUpperCase())
+        .filter(Boolean)
+        .forEach((c: string) => existingCodes.add(c));
+    }
 
     // 2. Prepare avisos_diarios
     const avisosToInsert: any[][] = [];
+    let omitidos = 0;
 
     if (modo_agrupacion === 'agrupado_por_cliente') {
       const clientMap = new Map<string, any[]>();
       for (const p of paquetes) {
-        const key = `${p.consignado.toUpperCase().trim()}|${p.telefono}`;
+        const key = `${String(p.consignado || '').toUpperCase().trim()}|${p.telefono || ''}`;
         if (!clientMap.has(key)) clientMap.set(key, []);
         clientMap.get(key)!.push(p);
       }
 
       for (const [, clientPkgs] of clientMap.entries()) {
-        const first = clientPkgs[0];
-        const guias = clientPkgs.map(p => p.guia).join(', ');
-        const totalPiezas = clientPkgs.reduce((acc, p) => acc + (Number(p.piezas) || 1), 0);
-        const totalPeso = clientPkgs.reduce((acc, p) => acc + (Number(p.peso_kg) || 0), 0);
-        const contenidos = Array.from(new Set(clientPkgs.map(p => p.contenido).filter(Boolean))).join(', ');
+        const freshPkgs = clientPkgs.filter(p => !existingCodes.has(String(p.guia || '').trim().toUpperCase()));
+        if (freshPkgs.length === 0) {
+          omitidos += clientPkgs.length;
+          continue;
+        }
+        omitidos += (clientPkgs.length - freshPkgs.length);
+
+        const first = freshPkgs[0];
+        const guias = freshPkgs.map(p => p.guia).join(', ').slice(0, 100);
+        const totalPiezas = freshPkgs.reduce((acc, p) => acc + (Number(p.piezas) || 1), 0);
+        const totalPeso = freshPkgs.reduce((acc, p) => acc + (Number(p.peso_kg) || 0), 0);
+        const contenidos = Array.from(new Set(freshPkgs.map(p => p.contenido).filter(Boolean))).join(', ').slice(0, 255);
+        const telefonoClean = String(first.telefono || '').replace(/\D/g, '').slice(0, 20);
+        const estadoAviso = telefonoClean.length >= 9 ? 'pendiente' : 'sin_whatsapp';
 
         avisosToInsert.push([
-          newLoteCargaId,
-          sedeId,
-          first.consignado,
-          first.telefono,
+          targetLoteId,
+          targetSedeId,
+          cleanJntText(first.consignado, 120) || null,
+          telefonoClean,
           guias,
           totalPeso > 0 ? totalPeso : null,
           'J&T Express',
@@ -396,25 +498,33 @@ export const crearLoteWhatsAppDesdeJnt = async (req: AuthRequest, res: Response)
           contenidos || null,
           id_plantilla || null,
           mensaje_personalizado || null,
-          'pendiente',
+          estadoAviso,
           'pendiente'
         ]);
       }
     } else {
       for (const p of paquetes) {
+        const codeUpper = String(p.guia || '').trim().toUpperCase();
+        if (codeUpper && existingCodes.has(codeUpper)) {
+          omitidos++;
+          continue;
+        }
+        const telefonoClean = String(p.telefono || '').replace(/\D/g, '').slice(0, 20);
+        const estadoAviso = telefonoClean.length >= 9 ? 'pendiente' : 'sin_whatsapp';
+
         avisosToInsert.push([
-          newLoteCargaId,
-          sedeId,
-          p.consignado,
-          p.telefono,
-          p.guia,
+          targetLoteId,
+          targetSedeId,
+          cleanJntText(p.consignado, 120) || null,
+          telefonoClean,
+          String(p.guia || '').slice(0, 100),
           p.peso_kg,
           'J&T Express',
           p.piezas || 1,
-          p.contenido || null,
+          p.contenido ? cleanJntText(p.contenido, 255) : null,
           id_plantilla || null,
           mensaje_personalizado || null,
-          'pendiente',
+          estadoAviso,
           'pendiente'
         ]);
       }
@@ -434,18 +544,25 @@ export const crearLoteWhatsAppDesdeJnt = async (req: AuthRequest, res: Response)
 
     await connection.commit();
 
-    return res.status(201).json({
+    const wasExisting = Number(lote_destino_id || 0) > 0;
+    return res.status(avisosToInsert.length > 0 ? 201 : 200).json({
       ok: true,
-      message: `Ruta "${routeName}" creada con éxito con ${avisosToInsert.length} avisos de WhatsApp listos para despachar`,
-      lote_carga_id: newLoteCargaId,
-      total_avisos: avisosToInsert.length
+      message: avisosToInsert.length > 0
+        ? (wasExisting
+          ? `Se enviaron ${avisosToInsert.length} avisos a la ruta "${routeName}"${omitidos > 0 ? ` (${omitidos} ya existían)` : ''}`
+          : `Ruta "${routeName}" creada con ${avisosToInsert.length} avisos listos`)
+        : `Todas las guías seleccionadas ya estaban registradas en "${routeName}"`,
+      lote_carga_id: targetLoteId,
+      nombre_ruta: routeName,
+      total_avisos: avisosToInsert.length,
+      omitidos
     });
   } catch (error: any) {
     await connection.rollback();
     console.error('[jntController] crearLoteWhatsAppDesdeJnt error:', error);
     return res.status(500).json({
       ok: false,
-      message: 'Error al crear ruta para WhatsApp: ' + (error.message || 'Error interno')
+      message: 'Error al enviar paquetes a la ruta: ' + (error.message || 'Error interno')
     });
   } finally {
     connection.release();
