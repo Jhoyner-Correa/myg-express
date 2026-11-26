@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { JntExpress } from './JntExpress';
@@ -135,6 +135,12 @@ describe('JntExpress Component', () => {
       expect(screen.getByText('JPE00002')).toBeInTheDocument();
       expect(screen.getAllByText('MARIO VARGAS')[0]).toBeInTheDocument();
       expect(screen.getByText('Enviar WhatsApp')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('JPE00001'));
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: 'Detalle de guía JPE00001' })).toBeInTheDocument();
+      expect(screen.getByText('Enviar aviso por WhatsApp')).toBeInTheDocument();
     });
   });
 });

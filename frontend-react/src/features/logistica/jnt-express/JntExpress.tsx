@@ -13,18 +13,18 @@ import {
   ChevronLeft,
   ChevronRight,
   Phone,
-  PhoneOff,
   FileText,
   Clock,
   Copy,
   Check,
   X,
   Layers,
-  Smartphone,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  ArrowRight
+  ArrowRight,
+  Eye,
+  MessageCircle
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
 import { PageHeader } from '../../../components/ui/PageHeader/PageHeader';
@@ -35,7 +35,8 @@ import { exportJntPackagesToExcel, exportJntConsigneesToExcel } from './excel';
 import { JntUploadModal } from './components/JntUploadModal';
 import { JntBatchHistoryModal } from './components/JntBatchHistoryModal';
 import { JntWhatsAppModal } from './components/JntWhatsAppModal';
-import type { JntBatchDetailData } from './types';
+import { JntPackageDrawer } from './components/JntPackageDrawer';
+import type { JntBatchDetailData, JntBatchHeader, JntPackage } from './types';
 import styles from './JntExpress.module.css';
 
 type SortField = 'pagina' | 'guia' | 'consignado' | 'distrito' | 'pesoKg';
@@ -56,24 +57,34 @@ function formatPhone(phone: string): string {
   return phone;
 }
 
+function buildDirectWhatsAppUrl(pkg: JntPackage): string {
+  const cleanPhone = pkg.telefono.replace(/\D/g, '');
+  const districtText = pkg.distrito ? ` (${pkg.distrito})` : '';
+  const text = `Hola ${pkg.consignado}, te saludamos de MyG Express. Tu paquete de J&T Express con guía ${pkg.guia}${districtText} ya se encuentra registrado para coordinación de entrega.`;
+  return `https://wa.me/51${cleanPhone}?text=${encodeURIComponent(text)}`;
+}
+
 export const JntExpress: React.FC = () => {
   const { user } = useAuth();
+  const [batchesList, setBatchesList] = useState<JntBatchHeader[]>([]);
   const [activeBatchId, setActiveBatchId] = useState<number | null>(null);
   const [batchData, setBatchData] = useState<JntBatchDetailData | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Modals
+  // Modals & Drawer
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [inspectedPackage, setInspectedPackage] = useState<JntPackage | null>(null);
 
-  // Filters, sorting, pagination & tabs
+  // Filters, selection, sorting, pagination & tabs
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState<string>('TODOS');
   const [quickFilter, setQuickFilter] = useState<'all' | 'multi' | 'with_phone' | 'no_phone'>('all');
   const [activeTab, setActiveTab] = useState<'paquetes' | 'consignados' | 'distritos'>('paquetes');
   const [expandedConsignee, setExpandedConsignee] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [selectedGuias, setSelectedGuias] = useState<Set<string>>(new Set());
 
   const [sortField, setSortField] = useState<SortField>('pagina');
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
@@ -94,6 +105,7 @@ export const JntExpress: React.FC = () => {
     try {
       setLoading(true);
       const batches = await jntService.listBatches();
+      setBatchesList(batches);
       if (batches.length > 0 && batches[0]) {
         const latest = batches[0];
         setActiveBatchId(latest.id);
@@ -117,29 +129,39 @@ export const JntExpress: React.FC = () => {
       setQuickFilter('all');
       setSearchQuery('');
       setExpandedConsignee(null);
-      showToast('Lote cargado exitosamente', 'info');
+      setSelectedGuias(new Set());
+      setInspectedPackage(null);
+      showToast('Manifiesto cargado correctamente', 'info');
     } catch (err: unknown) {
       console.error(err);
-      showToast('Error al cargar datos del lote', 'error');
+      showToast('Error al cargar los datos del manifiesto', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUploadSuccess = (newBatchId: number, data: JntBatchDetailData) => {
+  const handleUploadSuccess = async (newBatchId: number, data: JntBatchDetailData) => {
     setActiveBatchId(newBatchId);
     setBatchData(data);
     setSelectedDistrict('TODOS');
     setQuickFilter('all');
     setSearchQuery('');
     setExpandedConsignee(null);
+    setSelectedGuias(new Set());
+    setInspectedPackage(null);
+    try {
+      const batches = await jntService.listBatches();
+      setBatchesList(batches);
+    } catch {
+      // silent refresh
+    }
     showToast(`Manifiesto procesado: ${data.totalPaquetes} paquetes extraídos`, 'success');
   };
 
   const copyToClipboard = (text: string, label = 'Guía') => {
     navigator.clipboard.writeText(text);
     setCopiedCode(text);
-    setTimeout(() => setCopiedCode(null), 2000);
+    setTimeout(() => setCopiedCode(null), 1800);
     showToast(`${label} copiada al portapapeles`, 'success');
   };
 
@@ -164,7 +186,7 @@ export const JntExpress: React.FC = () => {
           consigneesWithPhone: 0,
           consigneePhonePct: 0,
           multiPackagesTotal: 0,
-          topDistrictName: '-',
+          topDistrictName: '—',
           topDistrictCount: 0,
           topDistrictPct: 0,
         },
@@ -202,7 +224,7 @@ export const JntExpress: React.FC = () => {
       .reduce((acc, c) => acc + c.totalPaquetes, 0);
 
     const distEntries = Object.entries(batchData.distritos || {}).sort((a, b) => b[1] - a[1]);
-    const topDistrictName = distEntries[0]?.[0] || '-';
+    const topDistrictName = distEntries[0]?.[0] || '—';
     const topDistrictCount = distEntries[0]?.[1] || 0;
     const topDistrictPct = batchData.totalPaquetes > 0
       ? Math.round((topDistrictCount / batchData.totalPaquetes) * 100)
@@ -224,7 +246,6 @@ export const JntExpress: React.FC = () => {
     };
   }, [batchData]);
 
-  // Sorted district entries
   const sortedDistrictEntries = useMemo(() => {
     if (!batchData?.distritos) return [];
     return Object.entries(batchData.distritos).sort((a, b) => b[1] - a[1]);
@@ -255,11 +276,12 @@ export const JntExpress: React.FC = () => {
         p.telefono.includes(q) ||
         p.distrito.toLowerCase().includes(q) ||
         p.direccion.toLowerCase().includes(q) ||
-        p.contenido.toLowerCase().includes(q)
+        p.contenido.toLowerCase().includes(q) ||
+        (p.codigoRuta || '').toLowerCase().includes(q)
       );
     }
 
-    const sorted = [...list].sort((a, b) => {
+    return [...list].sort((a, b) => {
       let cmp = 0;
       if (sortField === 'pagina') {
         cmp = a.pagina - b.pagina;
@@ -274,11 +296,8 @@ export const JntExpress: React.FC = () => {
       }
       return sortDir === 'asc' ? cmp : -cmp;
     });
-
-    return sorted;
   }, [batchData, quickFilter, selectedDistrict, searchQuery, sortField, sortDir, consigneePackageCounts]);
 
-  // Paginated packages
   const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(filteredPackages.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
   const paginatedPackages = useMemo(() => {
@@ -317,16 +336,57 @@ export const JntExpress: React.FC = () => {
     return list;
   }, [batchData, quickFilter, selectedDistrict, searchQuery]);
 
-  const handleExportExcel = () => {
+  // Related packages for drawer
+  const inspectedRelatedPackages = useMemo(() => {
+    if (!inspectedPackage || !batchData) return [];
+    const targetName = inspectedPackage.consignado.toUpperCase();
+    return batchData.paquetes.filter(p => p.consignado.toUpperCase() === targetName);
+  }, [inspectedPackage, batchData]);
+
+  // Selection helpers
+  const allVisibleSelected = paginatedPackages.length > 0 && paginatedPackages.every(p => selectedGuias.has(p.guia));
+
+  const toggleSelectAllVisible = () => {
+    setSelectedGuias(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        paginatedPackages.forEach(p => next.delete(p.guia));
+      } else {
+        paginatedPackages.forEach(p => next.add(p.guia));
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectGuia = (guia: string) => {
+    setSelectedGuias(prev => {
+      const next = new Set(prev);
+      if (next.has(guia)) next.delete(guia);
+      else next.add(guia);
+      return next;
+    });
+  };
+
+  const handleExportExcel = (onlySelected = false) => {
     if (!batchData || batchData.paquetes.length === 0) {
       showToast('No hay paquetes para exportar', 'warning');
       return;
     }
-    const name = batchData.lote?.nombre_archivo
-      ? `JNT_${batchData.lote.nombre_archivo.replace(/\.pdf$/i, '')}.xlsx`
-      : 'paquetes_jnt.xlsx';
-    exportJntPackagesToExcel(filteredPackages, name);
-    showToast('Exportación completada a Excel', 'success');
+    const source = onlySelected
+      ? filteredPackages.filter(p => selectedGuias.has(p.guia))
+      : filteredPackages;
+
+    if (source.length === 0) {
+      showToast('No hay registros seleccionados para exportar', 'warning');
+      return;
+    }
+
+    const baseName = batchData.lote?.nombre_archivo
+      ? batchData.lote.nombre_archivo.replace(/\.pdf$/i, '')
+      : 'manifiesto';
+    const fileName = onlySelected ? `JNT_Seleccion_${baseName}.xlsx` : `JNT_${baseName}.xlsx`;
+    exportJntPackagesToExcel(source, fileName);
+    showToast(`Exportados ${source.length} registros a Excel`, 'success');
   };
 
   const handleExportConsigneesExcel = () => {
@@ -338,168 +398,80 @@ export const JntExpress: React.FC = () => {
     showToast('Resumen de consignados exportado a Excel', 'success');
   };
 
+  const handleCopySelectedGuias = () => {
+    const selectedList = Array.from(selectedGuias);
+    if (!selectedList.length) return;
+    navigator.clipboard.writeText(selectedList.join('\n'));
+    showToast(`${selectedList.length} guías copiadas al portapapeles`, 'success');
+  };
+
+  const hasActiveFilters = searchQuery.trim() !== '' || selectedDistrict !== 'TODOS' || quickFilter !== 'all';
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setSelectedDistrict('TODOS');
+    setQuickFilter('all');
+  };
+
   const renderSortIcon = (field: SortField) => {
-    if (sortField !== field) return <ArrowUpDown size={12} className={styles.sortIconMuted} />;
+    if (sortField !== field) return <ArrowUpDown size={11} className={styles.sortIconMuted} />;
     return sortDir === 'asc'
-      ? <ArrowUp size={12} className={styles.sortIconActive} />
-      : <ArrowDown size={12} className={styles.sortIconActive} />;
+      ? <ArrowUp size={11} className={styles.sortIconActive} />
+      : <ArrowDown size={11} className={styles.sortIconActive} />;
   };
 
   return (
     <main className={`main ${styles.page}`} id="main-content">
-      {/* Top Corporate PageHeader */}
+      {/* Corporate Page Header matching RRHH / Rutas */}
       <PageHeader
         tone="corporate"
-        icon={<Package size={20} />}
+        icon={<Package size={19} />}
         title="J&T Express"
-        subtitle="Gestión de manifiestos PDF, consolidación de consignados y despacho corporativo por WhatsApp"
+        subtitle="Control de manifiestos PDF, auditoría de consignados y despacho corporativo por WhatsApp"
         metadata={
-          <div className={styles.headerMeta}>
-            <span className={styles.statusOnline}>
-              <span className={styles.statusDot} />
+          <div className={styles.headerScope}>
+            <span className={styles.statusLive}>
+              <i />
               Operativo
             </span>
-            <span className={styles.metaSep}>|</span>
+            <span className={styles.scopeDivider}>|</span>
             <span>{user?.sede_nombre || 'Sede Central'}</span>
           </div>
         }
       />
 
       <div className={styles.content}>
-        {/* Active Batch Command Bar */}
-        {batchData && batchData.lote ? (
-          <section className={styles.manifestBar} aria-label="Lote activo">
-            <div className={styles.manifestIdentity}>
-              <div className={styles.manifestIconBox} aria-hidden="true">
-                <FileText size={19} />
-              </div>
-              <div className={styles.manifestMeta}>
-                <div className={styles.manifestTitleRow}>
-                  <span className={styles.manifestFileName} title={batchData.lote.nombre_archivo}>
-                    {batchData.lote.nombre_archivo}
-                  </span>
-                  <span className={styles.statusPillActive}>
-                    <span className={styles.statusDot} />
-                    Lote activo
-                  </span>
-                  {batchData.lote.ruta_whatsapp_nombre && (
-                    <span className={styles.statusPillNeutral}>
-                      <Check size={11} />
-                      Ruta: {batchData.lote.ruta_whatsapp_nombre}
-                    </span>
-                  )}
-                </div>
-                <div className={styles.manifestSubRow}>
-                  <span><strong>{batchData.totalPaquetes}</strong> guías</span>
-                  <span className={styles.subDivider}>·</span>
-                  <span><strong>{batchData.totalPaginas}</strong> páginas</span>
-                  <span className={styles.subDivider}>·</span>
-                  <span><strong>{batchData.totalConsignados}</strong> consignados</span>
-                  <span className={styles.subDivider}>·</span>
-                  <span className={styles.timestampInline}>
-                    <Clock size={12} />
-                    {new Date(batchData.lote.created_at).toLocaleString('es-PE', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.manifestActions}>
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<History size={14} />}
-                onClick={() => setShowHistoryModal(true)}
-                disabled={loading}
-              >
-                Historial
-              </Button>
-
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<FileSpreadsheet size={14} />}
-                onClick={handleExportExcel}
-                disabled={loading || filteredPackages.length === 0}
-              >
-                Exportar Excel
-              </Button>
-
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<FileUp size={14} />}
-                onClick={() => setShowUploadModal(true)}
-                disabled={loading}
-              >
-                Cargar PDF
-              </Button>
-
-              {activeBatchId && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={<Send size={14} />}
-                  onClick={() => setShowWhatsAppModal(true)}
-                  disabled={loading}
-                >
-                  Enviar WhatsApp
-                  <span className={styles.btnCountBadge}>{batchData.totalConsignados}</span>
-                </Button>
-              )}
-            </div>
-          </section>
-        ) : null}
-
-        {/* Enterprise KPI Telemetry Cards */}
+        {/* Unified Executive KPI Strip (matching RRHH .metrics architecture) */}
         {batchData && (
-          <section className={styles.kpiGrid} aria-label="Indicadores del manifiesto">
-            <article className={styles.kpiCard}>
-              <header className={styles.kpiHeader}>
-                <span className={styles.kpiLabel}>Total Paquetes</span>
-                <span className={styles.kpiIcon} aria-hidden="true">
-                  <Package size={16} />
-                </span>
-              </header>
-              <div className={styles.kpiBody}>
-                <strong className={styles.kpiValue}>{batchData.totalPaquetes}</strong>
-                <span className={styles.kpiDatum}>
-                  {stats.totalWeight > 0 ? `${stats.totalWeight} kg` : 'Peso n/d'}
-                </span>
+          <section className={styles.metricsStrip} aria-label="Indicadores del manifiesto">
+            <article>
+              <span className={styles.metricIconBlue} aria-hidden="true">
+                <Package size={21} />
+              </span>
+              <div className={styles.metricCopy}>
+                <p>Total Paquetes</p>
+                <strong>{batchData.totalPaquetes}</strong>
+                <small>
+                  {batchData.totalPaginas} páginas · {stats.totalWeight > 0 ? `${stats.totalWeight} kg` : 'Sin peso'}
+                </small>
               </div>
-              <footer className={styles.kpiFooter}>
-                <span>{batchData.totalPaginas} páginas procesadas</span>
-                <span className={styles.kpiFooterMeta}>100% lectura</span>
-              </footer>
             </article>
 
-            <article className={styles.kpiCard}>
-              <header className={styles.kpiHeader}>
-                <span className={styles.kpiLabel}>Destinatarios</span>
-                <span className={styles.kpiIcon} aria-hidden="true">
-                  <Users size={16} />
-                </span>
-              </header>
-              <div className={styles.kpiBody}>
-                <strong className={styles.kpiValue}>{batchData.totalConsignados}</strong>
-                <span className={`${styles.kpiDatum} ${styles.kpiDatumGood}`}>
-                  {stats.consigneePhonePct}% contactable
-                </span>
+            <article>
+              <span className={styles.metricIconGreen} aria-hidden="true">
+                <Users size={21} />
+              </span>
+              <div className={styles.metricCopy}>
+                <p>Destinatarios</p>
+                <strong>{batchData.totalConsignados}</strong>
+                <small>
+                  {stats.consigneesWithPhone} con móvil ({stats.consigneePhonePct}% contactable)
+                </small>
               </div>
-              <footer className={styles.kpiFooter}>
-                <span>{stats.consigneesWithPhone} clientes con móvil</span>
-                <span className={styles.kpiFooterMeta}>{stats.packagesNoPhone} sin telf.</span>
-              </footer>
             </article>
 
             <article
-              className={`${styles.kpiCard} ${styles.kpiInteractive} ${quickFilter === 'multi' ? styles.kpiSelected : ''}`}
+              className={`${styles.metricInteractive} ${quickFilter === 'multi' ? styles.metricFocused : ''}`}
               onClick={() => {
                 setQuickFilter(quickFilter === 'multi' ? 'all' : 'multi');
                 setActiveTab('consignados');
@@ -513,31 +485,22 @@ export const JntExpress: React.FC = () => {
                   setActiveTab('consignados');
                 }
               }}
-              title="Filtrar consignados con múltiples guías"
+              title="Haz clic para filtrar clientes con múltiples paquetes"
             >
-              <header className={styles.kpiHeader}>
-                <span className={styles.kpiLabel}>Consolidados</span>
-                <span className={styles.kpiIcon} aria-hidden="true">
-                  <Layers size={16} />
-                </span>
-              </header>
-              <div className={styles.kpiBody}>
-                <strong className={styles.kpiValue}>{batchData.consignadosMultiples}</strong>
-                <span className={styles.kpiDatum}>
-                  {stats.multiPackagesTotal} guías
-                </span>
+              <span className={styles.metricIconAmber} aria-hidden="true">
+                <Layers size={21} />
+              </span>
+              <div className={styles.metricCopy}>
+                <p>Consolidados</p>
+                <strong>{batchData.consignadosMultiples}</strong>
+                <small>
+                  {stats.multiPackagesTotal} guías acumuladas · Ver grupo
+                </small>
               </div>
-              <footer className={styles.kpiFooter}>
-                <span>Clientes con 2 o más paquetes</span>
-                <span className={styles.kpiFooterAction}>
-                  {quickFilter === 'multi' ? 'Quitar filtro' : 'Ver grupo'}
-                  <ArrowRight size={12} />
-                </span>
-              </footer>
             </article>
 
             <article
-              className={`${styles.kpiCard} ${styles.kpiInteractive} ${activeTab === 'distritos' ? styles.kpiSelected : ''}`}
+              className={`${styles.metricInteractive} ${activeTab === 'distritos' ? styles.metricFocused : ''}`}
               onClick={() => setActiveTab('distritos')}
               role="button"
               tabIndex={0}
@@ -547,213 +510,290 @@ export const JntExpress: React.FC = () => {
                   setActiveTab('distritos');
                 }
               }}
-              title="Ver distribución por distritos"
+              title="Haz clic para ver el desglose por distritos"
             >
-              <header className={styles.kpiHeader}>
-                <span className={styles.kpiLabel}>Cobertura Distrital</span>
-                <span className={styles.kpiIcon} aria-hidden="true">
-                  <MapPin size={16} />
-                </span>
-              </header>
-              <div className={styles.kpiBody}>
-                <strong className={styles.kpiValue}>{sortedDistrictEntries.length}</strong>
-                <span className={styles.kpiDatum}>{stats.topDistrictPct}% en principal</span>
+              <span className={styles.metricIconSlate} aria-hidden="true">
+                <MapPin size={21} />
+              </span>
+              <div className={styles.metricCopy}>
+                <p>Cobertura Distrital</p>
+                <strong>{sortedDistrictEntries.length}</strong>
+                <small>
+                  Principal: {stats.topDistrictName} ({stats.topDistrictPct}%)
+                </small>
               </div>
-              <footer className={styles.kpiFooter}>
-                <span>Principal: {stats.topDistrictName} ({stats.topDistrictCount})</span>
-                <span className={styles.kpiFooterAction}>
-                  Distribución
-                  <ArrowRight size={12} />
-                </span>
-              </footer>
             </article>
           </section>
         )}
 
-        {/* Unified Enterprise Data Workspace */}
+        {/* Main Enterprise Directory Workspace */}
         {batchData ? (
-          <section className={styles.workspaceCard} aria-label="Explorador de manifiesto">
-            {/* Primary Toolbar: Search + View Mode Switcher */}
-            <div className={styles.workspaceToolbar}>
-              <div className={styles.searchBox}>
-                <Search size={15} className={styles.searchIcon} />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  className={styles.searchInput}
-                  placeholder="Buscar por guía JPE, consignado, celular, dirección o contenido..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    className={styles.searchClearBtn}
-                    onClick={() => {
-                      setSearchQuery('');
-                      searchInputRef.current?.focus();
-                    }}
-                    title="Limpiar búsqueda"
-                    aria-label="Limpiar búsqueda"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-
-              <div className={styles.segmentedTabs} role="tablist" aria-label="Modo de visualización">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === 'paquetes'}
-                  className={`${styles.segmentedTabBtn} ${activeTab === 'paquetes' ? styles.segmentedTabActive : ''}`}
-                  onClick={() => setActiveTab('paquetes')}
-                >
-                  <Package size={14} />
-                  <span>Por Paquete</span>
-                  <span className={styles.tabBadge}>{filteredPackages.length}</span>
-                </button>
-
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === 'consignados'}
-                  className={`${styles.segmentedTabBtn} ${activeTab === 'consignados' ? styles.segmentedTabActive : ''}`}
-                  onClick={() => setActiveTab('consignados')}
-                >
-                  <Users size={14} />
-                  <span>Por Consignado</span>
-                  <span className={styles.tabBadge}>{filteredConsignees.length}</span>
-                </button>
-
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === 'distritos'}
-                  className={`${styles.segmentedTabBtn} ${activeTab === 'distritos' ? styles.segmentedTabActive : ''}`}
-                  onClick={() => setActiveTab('distritos')}
-                >
-                  <MapPin size={14} />
-                  <span>Por Distrito</span>
-                  <span className={styles.tabBadge}>{sortedDistrictEntries.length}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Secondary Filter Bar: Operational Criteria & District Selector */}
-            <div className={styles.filterStrip}>
-              <div className={styles.quickFilterGroup} role="group" aria-label="Filtros rápidos">
-                <span className={styles.filterGroupLabel}>Criterio:</span>
-
-                <button
-                  type="button"
-                  className={`${styles.filterChip} ${quickFilter === 'all' ? styles.filterChipActive : ''}`}
-                  onClick={() => setQuickFilter('all')}
-                >
-                  <span>Todos</span>
-                  <span className={styles.filterChipCount}>{batchData.totalPaquetes}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={`${styles.filterChip} ${quickFilter === 'multi' ? styles.filterChipActive : ''}`}
-                  onClick={() => setQuickFilter(quickFilter === 'multi' ? 'all' : 'multi')}
-                >
-                  <Layers size={13} />
-                  <span>Multipaquetes</span>
-                  <span className={styles.filterChipCount}>{batchData.consignadosMultiples}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={`${styles.filterChip} ${quickFilter === 'with_phone' ? styles.filterChipActive : ''}`}
-                  onClick={() => setQuickFilter(quickFilter === 'with_phone' ? 'all' : 'with_phone')}
-                >
-                  <Smartphone size={13} />
-                  <span>Con Celular</span>
-                  <span className={styles.filterChipCount}>{stats.packagesWithPhone}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={`${styles.filterChip} ${quickFilter === 'no_phone' ? styles.filterChipActive : ''}`}
-                  onClick={() => setQuickFilter(quickFilter === 'no_phone' ? 'all' : 'no_phone')}
-                >
-                  <PhoneOff size={13} />
-                  <span>Sin Teléfono</span>
-                  <span className={styles.filterChipCount}>{stats.packagesNoPhone}</span>
-                </button>
-              </div>
-
-              <div className={styles.filterDivider} aria-hidden="true" />
-
-              <div className={styles.districtStrip} role="group" aria-label="Filtro por distrito">
-                <button
-                  type="button"
-                  className={`${styles.districtChip} ${selectedDistrict === 'TODOS' ? styles.districtChipActive : ''}`}
-                  onClick={() => setSelectedDistrict('TODOS')}
-                >
-                  <span>Todos los distritos</span>
-                  <span className={styles.districtChipBadge}>{batchData.totalPaquetes}</span>
-                </button>
-
-                {sortedDistrictEntries.map(([dist, count]) => (
-                  <button
-                    key={dist}
-                    type="button"
-                    className={`${styles.districtChip} ${selectedDistrict.toUpperCase() === dist.toUpperCase() ? styles.districtChipActive : ''}`}
-                    onClick={() => setSelectedDistrict(selectedDistrict.toUpperCase() === dist.toUpperCase() ? 'TODOS' : dist)}
-                  >
-                    <span>{dist}</span>
-                    <span className={styles.districtChipBadge}>{count}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Tab 1: High-Density Enterprise Data Grid */}
-            {activeTab === 'paquetes' && (
-              <div className={styles.panelBody}>
-                <div className={styles.gridSubToolbar}>
-                  <div className={styles.gridSummaryText}>
-                    Mostrando <strong>{paginatedPackages.length}</strong> de <strong>{filteredPackages.length}</strong> registros
-                    {filteredPackages.length !== batchData.totalPaquetes && ` (total lote: ${batchData.totalPaquetes})`}
-                    {selectedDistrict !== 'TODOS' && ` · Distrito: ${selectedDistrict}`}
-                  </div>
-                  <div className={styles.gridSubActions}>
-                    <label className={styles.pageSizeLabel}>
-                      <span>Filas:</span>
+          <section className={styles.directoryPanel} aria-label="Directorio de paquetes J&T Express">
+            {/* Directory Header: Active Manifest Context + Switcher + Primary Actions */}
+            <header className={styles.directoryHeader}>
+              <div className={styles.directoryIdentity}>
+                <div className={styles.sectionContext}>
+                  <span>Manifiesto Activo</span>
+                  <div className={styles.batchTitleInline}>
+                    <FileText size={15} />
+                    {batchesList.length > 1 ? (
                       <select
-                        value={pageSize}
-                        onChange={e => setPageSize(Number(e.target.value))}
-                        className={styles.pageSizeSelect}
-                        aria-label="Filas por página"
+                        className={styles.batchQuickSelect}
+                        value={activeBatchId || ''}
+                        onChange={e => handleBatchSelected(Number(e.target.value))}
+                        aria-label="Cambiar manifiesto activo"
+                        disabled={loading}
                       >
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                        <option value={0}>Todas ({filteredPackages.length})</option>
+                        {batchesList.map(b => (
+                          <option key={b.id} value={b.id}>
+                            {b.nombre_archivo} ({b.total_paquetes} guías)
+                          </option>
+                        ))}
                       </select>
-                    </label>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      icon={<FileSpreadsheet size={14} />}
-                      onClick={handleExportExcel}
-                      disabled={filteredPackages.length === 0}
-                    >
-                      Exportar vista
-                    </Button>
+                    ) : (
+                      <strong title={batchData.lote?.nombre_archivo}>
+                        {batchData.lote?.nombre_archivo || 'Manifiesto actual'}
+                      </strong>
+                    )}
                   </div>
                 </div>
 
-                <div className={styles.tableViewport}>
+                {batchData.lote && (
+                  <div className={styles.directoryMetaRow}>
+                    <span className={styles.timestampInline}>
+                      <Clock size={12} />
+                      {new Date(batchData.lote.created_at).toLocaleString('es-PE', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                    {batchData.lote.ruta_whatsapp_nombre && (
+                      <span className={styles.routeLinkedBadge}>
+                        <Check size={11} />
+                        Ruta WhatsApp: {batchData.lote.ruta_whatsapp_nombre}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.directoryControls}>
+                <div className={styles.viewSwitcher} role="tablist" aria-label="Modo de visualización">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'paquetes'}
+                    className={activeTab === 'paquetes' ? styles.viewActive : ''}
+                    onClick={() => setActiveTab('paquetes')}
+                  >
+                    <Package size={14} />
+                    <span>Por Paquete ({filteredPackages.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'consignados'}
+                    className={activeTab === 'consignados' ? styles.viewActive : ''}
+                    onClick={() => setActiveTab('consignados')}
+                  >
+                    <Users size={14} />
+                    <span>Por Consignado ({filteredConsignees.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'distritos'}
+                    className={activeTab === 'distritos' ? styles.viewActive : ''}
+                    onClick={() => setActiveTab('distritos')}
+                  >
+                    <MapPin size={14} />
+                    <span>Distritos ({sortedDistrictEntries.length})</span>
+                  </button>
+                </div>
+
+                <div className={styles.headerActionButtons}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<History size={14} />}
+                    onClick={() => setShowHistoryModal(true)}
+                    disabled={loading}
+                  >
+                    Historial
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<FileSpreadsheet size={14} />}
+                    onClick={() => handleExportExcel(false)}
+                    disabled={loading || filteredPackages.length === 0}
+                  >
+                    Excel
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<FileUp size={14} />}
+                    onClick={() => setShowUploadModal(true)}
+                    disabled={loading}
+                  >
+                    Cargar PDF
+                  </Button>
+
+                  {activeBatchId && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={<Send size={14} />}
+                      onClick={() => setShowWhatsAppModal(true)}
+                      disabled={loading}
+                    >
+                      Enviar WhatsApp
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </header>
+
+            {/* Structured Labeled Filter Strip (RRHH .personnelFilters style) */}
+            <div className={styles.filtersBar}>
+              <label className={styles.filterSearchField}>
+                <span>Buscar en manifiesto</span>
+                <div className={styles.searchInputWrap}>
+                  <Search size={15} />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Buscar por código JPE, consignado, celular, ruta o dirección..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      className={styles.clearSearchBtn}
+                      onClick={() => {
+                        setSearchQuery('');
+                        searchInputRef.current?.focus();
+                      }}
+                      aria-label="Limpiar búsqueda"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </label>
+
+              <label className={styles.filterSelectField}>
+                <span>Distrito de entrega</span>
+                <select
+                  value={selectedDistrict}
+                  onChange={e => setSelectedDistrict(e.target.value)}
+                >
+                  <option value="TODOS">Todos los distritos ({batchData.totalPaquetes})</option>
+                  {sortedDistrictEntries.map(([dist, count]) => (
+                    <option key={dist} value={dist}>
+                      {dist} ({count})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className={styles.filterSelectField}>
+                <span>Criterio operativo</span>
+                <select
+                  value={quickFilter}
+                  onChange={e => setQuickFilter(e.target.value as typeof quickFilter)}
+                >
+                  <option value="all">Todos los paquetes ({batchData.totalPaquetes})</option>
+                  <option value="multi">Solo multipaquete ({batchData.consignadosMultiples} clientes)</option>
+                  <option value="with_phone">Con celular válido ({stats.packagesWithPhone})</option>
+                  <option value="no_phone">Sin teléfono registrado ({stats.packagesNoPhone})</option>
+                </select>
+              </label>
+
+              <label className={styles.filterSelectFieldCompact}>
+                <span>Filas</span>
+                <select
+                  value={pageSize}
+                  onChange={e => setPageSize(Number(e.target.value))}
+                  aria-label="Registros por página"
+                >
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={0}>Todas ({filteredPackages.length})</option>
+                </select>
+              </label>
+            </div>
+
+            {/* Selection or Active Filter Context Bar */}
+            {(selectedGuias.size > 0 || hasActiveFilters) && (
+              <div className={styles.contextToolbar}>
+                {selectedGuias.size > 0 ? (
+                  <div className={styles.selectionGroup}>
+                    <span className={styles.selectionBadge}>
+                      {selectedGuias.size} {selectedGuias.size === 1 ? 'paquete seleccionado' : 'paquetes seleccionados'}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.contextActionBtn}
+                      onClick={handleCopySelectedGuias}
+                    >
+                      <Copy size={13} />
+                      Copiar guías
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.contextActionBtn}
+                      onClick={() => handleExportExcel(true)}
+                    >
+                      <FileSpreadsheet size={13} />
+                      Exportar selección
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.contextClearBtn}
+                      onClick={() => setSelectedGuias(new Set())}
+                    >
+                      Limpiar selección
+                    </button>
+                  </div>
+                ) : (
+                  <div className={styles.filterStatusInfo}>
+                    <span>
+                      Mostrando <strong>{filteredPackages.length}</strong> de {batchData.totalPaquetes} registros filtrados
+                    </span>
+                    <button type="button" className={styles.contextClearBtn} onClick={resetFilters}>
+                      Restablecer filtros
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 1: Package Directory Table */}
+            {activeTab === 'paquetes' && (
+              <div className={styles.tabContentBody}>
+                <div className={styles.tableWrap}>
                   <table className={styles.dataTable}>
                     <thead>
                       <tr>
-                        <th className={styles.colIndex}>#</th>
+                        <th className={styles.colCheck}>
+                          <input
+                            type="checkbox"
+                            checked={allVisibleSelected}
+                            onChange={toggleSelectAllVisible}
+                            aria-label="Seleccionar todos los registros visibles"
+                          />
+                        </th>
                         <th>
                           <button type="button" className={styles.sortBtn} onClick={() => toggleSort('guia')}>
-                            <span>Guía / Tracking</span>
+                            <span>Guía / Ruta</span>
                             {renderSortIcon('guia')}
                           </button>
                         </th>
@@ -763,106 +803,140 @@ export const JntExpress: React.FC = () => {
                             {renderSortIcon('consignado')}
                           </button>
                         </th>
-                        <th>Teléfono</th>
+                        <th>Contacto WhatsApp</th>
                         <th>
                           <button type="button" className={styles.sortBtn} onClick={() => toggleSort('distrito')}>
-                            <span>Distrito</span>
+                            <span>Destino y Dirección</span>
                             {renderSortIcon('distrito')}
                           </button>
                         </th>
-                        <th>Dirección</th>
-                        <th>Contenido</th>
-                        <th style={{ textAlign: 'right' }}>
+                        <th>
                           <button type="button" className={styles.sortBtn} onClick={() => toggleSort('pesoKg')}>
-                            <span>Peso</span>
+                            <span>Contenido / Peso</span>
                             {renderSortIcon('pesoKg')}
                           </button>
                         </th>
-                        <th style={{ textAlign: 'center' }}>
+                        <th className={styles.colPage}>
                           <button type="button" className={styles.sortBtn} onClick={() => toggleSort('pagina')}>
                             <span>Pág.</span>
                             {renderSortIcon('pagina')}
                           </button>
                         </th>
+                        <th className={styles.colActions}>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
                       {paginatedPackages.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className={styles.emptyTableCell}>
+                          <td colSpan={8} className={styles.emptyTableCell}>
                             <Package size={32} className={styles.emptyTableIcon} />
-                            <strong>No hay registros que coincidan</strong>
-                            <span>Ajusta los términos de búsqueda o restablece los filtros seleccionados.</span>
+                            <strong>No hay registros que coincidan con la consulta</strong>
+                            <span>Ajusta los criterios de búsqueda o restablece los filtros activos.</span>
                           </td>
                         </tr>
                       ) : (
                         paginatedPackages.map((pkg, idx) => {
                           const globalIndex = (safePage - 1) * (pageSize || filteredPackages.length) + idx + 1;
+                          const isSelected = selectedGuias.has(pkg.guia);
                           const isCopied = copiedCode === pkg.guia;
                           const multiCount = consigneePackageCounts.get(pkg.consignado.toUpperCase()) || 1;
                           const cleanPhone = pkg.telefono ? pkg.telefono.replace(/\D/g, '') : '';
+                          const hasPhone = cleanPhone.length >= 9;
 
                           return (
-                            <tr key={`${pkg.guia}-${globalIndex}`}>
-                              <td className={styles.colIndex}>{globalIndex}</td>
+                            <tr
+                              key={`${pkg.guia}-${globalIndex}`}
+                              className={`${styles.tableRow} ${isSelected ? styles.tableRowSelected : ''}`}
+                              onClick={() => setInspectedPackage(pkg)}
+                            >
+                              <td className={styles.colCheck} onClick={e => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleSelectGuia(pkg.guia)}
+                                  aria-label={`Seleccionar guía ${pkg.guia}`}
+                                />
+                              </td>
                               <td>
-                                <div className={styles.trackingCell}>
-                                  <span className={styles.trackingCode}>{pkg.guia}</span>
-                                  <button
-                                    type="button"
-                                    className={styles.btnCopyMini}
-                                    onClick={() => copyToClipboard(pkg.guia, 'Guía')}
-                                    title="Copiar número de guía"
-                                    aria-label={`Copiar guía ${pkg.guia}`}
-                                  >
-                                    {isCopied ? <Check size={12} className={styles.iconSuccess} /> : <Copy size={12} />}
-                                  </button>
+                                <div className={styles.codeIdentity}>
+                                  <strong>{pkg.guia}</strong>
+                                  <small>{pkg.codigoRuta || `Reg. #${globalIndex}`}</small>
                                 </div>
                               </td>
                               <td>
-                                <div className={styles.consigneeCell}>
-                                  <span className={styles.consigneeNameText} title={pkg.consignado}>
-                                    {pkg.consignado}
-                                  </span>
-                                  {multiCount > 1 && (
-                                    <span className={styles.inlineMultiBadge} title={`Este consignado tiene ${multiCount} paquetes en el lote`}>
-                                      {multiCount} guías
-                                    </span>
+                                <div className={styles.personIdentity}>
+                                  <strong title={pkg.consignado}>{pkg.consignado}</strong>
+                                  {multiCount > 1 ? (
+                                    <small className={styles.multiSubTag}>
+                                      {multiCount} paquetes consolidados
+                                    </small>
+                                  ) : (
+                                    <small>Entrega individual</small>
                                   )}
                                 </div>
                               </td>
-                              <td>
-                                {cleanPhone.length >= 9 ? (
+                              <td onClick={e => e.stopPropagation()}>
+                                {hasPhone ? (
                                   <a
-                                    href={`https://wa.me/51${cleanPhone}`}
+                                    href={buildDirectWhatsAppUrl(pkg)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className={styles.whatsappLinkBtn}
-                                    title={`Abrir WhatsApp con ${pkg.consignado}`}
+                                    className={styles.phoneLink}
+                                    title={`Enviar WhatsApp a ${pkg.consignado}`}
                                   >
-                                    <Phone size={12} />
+                                    <span className={styles.phoneDot} />
                                     <span>{formatPhone(pkg.telefono)}</span>
                                   </a>
                                 ) : (
-                                  <span className={styles.noPhoneText}>Sin registro</span>
+                                  <span className={styles.noPhoneLabel}>Sin teléfono</span>
                                 )}
                               </td>
                               <td>
-                                <span className={styles.districtTag}>
-                                  {pkg.distrito || 'DESCONOCIDO'}
-                                </span>
+                                <div className={styles.addressCell}>
+                                  <strong>{pkg.distrito || 'DESCONOCIDO'}</strong>
+                                  <small title={pkg.direccion}>{pkg.direccion || 'Sin dirección'}</small>
+                                </div>
                               </td>
-                              <td className={styles.truncateCell} title={pkg.direccion}>
-                                {pkg.direccion || '—'}
+                              <td>
+                                <div className={styles.contentCell}>
+                                  <strong title={pkg.contenido}>{pkg.contenido || 'Sin descripción'}</strong>
+                                  <small>{pkg.pesoKg ? `${pkg.pesoKg.toFixed(2)} kg` : 'Peso n/d'}</small>
+                                </div>
                               </td>
-                              <td className={styles.truncateCellSm} title={pkg.contenido}>
-                                {pkg.contenido || '—'}
+                              <td className={styles.colPage}>
+                                <span className={styles.pageNum}>{pkg.pagina}</span>
                               </td>
-                              <td className={styles.numericRight}>
-                                {pkg.pesoKg ? `${pkg.pesoKg.toFixed(2)} kg` : '—'}
-                              </td>
-                              <td className={styles.numericCenter}>
-                                {pkg.pagina}
+                              <td className={styles.colActions} onClick={e => e.stopPropagation()}>
+                                <div className={styles.rowActions}>
+                                  <button
+                                    type="button"
+                                    title="Ver detalle completo de la guía"
+                                    aria-label={`Ver detalle de ${pkg.guia}`}
+                                    onClick={() => setInspectedPackage(pkg)}
+                                  >
+                                    <Eye size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Copiar número de guía"
+                                    aria-label={`Copiar ${pkg.guia}`}
+                                    onClick={() => copyToClipboard(pkg.guia, 'Guía')}
+                                  >
+                                    {isCopied ? <Check size={14} className={styles.iconSuccess} /> : <Copy size={14} />}
+                                  </button>
+                                  {hasPhone && (
+                                    <a
+                                      href={buildDirectWhatsAppUrl(pkg)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={styles.rowActionLink}
+                                      title={`Escribir por WhatsApp a ${pkg.consignado}`}
+                                      aria-label={`WhatsApp a ${pkg.consignado}`}
+                                    >
+                                      <MessageCircle size={14} />
+                                    </a>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
@@ -872,10 +946,11 @@ export const JntExpress: React.FC = () => {
                   </table>
                 </div>
 
-                {/* Pagination & Summary Footer */}
+                {/* Pagination Footer */}
                 <footer className={styles.gridFooter}>
-                  <span className={styles.gridFooterHint}>
-                    Haz clic en cualquier encabezado para ordenar · Haz clic en un teléfono para abrir WhatsApp Web
+                  <span className={styles.footerCountText}>
+                    Mostrando <strong>{paginatedPackages.length}</strong> de <strong>{filteredPackages.length}</strong> paquetes
+                    {' '}· Haz clic en cualquier fila para inspeccionar su detalle completo
                   </span>
                   {totalPages > 1 && (
                     <div className={styles.paginationControls}>
@@ -908,12 +983,12 @@ export const JntExpress: React.FC = () => {
 
             {/* Tab 2: Consignees Consolidated View */}
             {activeTab === 'consignados' && (
-              <div className={styles.panelBody}>
-                <div className={styles.gridSubToolbar}>
-                  <div className={styles.gridSummaryText}>
+              <div className={styles.tabContentBody}>
+                <div className={styles.subViewToolbar}>
+                  <span>
                     Mostrando <strong>{filteredConsignees.length}</strong> consignados únicos
-                    {quickFilter === 'multi' && ' con múltiples paquetes'}
-                  </div>
+                    {quickFilter === 'multi' && ' con 2 o más paquetes'}
+                  </span>
                   <Button
                     size="sm"
                     variant="secondary"
@@ -965,23 +1040,16 @@ export const JntExpress: React.FC = () => {
                                   <span className={styles.consigneeNameLg}>{c.consignado}</span>
                                   {isMulti && (
                                     <span className={styles.multiBadgeCorporate}>
-                                      <Layers size={11} />
                                       Consolidado · {c.totalPaquetes} guías
                                     </span>
                                   )}
                                 </div>
                                 <div className={styles.consigneeSubtitleRow}>
-                                  <span>
-                                    Tel: <strong>{c.telefono ? formatPhone(c.telefono) : 'Sin registro'}</strong>
-                                  </span>
-                                  <span className={styles.subDivider}>·</span>
-                                  <span>
-                                    Distrito: <strong>{c.distrito || 'DESCONOCIDO'}</strong>
-                                  </span>
-                                  <span className={styles.subDivider}>·</span>
-                                  <span className={styles.monoInline}>
-                                    {c.guias.join(', ')}
-                                  </span>
+                                  <span>Tel: <strong>{c.telefono ? formatPhone(c.telefono) : 'Sin registro'}</strong></span>
+                                  <span className={styles.scopeDivider}>·</span>
+                                  <span>Distrito: <strong>{c.distrito || 'DESCONOCIDO'}</strong></span>
+                                  <span className={styles.scopeDivider}>·</span>
+                                  <span className={styles.guiasListText}>{c.guias.join(', ')}</span>
                                 </div>
                               </div>
                             </div>
@@ -992,7 +1060,7 @@ export const JntExpress: React.FC = () => {
                                   href={`https://wa.me/51${cleanPhone}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className={styles.whatsappLinkBtn}
+                                  className={styles.phoneLink}
                                   onClick={e => e.stopPropagation()}
                                   title="Enviar mensaje directo por WhatsApp"
                                 >
@@ -1019,28 +1087,28 @@ export const JntExpress: React.FC = () => {
                                     <th>Contenido</th>
                                     <th style={{ textAlign: 'right' }}>Peso</th>
                                     <th style={{ textAlign: 'center' }}>Pág.</th>
+                                    <th style={{ textAlign: 'right' }}>Acción</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {c.paquetes.map((p, pIdx) => (
                                     <tr key={`${p.guia}-${pIdx}`}>
-                                      <td>
-                                        <div className={styles.trackingCell}>
-                                          <span className={styles.trackingCode}>{p.guia}</span>
-                                          <button
-                                            type="button"
-                                            className={styles.btnCopyMini}
-                                            onClick={() => copyToClipboard(p.guia, 'Guía')}
-                                            title="Copiar guía"
-                                          >
-                                            {copiedCode === p.guia ? <Check size={12} className={styles.iconSuccess} /> : <Copy size={12} />}
-                                          </button>
-                                        </div>
-                                      </td>
+                                      <td><strong>{p.guia}</strong></td>
                                       <td>{p.direccion || '—'}</td>
                                       <td>{p.contenido || '—'}</td>
-                                      <td className={styles.numericRight}>{p.pesoKg ? `${p.pesoKg.toFixed(2)} kg` : '—'}</td>
-                                      <td className={styles.numericCenter}>{p.pagina}</td>
+                                      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                        {p.pesoKg ? `${p.pesoKg.toFixed(2)} kg` : '—'}
+                                      </td>
+                                      <td style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>{p.pagina}</td>
+                                      <td style={{ textAlign: 'right' }}>
+                                        <button
+                                          type="button"
+                                          className={styles.subTableInspectBtn}
+                                          onClick={() => setInspectedPackage(p)}
+                                        >
+                                          Inspeccionar
+                                        </button>
+                                      </td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -1055,13 +1123,13 @@ export const JntExpress: React.FC = () => {
               </div>
             )}
 
-            {/* Tab 3: Geographic Distribution Breakdown */}
+            {/* Tab 3: Districts Breakdown */}
             {activeTab === 'distritos' && (
-              <div className={styles.panelBody}>
-                <div className={styles.gridSubToolbar}>
-                  <div className={styles.gridSummaryText}>
+              <div className={styles.tabContentBody}>
+                <div className={styles.subViewToolbar}>
+                  <span>
                     Distribución en <strong>{sortedDistrictEntries.length}</strong> distritos ({batchData.totalPaquetes} paquetes totales)
-                  </div>
+                  </span>
                 </div>
 
                 <div className={styles.geoGrid}>
@@ -1118,29 +1186,28 @@ export const JntExpress: React.FC = () => {
             )}
           </section>
         ) : (
-          /* Clean Corporate Empty State */
           <section className={styles.emptyCard}>
             <div className={styles.emptyIconBox} aria-hidden="true">
-              <Package size={28} />
+              <Package size={26} />
             </div>
 
             <h2 className={styles.emptyTitle}>Ningún lote cargado</h2>
             <p className={styles.emptyText}>
-              Carga el manifiesto de guías térmicas emitido por J&T Express en formato PDF para extraer automáticamente destinatarios, teléfonos móviles, localidades y pesos.
+              Carga el manifiesto de guías térmicas emitido por J&amp;T Express en formato PDF para extraer destinatarios, teléfonos móviles, localidades y pesos.
             </p>
 
             <div className={styles.stepGuide}>
               <div className={styles.stepGuideItem}>
                 <span className={styles.stepNumber}>1</span>
-                <span>Obtén el archivo PDF consolidado desde el sistema de J&T Express.</span>
+                <span>Descarga el PDF consolidado desde el sistema de J&amp;T Express.</span>
               </div>
               <div className={styles.stepGuideItem}>
                 <span className={styles.stepNumber}>2</span>
-                <span>Importa el documento PDF aquí (soporte de 200 o más páginas).</span>
+                <span>Sube el archivo PDF aquí (soporta 200 o más páginas en segundos).</span>
               </div>
               <div className={styles.stepGuideItem}>
                 <span className={styles.stepNumber}>3</span>
-                <span>Exporta reportes estructurados o crea la ruta de notificación por WhatsApp.</span>
+                <span>Audita los paquetes, exporta a Excel o crea la ruta de notificación por WhatsApp.</span>
               </div>
             </div>
 
@@ -1150,7 +1217,7 @@ export const JntExpress: React.FC = () => {
                 icon={<FileUp size={15} />}
                 onClick={() => setShowUploadModal(true)}
               >
-                Cargar PDF de J&T
+                Cargar PDF de J&amp;T
               </Button>
               <Button
                 variant="secondary"
@@ -1163,6 +1230,16 @@ export const JntExpress: React.FC = () => {
           </section>
         )}
       </div>
+
+      {/* Interactive Package Detail Drawer */}
+      <JntPackageDrawer
+        pkg={inspectedPackage}
+        relatedPackages={inspectedRelatedPackages}
+        onClose={() => setInspectedPackage(null)}
+        onSelectPackage={setInspectedPackage}
+        onCopy={copyToClipboard}
+        buildWhatsAppUrl={buildDirectWhatsAppUrl}
+      />
 
       {/* Modals */}
       <JntUploadModal
