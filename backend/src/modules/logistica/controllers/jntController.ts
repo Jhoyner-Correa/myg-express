@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../../../core/middlewares/authMiddleware';
 import { pool } from '../../../core/database/database';
 import { businessDate } from '../../../core/utils/time';
-import { parseJntPdf, JntPackage, aggregateConsignees } from '../domain/jntDomain';
+import { parseJntPdf, JntPackage, aggregateConsignees, buildProfessionalJntBatchName, cleanJntText } from '../domain/jntDomain';
 
 function requireSede(req: AuthRequest, res: Response): number | null {
   const sedeId = Number(req.user?.sede_id || req.body?.sede_id || req.query?.sede_id);
@@ -42,6 +42,14 @@ export const subirYProcesarPdf = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const batchDisplayName = buildProfessionalJntBatchName({
+      originalFilename: req.file.originalname,
+      customName: req.body?.nombre_lote,
+      distritos: parseResult.distritos,
+      totalPaquetes: parseResult.totalPaquetes,
+      fallbackIsoDate: businessDate()
+    });
+
     // 2. Save in database
     const connection = await pool.getConnection();
     let loteJntId = 0;
@@ -54,7 +62,7 @@ export const subirYProcesarPdf = async (req: AuthRequest, res: Response) => {
         [
           sedeId,
           userId,
-          req.file.originalname,
+          batchDisplayName,
           parseResult.totalPaginas,
           parseResult.totalPaquetes,
           parseResult.totalConsignados
@@ -100,11 +108,23 @@ export const subirYProcesarPdf = async (req: AuthRequest, res: Response) => {
       connection.release();
     }
 
+    const [[savedLote]]: any = await pool.query(
+      `SELECT l.*, s.nombre as sede_nombre, u.nombre as usuario_nombre
+       FROM jnt_lotes l
+       INNER JOIN sedes s ON s.id = l.sede_id
+       INNER JOIN usuarios u ON u.id = l.usuario_id
+       WHERE l.id = ?`,
+      [loteJntId]
+    );
+
     return res.status(201).json({
       ok: true,
-      message: `PDF de J&T procesado exitosamente: ${parseResult.totalPaquetes} paquetes en ${parseResult.totalPaginas} páginas`,
+      message: `Manifiesto "${batchDisplayName}" procesado: ${parseResult.totalPaquetes} paquetes en ${parseResult.totalPaginas} páginas`,
       lote_id: loteJntId,
-      data: parseResult
+      data: {
+        ...parseResult,
+        lote: savedLote
+      }
     });
   } catch (error: any) {
     console.error('[jntController] subirYProcesarPdf error:', error);
@@ -115,10 +135,15 @@ export const subirYProcesarPdf = async (req: AuthRequest, res: Response) => {
   }
 };
 
+function isGlobalJntRole(rol: unknown): boolean {
+  const normalized = String(rol || '').toLowerCase().replace(/[\s_-]+/g, '');
+  return normalized === 'sysadmin' || normalized === 'gerenteempresa' || normalized === 'adminempresa';
+}
+
 export const listarLotesJnt = async (req: AuthRequest, res: Response) => {
   try {
     const sedeId = req.user?.sede_id;
-    const isGlobal = !sedeId || req.user?.rol === 'sysadmin' || req.user?.rol === 'gerente_empresa' || req.user?.rol === 'admin_empresa';
+    const isGlobal = !sedeId || isGlobalJntRole(req.user?.rol);
 
     let query = `
       SELECT 
@@ -229,6 +254,38 @@ export const obtenerDetalleLoteJnt = async (req: AuthRequest, res: Response) => 
   } catch (error: any) {
     console.error('[jntController] obtenerDetalleLoteJnt error:', error);
     return res.status(500).json({ ok: false, message: 'Error al obtener detalle del lote J&T' });
+  }
+};
+
+export const renombrarLoteJnt = async (req: AuthRequest, res: Response) => {
+  try {
+    const loteId = Number(req.params.id);
+    if (!loteId) {
+      return res.status(400).json({ ok: false, message: 'ID de lote inválido' });
+    }
+
+    const nombre = cleanJntText(req.body?.nombre, 180);
+    if (!nombre) {
+      return res.status(400).json({ ok: false, message: 'El nombre del manifiesto es obligatorio' });
+    }
+
+    const sedeId = req.user?.sede_id;
+    const isGlobal = !sedeId || isGlobalJntRole(req.user?.rol);
+
+    const query = isGlobal
+      ? `UPDATE jnt_lotes SET nombre_archivo = ? WHERE id = ?`
+      : `UPDATE jnt_lotes SET nombre_archivo = ? WHERE id = ? AND sede_id = ?`;
+    const params = isGlobal ? [nombre, loteId] : [nombre, loteId, sedeId];
+
+    const [result]: any = await pool.query(query, params);
+    if (!result.affectedRows) {
+      return res.status(404).json({ ok: false, message: 'Manifiesto no encontrado o sin acceso' });
+    }
+
+    return res.json({ ok: true, message: 'Nombre actualizado correctamente', data: { id: loteId, nombre_archivo: nombre } });
+  } catch (error: any) {
+    console.error('[jntController] renombrarLoteJnt error:', error);
+    return res.status(500).json({ ok: false, message: 'Error al renombrar el manifiesto J&T' });
   }
 };
 

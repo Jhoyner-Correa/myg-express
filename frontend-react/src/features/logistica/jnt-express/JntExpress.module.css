@@ -56,6 +56,37 @@
   border-color: #10924d;
 }
 
+.batchSelectWrap,
+.renameInlineBox {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.inlineIconBtn {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d5dfeb;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.inlineIconBtn:hover {
+  border-color: #94a3b8;
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+.fieldHint {
+  font-size: 0.72rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
 /* ─── Single Clean Workbench Surface ─────────────────────────── */
 .workbenchCard {
   background: #ffffff;

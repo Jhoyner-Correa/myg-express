@@ -22,7 +22,8 @@ import {
   ArrowDown,
   ArrowRight,
   Eye,
-  MessageCircle
+  MessageCircle,
+  Pencil
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
 import { PageHeader } from '../../../components/ui/PageHeader/PageHeader';
@@ -82,6 +83,8 @@ export const JntExpress: React.FC = () => {
   const [expandedConsignee, setExpandedConsignee] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [selectedGuias, setSelectedGuias] = useState<Set<string>>(new Set());
+  const [renamingActive, setRenamingActive] = useState(false);
+  const [renameDraft, setRenameDraft] = useState('');
 
   const [sortField, setSortField] = useState<SortField>('pagina');
   const [sortDir, setSortDir] = useState<SortDirection>('asc');
@@ -325,11 +328,36 @@ export const JntExpress: React.FC = () => {
       return;
     }
 
-    const baseName = batchData.lote?.nombre_archivo
+    const rawBase = batchData.lote?.nombre_archivo
       ? batchData.lote.nombre_archivo.replace(/\.pdf$/i, '')
       : 'manifiesto';
+    const baseName = rawBase.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'manifiesto';
     exportJntPackagesToExcel(source, onlySelected ? `JNT_Seleccion_${baseName}.xlsx` : `JNT_${baseName}.xlsx`);
     showToast(`Exportados ${source.length} registros a Excel`, 'success');
+  };
+
+  const handleRenameSync = (id: number, newName: string) => {
+    setBatchesList(prev => prev.map(b => (b.id === id ? { ...b, nombre_archivo: newName } : b)));
+    setBatchData(prev => (prev?.lote?.id === id ? { ...prev, lote: { ...prev.lote, nombre_archivo: newName } } : prev));
+  };
+
+  const handleSaveHeaderRename = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeBatchId) return;
+    const trimmed = renameDraft.trim();
+    if (!trimmed) {
+      showToast('El nombre no puede estar vacío', 'warning');
+      return;
+    }
+    try {
+      const updated = await jntService.renameBatch(activeBatchId, trimmed);
+      handleRenameSync(activeBatchId, updated.nombre_archivo);
+      setRenamingActive(false);
+      showToast('Manifiesto renombrado', 'success');
+    } catch (err: unknown) {
+      console.error(err);
+      showToast('Error al renombrar manifiesto', 'error');
+    }
   };
 
   const handleExportConsigneesExcel = () => {
@@ -374,19 +402,60 @@ export const JntExpress: React.FC = () => {
         metadata={
           <div className={styles.headerToolbar}>
             {batchesList.length > 0 && (
-              <select
-                className={styles.batchSelect}
-                value={activeBatchId || ''}
-                onChange={e => handleBatchSelected(Number(e.target.value))}
-                aria-label="Seleccionar manifiesto"
-                disabled={loading}
-              >
-                {batchesList.map(b => (
-                  <option key={b.id} value={b.id}>
-                    {b.nombre_archivo}
-                  </option>
-                ))}
-              </select>
+              renamingActive ? (
+                <form className={styles.renameInlineBox} onSubmit={handleSaveHeaderRename}>
+                  <input
+                    type="text"
+                    className={styles.batchSelect}
+                    value={renameDraft}
+                    onChange={e => setRenameDraft(e.target.value)}
+                    maxLength={180}
+                    autoFocus
+                    aria-label="Nuevo nombre del manifiesto"
+                  />
+                  <button type="submit" className={styles.inlineIconBtn} title="Guardar">
+                    <Check size={14} className={styles.iconOk} />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.inlineIconBtn}
+                    onClick={() => setRenamingActive(false)}
+                    title="Cancelar"
+                  >
+                    <X size={14} />
+                  </button>
+                </form>
+              ) : (
+                <div className={styles.batchSelectWrap}>
+                  <select
+                    className={styles.batchSelect}
+                    value={activeBatchId || ''}
+                    onChange={e => handleBatchSelected(Number(e.target.value))}
+                    aria-label="Seleccionar manifiesto"
+                    disabled={loading}
+                  >
+                    {batchesList.map(b => (
+                      <option key={b.id} value={b.id}>
+                        {b.nombre_archivo}
+                      </option>
+                    ))}
+                  </select>
+                  {activeBatchId && (
+                    <button
+                      type="button"
+                      className={styles.inlineIconBtn}
+                      onClick={() => {
+                        setRenameDraft(batchData?.lote?.nombre_archivo || '');
+                        setRenamingActive(true);
+                      }}
+                      title="Renombrar manifiesto"
+                      aria-label="Renombrar manifiesto"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  )}
+                </div>
+              )
             )}
 
             <Button
@@ -967,6 +1036,7 @@ export const JntExpress: React.FC = () => {
         isOpen={showHistoryModal}
         onClose={() => setShowHistoryModal(false)}
         onSelectBatch={handleBatchSelected}
+        onBatchRenamed={handleRenameSync}
       />
 
       {batchData && activeBatchId && (

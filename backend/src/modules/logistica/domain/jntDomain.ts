@@ -267,3 +267,56 @@ export async function parseJntPdf(buffer: Buffer): Promise<JntParseResult> {
     await parser.destroy();
   }
 }
+
+export function extractDateFromJntFilename(filename: string): string | null {
+  const isoCompact = filename.match(/(?:^|[_-])(20\d{2})([01]\d)([0-3]\d)(?:[_.-]|$)/);
+  if (isoCompact) {
+    return `${isoCompact[3]}-${isoCompact[2]}-${isoCompact[1]}`;
+  }
+  const dmy = filename.match(/(?:^|[_-])([0-3]\d)[-_]([01]\d)[-_](20\d{2})(?:[_.-]|$)/);
+  if (dmy) {
+    return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
+  }
+  return null;
+}
+
+export function isMachineJntFilename(filename: string): boolean {
+  const base = filename.replace(/\.pdf$/i, '').trim();
+  return /downloadCenter|jmsmx|multiple-api|ops-multiple|_\d{10,}$/i.test(base) ||
+    /^[a-z0-9]{12,}_/i.test(base);
+}
+
+export function buildProfessionalJntBatchName(options: {
+  originalFilename: string;
+  customName?: unknown;
+  distritos: Record<string, number>;
+  totalPaquetes: number;
+  fallbackIsoDate: string;
+}): string {
+  const custom = cleanJntText(options.customName, 180).replace(/\.pdf$/i, '').trim();
+  if (custom) {
+    return custom;
+  }
+
+  const original = String(options.originalFilename || '').trim();
+  if (original && !isMachineJntFilename(original)) {
+    const cleaned = cleanJntText(
+      original.replace(/\.pdf$/i, '').replace(/[_]+/g, ' '),
+      180
+    );
+    if (cleaned) return cleaned;
+  }
+
+  const extractedDate = extractDateFromJntFilename(original);
+  const [y = '', m = '', d = ''] = String(options.fallbackIsoDate || '').split('-');
+  const displayDate = extractedDate || (y && m && d ? `${d}-${m}-${y}` : options.fallbackIsoDate);
+
+  const topDistricts = Object.entries(options.distritos || {})
+    .filter(([name]) => name && name.toUpperCase() !== 'DESCONOCIDO')
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([name]) => name);
+
+  const zoneText = topDistricts.length > 0 ? topDistricts.join(' / ') : 'General';
+  return cleanJntText(`J&T · ${displayDate} · ${zoneText} (${options.totalPaquetes} guías)`, 180);
+}

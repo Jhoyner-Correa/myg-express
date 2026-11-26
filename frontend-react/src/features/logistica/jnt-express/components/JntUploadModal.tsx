@@ -14,6 +14,7 @@ interface JntUploadModalProps {
 
 export const JntUploadModal: React.FC<JntUploadModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [file, setFile] = useState<File | null>(null);
+  const [customName, setCustomName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +22,14 @@ export const JntUploadModal: React.FC<JntUploadModalProps> = ({ isOpen, onClose,
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
+
+  const resetAndClose = () => {
+    setFile(null);
+    setCustomName('');
+    setProgress(0);
+    setError(null);
+    onClose();
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -57,10 +66,10 @@ export const JntUploadModal: React.FC<JntUploadModalProps> = ({ isOpen, onClose,
 
       const res = await jntService.uploadPdf(file, (p) => {
         setProgress(p);
-      });
+      }, customName);
 
       onSuccess(res.lote_id, res.data);
-      onClose();
+      resetAndClose();
     } catch (err: any) {
       console.error(err);
       setError(err?.response?.data?.message || err.message || 'Error al procesar el archivo PDF');
@@ -72,13 +81,32 @@ export const JntUploadModal: React.FC<JntUploadModalProps> = ({ isOpen, onClose,
   return (
     <Modal
       open={isOpen}
-      onClose={uploading ? () => {} : onClose}
+      onClose={uploading ? () => {} : resetAndClose}
       title="Cargar PDF de Guías J&T Express"
     >
       <div className={styles.modalBody}>
         <p className={styles.modalDescription}>
           Sube el archivo PDF generado por el sistema de J&T Express (puede contener 200 o más páginas). El sistema extraerá automáticamente el código de paquete, datos de consignados, teléfono, lugar y peso.
         </p>
+
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel} htmlFor="jnt-manifest-name">
+            Nombre del manifiesto (opcional)
+          </label>
+          <input
+            id="jnt-manifest-name"
+            type="text"
+            className={styles.formInput}
+            value={customName}
+            onChange={e => setCustomName(e.target.value)}
+            placeholder="Automático (ej. J&T · 24-11-2026 · Satipo / Mazamari)"
+            disabled={uploading}
+            maxLength={180}
+          />
+          <span className={styles.fieldHint}>
+            Si lo dejas vacío, el sistema reemplaza automáticamente el nombre técnico de J&T por un formato limpio con fecha y distritos.
+          </span>
+        </div>
 
         <div
           className={`${styles.dropZone} ${dragOver ? styles.dropZoneActive : ''} ${file ? styles.dropZoneWithFile : ''}`}
@@ -142,7 +170,7 @@ export const JntUploadModal: React.FC<JntUploadModalProps> = ({ isOpen, onClose,
         <div className={styles.modalActions}>
           <Button
             variant="ghost"
-            onClick={onClose}
+            onClick={resetAndClose}
             disabled={uploading}
           >
             Cancelar

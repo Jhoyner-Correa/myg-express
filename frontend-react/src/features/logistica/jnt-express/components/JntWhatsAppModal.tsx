@@ -21,7 +21,10 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
   batchId,
 }) => {
   const navigate = useNavigate();
-  const [nombreRuta, setNombreRuta] = useState(`J&T Express ${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}`);
+  const cleanBatchBaseName = batchData.lote?.nombre_archivo
+    ? batchData.lote.nombre_archivo.replace(/\.pdf$/i, '')
+    : `J&T Express ${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}`;
+  const [nombreRuta, setNombreRuta] = useState(cleanBatchBaseName);
   const [modoAgrupacion, setModoAgrupacion] = useState<'individual' | 'agrupado_por_cliente'>('individual');
   const [selectedDistritos, setSelectedDistritos] = useState<string[]>(Object.keys(batchData.distritos || {}));
   const [loading, setLoading] = useState(false);

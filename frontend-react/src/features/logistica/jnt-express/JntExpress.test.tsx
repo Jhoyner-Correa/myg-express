@@ -21,6 +21,7 @@ vi.mock('./jnt.service', () => ({
   jntService: {
     listBatches: vi.fn(),
     getBatchDetails: vi.fn(),
+    renameBatch: vi.fn(),
     deleteBatch: vi.fn(),
     uploadPdf: vi.fn(),
     createWhatsAppRoute: vi.fn(),

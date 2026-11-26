@@ -10,7 +10,10 @@ const {
   cleanJntWeight,
   parseJntPageText,
   aggregateConsignees,
-  parseJntPdf
+  parseJntPdf,
+  extractDateFromJntFilename,
+  isMachineJntFilename,
+  buildProfessionalJntBatchName
 } = require('../dist/modules/logistica/domain/jntDomain');
 
 test('cleanJntPhone normaliza teléfonos peruanos de 9 dígitos', () => {
@@ -158,4 +161,35 @@ test('parseJntPdf procesa el archivo PDF real de 169 páginas con 100% de éxito
   assert.equal(result.distritos['Satipo'], 111);
   assert.equal(result.distritos['Mazamari'], 53);
   assert.equal(result.distritos['Coviriali'], 1);
+});
+
+test('buildProfessionalJntBatchName ordena nombres técnicos de J&T automáticamente', () => {
+  const machineName = 'aza365low730del_yl-jmsmx-ops-multiple-api_downloadCenter_20261124_pdf_338265089984680389.pdf';
+  assert.equal(isMachineJntFilename(machineName), true);
+  assert.equal(extractDateFromJntFilename(machineName), '24-11-2026');
+
+  const formatted = buildProfessionalJntBatchName({
+    originalFilename: machineName,
+    distritos: { Satipo: 111, Mazamari: 53, Coviriali: 1 },
+    totalPaquetes: 169,
+    fallbackIsoDate: '2026-11-26'
+  });
+  assert.equal(formatted, 'J&T · 24-11-2026 · Satipo / Mazamari (169 guías)');
+
+  const custom = buildProfessionalJntBatchName({
+    originalFilename: machineName,
+    customName: 'Ruta Satipo Tarde 26-11.pdf',
+    distritos: { Satipo: 50 },
+    totalPaquetes: 50,
+    fallbackIsoDate: '2026-11-26'
+  });
+  assert.equal(custom, 'Ruta Satipo Tarde 26-11');
+
+  const humanFile = buildProfessionalJntBatchName({
+    originalFilename: 'Envios_Mazamari_Manana.pdf',
+    distritos: { Mazamari: 30 },
+    totalPaquetes: 30,
+    fallbackIsoDate: '2026-11-26'
+  });
+  assert.equal(humanFile, 'Envios Mazamari Manana');
 });

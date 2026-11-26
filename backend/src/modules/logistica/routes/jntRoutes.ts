@@ -4,6 +4,7 @@ import {
   subirYProcesarPdf,
   listarLotesJnt,
   obtenerDetalleLoteJnt,
+  renombrarLoteJnt,
   eliminarLoteJnt,
   crearLoteWhatsAppDesdeJnt
 } from '../controllers/jntController';
@@ -46,6 +47,12 @@ router.get(
   '/lotes/:id',
   requirePermission(PERMISSIONS.JNT_VIEW),
   obtenerDetalleLoteJnt
+);
+
+router.patch(
+  '/lotes/:id',
+  requirePermission(PERMISSIONS.JNT_MANAGE),
+  renombrarLoteJnt
 );
 
 router.delete(
