@@ -62,10 +62,59 @@ export function cleanJntPhone(value: unknown): string {
 
 export function cleanJntWeight(value: unknown): number | null {
   if (value === null || value === undefined) return null;
-  const match = String(value).match(/([\d.]+)/);
+  const match = String(value).replace(',', '.').match(/([\d.]+)/);
   if (!match) return null;
   const parsed = parseFloat(match[1]);
   return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed * 1000) / 1000 : null;
+}
+
+export function formatSpanishName(name: unknown): string {
+  const cleaned = cleanJntText(name, 255);
+  if (!cleaned) return '';
+  const lowercaseParticles = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'e', 'en']);
+  return cleaned
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word, idx) => {
+      if (idx > 0 && lowercaseParticles.has(word)) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+}
+
+export function formatDistrictName(name: unknown): string {
+  const cleaned = cleanJntText(name, 100);
+  if (!cleaned) return '';
+  const lowercaseParticles = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'e']);
+  return cleaned
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word, idx) => {
+      if (idx > 0 && lowercaseParticles.has(word)) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+}
+
+export function cleanJntAddress(address: unknown, postalCode = ''): string {
+  let cleaned = cleanJntText(address, 255);
+  if (postalCode && cleaned.endsWith(postalCode)) {
+    cleaned = cleaned.slice(0, -postalCode.length).trim();
+  }
+  return cleaned
+    .replace(/^Nombre:\s*/i, '')
+    .replace(/^Direcci[oó]n:\s*/i, '')
+    .replace(/\s*Av\.\s*Elmer\s*Faucett.*$/i, '')
+    .replace(/\s*Comentarios:.*$/i, '')
+    .trim();
+}
+
+function isInvalidConsignee(val: string): boolean {
+  if (!val || val.length < 3) return true;
+  if (/^\d+$/.test(val)) return true;
+  if (/Faucett|CALLAO|CAN\d+|123456789|JPE\d+|Comentarios/i.test(val)) return true;
+  if (/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(val)) return true;
+  return false;
 }
 
 export function parseJntPageText(text: string, pageNum: number): JntPackage | null {
@@ -78,8 +127,8 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
 
   if (lines.length === 0) return null;
 
-  // 1. Guía / Tracking (JPE + digits, usually 12 digits)
-  const trackingMatches = text.match(/\bJPE\d{10,14}\b/i);
+  // 1. Guía / Tracking (JPE/JPT/JPR + digits, usually 12 digits)
+  const trackingMatches = text.match(/\b(?:JPE|JPT|JPR)\d{10,14}\b/i);
   const guia = trackingMatches ? trackingMatches[0].toUpperCase() : '';
   if (!guia) return null;
 
@@ -89,8 +138,10 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
   if (phoneMatch) {
     telefono = phoneMatch[1];
   } else {
-    // Check if line 2 is digits
-    if (lines[2] && /^\d{7,11}$/.test(lines[2])) {
+    const formattedMatch = text.match(/(?:\+?51[\s-]*)?\b(9[\d\s-]{7,12}\d)\b/);
+    if (formattedMatch) {
+      telefono = cleanJntPhone(formattedMatch[1]);
+    } else if (lines[2] && /^\d{7,11}$/.test(lines[2])) {
       telefono = cleanJntPhone(lines[2]);
     }
   }
@@ -117,11 +168,23 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
         /[a-zA-Z]/.test(parts[1]) &&
         !/^\d+$/.test(parts[1])
       ) {
-        distrito = cleanJntText(parts[0], 100);
-        provincia = cleanJntText(parts[1], 100);
-        departamento = cleanJntText(parts[2], 100);
+        distrito = formatDistrictName(parts[0]);
+        provincia = cleanJntText(parts[1].toUpperCase(), 100);
+        departamento = cleanJntText(parts[2].toUpperCase(), 100);
         break;
       }
+    }
+  }
+
+  // Fallback for district: Destination header before 'Firma'
+  if (!distrito) {
+    const firmaHeaderIdx = lines.findIndex(l => /Firma/i.test(l));
+    if (
+      firmaHeaderIdx > 0 &&
+      /^[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,30}$/.test(lines[firmaHeaderIdx - 1]) &&
+      !/Piezas|Valor|declarado|kg|Peso/i.test(lines[firmaHeaderIdx - 1])
+    ) {
+      distrito = formatDistrictName(lines[firmaHeaderIdx - 1]);
     }
   }
 
@@ -130,7 +193,7 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
   const codigoRuta = routeMatch ? routeMatch[0].trim() : '';
 
   // 5. Weight
-  const weightMatch = text.match(/([\d.]+\s*kg)/i);
+  const weightMatch = text.match(/([\d.,]+\s*kg)/i) || text.match(/Peso:\s*([\d.,]+)/i);
   const pesoKg = weightMatch ? cleanJntWeight(weightMatch[1]) : null;
 
   // 6. Postal Code (C.P.)
@@ -158,7 +221,7 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
   let direccion = '';
 
   // Layout B (Receipt Header -> Date -> Recipient Name -> Nombre: -> Recipient Address -> CP / Faucett)
-  const firmaIdx = lines.findIndex(l => /Firma de recepci[oó]n:/i.test(l));
+  const firmaIdx = lines.findIndex(l => /Firma(?:\s+de\s+(?:recepci[oó]n|entrega))?:/i.test(l));
   const recipientNombreIdx = lines.findIndex((l, idx) => {
     if (idx <= firmaIdx) return false;
     if (/^Nombre:\s*CAN\d+/i.test(l)) return false;
@@ -173,17 +236,22 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
 
     if (!isInvalidCandidate) {
       const nombreLine = lines[recipientNombreIdx];
+      let candidateName = '';
       if (/^(.+?)\s*[\t ]+Nombre:$/i.test(nombreLine)) {
         const m = nombreLine.match(/^(.+?)\s*[\t ]+Nombre:$/i);
-        consignado = m ? m[1].trim() : '';
+        candidateName = m ? m[1].trim() : '';
       } else {
         let startIdx = firmaIdx + 1;
         if (lines[startIdx] && /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(lines[startIdx])) {
           startIdx++;
         }
         if (recipientNombreIdx > startIdx) {
-          consignado = lines.slice(startIdx, recipientNombreIdx).join(' ');
+          candidateName = lines.slice(startIdx, recipientNombreIdx).join(' ');
         }
+      }
+
+      if (!isInvalidConsignee(candidateName)) {
+        consignado = formatSpanishName(candidateName);
       }
 
       // Recipient address in Layout B
@@ -192,7 +260,7 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
         return /^\d{5,6}$/.test(l) || /Faucett/i.test(l) || /^Cont:/i.test(l) || /^C\.P/i.test(l);
       });
       if (addrEndIdx !== -1 && addrEndIdx > recipientNombreIdx + 1) {
-        direccion = lines.slice(recipientNombreIdx + 1, addrEndIdx).join(' ');
+        direccion = cleanJntAddress(lines.slice(recipientNombreIdx + 1, addrEndIdx).join(' '), lines[addrEndIdx]);
         if (!codigoPostal && /^\d{5,6}$/.test(lines[addrEndIdx])) {
           codigoPostal = lines[addrEndIdx];
         }
@@ -207,7 +275,10 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
       (l, idx) => idx > cpIdx && (/^\+51/i.test(l) || /Valor declarado/i.test(l) || /^Tel:/i.test(l))
     );
     if (cpIdx !== -1 && endConsigneeIdx !== -1 && endConsigneeIdx > cpIdx + 1) {
-      consignado = lines.slice(cpIdx + 1, endConsigneeIdx).join(' ');
+      const candidateName = lines.slice(cpIdx + 1, endConsigneeIdx).join(' ');
+      if (!isInvalidConsignee(candidateName)) {
+        consignado = formatSpanishName(candidateName);
+      }
     } else {
       // Fallback: look for Nombre: lines
       const nombreIdxs: number[] = [];
@@ -216,8 +287,8 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
       });
       if (nombreIdxs.length >= 2) {
         const secondNombre = nombreIdxs[1];
-        if (lines[secondNombre + 1]) {
-          consignado = lines[secondNombre + 1];
+        if (lines[secondNombre + 1] && !isInvalidConsignee(lines[secondNombre + 1])) {
+          consignado = formatSpanishName(lines[secondNombre + 1]);
         }
       }
     }
@@ -228,7 +299,7 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
     const canIdx = lines.findIndex(l => /^CAN\d+/i.test(l));
     const comIdx = lines.findIndex(l => /^Comentarios:/i.test(l));
     if (canIdx !== -1 && comIdx !== -1 && comIdx > canIdx + 1) {
-      direccion = lines.slice(canIdx + 1, comIdx).join(' ');
+      direccion = cleanJntAddress(lines.slice(canIdx + 1, comIdx).join(' '));
     }
   }
 

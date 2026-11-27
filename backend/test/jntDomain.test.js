@@ -8,6 +8,9 @@ const {
   cleanJntCode,
   cleanJntPhone,
   cleanJntWeight,
+  formatSpanishName,
+  formatDistrictName,
+  cleanJntAddress,
   parseJntPageText,
   aggregateConsignees,
   parseJntPdf,
@@ -23,8 +26,16 @@ test('cleanJntPhone normaliza teléfonos peruanos de 9 dígitos', () => {
   assert.equal(cleanJntPhone('12345'), '');
 });
 
-test('cleanJntWeight convierte cadenas con kg a float redondeado', () => {
+test('formatSpanishName formatea nombres respetando mayúsculas y partículas', () => {
+  assert.equal(formatSpanishName('dennys William Ortiz Tolentino'), 'Dennys William Ortiz Tolentino');
+  assert.equal(formatSpanishName('ROSA MILENNYS PÉREZ SAJAJU'), 'Rosa Milennys Pérez Sajaju');
+  assert.equal(formatSpanishName('Angeles de Dayana Puente Sinchi'), 'Angeles de Dayana Puente Sinchi');
+  assert.equal(formatSpanishName('ana cristina mosquera pinchi'), 'Ana Cristina Mosquera Pinchi');
+});
+
+test('cleanJntWeight convierte cadenas con kg y comas a float redondeado', () => {
   assert.equal(cleanJntWeight('0.61 kg'), 0.61);
+  assert.equal(cleanJntWeight('0,61 kg'), 0.61);
   assert.equal(cleanJntWeight('1.250kg'), 1.25);
   assert.equal(cleanJntWeight(null), null);
   assert.equal(cleanJntWeight('invalido'), null);
