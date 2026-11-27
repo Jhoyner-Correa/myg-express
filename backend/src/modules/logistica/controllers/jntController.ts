@@ -465,6 +465,32 @@ export const crearLoteWhatsAppDesdeJnt = async (req: AuthRequest, res: Response)
     const avisosToInsert: any[][] = [];
     let omitidos = 0;
 
+    const buildAvisoRow = (
+      consignado: string | null | undefined,
+      telefono: string | null | undefined,
+      codigoPaquete: string,
+      pesoKg: number | null,
+      piezas: number,
+      contenido: string | null | undefined
+    ) => {
+      const telefonoClean = String(telefono || '').replace(/\D/g, '').slice(0, 20);
+      const estadoAviso = telefonoClean.length >= 9 ? 'pendiente' : 'sin_whatsapp';
+      return [
+        targetLoteId,
+        targetSedeId,
+        cleanJntText(consignado, 120) || null,
+        telefonoClean,
+        codigoPaquete,
+        pesoKg,
+        'J&T Express',
+        piezas,
+        cleanJntText(contenido, 255) || null,
+        id_plantilla || null,
+        mensaje_personalizado || null,
+        estadoAviso
+      ];
+    };
+
     if (modo_agrupacion === 'agrupado_por_cliente') {
       const clientMap = new Map<string, any[]>();
       for (const p of paquetes) {
@@ -485,25 +511,18 @@ export const crearLoteWhatsAppDesdeJnt = async (req: AuthRequest, res: Response)
         const guias = freshPkgs.map(p => p.guia).join(', ').slice(0, 100);
         const totalPiezas = freshPkgs.reduce((acc, p) => acc + (Number(p.piezas) || 1), 0);
         const totalPeso = freshPkgs.reduce((acc, p) => acc + (Number(p.peso_kg) || 0), 0);
-        const contenidos = Array.from(new Set(freshPkgs.map(p => p.contenido).filter(Boolean))).join(', ').slice(0, 255);
-        const telefonoClean = String(first.telefono || '').replace(/\D/g, '').slice(0, 20);
-        const estadoAviso = telefonoClean.length >= 9 ? 'pendiente' : 'sin_whatsapp';
+        const contenidos = Array.from(new Set(freshPkgs.map(p => p.contenido).filter(Boolean))).join(', ');
 
-        avisosToInsert.push([
-          targetLoteId,
-          targetSedeId,
-          cleanJntText(first.consignado, 120) || null,
-          telefonoClean,
-          guias,
-          totalPeso > 0 ? totalPeso : null,
-          'J&T Express',
-          totalPiezas,
-          contenidos || null,
-          id_plantilla || null,
-          mensaje_personalizado || null,
-          estadoAviso,
-          'pendiente'
-        ]);
+        avisosToInsert.push(
+          buildAvisoRow(
+            first.consignado,
+            first.telefono,
+            guias,
+            totalPeso > 0 ? totalPeso : null,
+            totalPiezas,
+            contenidos
+          )
+        );
       }
     } else {
       for (const p of paquetes) {
@@ -512,24 +531,17 @@ export const crearLoteWhatsAppDesdeJnt = async (req: AuthRequest, res: Response)
           omitidos++;
           continue;
         }
-        const telefonoClean = String(p.telefono || '').replace(/\D/g, '').slice(0, 20);
-        const estadoAviso = telefonoClean.length >= 9 ? 'pendiente' : 'sin_whatsapp';
 
-        avisosToInsert.push([
-          targetLoteId,
-          targetSedeId,
-          cleanJntText(p.consignado, 120) || null,
-          telefonoClean,
-          String(p.guia || '').slice(0, 100),
-          p.peso_kg,
-          'J&T Express',
-          p.piezas || 1,
-          p.contenido ? cleanJntText(p.contenido, 255) : null,
-          id_plantilla || null,
-          mensaje_personalizado || null,
-          estadoAviso,
-          'pendiente'
-        ]);
+        avisosToInsert.push(
+          buildAvisoRow(
+            p.consignado,
+            p.telefono,
+            String(p.guia || '').slice(0, 100),
+            p.peso_kg,
+            p.piezas || 1,
+            p.contenido
+          )
+        );
       }
     }
 
@@ -539,7 +551,7 @@ export const crearLoteWhatsAppDesdeJnt = async (req: AuthRequest, res: Response)
       const chunk = avisosToInsert.slice(i, i + chunkSize);
       await connection.query(
         `INSERT INTO avisos_diarios (
-          lote_id, sede_id, nombre, telefono, codigo_paquete, peso_kg, tipo_paquete_urbano, piezas, contenido_paquete, id_plantilla, mensaje_personalizado, estado_aviso, estado_entrega
+          lote_id, sede_id, nombre, telefono, codigo_paquete, peso_kg, tipo_paquete_urbano, piezas, contenido_paquete, id_plantilla, mensaje_personalizado, estado_aviso
         ) VALUES ?`,
         [chunk]
       );
