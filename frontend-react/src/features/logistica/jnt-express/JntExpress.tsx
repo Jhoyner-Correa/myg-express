@@ -1065,6 +1065,19 @@ export const JntExpress: React.FC = () => {
                 ruta_whatsapp_nombre: res.nombre_ruta
               }
             } : prev));
+            setBatchesList(prev =>
+              prev.map(b => (b.id === activeBatchId ? {
+                ...b,
+                lote_carga_id: res.lote_carga_id,
+                ruta_whatsapp_nombre: res.nombre_ruta
+              } : b))
+            );
+            showToast(
+              res.total_avisos > 0
+                ? `Confirmado: ${res.total_avisos} avisos enviados a "${res.nombre_ruta}"`
+                : `Los paquetes ya estaban registrados en "${res.nombre_ruta}"`,
+              res.total_avisos > 0 ? 'success' : 'info'
+            );
           }}
         />
       )}

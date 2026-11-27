@@ -166,4 +166,148 @@ describe('JntExpress Component', () => {
       expect(screen.getByText('Enviar aviso por WhatsApp')).toBeInTheDocument();
     });
   });
+
+  it('evita doble envío en clic rápido y confirma cuando las guías ya están en la ruta', async () => {
+    vi.mocked(jntService.listBatches).mockResolvedValueOnce([
+      {
+        id: 12,
+        sede_id: 1,
+        usuario_id: 1,
+        nombre_archivo: 'manifiesto_jnt_confirm.pdf',
+        total_paginas: 2,
+        total_paquetes: 2,
+        total_consignados: 2,
+        lote_carga_id: null,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    vi.mocked(jntService.getBatchDetails).mockResolvedValueOnce({
+      lote: {
+        id: 12,
+        sede_id: 1,
+        usuario_id: 1,
+        nombre_archivo: 'manifiesto_jnt_confirm.pdf',
+        total_paginas: 2,
+        total_paquetes: 2,
+        total_consignados: 2,
+        lote_carga_id: null,
+        created_at: new Date().toISOString(),
+      },
+      totalPaginas: 2,
+      totalPaquetes: 2,
+      totalConsignados: 2,
+      consignadosMultiples: 0,
+      distritos: { Satipo: 2 },
+      paquetes: [
+        {
+          pagina: 1,
+          guia: 'JPE10001',
+          consignado: 'ANA TORRES',
+          telefono: '987654321',
+          distrito: 'Satipo',
+          provincia: 'SATIPO',
+          departamento: 'JUNIN',
+          direccion: 'Av 1',
+          codigoRuta: 'M01',
+          codigoPostal: '120601',
+          pesoKg: 0.5,
+          contenido: 'Ropa',
+          piezas: 1,
+        },
+        {
+          pagina: 2,
+          guia: 'JPE10002',
+          consignado: 'LUIS DIAZ',
+          telefono: '987654322',
+          distrito: 'Satipo',
+          provincia: 'SATIPO',
+          departamento: 'JUNIN',
+          direccion: 'Av 2',
+          codigoRuta: 'M01',
+          codigoPostal: '120601',
+          pesoKg: 0.8,
+          contenido: 'Zapatos',
+          piezas: 1,
+        },
+      ],
+      consignados: [],
+    });
+
+    render(
+      <MemoryRouter>
+        <JntExpress />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Mandar a Ruta')).toBeInTheDocument();
+    });
+
+    vi.mocked(jntService.listAvailableRoutes).mockResolvedValueOnce([
+      {
+        id: 88,
+        sede_id: 1,
+        sede_nombre: 'LA MERCED',
+        fecha: '2026-11-26',
+        zona: 'Satipo',
+        nombre_lote: 'la merced',
+        estado: 'pendiente',
+        total_registros: 0,
+        guias_existentes: [],
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    let resolveSend: (value: any) => void;
+    vi.mocked(jntService.createWhatsAppRoute).mockImplementationOnce(
+      () => new Promise(resolve => { resolveSend = resolve; })
+    );
+
+    fireEvent.click(screen.getByText('Mandar a Ruta'));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Confirmar y mandar \(2\)/i })).toBeInTheDocument();
+    });
+
+    const submitBtn = screen.getByRole('button', { name: /Confirmar y mandar \(2\)/i });
+    fireEvent.click(submitBtn);
+    fireEvent.click(submitBtn);
+
+    expect(jntService.createWhatsAppRoute).toHaveBeenCalledTimes(1);
+
+    resolveSend!({
+      lote_carga_id: 88,
+      nombre_ruta: 'la merced',
+      total_avisos: 2,
+      omitidos: 0,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('¡Confirmado! Paquetes mandados a la ruta')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Cerrar'));
+
+    vi.mocked(jntService.listAvailableRoutes).mockResolvedValueOnce([
+      {
+        id: 88,
+        sede_id: 1,
+        sede_nombre: 'LA MERCED',
+        fecha: '2026-11-26',
+        zona: 'Satipo',
+        nombre_lote: 'la merced',
+        estado: 'pendiente',
+        total_registros: 2,
+        guias_existentes: ['JPE10001', 'JPE10002'],
+        created_at: new Date().toISOString(),
+      },
+    ]);
+
+    fireEvent.click(screen.getByText('Mandar a Ruta'));
+    await waitFor(() => {
+      expect(screen.getByText('Ya enviados')).toBeInTheDocument();
+      expect(screen.getByText(/Confirmado: estos 2 paquetes ya fueron mandados a la merced/i)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Confirmar y mandar/i })).not.toBeInTheDocument();
+    });
+  });
 });

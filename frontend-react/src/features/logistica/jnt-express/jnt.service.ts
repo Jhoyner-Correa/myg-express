@@ -56,8 +56,11 @@ export const jntService = {
     await apiClient.delete(`/jnt/lotes/${id}`);
   },
 
-  async listAvailableRoutes(signal?: AbortSignal): Promise<JntAvailableRoute[]> {
-    const response = await apiClient.get<ApiEnvelope<JntAvailableRoute[]>>('/jnt/rutas-disponibles', { signal });
+  async listAvailableRoutes(loteJntId?: number, signal?: AbortSignal): Promise<JntAvailableRoute[]> {
+    const response = await apiClient.get<ApiEnvelope<JntAvailableRoute[]>>('/jnt/rutas-disponibles', {
+      params: loteJntId ? { lote_jnt_id: loteJntId } : undefined,
+      signal,
+    });
     return unwrapApiData(response.data, []);
   },
 

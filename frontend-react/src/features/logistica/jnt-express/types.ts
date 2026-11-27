@@ -59,6 +59,7 @@ export interface JntAvailableRoute {
   nombre_lote: string;
   estado: string;
   total_registros: number;
+  guias_existentes?: string[];
   created_at: string;
 }
 

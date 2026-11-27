@@ -306,6 +306,7 @@ export const listarRutasDisponiblesJnt = async (req: AuthRequest, res: Response)
   try {
     const sedeId = Number(req.user?.sede_id || 0);
     const isGlobal = !sedeId || isGlobalJntRole(req.user?.rol);
+    const loteJntId = Number(req.query?.lote_jnt_id || 0);
     const hoy = businessDate();
 
     const baseSelect = `
@@ -331,8 +332,61 @@ export const listarRutasDisponiblesJnt = async (req: AuthRequest, res: Response)
       : `${baseSelect} AND l.sede_id = ? ORDER BY l.id DESC LIMIT 50`;
 
     const params = isGlobal ? [hoy] : [hoy, sedeId];
-    const [rows] = await pool.query(query, params);
-    return res.json({ ok: true, data: rows });
+    const [rows]: any = await pool.query(query, params);
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.json({ ok: true, data: rows });
+    }
+
+    let jntGuiasFilter: Set<string> | null = null;
+    if (loteJntId > 0) {
+      const [pkgRows]: any = await pool.query(
+        `SELECT guia FROM jnt_paquetes WHERE lote_jnt_id = ?`,
+        [loteJntId]
+      );
+      jntGuiasFilter = new Set(
+        (pkgRows || [])
+          .map((r: any) => String(r.guia || '').trim().toUpperCase())
+          .filter(Boolean)
+      );
+    }
+
+    const routeIds = rows.map((r: any) => Number(r.id)).filter(Boolean);
+    const routeCodesMap = new Map<number, Set<string>>();
+
+    if (routeIds.length > 0) {
+      const [avisoRows]: any = await pool.query(
+        `SELECT lote_id, codigo_paquete
+         FROM avisos_diarios
+         WHERE lote_id IN (?) AND codigo_paquete IS NOT NULL`,
+        [routeIds]
+      );
+
+      for (const row of avisoRows || []) {
+        const lid = Number(row.lote_id);
+        let codeSet = routeCodesMap.get(lid);
+        if (!codeSet) {
+          codeSet = new Set<string>();
+          routeCodesMap.set(lid, codeSet);
+        }
+        String(row.codigo_paquete || '')
+          .split(',')
+          .map((c: string) => c.trim().toUpperCase())
+          .filter(Boolean)
+          .forEach((c: string) => {
+            if (!jntGuiasFilter || jntGuiasFilter.has(c)) {
+              codeSet!.add(c);
+            }
+          });
+      }
+    }
+
+    const enrichedRows = rows.map((r: any) => ({
+      ...r,
+      guias_existentes: Array.from(routeCodesMap.get(Number(r.id)) || [])
+    }));
+
+    return res.json({ ok: true, data: enrichedRows });
   } catch (error: any) {
     console.error('[jntController] listarRutasDisponiblesJnt error:', error);
     return res.status(500).json({ ok: false, message: 'Error al consultar rutas disponibles' });

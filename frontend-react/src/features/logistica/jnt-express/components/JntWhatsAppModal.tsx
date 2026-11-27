@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Send,
   CheckCircle2,
@@ -6,7 +6,8 @@ import {
   Loader2,
   MapPin,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ShieldCheck
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../../../components/ui/Modal/Modal';
@@ -44,9 +45,11 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<JntSendToRouteResult | null>(null);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (!isOpen) return;
+    isSubmittingRef.current = false;
     setError(null);
     setSuccessResult(null);
     setShowDistrictFilter(false);
@@ -57,14 +60,15 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
     const fetchRoutes = async () => {
       try {
         setLoadingRoutes(true);
-        const routes = await jntService.listAvailableRoutes();
+        const routes = await jntService.listAvailableRoutes(batchId);
         if (!active) return;
-        setAvailableRoutes(routes);
-        if (routes.length > 0) {
+        const safeRoutes = Array.isArray(routes) ? routes : [];
+        setAvailableRoutes(safeRoutes);
+        if (safeRoutes.length > 0) {
           const linkedRoute = batchData.lote?.lote_carga_id
-            ? routes.find(r => r.id === batchData.lote?.lote_carga_id)
+            ? safeRoutes.find(r => r.id === batchData.lote?.lote_carga_id)
             : null;
-          setSelectedRouteId(linkedRoute ? linkedRoute.id : routes[0]!.id);
+          setSelectedRouteId(linkedRoute ? linkedRoute.id : safeRoutes[0]!.id);
         } else {
           setSelectedRouteId(null);
         }
@@ -77,7 +81,10 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
     };
     fetchRoutes();
     return () => { active = false; };
-  }, [isOpen, batchData, selectedGuias.length]);
+    // Only initialize and fetch routes when opening the modal or switching batchId;
+    // do not reset successResult when onSentSuccess updates batchData.lote.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, batchId]);
 
   const sortedDistrictEntries = useMemo(() => {
     return Object.entries(batchData.distritos || {}).sort((a, b) => b[1] - a[1]);
@@ -108,7 +115,17 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
   const targetLabel = selectedRouteObj ? selectedRouteObj.nombre_lote : 'la ruta seleccionada';
   const allDistrictsSelected = selectedDistritos.length === sortedDistrictEntries.length;
 
+  const selectedRouteCodes = new Set(
+    (selectedRouteObj?.guias_existentes || []).map(g => g.trim().toUpperCase())
+  );
+  const alreadySentCount = paquetesFiltrados.filter(p =>
+    selectedRouteCodes.has(p.guia.trim().toUpperCase())
+  ).length;
+  const pendingCount = Math.max(0, paquetesFiltrados.length - alreadySentCount);
+  const allAlreadyInRoute = paquetesFiltrados.length > 0 && pendingCount === 0 && Boolean(selectedRouteObj);
+
   const handleSubmit = async () => {
+    if (isSubmittingRef.current || loading) return;
     if (!selectedRouteId) {
       setError('Selecciona una ruta disponible de hoy para enviar los paquetes.');
       return;
@@ -121,7 +138,11 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
       setError('No hay paquetes para enviar.');
       return;
     }
+    if (allAlreadyInRoute) {
+      return;
+    }
 
+    isSubmittingRef.current = true;
     try {
       setLoading(true);
       setError(null);
@@ -137,12 +158,26 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
           : undefined,
       });
 
+      const sentCodes = paquetesFiltrados.map(p => p.guia.trim().toUpperCase());
+      setAvailableRoutes(prev =>
+        prev.map(r => {
+          if (r.id !== res.lote_carga_id) return r;
+          const merged = Array.from(new Set([...(r.guias_existentes || []), ...sentCodes]));
+          return {
+            ...r,
+            total_registros: Number(r.total_registros || 0) + Number(res.total_avisos || 0),
+            guias_existentes: merged,
+          };
+        })
+      );
+
       setSuccessResult(res);
       onSentSuccess?.(res);
     } catch (err: any) {
       console.error(err);
       setError(err?.response?.data?.message || err.message || 'No se pudo enviar a la ruta');
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   };
@@ -164,6 +199,23 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
         Ir a la Ruta
       </Button>
     </>
+  ) : allAlreadyInRoute && selectedRouteObj ? (
+    <>
+      <Button variant="secondary" size="sm" onClick={onClose}>
+        Cerrar
+      </Button>
+      <Button
+        variant="primary"
+        size="sm"
+        icon={<CheckCircle2 size={14} />}
+        onClick={() => {
+          onClose();
+          navigate(`/rutas/${selectedRouteObj.id}`);
+        }}
+      >
+        Ir a la Ruta
+      </Button>
+    </>
   ) : (
     <>
       <Button variant="secondary" size="sm" onClick={onClose} disabled={loading}>
@@ -175,9 +227,9 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
         icon={<Send size={14} />}
         loading={loading}
         onClick={handleSubmit}
-        disabled={loading || paquetesFiltrados.length === 0 || !selectedRouteId}
+        disabled={loading || pendingCount === 0 || !selectedRouteId}
       >
-        {loading ? 'Enviando...' : 'Mandar a Ruta'}
+        {loading ? 'Enviando a ruta...' : `Confirmar y mandar (${pendingCount})`}
       </Button>
     </>
   );
@@ -186,22 +238,55 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
     <Modal
       open={isOpen}
       onClose={loading ? () => {} : onClose}
-      title="Mandar Paquetes a Ruta"
-      description="Elige la ruta de hoy donde se cargarán estos paquetes."
-      icon={<Send />}
+      title={successResult ? 'Envío confirmado a Ruta' : 'Mandar Paquetes a Ruta'}
+      description={
+        successResult
+          ? 'Los paquetes ya quedaron registrados y protegidos contra duplicados.'
+          : 'Elige la ruta de hoy donde se cargarán estos paquetes.'
+      }
+      icon={successResult ? <CheckCircle2 /> : <Send />}
       maxWidth={540}
       footer={modalFooter}
     >
       {successResult ? (
         <div className={styles.successContainer}>
-          <CheckCircle2 size={44} className={styles.successIcon} />
+          <div className={styles.successIconBadge}>
+            <CheckCircle2 size={32} className={styles.successIcon} />
+          </div>
           <h3 className={styles.successTitle}>
-            {successResult.total_avisos > 0 ? 'Paquetes enviados a la ruta' : 'Ya estaban en la ruta'}
+            {successResult.total_avisos > 0
+              ? '¡Confirmado! Paquetes mandados a la ruta'
+              : 'Confirmado: ya estaban registrados en la ruta'}
           </h3>
           <p className={styles.successDescription}>
-            Se agregaron <strong>{successResult.total_avisos}</strong> avisos individuales a <strong>{successResult.nombre_ruta}</strong>.
-            {successResult.omitidos > 0 && ` (${successResult.omitidos} repetidos omitidos).`}
+            {successResult.total_avisos > 0 ? (
+              <>
+                Se agregaron <strong>{successResult.total_avisos}</strong> avisos individuales a{' '}
+                <strong>{successResult.nombre_ruta}</strong>.
+              </>
+            ) : (
+              <>
+                No se generó ningún duplicado porque las guías ya existían en{' '}
+                <strong>{successResult.nombre_ruta}</strong>.
+              </>
+            )}
           </p>
+          <div className={styles.successDetailsCard}>
+            <div>
+              <span>Ruta destino</span>
+              <strong>{successResult.nombre_ruta} (MYG-{successResult.lote_carga_id})</strong>
+            </div>
+            <div>
+              <span>Avisos nuevos</span>
+              <strong>{successResult.total_avisos}</strong>
+            </div>
+            {successResult.omitidos > 0 && (
+              <div>
+                <span>Duplicados omitidos</span>
+                <strong>{successResult.omitidos}</strong>
+              </div>
+            )}
+          </div>
         </div>
       ) : (
         <div className={styles.calmModalStack}>
@@ -232,6 +317,12 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
               <div className={styles.calmRouteList} role="listbox" aria-label="Rutas de hoy">
                 {availableRoutes.map(route => {
                   const isSelected = selectedRouteId === route.id;
+                  const routeCodeSet = new Set((route.guias_existentes || []).map(g => g.trim().toUpperCase()));
+                  const matchedInRoute = paquetesFiltrados.filter(p =>
+                    routeCodeSet.has(p.guia.trim().toUpperCase())
+                  ).length;
+                  const fullySentToThisRoute = paquetesFiltrados.length > 0 && matchedInRoute === paquetesFiltrados.length;
+
                   return (
                     <button
                       key={route.id}
@@ -251,7 +342,13 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
                           MYG-{route.id} · {route.total_registros} {route.total_registros === 1 ? 'registro actual' : 'registros actuales'}
                         </span>
                       </div>
-                      <span className={styles.calmRouteStatus}>{route.estado}</span>
+                      {fullySentToThisRoute ? (
+                        <span className={styles.calmRouteSentBadge}>Ya enviados</span>
+                      ) : matchedInRoute > 0 ? (
+                        <span className={styles.calmRoutePartialBadge}>{matchedInRoute} ya en ruta</span>
+                      ) : (
+                        <span className={styles.calmRouteStatus}>{route.estado}</span>
+                      )}
                     </button>
                   );
                 })}
@@ -322,14 +419,38 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
             </div>
           )}
 
-          {/* Calm summary */}
-          <div className={styles.calmSummaryNote}>
-            <MapPin size={14} />
-            <span>
-              Se enviarán <strong>{paquetesFiltrados.length}</strong> mensajes individuales (1 por paquete) a{' '}
-              <strong>{targetLabel}</strong>.
-            </span>
-          </div>
+          {/* Structured confirmation / anti-duplication summary */}
+          {allAlreadyInRoute ? (
+            <div className={styles.calmSummaryDone}>
+              <CheckCircle2 size={17} />
+              <div>
+                <strong>
+                  Confirmado: estos {alreadySentCount} paquetes ya fueron mandados a {targetLabel}.
+                </strong>
+                <span>
+                  No se enviarán de nuevo para evitar duplicados. Puedes abrir la ruta directamente.
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.calmSummaryCard}>
+              <div className={styles.calmSummaryTop}>
+                <MapPin size={15} />
+                <span>
+                  Se enviarán <strong>{pendingCount}</strong> mensajes individuales (1 por paquete) a{' '}
+                  <strong>{targetLabel}</strong>.
+                </span>
+              </div>
+              <div className={styles.calmSummaryMeta}>
+                <ShieldCheck size={13} />
+                <span>
+                  {alreadySentCount > 0
+                    ? `${alreadySentCount} ya están en esta ruta y se omitirán automáticamente.`
+                    : 'Control anti-duplicados activo: un clic registra el envío sin duplicarlo.'}
+                </span>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className={styles.errorMessage}>
