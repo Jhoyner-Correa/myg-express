@@ -95,7 +95,7 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
     }
   }
 
-  // 3. Ubigeo: Destination is District/Province/Department (e.g. Coviriali/SATIPO/JUNIN)
+  // 3. Ubigeo: Destination is District/Province/Department (e.g. Coviriali/SATIPO/JUNIN o Oxapampa/OXAPAMPA/PASCO)
   let distrito = '';
   let provincia = '';
   let departamento = '';
@@ -105,10 +105,18 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
       !line.includes('Faucett') &&
       !line.includes('CALLAO') &&
       !line.includes('https:') &&
-      !line.includes('http:')
+      !line.includes('http:') &&
+      !line.includes('C.P:') &&
+      !/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(line)
     ) {
       const parts = line.split('/').map(p => p.trim());
-      if (parts.length >= 3) {
+      if (
+        parts.length >= 3 &&
+        /[a-zA-Z]/.test(parts[0]) &&
+        !/^\d+$/.test(parts[0]) &&
+        /[a-zA-Z]/.test(parts[1]) &&
+        !/^\d+$/.test(parts[1])
+      ) {
         distrito = cleanJntText(parts[0], 100);
         provincia = cleanJntText(parts[1], 100);
         departamento = cleanJntText(parts[2], 100);
@@ -117,8 +125,8 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
     }
   }
 
-  // 4. Internal Route Code (e.g. M02 M02- 188)
-  const routeMatch = text.match(/M\d{2}\s+M\d{2}-\s*\d+/);
+  // 4. Internal Route Code (e.g. M02 M02- 188 o M02 M11-)
+  const routeMatch = text.match(/M\d{2}\s+M\d{2}-\s*\d*/);
   const codigoRuta = routeMatch ? routeMatch[0].trim() : '';
 
   // 5. Weight
@@ -126,59 +134,129 @@ export function parseJntPageText(text: string, pageNum: number): JntPackage | nu
   const pesoKg = weightMatch ? cleanJntWeight(weightMatch[1]) : null;
 
   // 6. Postal Code (C.P.)
+  let codigoPostal = '';
   const cpMatch = text.match(/\/Tel:\s*(\d+)/i) || text.match(/C\.P:?\s*(\d+)/i);
-  const codigoPostal = cpMatch ? cpMatch[1].trim() : '';
+  if (cpMatch) {
+    codigoPostal = cpMatch[1].trim();
+  }
 
-  // 7. Consignee (between C.P: and +51... / Valor declarado / Tel:)
+  // 7. Pieces
+  let piezas = 1;
+  const piezasIdx = lines.findIndex(l => /^Piezas:/i.test(l));
+  if (piezasIdx !== -1) {
+    if (lines[piezasIdx + 1] && /^\d{1,3}$/.test(lines[piezasIdx + 1])) {
+      const p = parseInt(lines[piezasIdx + 1], 10);
+      if (p > 0 && p <= 100) piezas = p;
+    } else if (piezasIdx > 0 && /^\d{1,3}$/.test(lines[piezasIdx - 1])) {
+      const p = parseInt(lines[piezasIdx - 1], 10);
+      if (p > 0 && p <= 100) piezas = p;
+    }
+  }
+
+  // 8. Consignee & Address (Supports multiple J&T label layouts)
   let consignado = '';
-  const cpIdx = lines.findIndex(l => /C\.P/i.test(l));
-  const endConsigneeIdx = lines.findIndex(
-    (l, idx) => idx > cpIdx && (/^\+51/i.test(l) || /Valor declarado/i.test(l) || /^Tel:/i.test(l))
-  );
-  if (cpIdx !== -1 && endConsigneeIdx !== -1 && endConsigneeIdx > cpIdx + 1) {
-    consignado = lines.slice(cpIdx + 1, endConsigneeIdx).join(' ');
-  } else {
-    // Fallback: look for Nombre: lines
-    const nombreIdxs: number[] = [];
-    lines.forEach((l, idx) => {
-      if (/^Nombre:/i.test(l)) nombreIdxs.push(idx);
-    });
-    if (nombreIdxs.length >= 2) {
-      const secondNombre = nombreIdxs[1];
-      if (lines[secondNombre + 1]) {
-        consignado = lines[secondNombre + 1];
+  let direccion = '';
+
+  // Layout B (Receipt Header -> Date -> Recipient Name -> Nombre: -> Recipient Address -> CP / Faucett)
+  const firmaIdx = lines.findIndex(l => /Firma de recepci[oó]n:/i.test(l));
+  const recipientNombreIdx = lines.findIndex((l, idx) => {
+    if (idx <= firmaIdx) return false;
+    if (/^Nombre:\s*CAN\d+/i.test(l)) return false;
+    return /Nombre:/i.test(l);
+  });
+
+  if (firmaIdx !== -1 && recipientNombreIdx !== -1 && (recipientNombreIdx - firmaIdx) <= 6) {
+    const candidateLines = lines.slice(firmaIdx + 1, recipientNombreIdx);
+    const isInvalidCandidate = candidateLines.some(l =>
+      /Faucett|CALLAO|JPE\d+/i.test(l) || (/^\d+$/.test(l) && !/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(l))
+    );
+
+    if (!isInvalidCandidate) {
+      const nombreLine = lines[recipientNombreIdx];
+      if (/^(.+?)\s*[\t ]+Nombre:$/i.test(nombreLine)) {
+        const m = nombreLine.match(/^(.+?)\s*[\t ]+Nombre:$/i);
+        consignado = m ? m[1].trim() : '';
+      } else {
+        let startIdx = firmaIdx + 1;
+        if (lines[startIdx] && /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(lines[startIdx])) {
+          startIdx++;
+        }
+        if (recipientNombreIdx > startIdx) {
+          consignado = lines.slice(startIdx, recipientNombreIdx).join(' ');
+        }
+      }
+
+      // Recipient address in Layout B
+      const addrEndIdx = lines.findIndex((l, idx) => {
+        if (idx <= recipientNombreIdx) return false;
+        return /^\d{5,6}$/.test(l) || /Faucett/i.test(l) || /^Cont:/i.test(l) || /^C\.P/i.test(l);
+      });
+      if (addrEndIdx !== -1 && addrEndIdx > recipientNombreIdx + 1) {
+        direccion = lines.slice(recipientNombreIdx + 1, addrEndIdx).join(' ');
+        if (!codigoPostal && /^\d{5,6}$/.test(lines[addrEndIdx])) {
+          codigoPostal = lines[addrEndIdx];
+        }
       }
     }
   }
-  consignado = cleanJntText(consignado, 255);
 
-  // 8. Content (mercadería / package description)
-  let contenido = '';
-  const barcodeIdx = lines.findIndex(l => l === '123456789');
-  if (barcodeIdx !== -1 && lines[barcodeIdx + 1] && lines[barcodeIdx + 1] !== '1') {
-    contenido = cleanJntText(lines[barcodeIdx + 1], 255);
-  } else {
-    const contMatch = text.match(/\bCont:\s*([^\n]+)/i);
-    if (contMatch) {
-      contenido = cleanJntText(contMatch[1], 255);
+  // Layout A Fallback for Consignee (between C.P: and +51... / Valor declarado / Tel:)
+  if (!consignado) {
+    const cpIdx = lines.findIndex(l => /^C\.P/i.test(l));
+    const endConsigneeIdx = lines.findIndex(
+      (l, idx) => idx > cpIdx && (/^\+51/i.test(l) || /Valor declarado/i.test(l) || /^Tel:/i.test(l))
+    );
+    if (cpIdx !== -1 && endConsigneeIdx !== -1 && endConsigneeIdx > cpIdx + 1) {
+      consignado = lines.slice(cpIdx + 1, endConsigneeIdx).join(' ');
+    } else {
+      // Fallback: look for Nombre: lines
+      const nombreIdxs: number[] = [];
+      lines.forEach((l, idx) => {
+        if (/^Nombre:/i.test(l)) nombreIdxs.push(idx);
+      });
+      if (nombreIdxs.length >= 2) {
+        const secondNombre = nombreIdxs[1];
+        if (lines[secondNombre + 1]) {
+          consignado = lines[secondNombre + 1];
+        }
+      }
     }
   }
 
-  // 9. Pieces
-  let piezas = 1;
-  const piezasIdx = lines.findIndex(l => /^Piezas:/i.test(l));
-  if (piezasIdx !== -1 && lines[piezasIdx + 1] && /^\d+$/.test(lines[piezasIdx + 1])) {
-    piezas = parseInt(lines[piezasIdx + 1], 10);
+  // Layout A Fallback for Address (between CAN... and Comentarios:)
+  if (!direccion) {
+    const canIdx = lines.findIndex(l => /^CAN\d+/i.test(l));
+    const comIdx = lines.findIndex(l => /^Comentarios:/i.test(l));
+    if (canIdx !== -1 && comIdx !== -1 && comIdx > canIdx + 1) {
+      direccion = lines.slice(canIdx + 1, comIdx).join(' ');
+    }
   }
 
-  // 10. Address (between CAN... and Comentarios:)
-  let direccion = '';
-  const canIdx = lines.findIndex(l => /^CAN\d+/i.test(l));
-  const comIdx = lines.findIndex(l => /^Comentarios:/i.test(l));
-  if (canIdx !== -1 && comIdx !== -1 && comIdx > canIdx + 1) {
-    direccion = lines.slice(canIdx + 1, comIdx).join(' ');
-  }
+  consignado = cleanJntText(consignado, 255);
   direccion = cleanJntText(direccion, 255);
+
+  // 9. Content (mercadería / package description)
+  let contenido = '';
+  const contIdx = lines.findIndex(l => /^Cont:?$/i.test(l));
+  if (
+    contIdx !== -1 &&
+    lines[contIdx + 1] &&
+    !lines[contIdx + 1].startsWith('+') &&
+    !lines[contIdx + 1].startsWith('Peso') &&
+    !/^CAN\d+/i.test(lines[contIdx + 1])
+  ) {
+    contenido = cleanJntText(lines[contIdx + 1], 255);
+  } else {
+    const barcodeIdx = lines.findIndex(l => l === '123456789');
+    if (barcodeIdx !== -1 && lines[barcodeIdx + 1] && lines[barcodeIdx + 1] !== '1') {
+      contenido = cleanJntText(lines[barcodeIdx + 1], 255);
+    } else {
+      const contMatch = text.match(/\bCont:\s*([^\n]+)/i);
+      if (contMatch) {
+        contenido = cleanJntText(contMatch[1], 255);
+      }
+    }
+  }
 
   return {
     pagina: pageNum,
