@@ -3,12 +3,10 @@ import {
   Send,
   CheckCircle2,
   AlertCircle,
-  AlertTriangle,
   Loader2,
   MapPin,
   ChevronDown,
-  ChevronUp,
-  ExternalLink
+  ChevronUp
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../../../components/ui/Modal/Modal';
@@ -106,19 +104,6 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
     ? batchData.paquetes.filter(p => selectionSet.has(p.guia.toUpperCase()))
     : batchData.paquetes.filter(p => selectedDistritos.includes(p.distrito || 'DESCONOCIDO'));
 
-  // Count clients and multi-package alerts (still 1 message per package)
-  const clientCounts = new Map<string, { nombre: string; count: number }>();
-  paquetesFiltrados.forEach(p => {
-    const key = `${p.consignado.toUpperCase().trim()}|${p.telefono || ''}`;
-    const existing = clientCounts.get(key);
-    if (existing) {
-      existing.count += 1;
-    } else {
-      clientCounts.set(key, { nombre: p.consignado, count: 1 });
-    }
-  });
-
-  const multiPackageClients = Array.from(clientCounts.values()).filter(c => c.count > 1);
   const selectedRouteObj = availableRoutes.find(r => r.id === selectedRouteId) || null;
   const targetLabel = selectedRouteObj ? selectedRouteObj.nombre_lote : 'la ruta seleccionada';
   const allDistrictsSelected = selectedDistritos.length === sortedDistrictEntries.length;
@@ -141,7 +126,7 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
       setLoading(true);
       setError(null);
 
-      // Always 1 message per package (individual) as required by operations
+      // Always 1 message per package (individual)
       const res = await jntService.createWhatsAppRoute({
         lote_jnt_id: batchId,
         lote_destino_id: selectedRouteId,
@@ -202,7 +187,7 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
       open={isOpen}
       onClose={loading ? () => {} : onClose}
       title="Mandar Paquetes a Ruta"
-      description="Elige la ruta de hoy creada en el módulo Rutas. Se enviará 1 mensaje por cada paquete."
+      description="Elige la ruta de hoy donde se cargarán estos paquetes."
       icon={<Send />}
       maxWidth={540}
       footer={modalFooter}
@@ -220,22 +205,9 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
         </div>
       ) : (
         <div className={styles.calmModalStack}>
-          {/* 1. Route Target (Only Today's Created Routes) */}
+          {/* 1. Today's Available Routes */}
           <div className={styles.calmSection}>
-            <div className={styles.calmSectionHead}>
-              <label className={styles.calmLabel}>Rutas disponibles de hoy</label>
-              <button
-                type="button"
-                className={styles.calmTextBtn}
-                onClick={() => {
-                  onClose();
-                  navigate('/rutas');
-                }}
-              >
-                <span>Ir a Rutas</span>
-                <ExternalLink size={12} />
-              </button>
-            </div>
+            <label className={styles.calmLabel}>Rutas disponibles de hoy</label>
 
             {loadingRoutes ? (
               <div className={styles.calmBoxPlaceholder}>
@@ -244,16 +216,16 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
               </div>
             ) : availableRoutes.length === 0 ? (
               <div className={styles.calmBoxPlaceholder} style={{ flexDirection: 'column', textAlign: 'center' }}>
-                <span>No hay rutas disponibles creadas hoy.</span>
+                <span>No hay rutas creadas hoy todavía.</span>
                 <button
                   type="button"
                   className={styles.calmTextBtn}
                   onClick={() => {
                     onClose();
-                    navigate('/rutas');
+                    navigate('/logistica');
                   }}
                 >
-                  Crear una ruta en el módulo Rutas
+                  Crear una ruta en Rutas
                 </button>
               </div>
             ) : (
@@ -347,17 +319,6 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Multi-package alert notice (still sends 1 message per package) */}
-          {multiPackageClients.length > 0 && (
-            <div className={styles.calmMultiAlert} role="note">
-              <AlertTriangle size={15} />
-              <div>
-                <strong>Alerta de multipaquetes ({multiPackageClients.length} {multiPackageClients.length === 1 ? 'cliente' : 'clientes'}):</strong>{' '}
-                tienen 2 o más paquetes (ej. {multiPackageClients[0]!.nombre} · {multiPackageClients[0]!.count} paq.). Se enviará <strong>1 mensaje por cada paquete</strong>.
-              </div>
             </div>
           )}
 
