@@ -23,7 +23,8 @@ import {
   ArrowRight,
   Eye,
   MessageCircle,
-  Pencil
+  Pencil,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button/Button';
 import { PageHeader } from '../../../components/ui/PageHeader/PageHeader';
@@ -751,7 +752,13 @@ export const JntExpress: React.FC = () => {
                                     {pkg.consignado}
                                   </span>
                                   {multiCount > 1 && (
-                                    <span className={styles.multiPill}>{multiCount} paq.</span>
+                                    <span
+                                      className={styles.multiPill}
+                                      title={`Alerta: este cliente tiene ${multiCount} paquetes en el lote (recibirá ${multiCount} mensajes, 1 por paquete)`}
+                                    >
+                                      <AlertTriangle size={11} />
+                                      Tiene {multiCount} paquetes
+                                    </span>
                                   )}
                                 </div>
                               </td>

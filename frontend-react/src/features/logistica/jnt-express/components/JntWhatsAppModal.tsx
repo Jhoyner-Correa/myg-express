@@ -3,12 +3,12 @@ import {
   Send,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   MapPin,
-  Plus,
-  ArrowLeft,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ExternalLink
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../../../components/ui/Modal/Modal';
@@ -35,17 +35,11 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
   onSentSuccess,
 }) => {
   const navigate = useNavigate();
-  const cleanBatchBaseName = batchData.lote?.nombre_archivo
-    ? batchData.lote.nombre_archivo.replace(/\.pdf$/i, '')
-    : `J&T Express ${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}`;
 
-  const [targetMode, setTargetMode] = useState<'existing' | 'new'>('existing');
   const [availableRoutes, setAvailableRoutes] = useState<JntAvailableRoute[]>([]);
   const [loadingRoutes, setLoadingRoutes] = useState(false);
   const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
-  const [nombreRuta, setNombreRuta] = useState(cleanBatchBaseName);
 
-  const [modoAgrupacion, setModoAgrupacion] = useState<'individual' | 'agrupado_por_cliente'>('agrupado_por_cliente');
   const [selectedDistritos, setSelectedDistritos] = useState<string[]>(Object.keys(batchData.distritos || {}));
   const [showDistrictFilter, setShowDistrictFilter] = useState(false);
   const [useSelectionOnly, setUseSelectionOnly] = useState<boolean>(selectedGuias.length > 0);
@@ -60,7 +54,6 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
     setShowDistrictFilter(false);
     setUseSelectionOnly(selectedGuias.length > 0);
     setSelectedDistritos(Object.keys(batchData.distritos || {}));
-    setNombreRuta(cleanBatchBaseName);
 
     let active = true;
     const fetchRoutes = async () => {
@@ -70,25 +63,23 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
         if (!active) return;
         setAvailableRoutes(routes);
         if (routes.length > 0) {
-          setTargetMode('existing');
           const linkedRoute = batchData.lote?.lote_carga_id
             ? routes.find(r => r.id === batchData.lote?.lote_carga_id)
             : null;
           setSelectedRouteId(linkedRoute ? linkedRoute.id : routes[0]!.id);
         } else {
-          setTargetMode('new');
           setSelectedRouteId(null);
         }
       } catch (err) {
         console.warn('No se pudieron cargar las rutas disponibles:', err);
-        if (active) setTargetMode('new');
+        if (active) setAvailableRoutes([]);
       } finally {
         if (active) setLoadingRoutes(false);
       }
     };
     fetchRoutes();
     return () => { active = false; };
-  }, [isOpen, batchData, selectedGuias.length, cleanBatchBaseName]);
+  }, [isOpen, batchData, selectedGuias.length]);
 
   const sortedDistrictEntries = useMemo(() => {
     return Object.entries(batchData.distritos || {}).sort((a, b) => b[1] - a[1]);
@@ -115,25 +106,26 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
     ? batchData.paquetes.filter(p => selectionSet.has(p.guia.toUpperCase()))
     : batchData.paquetes.filter(p => selectedDistritos.includes(p.distrito || 'DESCONOCIDO'));
 
-  const clientesFiltrados = new Set(
-    paquetesFiltrados.map(p => `${p.consignado.toUpperCase().trim()}|${p.telefono || ''}`)
-  ).size;
+  // Count clients and multi-package alerts (still 1 message per package)
+  const clientCounts = new Map<string, { nombre: string; count: number }>();
+  paquetesFiltrados.forEach(p => {
+    const key = `${p.consignado.toUpperCase().trim()}|${p.telefono || ''}`;
+    const existing = clientCounts.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      clientCounts.set(key, { nombre: p.consignado, count: 1 });
+    }
+  });
 
-  const avisosACrear = modoAgrupacion === 'individual' ? paquetesFiltrados.length : clientesFiltrados;
+  const multiPackageClients = Array.from(clientCounts.values()).filter(c => c.count > 1);
   const selectedRouteObj = availableRoutes.find(r => r.id === selectedRouteId) || null;
-  const targetLabel = targetMode === 'existing'
-    ? (selectedRouteObj ? selectedRouteObj.nombre_lote : 'la ruta seleccionada')
-    : (nombreRuta.trim() || 'la nueva ruta');
-
+  const targetLabel = selectedRouteObj ? selectedRouteObj.nombre_lote : 'la ruta seleccionada';
   const allDistrictsSelected = selectedDistritos.length === sortedDistrictEntries.length;
 
   const handleSubmit = async () => {
-    if (targetMode === 'existing' && !selectedRouteId) {
-      setError('Elige una ruta de hoy o crea una nueva.');
-      return;
-    }
-    if (targetMode === 'new' && !nombreRuta.trim()) {
-      setError('Escribe un nombre para la ruta nueva.');
+    if (!selectedRouteId) {
+      setError('Selecciona una ruta disponible de hoy para enviar los paquetes.');
       return;
     }
     if (!useSelectionOnly && selectedDistritos.length === 0) {
@@ -149,11 +141,11 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
       setLoading(true);
       setError(null);
 
+      // Always 1 message per package (individual) as required by operations
       const res = await jntService.createWhatsAppRoute({
         lote_jnt_id: batchId,
-        lote_destino_id: targetMode === 'existing' ? selectedRouteId : undefined,
-        nombre_lote: targetMode === 'new' ? nombreRuta.trim() : undefined,
-        modo_agrupacion: modoAgrupacion,
+        lote_destino_id: selectedRouteId,
+        modo_agrupacion: 'individual',
         guias_seleccionadas: useSelectionOnly && selectedGuias.length > 0 ? selectedGuias : undefined,
         distritos_filtro: (!useSelectionOnly && !allDistrictsSelected)
           ? selectedDistritos
@@ -198,7 +190,7 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
         icon={<Send size={14} />}
         loading={loading}
         onClick={handleSubmit}
-        disabled={loading || paquetesFiltrados.length === 0 || (targetMode === 'existing' && !selectedRouteId)}
+        disabled={loading || paquetesFiltrados.length === 0 || !selectedRouteId}
       >
         {loading ? 'Enviando...' : 'Mandar a Ruta'}
       </Button>
@@ -210,7 +202,7 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
       open={isOpen}
       onClose={loading ? () => {} : onClose}
       title="Mandar Paquetes a Ruta"
-      description="Elige la ruta de hoy donde se cargarán estos paquetes."
+      description="Elige la ruta de hoy creada en el módulo Rutas. Se enviará 1 mensaje por cada paquete."
       icon={<Send />}
       maxWidth={540}
       footer={modalFooter}
@@ -222,116 +214,80 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
             {successResult.total_avisos > 0 ? 'Paquetes enviados a la ruta' : 'Ya estaban en la ruta'}
           </h3>
           <p className={styles.successDescription}>
-            Se agregaron <strong>{successResult.total_avisos}</strong> avisos a <strong>{successResult.nombre_ruta}</strong>.
+            Se agregaron <strong>{successResult.total_avisos}</strong> avisos individuales a <strong>{successResult.nombre_ruta}</strong>.
             {successResult.omitidos > 0 && ` (${successResult.omitidos} repetidos omitidos).`}
           </p>
         </div>
       ) : (
         <div className={styles.calmModalStack}>
-          {/* 1. Route Target */}
+          {/* 1. Route Target (Only Today's Created Routes) */}
           <div className={styles.calmSection}>
             <div className={styles.calmSectionHead}>
-              <label className={styles.calmLabel}>¿A qué ruta de hoy enviar?</label>
-              {availableRoutes.length > 0 && (
+              <label className={styles.calmLabel}>Rutas disponibles de hoy</label>
+              <button
+                type="button"
+                className={styles.calmTextBtn}
+                onClick={() => {
+                  onClose();
+                  navigate('/rutas');
+                }}
+              >
+                <span>Ir a Rutas</span>
+                <ExternalLink size={12} />
+              </button>
+            </div>
+
+            {loadingRoutes ? (
+              <div className={styles.calmBoxPlaceholder}>
+                <Loader2 size={15} className={styles.spinner} />
+                <span>Cargando rutas de hoy...</span>
+              </div>
+            ) : availableRoutes.length === 0 ? (
+              <div className={styles.calmBoxPlaceholder} style={{ flexDirection: 'column', textAlign: 'center' }}>
+                <span>No hay rutas disponibles creadas hoy.</span>
                 <button
                   type="button"
                   className={styles.calmTextBtn}
-                  onClick={() => setTargetMode(targetMode === 'existing' ? 'new' : 'existing')}
-                  disabled={loading}
+                  onClick={() => {
+                    onClose();
+                    navigate('/rutas');
+                  }}
                 >
-                  {targetMode === 'existing' ? (
-                    <>
-                      <Plus size={13} />
-                      <span>Crear nueva</span>
-                    </>
-                  ) : (
-                    <>
-                      <ArrowLeft size={13} />
-                      <span>Ver rutas de hoy</span>
-                    </>
-                  )}
+                  Crear una ruta en el módulo Rutas
                 </button>
-              )}
-            </div>
-
-            {targetMode === 'existing' ? (
-              loadingRoutes ? (
-                <div className={styles.calmBoxPlaceholder}>
-                  <Loader2 size={15} className={styles.spinner} />
-                  <span>Cargando rutas de hoy...</span>
-                </div>
-              ) : availableRoutes.length === 0 ? (
-                <div className={styles.calmBoxPlaceholder}>
-                  <span>No hay rutas creadas hoy todavía.</span>
-                  <button type="button" className={styles.calmTextBtn} onClick={() => setTargetMode('new')}>
-                    Crear una ruta nueva
-                  </button>
-                </div>
-              ) : (
-                <div className={styles.calmRouteList} role="listbox" aria-label="Rutas de hoy">
-                  {availableRoutes.map(route => {
-                    const isSelected = selectedRouteId === route.id;
-                    return (
-                      <button
-                        key={route.id}
-                        type="button"
-                        role="option"
-                        aria-selected={isSelected}
-                        className={`${styles.calmRouteOption} ${isSelected ? styles.calmRouteSelected : ''}`}
-                        onClick={() => setSelectedRouteId(route.id)}
-                        disabled={loading}
-                      >
-                        <span className={styles.calmRadioDot} aria-hidden="true">
-                          <i />
-                        </span>
-                        <div className={styles.calmRouteText}>
-                          <strong>{route.nombre_lote}</strong>
-                          <span>
-                            MYG-{route.id} · {route.total_registros} {route.total_registros === 1 ? 'registro actual' : 'registros actuales'}
-                          </span>
-                        </div>
-                        <span className={styles.calmRouteStatus}>{route.estado}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )
+              </div>
             ) : (
-              <input
-                type="text"
-                className={styles.calmInput}
-                value={nombreRuta}
-                onChange={e => setNombreRuta(e.target.value)}
-                placeholder="Ej. Satipo J&T Express"
-                disabled={loading}
-              />
+              <div className={styles.calmRouteList} role="listbox" aria-label="Rutas de hoy">
+                {availableRoutes.map(route => {
+                  const isSelected = selectedRouteId === route.id;
+                  return (
+                    <button
+                      key={route.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      className={`${styles.calmRouteOption} ${isSelected ? styles.calmRouteSelected : ''}`}
+                      onClick={() => setSelectedRouteId(route.id)}
+                      disabled={loading}
+                    >
+                      <span className={styles.calmRadioDot} aria-hidden="true">
+                        <i />
+                      </span>
+                      <div className={styles.calmRouteText}>
+                        <strong>{route.nombre_lote}</strong>
+                        <span>
+                          MYG-{route.id} · {route.total_registros} {route.total_registros === 1 ? 'registro actual' : 'registros actuales'}
+                        </span>
+                      </div>
+                      <span className={styles.calmRouteStatus}>{route.estado}</span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
 
-          {/* 2. Simple Client Grouping Choice */}
-          <div className={styles.calmSection}>
-            <label className={styles.calmLabel}>¿Cómo enviar los mensajes?</label>
-            <div className={styles.calmOptionPair}>
-              <button
-                type="button"
-                className={`${styles.calmChoiceBtn} ${modoAgrupacion === 'agrupado_por_cliente' ? styles.calmChoiceActive : ''}`}
-                onClick={() => !loading && setModoAgrupacion('agrupado_por_cliente')}
-              >
-                <strong>1 mensaje por cliente</strong>
-                <span>Junta sus paquetes ({clientesFiltrados})</span>
-              </button>
-              <button
-                type="button"
-                className={`${styles.calmChoiceBtn} ${modoAgrupacion === 'individual' ? styles.calmChoiceActive : ''}`}
-                onClick={() => !loading && setModoAgrupacion('individual')}
-              >
-                <strong>1 mensaje por paquete</strong>
-                <span>Por separado ({paquetesFiltrados.length})</span>
-              </button>
-            </div>
-          </div>
-
-          {/* 3. Selection OR Calm Optional District Filter */}
+          {/* 2. Selection OR Optional District Filter */}
           {selectedGuias.length > 0 && (
             <label className={styles.calmCheckboxRow}>
               <input
@@ -394,11 +350,23 @@ export const JntWhatsAppModal: React.FC<JntWhatsAppModalProps> = ({
             </div>
           )}
 
-          {/* Calm one-line summary */}
+          {/* Multi-package alert notice (still sends 1 message per package) */}
+          {multiPackageClients.length > 0 && (
+            <div className={styles.calmMultiAlert} role="note">
+              <AlertTriangle size={15} />
+              <div>
+                <strong>Alerta de multipaquetes ({multiPackageClients.length} {multiPackageClients.length === 1 ? 'cliente' : 'clientes'}):</strong>{' '}
+                tienen 2 o más paquetes (ej. {multiPackageClients[0]!.nombre} · {multiPackageClients[0]!.count} paq.). Se enviará <strong>1 mensaje por cada paquete</strong>.
+              </div>
+            </div>
+          )}
+
+          {/* Calm summary */}
           <div className={styles.calmSummaryNote}>
             <MapPin size={14} />
             <span>
-              Se cargarán <strong>{avisosACrear}</strong> {avisosACrear === 1 ? 'aviso' : 'avisos'} ({paquetesFiltrados.length} paquetes) en <strong>{targetLabel}</strong>.
+              Se enviarán <strong>{paquetesFiltrados.length}</strong> mensajes individuales (1 por paquete) a{' '}
+              <strong>{targetLabel}</strong>.
             </span>
           </div>
 

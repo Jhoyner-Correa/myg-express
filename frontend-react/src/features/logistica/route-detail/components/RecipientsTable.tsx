@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import {
+  AlertTriangle,
   Download,
   Filter,
   Pencil,
@@ -74,6 +76,18 @@ export function RecipientsTable({
     : filtered
       ? `Mostrando ${filteredNotices.length} de ${notices.length} destinatarios`
       : `Mostrando ${filteredNotices.length} destinatarios`;
+
+  const clientPackageCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const n of notices) {
+      const phone = String(n.telefono || '').replace(/\D/g, '');
+      const name = String(n.nombre || '').trim().toUpperCase();
+      const key = phone.length >= 7 ? `tel:${phone}` : name ? `nom:${name}` : '';
+      if (!key) continue;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return counts;
+  }, [notices]);
 
   return (
     <article className={styles.card} id="tab-content-list">
@@ -160,11 +174,28 @@ export function RecipientsTable({
             {filteredNotices.length > 0 ? (
               filteredNotices.map((notice, index) => {
                 const visual = normalizeAvisoVisualStatus(notice.estado_aviso);
+                const phone = String(notice.telefono || '').replace(/\D/g, '');
+                const name = String(notice.nombre || '').trim().toUpperCase();
+                const key = phone.length >= 7 ? `tel:${phone}` : name ? `nom:${name}` : '';
+                const sameClientCount = key ? (clientPackageCounts.get(key) || 1) : 1;
 
                 return (
                   <tr key={notice.id}>
                     <td><span className={styles.rowNumber}>{index + 1}</span></td>
-                    <td className={styles.name}>{notice.nombre || '-'}</td>
+                    <td className={styles.name}>
+                      <div className={styles.nameWrap}>
+                        <span>{notice.nombre || '-'}</span>
+                        {sameClientCount > 1 && (
+                          <span
+                            className={styles.multiPackageBadge}
+                            title={`Alerta: este cliente tiene ${sameClientCount} paquetes en esta ruta (se envía 1 mensaje por cada paquete)`}
+                          >
+                            <AlertTriangle size={11} aria-hidden="true" />
+                            {sameClientCount} paquetes
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td><span className={styles.phone}>{notice.telefono || '-'}</span></td>
                     <td>{notice.codigo_paquete || '-'}</td>
                     <td>

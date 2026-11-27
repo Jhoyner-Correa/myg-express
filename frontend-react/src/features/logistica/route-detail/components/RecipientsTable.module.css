@@ -195,6 +195,20 @@
 
 .tableScroll tbody tr:hover { background: var(--surface-subtle); }
 .name { color: var(--text-primary) !important; font-weight: 500; }
+.nameWrap { display: inline-flex; align-items: center; gap: 7px; flex-wrap: nowrap; }
+.multiPackageBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid #fde68a;
+  border-radius: 5px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
 
 .rowNumber {
   color: var(--color-neutral-400);
